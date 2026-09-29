@@ -640,6 +640,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../voices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Voices and audio cache
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../building/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building a video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -927,6 +983,38 @@
 <td>Print the spec's JSON Schema</td>
 </tr>
 <tr>
+<td><code>narratty voices [--provider P] [--installed]</code></td>
+<td>List curated and installed voices</td>
+</tr>
+<tr>
+<td><code>narratty voices pull VOICE</code></td>
+<td>Download a voice (and the Kokoro model)</td>
+</tr>
+<tr>
+<td><code>narratty tts SPEC [--offline]</code></td>
+<td>Synthesize all narration clips and print their lengths</td>
+</tr>
+<tr>
+<td><code>narratty cache info</code> / <code>prune [--older-than 30d] [--all]</code></td>
+<td>Inspect or prune the audio cache</td>
+</tr>
+<tr>
+<td><code>narratty plan SPEC</code></td>
+<td>Print the timeline and total length</td>
+</tr>
+<tr>
+<td><code>narratty tape SPEC [-o VIDEO]</code></td>
+<td>Print the VHS tape</td>
+</tr>
+<tr>
+<td><code>narratty render SPEC [-o VIDEO]</code></td>
+<td>Record the silent video</td>
+</tr>
+<tr>
+<td><code>narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]</code></td>
+<td>Build the narrated video</td>
+</tr>
+<tr>
 <td><code>narratty doctor [--runtime R]</code></td>
 <td>Check the tools the selected runtime needs</td>
 </tr>
@@ -940,8 +1028,6 @@
 </tr>
 </tbody>
 </table>
-<p>More commands (<code>tts</code>, <code>render</code>, <code>build</code>, …) arrive with the next milestones;
-see the <a href="../../design/#cli-surface">design</a>.</p>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
