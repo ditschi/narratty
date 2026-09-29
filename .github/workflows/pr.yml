@@ -88,7 +88,30 @@ jobs:
         run: uv tool install nox
       - name: Unit tests
         run: nox -s tests-${{ matrix.python-version }}
-  # ── 4. CLI cold-start performance budgets ───────────────────────────────────
+  # ── 4. Integration: real Piper and Kokoro voices ────────────────────────────
+  integration:
+    name: Integration (3.12)
+    runs-on: ubuntu-latest
+    env:
+      NARRATTY_DATA_DIR: ${{ github.workspace }}/.narratty-data
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - name: Cache voices and models
+        uses: actions/cache@v4
+        with:
+          path: .narratty-data
+          key: narratty-voices-${{ hashFiles('src/narratty/data/voices.toml') }}
+      - name: Install nox
+        run: uv tool install nox
+      - name: Integration tests
+        run: nox -s integration
+  # ── 5. CLI cold-start performance budgets ───────────────────────────────────
   performance:
     name: Performance budgets (3.12)
     runs-on: ubuntu-latest
@@ -104,7 +127,7 @@ jobs:
         run: uv tool install nox
       - name: Performance budgets
         run: nox -s performance
-  # ── 5. Docs build (strict) ──────────────────────────────────────────────────
+  # ── 6. Docs build (strict) ──────────────────────────────────────────────────
   docs-build:
     name: Docs build (strict)
     runs-on: ubuntu-latest

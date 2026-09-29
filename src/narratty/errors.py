@@ -48,7 +48,19 @@ class UsageError(NarrattyError):
     exit_code = ExitCode.USAGE
 
 
+class ValidationError(NarrattyError):
+    """The spec is well-formed but refers to something that does not exist (e.g. a voice)."""
+
+    exit_code = ExitCode.VALIDATION
+
+
 class MissingDependencyError(NarrattyError):
     """A required tool, voice or container runtime is not available."""
 
     exit_code = ExitCode.MISSING_DEPENDENCY
+
+
+class RenderError(NarrattyError):
+    """Synthesis, rendering or muxing failed."""
+
+    exit_code = ExitCode.RENDER

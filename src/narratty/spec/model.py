@@ -199,7 +199,7 @@ class PiperOptions(_Model):
 
 class KokoroOptions(_Model):
     speed: float = Field(1.0, gt=0)
-    lang: str = "en-us"
+    lang: str | None = Field(None, description="Language code; defaults to the voice's language.")
 
 
 class TtsConfig(_Model):

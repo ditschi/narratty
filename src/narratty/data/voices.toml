@@ -1,0 +1,106 @@
+# Curated voice catalog. `narratty voices` lists these; `narratty voices pull` downloads them.
+# Voices installed by hand into the data directory work too, they are just not listed here.
+
+[piper]
+# Files live at <base_url>/<family>/<language>/<name>/<quality>/<id>.onnx(.json)
+base_url = "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0"
+card_url = "https://huggingface.co/rhasspy/piper-voices/blob/v1.0.0"
+
+[[piper.voices]]
+id = "en_US-lessac-medium"
+description = "US English, female, clear (default)"
+
+[[piper.voices]]
+id = "en_US-amy-medium"
+description = "US English, female"
+
+[[piper.voices]]
+id = "en_US-ryan-high"
+description = "US English, male, high quality"
+
+[[piper.voices]]
+id = "en_US-libritts_r-medium"
+description = "US English, many speakers (speaker 0)"
+
+[[piper.voices]]
+id = "en_GB-alan-medium"
+description = "British English, male"
+
+[[piper.voices]]
+id = "en_GB-jenny_dioco-medium"
+description = "British English, female"
+
+[[piper.voices]]
+id = "de_DE-thorsten-medium"
+description = "German, male"
+
+[[piper.voices]]
+id = "de_DE-thorsten-high"
+description = "German, male, high quality"
+
+[[piper.voices]]
+id = "fr_FR-siwis-medium"
+description = "French, female"
+
+[[piper.voices]]
+id = "es_ES-davefx-medium"
+description = "Spanish, male"
+
+[kokoro]
+version = "v1.0"
+license = "Apache-2.0"
+card_url = "https://huggingface.co/hexgrad/Kokoro-82M"
+
+[[kokoro.files]]
+name = "kokoro-v1.0.onnx"
+url = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+sha256 = "7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5"
+
+[[kokoro.files]]
+name = "voices-v1.0.bin"
+url = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
+sha256 = "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"
+
+# All Kokoro voices share one model; the language follows the id's first letter.
+[kokoro.languages]
+a = "en-us"
+b = "en-gb"
+e = "es"
+f = "fr-fr"
+h = "hi"
+i = "it"
+j = "ja"
+p = "pt-br"
+z = "cmn"
+
+[[kokoro.voices]]
+id = "af_heart"
+description = "US English, female, warm"
+
+[[kokoro.voices]]
+id = "af_bella"
+description = "US English, female"
+
+[[kokoro.voices]]
+id = "af_nicole"
+description = "US English, female, soft"
+
+[[kokoro.voices]]
+id = "am_michael"
+description = "US English, male"
+
+[[kokoro.voices]]
+id = "am_adam"
+description = "US English, male, deep"
+
+[[kokoro.voices]]
+id = "bf_emma"
+description = "British English, female"
+
+[[kokoro.voices]]
+id = "bm_george"
+description = "British English, male"
+
+[[kokoro.voices]]
+id = "bm_lewis"
+description = "British English, male"
