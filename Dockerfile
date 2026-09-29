@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # narratty image: the CLI plus everything a native render needs (VHS, ttyd, Chromium,
-# ffmpeg, fonts, Piper with a default voice). Targets:
+# ffmpeg, fonts, Piper with a default voice). ttyd is not packaged in Debian trixie,
+# so its static release binary is used. Targets:
 #   base    ghcr.io/ditschi/narratty:<version>
 #   kokoro  ghcr.io/ditschi/narratty:<version>-kokoro  (adds kokoro-onnx and its model)
 
@@ -20,17 +21,23 @@ RUN pip wheel --no-cache-dir --no-deps --wheel-dir /dist .
 FROM ${PYTHON_IMAGE} AS base
 ARG TARGETARCH
 ARG VHS_VERSION=0.12.1
+ARG TTYD_VERSION=1.7.7
 # Voices baked into the image, so it renders without network access.
 ARG PIPER_VOICES="en_US-lessac-medium"
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates curl ffmpeg ttyd chromium \
+      ca-certificates curl ffmpeg chromium \
       fonts-jetbrains-mono fonts-dejavu-core \
       git bat eza fd-find ripgrep jq less tree \
  && curl -fsSL -o /tmp/vhs.deb \
       "https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_${TARGETARCH:-amd64}.deb" \
  && apt-get install -y --no-install-recommends /tmp/vhs.deb \
+ && case "${TARGETARCH:-amd64}" in arm64) ttyd_arch=aarch64 ;; *) ttyd_arch=x86_64 ;; esac \
+ && curl -fsSL -o /usr/local/bin/ttyd \
+      "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.${ttyd_arch}" \
+ && chmod 0755 /usr/local/bin/ttyd \
+ && ttyd --version \
  && ln -s /usr/bin/batcat /usr/local/bin/bat \
  && ln -s /usr/bin/fdfind /usr/local/bin/fd \
  && rm -rf /var/lib/apt/lists/* /tmp/vhs.deb
