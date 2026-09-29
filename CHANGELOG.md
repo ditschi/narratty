@@ -20,3 +20,7 @@ commitizen.
 - container runtime: `--runtime docker|podman` (default when installed) runs the
   pipeline in the hardened `ghcr.io/ditschi/narratty` image (`-kokoro` variant for
   Kokoro), published to GHCR on main (`edge`) and release tags (`<version>`, `latest`)
+- workspace modes `snapshot` (default), `rw` (dirty-tree guard) and `ro`, build caches
+  and artifact export; sandbox network `none` / `allowlist` (forwarder sidecars) /
+  `full`, env passthrough, extra mounts and SSH agent, with one-time consent and a
+  user policy cap

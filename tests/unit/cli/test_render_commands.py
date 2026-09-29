@@ -55,8 +55,9 @@ def test_tape_prints_vhs_commands(spec: Path) -> None:
 
 
 def test_render_writes_the_silent_video(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_vhs(tape: Path, cwd: Path) -> None:
-        assert cwd == spec.parent.resolve()
+    def fake_vhs(tape: Path, cwd: Path, **_: object) -> None:
+        assert cwd != spec.parent.resolve(), "runs in a snapshot by default"
+        assert (cwd / "demo.narratty.yaml").is_file()
         (spec.parent / "demo.silent.mp4").write_bytes(b"mp4")
 
     monkeypatch.setattr("narratty.render.media.run_vhs", fake_vhs)

@@ -45,9 +45,12 @@ def vhs_env(base: Mapping[str, str] | None = None) -> dict[str, str]:
     return env
 
 
-def run_vhs(tape: Path, cwd: Path, *, runner: Runner = _run) -> None:
+def run_vhs(
+    tape: Path, cwd: Path, *, extra_env: Mapping[str, str] | None = None, runner: Runner = _run
+) -> None:
     """Render ``tape`` with VHS, running the recorded shell in ``cwd``."""
-    result = runner([require("vhs"), str(tape)], cwd=cwd, env=vhs_env())
+    env = {**vhs_env(), **(extra_env or {})}
+    result = runner([require("vhs"), str(tape)], cwd=cwd, env=env)
     if result.returncode != 0:
         raise RenderError(
             f"VHS failed:\n{_tail(result)}", hint=f"The tape is at {tape}; run `vhs {tape}` to debug."

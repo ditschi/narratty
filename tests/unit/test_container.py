@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 from narratty import container
-from narratty.container import ContainerSpec, Mount, delegate, image_ref, run_argv
+from narratty.build import WorkspaceOptions
+from narratty.container import ContainerSpec, Mount, SandboxRequest, delegate, image_ref, run_argv
 from narratty.errors import MissingDependencyError
 from narratty.runtime import Runtime
 
@@ -98,6 +99,7 @@ def test_delegate_mounts_and_arguments(tmp_path: Path, monkeypatch: pytest.Monke
         output=tmp_path / "videos" / "demo.mp4",
         work_dir=tmp_path / "keep",
         extra_args=["--max-drift", "0.1"],
+        sandbox=SandboxRequest(WorkspaceOptions(mode="rw")),
         runner=runner,
     )
     assert code == 7
@@ -114,3 +116,66 @@ def test_delegate_mounts_and_arguments(tmp_path: Path, monkeypatch: pytest.Monke
     assert tail[tail.index("--output") + 1] == "/out/demo.mp4"
     assert "--max-drift" in tail
     assert "NARRATTY_WORKSPACE=/work" in argv
+
+
+@pytest.fixture
+def docker_calls(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("narratty.tts.piper.PiperProvider.is_installed", lambda self, voice: True)
+    calls: list[list[str]] = []
+
+    def runner(argv: Sequence[str]) -> int:
+        calls.append(list(argv))
+        volumes = [argv[i + 1] for i, arg in enumerate(argv) if arg == "--volume"]
+        work = next((v.split(":")[0] for v in volumes if v.split(":")[1] == "/work"), None)
+        calls[-1].append(f"WORK_EXISTS={work is not None and Path(work).is_dir()}")
+        return 0
+
+    monkeypatch.setattr(container, "_run", runner)
+    return calls
+
+
+def _volumes(argv: list[str]) -> list[str]:
+    return [argv[i + 1] for i, arg in enumerate(argv) if arg == "--volume"]
+
+
+def test_snapshot_is_mounted_and_removed(tmp_path: Path, docker_calls: list[list[str]]) -> None:
+    spec = _write_spec(tmp_path)
+    (tmp_path / "file.txt").write_text("x", encoding="utf-8")
+    assert delegate("render", spec, runtime=Runtime.DOCKER, image="img", sandbox=SandboxRequest()) == 0
+    argv = docker_calls[0]
+    work = next(v for v in _volumes(argv) if v.endswith(":/work")).removesuffix(":/work")
+    assert "/cache/workspaces/" in work
+    assert argv[-1] == "WORK_EXISTS=True"
+    assert not Path(work).exists(), "the snapshot is removed afterwards"
+    assert "--network" in argv and argv[argv.index("--network") + 1] == "none"
+
+
+def test_ro_mode_mounts_read_only(tmp_path: Path, docker_calls: list[list[str]]) -> None:
+    spec = _write_spec(tmp_path)
+    delegate(
+        "render", spec, runtime=Runtime.DOCKER, image="img", sandbox=SandboxRequest(WorkspaceOptions("ro"))
+    )
+    assert f"{tmp_path}:/work:ro" in _volumes(docker_calls[0])
+
+
+def test_commands_without_the_demo_get_no_workspace(tmp_path: Path, docker_calls: list[list[str]]) -> None:
+    delegate("tts", _write_spec(tmp_path), runtime=Runtime.DOCKER, image="img")
+    assert not any(v.endswith(":/work") for v in _volumes(docker_calls[0]))
+
+
+def test_full_network_needs_consent(tmp_path: Path, docker_calls: list[list[str]]) -> None:
+    from narratty.errors import UsageError
+
+    spec = _write_spec(tmp_path)
+    with pytest.raises(UsageError, match="full network access"):
+        delegate("render", spec, runtime=Runtime.DOCKER, image="img", sandbox=SandboxRequest(network="full"))
+    delegate(
+        "render",
+        spec,
+        runtime=Runtime.DOCKER,
+        image="img",
+        sandbox=SandboxRequest(network="full", assume_yes=True),
+    )
+    argv = docker_calls[-1]
+    assert argv[argv.index("--network") + 1] == "bridge"

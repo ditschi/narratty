@@ -12,5 +12,6 @@ def _isolated_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NARRATTY_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("NARRATTY_RUNTIME", "native")
+    monkeypatch.setenv("NARRATTY_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.delenv("NARRATTY_IN_CONTAINER", raising=False)
     monkeypatch.delenv("NARRATTY_WORKSPACE", raising=False)
