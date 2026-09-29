@@ -1,0 +1,122 @@
+name: PR
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  # ── 1. Conventional Commits PR-title lint (primary gate for squash merges) ──
+  lint-title:
+    name: Lint PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^[a-z].+[^.]$
+          subjectPatternError: |
+            Subject must start lowercase and not end with a period.
+  # ── 2. Code quality ─────────────────────────────────────────────────────────
+  quality:
+    name: Quality gates (3.12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # hatch-vcs needs tags for the version
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - name: Install nox
+        run: uv tool install nox
+      - name: Syntax check
+        run: nox -s check_syntax
+      - name: Lint
+        run: nox -s lint
+      - name: Type check
+        run: nox -s check_types
+      - name: Import analysis
+        run: nox -s necessary_imports
+      - name: Dead code
+        run: nox -s dead_code
+      - name: Duplicate code
+        run: nox -s duplicates
+      - name: Cyclic imports
+        run: nox -s cyclic_imports
+  # ── 3. Tests: multi-Python matrix, macOS best effort ────────────────────────
+  tests:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.os == 'macos-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.12", "3.13", "3.14"]
+        include:
+          # macOS is optional: smoke-test the primary Python, never block.
+          - os: macos-latest
+            python-version: "3.12"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+      - uses: astral-sh/setup-uv@v7
+      - name: Install nox
+        run: uv tool install nox
+      - name: Unit tests
+        run: nox -s tests-${{ matrix.python-version }}
+  # ── 4. CLI cold-start performance budgets ───────────────────────────────────
+  performance:
+    name: Performance budgets (3.12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - name: Install nox
+        run: uv tool install nox
+      - name: Performance budgets
+        run: nox -s performance
+  # ── 5. Docs build (strict) ──────────────────────────────────────────────────
+  docs-build:
+    name: Docs build (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - name: Install nox
+        run: uv tool install nox
+      - name: Build docs
+        run: nox -s docs
