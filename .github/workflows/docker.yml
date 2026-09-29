@@ -1,0 +1,93 @@
+name: Docker image
+# PRs: build and test the image (amd64, not pushed).
+# main: push :edge / :edge-kokoro.  Release tags v*: push :<version>, :latest (and -kokoro).
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v[0-9]+.[0-9]+.[0-9]*"]
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  contents: read
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/narratty
+jobs:
+  image:
+    name: Image (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: base
+            target: base
+            suffix: ""
+          - variant: kokoro
+            target: kokoro
+            suffix: "-kokoro"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the version comes from git tags
+      - uses: astral-sh/setup-uv@v7
+      - name: Version
+        id: version
+        run: echo "version=$(uvx --from setuptools-scm python -m setuptools_scm)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+        if: github.event_name != 'pull_request'
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: |
+            latest=false
+            suffix=${{ matrix.suffix }},onlatest=true
+          tags: |
+            type=edge,branch=main
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=ref,event=pr
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build (and push outside PRs)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          build-args: NARRATTY_VERSION=${{ steps.version.outputs.version }}
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
+          tags: ${{ github.event_name == 'pull_request' && format('narratty:test{0}', matrix.suffix) || steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
+      - name: Smoke test
+        if: github.event_name == 'pull_request'
+        run: |
+          docker run --rm narratty:test${{ matrix.suffix }} --version
+          docker run --rm narratty:test${{ matrix.suffix }} doctor --runtime native
+          docker run --rm narratty:test${{ matrix.suffix }} voices --installed
+      - uses: actions/setup-python@v6
+        if: github.event_name == 'pull_request' && matrix.variant == 'base'
+        with:
+          python-version: "3.12"
+      - name: Build a video through the container runtime
+        if: github.event_name == 'pull_request' && matrix.variant == 'base'
+        env:
+          NARRATTY_IMAGE: narratty:test
+        run: |
+          uv tool install nox
+          nox -s integration -- -k container

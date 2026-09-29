@@ -18,3 +18,10 @@ RuntimeOption = typer.Option(
 OfflineOption = typer.Option(
     False, "--offline", envvar="NARRATTY_OFFLINE", help="Fail instead of downloading a missing voice."
 )
+
+ImageOption = typer.Option(
+    None,
+    "--image",
+    envvar="NARRATTY_IMAGE",
+    help="Container image to use (default: ghcr.io/ditschi/narratty matching this version).",
+)

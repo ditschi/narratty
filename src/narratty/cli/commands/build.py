@@ -7,7 +7,8 @@ from pathlib import Path
 import typer
 
 from narratty.cli.arguments import SpecArgument
-from narratty.cli.options import OfflineOption
+from narratty.cli.options import ImageOption, OfflineOption, RuntimeOption
+from narratty.runtime import Runtime
 
 
 def build_command(
@@ -25,9 +26,25 @@ def build_command(
         help="Fail when the video's length differs from the plan by more (0.10 = 10%).",
     ),
     offline: bool = OfflineOption,
+    runtime: Runtime = RuntimeOption,
+    image: str | None = ImageOption,
 ) -> None:
     """Build the narrated video."""
-    from narratty.build import build
+    from narratty.build import build, default_output
+    from narratty.container import delegate
+
+    code = delegate(
+        "build",
+        spec,
+        runtime=runtime,
+        image=image,
+        output=output or default_output(spec),
+        work_dir=work_dir,
+        extra_args=["--max-drift", str(max_drift)],
+    )
+    if code is not None:
+        raise typer.Exit(code)
+
     from narratty.ui.console import err, out
 
     with err.status("building") as status:

@@ -19,6 +19,8 @@ installed, then Podman, and falls back to native mode with a warning.
 | `docker` / `podman` | Docker or Podman |
 | `native` | `vhs`, `ttyd`, `ffmpeg` (with `ffprobe`), `git`; Piper is installed with narratty |
 
+See [Sandboxed runs](container.md) for what the container sees and which image is used.
+
 Run `narratty doctor` to see what your runtime needs and what is missing. Pick a
 runtime with `--runtime` or the `NARRATTY_RUNTIME` environment variable.
 
