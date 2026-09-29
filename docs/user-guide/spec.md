@@ -2,12 +2,31 @@
 
 A narratty video is described by a `.narratty.yaml` file. `narratty init` writes a
 commented starter, `narratty validate` checks one, and `narratty schema` prints the JSON
-Schema. The starter's first line points editors that use
-[yaml-language-server](https://github.com/redhat-developer/yaml-language-server) at the
-schema, so you get completion and inline errors:
+Schema.
+
+## Editor support
+
+The first line `narratty init` writes tells your editor where the schema is:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/v0.2.0/schema/v1.json
+```
+
+Editors that use [yaml-language-server](https://github.com/redhat-developer/yaml-language-server)
+read that comment and then offer completion, hover docs and inline errors for the
+spec: VS Code with the Red Hat YAML extension, Neovim or Helix with `yaml-language-server`,
+and JetBrains IDEs. The schema is committed to the repository as `schema/v1.json`,
+so each release tag serves the schema of that release. `init` points the line at the
+tag of the narratty version you have installed; development builds point at `main`.
+
+Offline, or to pin a local copy, write the schema to a file and reference it relatively:
+
+```bash
+narratty schema > .narratty.schema.json
+```
+
+```yaml
+# yaml-language-server: $schema=./.narratty.schema.json
 ```
 
 Unknown keys are errors, and `validate` reports every problem with its line and column,

@@ -9,7 +9,7 @@ import pytest
 from narratty.errors import ExitCode
 from narratty.spec import SpecError, load_spec
 from narratty.spec.loader import parse_spec
-from narratty.spec.template import TEMPLATE
+from narratty.spec.template import render_template
 
 FILE = Path("demo.narratty.yaml")
 
@@ -22,7 +22,7 @@ def _issues(text: str) -> list[str]:
 
 
 def test_template_is_valid() -> None:
-    spec = parse_spec(TEMPLATE, FILE)
+    spec = parse_spec(render_template("1.2.3"), FILE)
     assert [s.id for s in spec.scenes] == ["intro", "wrap"]
 
 
@@ -79,5 +79,5 @@ def test_load_spec_missing_file(tmp_path: Path) -> None:
 
 def test_load_spec_reads_file(tmp_path: Path) -> None:
     path = tmp_path / "demo.narratty.yaml"
-    path.write_text(TEMPLATE, encoding="utf-8")
+    path.write_text(render_template("1.2.3"), encoding="utf-8")
     assert load_spec(path).meta.title == "My first narratty video"

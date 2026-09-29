@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from narratty.spec.schema import SCHEMA_ID
+from narratty.spec.schema import schema_url
 
-TEMPLATE = f"""\
-# yaml-language-server: $schema={SCHEMA_ID}
+_TEMPLATE = """\
+# yaml-language-server: $schema={schema_url}
 version: 1
 meta:
   title: "My first narratty video"
@@ -39,3 +39,8 @@ scenes:
     actions:
       - hold: auto
 """
+
+
+def render_template(version: str) -> str:
+    """The starter spec, with the schema line pointing at ``version``'s schema."""
+    return _TEMPLATE.replace("{schema_url}", schema_url(version))
