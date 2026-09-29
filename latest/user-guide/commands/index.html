@@ -16,7 +16,7 @@
         <link rel="prev" href="../shell-completion/">
       
       
-        <link rel="next" href="../../design/">
+        <link rel="next" href="../spec/">
       
       
         
@@ -612,6 +612,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spec reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -887,6 +915,18 @@
 </thead>
 <tbody>
 <tr>
+<td><code>narratty init [FILE] [--force]</code></td>
+<td>Write a commented starter spec (default <code>demo.narratty.yaml</code>)</td>
+</tr>
+<tr>
+<td><code>narratty validate SPEC</code></td>
+<td>Check a spec and report every problem with line and column</td>
+</tr>
+<tr>
+<td><code>narratty schema</code></td>
+<td>Print the spec's JSON Schema</td>
+</tr>
+<tr>
 <td><code>narratty doctor [--runtime R]</code></td>
 <td>Check the tools the selected runtime needs</td>
 </tr>
@@ -900,7 +940,7 @@
 </tr>
 </tbody>
 </table>
-<p>More commands (<code>validate</code>, <code>tts</code>, <code>render</code>, <code>build</code>, …) arrive with the next milestones;
+<p>More commands (<code>tts</code>, <code>render</code>, <code>build</code>, …) arrive with the next milestones;
 see the <a href="../../design/#cli-surface">design</a>.</p>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
 <table>

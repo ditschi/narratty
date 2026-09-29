@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://ditschi.github.io/narratty/latest/contributor-guide/dev-setup/">
+        <link rel="canonical" href="https://ditschi.github.io/narratty/latest/user-guide/spec/">
       
       
-        <link rel="prev" href="../../design/">
+        <link rel="prev" href="../commands/">
       
       
-        <link rel="next" href="../release-process/">
+        <link rel="next" href="../../design/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Development setup - narratty</title>
+        <title>Spec reference - narratty</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#development-setup" class="md-skip">
+        <a href="#spec-reference" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Development setup
+              Spec reference
             
           </span>
         </div>
@@ -246,11 +246,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../user-guide/installation/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
           
   
   
@@ -285,13 +287,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../contributor-guide/dev-setup/" class="md-tabs__link">
           
   
   
@@ -417,26 +417,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -454,7 +459,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -472,7 +477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -500,7 +505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/shell-completion/" class="md-nav__link">
+      <a href="../shell-completion/" class="md-nav__link">
         
   
   
@@ -528,7 +533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/commands/" class="md-nav__link">
+      <a href="../commands/" class="md-nav__link">
         
   
   
@@ -553,10 +558,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../user-guide/spec/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spec reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -572,6 +604,131 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#editor-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editor support
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#top-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Top level
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        timing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#terminal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        terminal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        workspace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sandbox" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sandbox
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scenes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -615,31 +772,26 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -657,7 +809,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -672,37 +824,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Development setup
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../contributor-guide/dev-setup/" class="md-nav__link">
         
   
   
@@ -718,48 +843,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#quality-gates" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quality gates
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#commits" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Commits
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -772,7 +855,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../release-process/" class="md-nav__link">
+      <a href="../../contributor-guide/release-process/" class="md-nav__link">
         
   
   
@@ -881,10 +964,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quality-gates" class="md-nav__link">
+  <a href="#editor-support" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quality gates
+        Editor support
       
     </span>
   </a>
@@ -892,13 +975,96 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#commits" class="md-nav__link">
+  <a href="#top-level" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Commits
+        Top level
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        timing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#terminal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        terminal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        workspace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sandbox" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sandbox
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scenes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -919,7 +1085,7 @@
 
 
   
-    <a href="https://github.com/ditschi/narratty/edit/main/docs/contributor-guide/dev-setup.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/ditschi/narratty/edit/main/docs/user-guide/spec.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -927,61 +1093,366 @@
   
 
 
-<h1 id="development-setup">Development setup<a class="headerlink" href="#development-setup" title="Permanent link">&para;</a></h1>
-<p>Tooling is managed with <a href="https://docs.astral.sh/uv/">uv</a> and <a href="https://nox.thea.codes/">nox</a>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w">          </span><span class="c1"># .venv with narratty and all dev tools</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install<span class="w">    </span><span class="c1"># ruff, mypy, codespell, commit-msg check</span>
+<h1 id="spec-reference">Spec reference<a class="headerlink" href="#spec-reference" title="Permanent link">&para;</a></h1>
+<p>A narratty video is described by a <code>.narratty.yaml</code> file. <code>narratty init</code> writes a
+commented starter, <code>narratty validate</code> checks one, and <code>narratty schema</code> prints the JSON
+Schema.</p>
+<h2 id="editor-support">Editor support<a class="headerlink" href="#editor-support" title="Permanent link">&para;</a></h2>
+<p>The first line <code>narratty init</code> writes tells your editor where the schema is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/v0.2.0/schema/v1.json</span>
 </code></pre></div>
-<h2 id="quality-gates">Quality gates<a class="headerlink" href="#quality-gates" title="Permanent link">&para;</a></h2>
+<p>Editors that use <a href="https://github.com/redhat-developer/yaml-language-server">yaml-language-server</a>
+read that comment and then offer completion, hover docs and inline errors for the
+spec: VS Code with the Red Hat YAML extension, Neovim or Helix with <code>yaml-language-server</code>,
+and JetBrains IDEs. The schema is committed to the repository as <code>schema/v1.json</code>,
+so each release tag serves the schema of that release. <code>init</code> points the line at the
+tag of the narratty version you have installed; development builds point at <code>main</code>.</p>
+<p>Offline, or to pin a local copy, write the schema to a file and reference it relatively:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>narratty<span class="w"> </span>schema<span class="w"> </span>&gt;<span class="w"> </span>.narratty.schema.json
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># yaml-language-server: $schema=./.narratty.schema.json</span>
+</code></pre></div>
+<p>Unknown keys are errors, and <code>validate</code> reports every problem with its line and column,
+plus a "did you mean" for typos:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$ narratty validate demo.narratty.yaml
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did you mean 'type_command'?)
+</code></pre></div>
+<h2 id="top-level">Top level<a class="headerlink" href="#top-level" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Command</th>
-<th>What it runs</th>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>nox</code></td>
-<td>Everything below (plus <code>format</code> locally; set <code>NOX_CI=1</code> to skip it)</td>
+<td><code>version</code></td>
+<td><code>1</code></td>
+<td>Spec format version</td>
 </tr>
 <tr>
-<td><code>nox -s tests</code></td>
-<td>Unit tests on Python 3.12–3.14 with coverage</td>
+<td><code>meta.title</code></td>
+<td><code>Untitled</code></td>
+<td>Title of the video</td>
 </tr>
 <tr>
-<td><code>nox -s lint</code></td>
-<td><code>ruff check</code> + <code>ruff format --check</code></td>
+<td><code>tts</code></td>
+<td></td>
+<td>Voice settings, see below</td>
 </tr>
 <tr>
-<td><code>nox -s check_types</code></td>
-<td>mypy (strict settings in <code>mypy.ini</code>)</td>
+<td><code>timing</code></td>
+<td></td>
+<td>Sync settings, see below</td>
 </tr>
 <tr>
-<td><code>nox -s necessary_imports</code></td>
-<td>fawltydeps: undeclared or unused dependencies</td>
+<td><code>terminal</code></td>
+<td></td>
+<td>Look of the recorded terminal</td>
 </tr>
 <tr>
-<td><code>nox -s dead_code</code></td>
-<td>vulture</td>
+<td><code>requires.tools</code></td>
+<td><code>[]</code></td>
+<td>Extra commands the demo needs (checked by <code>doctor</code>)</td>
 </tr>
 <tr>
-<td><code>nox -s duplicates</code> / <code>cyclic_imports</code></td>
-<td>pylint R0801 / R0401</td>
+<td><code>workspace</code></td>
+<td></td>
+<td>What directory the demo runs in</td>
 </tr>
 <tr>
-<td><code>nox -s performance</code></td>
-<td>Cold-start budgets for <code>--help</code> and shell completion</td>
+<td><code>sandbox</code></td>
+<td></td>
+<td>Permissions of the container</td>
 </tr>
 <tr>
-<td><code>nox -s docs</code></td>
-<td><code>mkdocs build --strict</code></td>
+<td><code>scenes</code></td>
+<td>required</td>
+<td>At least one scene</td>
 </tr>
 </tbody>
 </table>
-<h2 id="commits">Commits<a class="headerlink" href="#commits" title="Permanent link">&para;</a></h2>
-<p>Commits and PR titles follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a>
-(<code>feat: …</code>, <code>fix: …</code>, <code>docs: …</code>). PRs are squash-merged, so the PR title becomes the commit.</p>
+<h2 id="tts"><code>tts</code><a class="headerlink" href="#tts" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td><code>piper</code></td>
+<td><code>piper</code> or <code>kokoro</code></td>
+</tr>
+<tr>
+<td><code>voice</code></td>
+<td><code>en_US-lessac-medium</code></td>
+<td>Voice id of the provider</td>
+</tr>
+<tr>
+<td><code>piper.length_scale</code></td>
+<td><code>1.0</code></td>
+<td>Larger is slower speech</td>
+</tr>
+<tr>
+<td><code>piper.sentence_silence</code></td>
+<td><code>0.2</code></td>
+<td>Seconds of silence between sentences</td>
+</tr>
+<tr>
+<td><code>kokoro.speed</code></td>
+<td><code>1.0</code></td>
+<td>Speech speed</td>
+</tr>
+<tr>
+<td><code>kokoro.lang</code></td>
+<td><code>en-us</code></td>
+<td>Language code</td>
+</tr>
+</tbody>
+</table>
+<h2 id="timing"><code>timing</code><a class="headerlink" href="#timing" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>narration_buffer_ms</code></td>
+<td><code>500</code></td>
+<td>Pause after each narration before the next scene</td>
+</tr>
+<tr>
+<td><code>lead_in_ms</code></td>
+<td><code>300</code></td>
+<td>Silence before the first scene</td>
+</tr>
+<tr>
+<td><code>tail_ms</code></td>
+<td><code>1000</code></td>
+<td>Time the last frame stays on screen</td>
+</tr>
+</tbody>
+</table>
+<h2 id="terminal"><code>terminal</code><a class="headerlink" href="#terminal" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>width</code>, <code>height</code></td>
+<td><code>1200</code>, <code>700</code></td>
+<td>Video size in pixels</td>
+</tr>
+<tr>
+<td><code>theme</code></td>
+<td><code>Dracula</code></td>
+<td>Any VHS theme</td>
+</tr>
+<tr>
+<td><code>font_size</code></td>
+<td><code>22</code></td>
+<td>Font size</td>
+</tr>
+<tr>
+<td><code>typing_speed_ms</code></td>
+<td><code>40</code></td>
+<td>Time per typed key</td>
+</tr>
+<tr>
+<td><code>shell</code></td>
+<td><code>bash</code></td>
+<td><code>bash</code>, <code>zsh</code>, <code>fish</code> or <code>sh</code></td>
+</tr>
+<tr>
+<td><code>prompt</code></td>
+<td><code>"$ "</code></td>
+<td>Prompt shown in the recording</td>
+</tr>
+</tbody>
+</table>
+<h2 id="workspace"><code>workspace</code><a class="headerlink" href="#workspace" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source</code></td>
+<td><code>.</code></td>
+<td>Directory the demo runs in, relative to the spec</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td><code>snapshot</code></td>
+<td><code>snapshot</code> (throwaway copy), <code>rw</code> (the real directory) or <code>ro</code> (read-only)</td>
+</tr>
+<tr>
+<td><code>include_uncommitted</code></td>
+<td><code>true</code></td>
+<td>Copy uncommitted files into the snapshot</td>
+</tr>
+<tr>
+<td><code>caches</code></td>
+<td><code>{}</code></td>
+<td>Named cache volumes, <code>name: /path/in/container</code></td>
+</tr>
+<tr>
+<td><code>artifacts</code></td>
+<td><code>[]</code></td>
+<td>Paths copied out of the workspace after the run</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sandbox"><code>sandbox</code><a class="headerlink" href="#sandbox" title="Permanent link">&para;</a></h2>
+<p>Only used when the demo runs in a container. Anything beyond the defaults is shown to
+you for approval before the first run.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>network</code></td>
+<td><code>none</code></td>
+<td><code>none</code>, <code>allowlist</code> or <code>full</code></td>
+</tr>
+<tr>
+<td><code>allow_hosts</code></td>
+<td><code>[]</code></td>
+<td><code>host:port</code> entries, required with <code>allowlist</code></td>
+</tr>
+<tr>
+<td><code>env_passthrough</code></td>
+<td><code>[]</code></td>
+<td>Host environment variables passed in</td>
+</tr>
+<tr>
+<td><code>env</code></td>
+<td><code>{}</code></td>
+<td>Fixed environment variables</td>
+</tr>
+<tr>
+<td><code>extra_mounts</code></td>
+<td><code>[]</code></td>
+<td><code>{host, container, mode: ro\|rw}</code></td>
+</tr>
+<tr>
+<td><code>ssh_agent</code></td>
+<td><code>false</code></td>
+<td>Forward the host SSH agent</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scenes">Scenes<a class="headerlink" href="#scenes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>required</td>
+<td>Lowercase letters, digits, <code>-</code> and <code>_</code>; unique</td>
+</tr>
+<tr>
+<td><code>narration</code></td>
+<td>none</td>
+<td>Text spoken while the scene plays</td>
+</tr>
+<tr>
+<td><code>actions</code></td>
+<td><code>[]</code></td>
+<td>What happens in the terminal</td>
+</tr>
+<tr>
+<td><code>hidden</code></td>
+<td><code>false</code></td>
+<td>Run without recording (setup); cannot have narration</td>
+</tr>
+<tr>
+<td><code>typing_speed_ms</code></td>
+<td>terminal's</td>
+<td>Per-scene typing speed</td>
+</tr>
+<tr>
+<td><code>narration_start</code></td>
+<td><code>with_actions</code></td>
+<td>Or <code>after_actions</code></td>
+</tr>
+</tbody>
+</table>
+<p>A scene lasts as long as its actions or its narration plus <code>narration_buffer_ms</code>,
+whichever is longer.</p>
+<h3 id="actions">Actions<a class="headerlink" href="#actions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Example</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type_command</code></td>
+<td><code>- type_command: "ls -la"</code></td>
+<td>Types the text</td>
+</tr>
+<tr>
+<td><code>enter</code></td>
+<td><code>- enter</code></td>
+<td>Presses Enter</td>
+</tr>
+<tr>
+<td><code>ctrl_sequence</code></td>
+<td><code>- ctrl_sequence: C-c</code></td>
+<td>Presses Ctrl plus a key</td>
+</tr>
+<tr>
+<td><code>key</code></td>
+<td><code>- key: Up</code> or <code>- key: Down 3</code></td>
+<td>Presses a named VHS key, optionally repeated</td>
+</tr>
+<tr>
+<td><code>hold</code></td>
+<td><code>- hold: 1500</code> or <code>- hold: auto</code></td>
+<td>Waits; <code>auto</code> waits until the narration is done</td>
+</tr>
+<tr>
+<td><code>wait</code></td>
+<td><code>- wait: {screen: "Done", timeout_ms: 15000}</code></td>
+<td>Waits until the screen matches a regex</td>
+</tr>
+</tbody>
+</table>
+<p>A scene has at most one <code>hold: auto</code>, and only when it has narration.</p>
 
 
 
