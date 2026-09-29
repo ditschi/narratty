@@ -81,6 +81,7 @@ nav:
       - Commands: user-guide/commands.md
       - Spec reference: user-guide/spec.md
       - Voices and audio cache: user-guide/voices.md
+      - Building a video: user-guide/building.md
   - Design: design.md
   - Contributor Guide:
       - Development setup: contributor-guide/dev-setup.md

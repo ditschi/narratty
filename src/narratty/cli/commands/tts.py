@@ -4,16 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import typer
-
 from narratty.cli.arguments import SpecArgument
+from narratty.cli.options import OfflineOption
 
 
 def tts_command(
     spec: Path = SpecArgument,
-    offline: bool = typer.Option(
-        False, "--offline", envvar="NARRATTY_OFFLINE", help="Fail instead of downloading a missing voice."
-    ),
+    offline: bool = OfflineOption,
 ) -> None:
     """Synthesize the narration and print each clip's length."""
     from rich.table import Table

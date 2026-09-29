@@ -64,3 +64,9 @@ class RenderError(NarrattyError):
     """Synthesis, rendering or muxing failed."""
 
     exit_code = ExitCode.RENDER
+
+
+class SyncError(NarrattyError):
+    """The rendered video drifted too far from the timeline."""
+
+    exit_code = ExitCode.SYNC

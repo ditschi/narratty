@@ -15,3 +15,5 @@ commitizen.
 - local TTS with Piper (default) and Kokoro (`narratty[kokoro]`), a curated voice
   catalog, `voices` / `voices pull`, `tts`, and a content-addressed audio cache with
   `cache info` / `cache prune`
+- `build`: timeline, VHS tape, silent recording, narration track and mux into a
+  narrated mp4 with a drift check; plus `plan`, `tape` and `render`

@@ -88,12 +88,15 @@ jobs:
         run: uv tool install nox
       - name: Unit tests
         run: nox -s tests-${{ matrix.python-version }}
-  # ── 4. Integration: real Piper and Kokoro voices ────────────────────────────
+  # ── 4. Integration: real voices, VHS and ffmpeg ─────────────────────────────
   integration:
     name: Integration (3.12)
     runs-on: ubuntu-latest
     env:
       NARRATTY_DATA_DIR: ${{ github.workspace }}/.narratty-data
+      VHS_VERSION: "0.12.1"
+      # Chromium's sandbox is blocked by Ubuntu's user-namespace restrictions on runners.
+      VHS_NO_SANDBOX: "true"
     steps:
       - uses: actions/checkout@v7
         with:
@@ -103,10 +106,18 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v7
       - name: Cache voices and models
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .narratty-data
           key: narratty-voices-${{ hashFiles('src/narratty/data/voices.toml') }}
+      - name: Install ffmpeg, ttyd and VHS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg ttyd
+          curl -fsSL -o "$RUNNER_TEMP/vhs.deb" \
+            "https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_amd64.deb"
+          sudo apt-get install -y "$RUNNER_TEMP/vhs.deb"
+          vhs --version
       - name: Install nox
         run: uv tool install nox
       - name: Integration tests
