@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://ditschi.github.io/narratty/latest/contributor-guide/dev-setup/">
+        <link rel="canonical" href="https://ditschi.github.io/narratty/latest/user-guide/container/">
       
       
-        <link rel="prev" href="../../design/">
+        <link rel="prev" href="../building/">
       
       
-        <link rel="next" href="../release-process/">
+        <link rel="next" href="../../design/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Development setup - narratty</title>
+        <title>Sandboxed runs - narratty</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#development-setup" class="md-skip">
+        <a href="#sandboxed-runs" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Development setup
+              Sandboxed runs
             
           </span>
         </div>
@@ -246,11 +246,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../user-guide/installation/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
           
   
   
@@ -285,13 +287,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../contributor-guide/dev-setup/" class="md-tabs__link">
           
   
   
@@ -417,26 +417,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -454,7 +459,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -472,7 +477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -500,7 +505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/shell-completion/" class="md-nav__link">
+      <a href="../shell-completion/" class="md-nav__link">
         
   
   
@@ -528,7 +533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/commands/" class="md-nav__link">
+      <a href="../commands/" class="md-nav__link">
         
   
   
@@ -556,7 +561,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/spec/" class="md-nav__link">
+      <a href="../spec/" class="md-nav__link">
         
   
   
@@ -584,7 +589,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/voices/" class="md-nav__link">
+      <a href="../voices/" class="md-nav__link">
         
   
   
@@ -612,7 +617,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/building/" class="md-nav__link">
+      <a href="../building/" class="md-nav__link">
         
   
   
@@ -637,10 +642,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../user-guide/container/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sandboxed runs
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -656,6 +688,48 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Images
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-container-can-see" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the container can see
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -699,31 +773,26 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -741,7 +810,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -756,37 +825,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Development setup
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../contributor-guide/dev-setup/" class="md-nav__link">
         
   
   
@@ -802,48 +844,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#quality-gates" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quality gates
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#commits" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Commits
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -856,7 +856,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../release-process/" class="md-nav__link">
+      <a href="../../contributor-guide/release-process/" class="md-nav__link">
         
   
   
@@ -965,10 +965,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quality-gates" class="md-nav__link">
+  <a href="#images" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quality gates
+        Images
       
     </span>
   </a>
@@ -976,10 +976,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#commits" class="md-nav__link">
+  <a href="#what-the-container-can-see" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Commits
+        What the container can see
       
     </span>
   </a>
@@ -1003,7 +1003,7 @@
 
 
   
-    <a href="https://github.com/ditschi/narratty/edit/main/docs/contributor-guide/dev-setup.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/ditschi/narratty/edit/main/docs/user-guide/container.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1011,61 +1011,78 @@
   
 
 
-<h1 id="development-setup">Development setup<a class="headerlink" href="#development-setup" title="Permanent link">&para;</a></h1>
-<p>Tooling is managed with <a href="https://docs.astral.sh/uv/">uv</a> and <a href="https://nox.thea.codes/">nox</a>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w">          </span><span class="c1"># .venv with narratty and all dev tools</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install<span class="w">    </span><span class="c1"># ruff, mypy, codespell, commit-msg check</span>
+<h1 id="sandboxed-runs">Sandboxed runs<a class="headerlink" href="#sandboxed-runs" title="Permanent link">&para;</a></h1>
+<p>With Docker or Podman installed, <code>build</code>, <code>render</code>, <code>tts</code>, <code>plan</code> and <code>tape</code> run
+inside the narratty image by default (<code>--runtime auto</code>). The image contains VHS,
+ttyd, Chromium, ffmpeg, fonts, Piper and a few popular CLIs (<code>git</code>, <code>bat</code>, <code>eza</code>,
+<code>fd</code>, <code>ripgrep</code>, <code>jq</code>, <code>tree</code>). You only need narratty itself and a container
+runtime on the host.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w">                    </span><span class="c1"># container if available</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--runtime<span class="w"> </span>native<span class="w">   </span><span class="c1"># tools from your PATH</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--runtime<span class="w"> </span>podman
 </code></pre></div>
-<h2 id="quality-gates">Quality gates<a class="headerlink" href="#quality-gates" title="Permanent link">&para;</a></h2>
+<h2 id="images">Images<a class="headerlink" href="#images" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Command</th>
-<th>What it runs</th>
+<th>Image</th>
+<th>Contents</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>nox</code></td>
-<td>Everything below (plus <code>format</code> locally; set <code>NOX_CI=1</code> to skip it)</td>
+<td><code>ghcr.io/ditschi/narratty:&lt;version&gt;</code></td>
+<td>Piper with <code>en_US-lessac-medium</code></td>
 </tr>
 <tr>
-<td><code>nox -s tests</code></td>
-<td>Unit tests on Python 3.12–3.14 with coverage</td>
-</tr>
-<tr>
-<td><code>nox -s lint</code></td>
-<td><code>ruff check</code> + <code>ruff format --check</code></td>
-</tr>
-<tr>
-<td><code>nox -s check_types</code></td>
-<td>mypy (strict settings in <code>mypy.ini</code>)</td>
-</tr>
-<tr>
-<td><code>nox -s necessary_imports</code></td>
-<td>fawltydeps: undeclared or unused dependencies</td>
-</tr>
-<tr>
-<td><code>nox -s dead_code</code></td>
-<td>vulture</td>
-</tr>
-<tr>
-<td><code>nox -s duplicates</code> / <code>cyclic_imports</code></td>
-<td>pylint R0801 / R0401</td>
-</tr>
-<tr>
-<td><code>nox -s performance</code></td>
-<td>Cold-start budgets for <code>--help</code> and shell completion</td>
-</tr>
-<tr>
-<td><code>nox -s docs</code></td>
-<td><code>mkdocs build --strict</code></td>
+<td><code>ghcr.io/ditschi/narratty:&lt;version&gt;-kokoro</code></td>
+<td>The above, plus Kokoro and its model</td>
 </tr>
 </tbody>
 </table>
-<h2 id="commits">Commits<a class="headerlink" href="#commits" title="Permanent link">&para;</a></h2>
-<p>Commits and PR titles follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a>
-(<code>feat: …</code>, <code>fix: …</code>, <code>docs: …</code>). PRs are squash-merged, so the PR title becomes the commit.</p>
+<p>narratty picks the tag matching its own version (<code>edge</code> for development builds) and
+the <code>-kokoro</code> variant when the spec uses Kokoro. Override the image with <code>--image</code> or
+<code>NARRATTY_IMAGE</code>.</p>
+<h2 id="what-the-container-can-see">What the container can see<a class="headerlink" href="#what-the-container-can-see" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Host</th>
+<th>Container</th>
+<th>Access</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>the spec file</td>
+<td><code>/spec/&lt;name&gt;</code></td>
+<td>read-only</td>
+</tr>
+<tr>
+<td><code>workspace.source</code></td>
+<td><code>/work</code></td>
+<td>read-write</td>
+</tr>
+<tr>
+<td>the output file's directory</td>
+<td><code>/out</code></td>
+<td>read-write</td>
+</tr>
+<tr>
+<td>the audio cache</td>
+<td><code>/cache</code></td>
+<td>read-write, shared with native runs</td>
+</tr>
+<tr>
+<td>your downloaded voices</td>
+<td><code>/data</code></td>
+<td>read-only</td>
+</tr>
+</tbody>
+</table>
+<p>Voices are downloaded on the host before the container starts. The container runs
+with no network, all capabilities dropped, <code>no-new-privileges</code>, a read-only root
+filesystem and your own user id, so files it writes belong to you.</p>
 
 
 

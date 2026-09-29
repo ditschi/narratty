@@ -631,6 +631,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/container/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sandboxed runs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1004,6 +1032,9 @@ commitizen.</p>
   <code>cache info</code> / <code>cache prune</code></li>
 <li><code>build</code>: timeline, VHS tape, silent recording, narration track and mux into a
   narrated mp4 with a drift check; plus <code>plan</code>, <code>tape</code> and <code>render</code></li>
+<li>container runtime: <code>--runtime docker|podman</code> (default when installed) runs the
+  pipeline in the hardened <code>ghcr.io/ditschi/narratty</code> image (<code>-kokoro</code> variant for
+  Kokoro), published to GHCR on main (<code>edge</code>) and release tags (<code>&lt;version&gt;</code>, <code>latest</code>)</li>
 </ul>
 
 

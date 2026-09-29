@@ -633,6 +633,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/container/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sandboxed runs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -968,12 +996,38 @@
 </code></pre></div>
 <p>Pushing a <code>v*</code> tag runs <code>.github/workflows/release.yml</code>: build, publish to TestPyPI, verify
 the install, publish to PyPI, create the GitHub release and deploy versioned docs.</p>
+<p>The same tag runs <code>.github/workflows/docker.yml</code>, which pushes the container images to
+GHCR for linux/amd64 and linux/arm64:</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Tags</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pull request</td>
+<td>built and tested, not pushed</td>
+</tr>
+<tr>
+<td>Push to <code>main</code></td>
+<td><code>edge</code>, <code>edge-kokoro</code></td>
+</tr>
+<tr>
+<td>Tag <code>v1.2.3</code></td>
+<td><code>1.2.3</code>, <code>1.2</code>, <code>latest</code> and the same with <code>-kokoro</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="one-time-setup">One-time setup<a class="headerlink" href="#one-time-setup" title="Permanent link">&para;</a></h2>
 <ul>
 <li>PyPI and TestPyPI: add a <em>trusted publisher</em> for <code>ditschi/narratty</code>, workflow
   <code>release.yml</code>, environments <code>pypi</code> and <code>testpypi</code>.</li>
 <li>GitHub: create the <code>pypi</code> and <code>testpypi</code> environments, and enable GitHub Pages from the
   <code>gh-pages</code> branch for the docs.</li>
+<li>GHCR: after the first push, open the <code>narratty</code> package settings on GitHub and set
+  its visibility to public so <code>docker pull</code> works without logging in.</li>
 </ul>
 
 
