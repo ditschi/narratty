@@ -5,6 +5,7 @@ from __future__ import annotations
 from typer.testing import CliRunner
 
 from narratty.cli.app import app
+from tests.helpers import plain
 
 runner = CliRunner()
 
@@ -30,4 +31,4 @@ def test_completes_runtime_values() -> None:
 
 def test_show_completion_is_available() -> None:
     result = runner.invoke(app, ["--help"])
-    assert "--install-completion" in result.output
+    assert "--install-completion" in plain(result.output)
