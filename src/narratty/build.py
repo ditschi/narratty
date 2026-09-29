@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -46,7 +47,9 @@ class Plan:
 
     @property
     def workspace(self) -> Path:
-        """Directory the recorded shell starts in."""
+        """Directory the recorded shell starts in (``NARRATTY_WORKSPACE`` overrides it)."""
+        if override := os.environ.get("NARRATTY_WORKSPACE"):
+            return Path(override)
         return (self.spec_path.parent / self.spec.workspace.source).resolve()
 
 

@@ -17,3 +17,6 @@ commitizen.
   `cache info` / `cache prune`
 - `build`: timeline, VHS tape, silent recording, narration track and mux into a
   narrated mp4 with a drift check; plus `plan`, `tape` and `render`
+- container runtime: `--runtime docker|podman` (default when installed) runs the
+  pipeline in the hardened `ghcr.io/ditschi/narratty` image (`-kokoro` variant for
+  Kokoro), published to GHCR on main (`edge`) and release tags (`<version>`, `latest`)

@@ -53,5 +53,5 @@ match, so each clip still starts with its scene.
   off the video is.
 - **Hidden scenes** run without being recorded and clear the screen afterwards, which
   makes them good for setup such as `cd`, exporting variables or warming caches.
-- **The workspace** is used in place for now. Sandboxed snapshots of the workspace
-  come with the container runtime.
+- **The workspace** is used in place for now, also when the build runs in a
+  [container](container.md).
