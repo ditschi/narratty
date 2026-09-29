@@ -42,6 +42,12 @@ class NarrattyError(Exception):
         self.hint = hint
 
 
+class UsageError(NarrattyError):
+    """Invalid invocation or arguments."""
+
+    exit_code = ExitCode.USAGE
+
+
 class MissingDependencyError(NarrattyError):
     """A required tool, voice or container runtime is not available."""
 

@@ -2,11 +2,14 @@
 
 | Command | Does |
 |---|---|
+| `narratty init [FILE] [--force]` | Write a commented starter spec (default `demo.narratty.yaml`) |
+| `narratty validate SPEC` | Check a spec and report every problem with line and column |
+| `narratty schema` | Print the spec's JSON Schema |
 | `narratty doctor [--runtime R]` | Check the tools the selected runtime needs |
 | `narratty --version` | Print the version |
 | `narratty --install-completion` | Install shell completion |
 
-More commands (`validate`, `tts`, `render`, `build`, …) arrive with the next milestones;
+More commands (`tts`, `render`, `build`, …) arrive with the next milestones;
 see the [design](../design.md#cli-surface).
 
 ## Exit codes

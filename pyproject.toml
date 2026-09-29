@@ -26,6 +26,8 @@ classifiers = [
 dependencies = [
     "typer>=0.12",
     "rich>=13.7",
+    "pydantic>=2.12",
+    "ruamel.yaml>=0.18",
 ]
 
 [project.urls]
@@ -79,6 +81,8 @@ packages = ["src/narratty"]
 min_confidence = 80
 paths = ["src/narratty"]
 exclude = ["src/narratty/_version.py"]
+# Pydantic validators are classmethods whose `cls` is often unused.
+ignore_names = ["cls"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"

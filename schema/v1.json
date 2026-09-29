@@ -1,0 +1,599 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json",
+  "$defs": {
+    "CtrlSequence": {
+      "additionalProperties": false,
+      "description": "Send a control chord such as ``C-c``.",
+      "properties": {
+        "ctrl_sequence": {
+          "pattern": "^C-[A-Za-z@\\[\\]\\\\^_]$",
+          "title": "Ctrl Sequence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ctrl_sequence"
+      ],
+      "title": "CtrlSequence",
+      "type": "object"
+    },
+    "Enter": {
+      "additionalProperties": false,
+      "description": "Press Enter. Written as the bare string ``enter`` in YAML.",
+      "properties": {
+        "enter": {
+          "const": true,
+          "default": true,
+          "title": "Enter",
+          "type": "boolean"
+        }
+      },
+      "title": "Enter",
+      "type": "object"
+    },
+    "Hold": {
+      "additionalProperties": false,
+      "description": "Pause. ``auto`` fills the scene until its narration has finished.",
+      "properties": {
+        "hold": {
+          "anyOf": [
+            {
+              "const": "auto",
+              "type": "string"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            }
+          ],
+          "title": "Hold"
+        }
+      },
+      "required": [
+        "hold"
+      ],
+      "title": "Hold",
+      "type": "object"
+    },
+    "Key": {
+      "additionalProperties": false,
+      "description": "Press a raw VHS key, optionally repeated (``Down 3``).",
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "title": "Key",
+      "type": "object"
+    },
+    "KokoroOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "speed": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "title": "Speed",
+          "type": "number"
+        },
+        "lang": {
+          "default": "en-us",
+          "title": "Lang",
+          "type": "string"
+        }
+      },
+      "title": "KokoroOptions",
+      "type": "object"
+    },
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "default": "Untitled",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "title": "Meta",
+      "type": "object"
+    },
+    "Mount": {
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "title": "Host",
+          "type": "string"
+        },
+        "container": {
+          "title": "Container",
+          "type": "string"
+        },
+        "mode": {
+          "default": "ro",
+          "enum": [
+            "ro",
+            "rw"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "host",
+        "container"
+      ],
+      "title": "Mount",
+      "type": "object"
+    },
+    "PiperOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "length_scale": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "title": "Length Scale",
+          "type": "number"
+        },
+        "sentence_silence": {
+          "default": 0.2,
+          "minimum": 0,
+          "title": "Sentence Silence",
+          "type": "number"
+        }
+      },
+      "title": "PiperOptions",
+      "type": "object"
+    },
+    "Requires": {
+      "additionalProperties": false,
+      "properties": {
+        "tools": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        }
+      },
+      "title": "Requires",
+      "type": "object"
+    },
+    "Sandbox": {
+      "additionalProperties": false,
+      "properties": {
+        "network": {
+          "default": "none",
+          "enum": [
+            "none",
+            "allowlist",
+            "full"
+          ],
+          "title": "Network",
+          "type": "string"
+        },
+        "allow_hosts": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9.-]+:[0-9]{1,5}$",
+            "type": "string"
+          },
+          "title": "Allow Hosts",
+          "type": "array"
+        },
+        "env_passthrough": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Env Passthrough",
+          "type": "array"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "Env",
+          "type": "object"
+        },
+        "extra_mounts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Mount"
+          },
+          "title": "Extra Mounts",
+          "type": "array"
+        },
+        "ssh_agent": {
+          "default": false,
+          "title": "Ssh Agent",
+          "type": "boolean"
+        }
+      },
+      "title": "Sandbox",
+      "type": "object"
+    },
+    "Scene": {
+      "additionalProperties": false,
+      "description": "One narrated (or silent) step of the video.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "narration": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Narration"
+        },
+        "actions": {
+          "default": [],
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/TypeCommand"
+              },
+              {
+                "$ref": "#/$defs/Enter"
+              },
+              {
+                "$ref": "#/$defs/CtrlSequence"
+              },
+              {
+                "$ref": "#/$defs/Hold"
+              },
+              {
+                "$ref": "#/$defs/Wait"
+              },
+              {
+                "$ref": "#/$defs/Key"
+              }
+            ]
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "hidden": {
+          "default": false,
+          "title": "Hidden",
+          "type": "boolean"
+        },
+        "typing_speed_ms": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typing Speed Ms"
+        },
+        "narration_start": {
+          "default": "with_actions",
+          "enum": [
+            "with_actions",
+            "after_actions"
+          ],
+          "title": "Narration Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Scene",
+      "type": "object"
+    },
+    "Terminal": {
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "default": 1200,
+          "minimum": 100,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "default": 700,
+          "minimum": 100,
+          "title": "Height",
+          "type": "integer"
+        },
+        "theme": {
+          "default": "Dracula",
+          "title": "Theme",
+          "type": "string"
+        },
+        "font_size": {
+          "default": 22,
+          "minimum": 6,
+          "title": "Font Size",
+          "type": "integer"
+        },
+        "typing_speed_ms": {
+          "default": 40,
+          "exclusiveMinimum": 0,
+          "title": "Typing Speed Ms",
+          "type": "integer"
+        },
+        "shell": {
+          "default": "bash",
+          "enum": [
+            "bash",
+            "zsh",
+            "fish",
+            "sh"
+          ],
+          "title": "Shell",
+          "type": "string"
+        },
+        "prompt": {
+          "default": "$ ",
+          "title": "Prompt",
+          "type": "string"
+        }
+      },
+      "title": "Terminal",
+      "type": "object"
+    },
+    "Timing": {
+      "additionalProperties": false,
+      "properties": {
+        "narration_buffer_ms": {
+          "default": 500,
+          "minimum": 0,
+          "title": "Narration Buffer Ms",
+          "type": "integer"
+        },
+        "lead_in_ms": {
+          "default": 300,
+          "minimum": 0,
+          "title": "Lead In Ms",
+          "type": "integer"
+        },
+        "tail_ms": {
+          "default": 1000,
+          "minimum": 0,
+          "title": "Tail Ms",
+          "type": "integer"
+        }
+      },
+      "title": "Timing",
+      "type": "object"
+    },
+    "TtsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "default": "piper",
+          "title": "Provider",
+          "type": "string"
+        },
+        "voice": {
+          "default": "en_US-lessac-medium",
+          "title": "Voice",
+          "type": "string"
+        },
+        "piper": {
+          "$ref": "#/$defs/PiperOptions",
+          "default": {
+            "length_scale": 1.0,
+            "sentence_silence": 0.2
+          }
+        },
+        "kokoro": {
+          "$ref": "#/$defs/KokoroOptions",
+          "default": {
+            "speed": 1.0,
+            "lang": "en-us"
+          }
+        }
+      },
+      "title": "TtsConfig",
+      "type": "object"
+    },
+    "TypeCommand": {
+      "additionalProperties": false,
+      "description": "Type text at the scene's typing speed (does not press Enter).",
+      "properties": {
+        "type_command": {
+          "minLength": 1,
+          "title": "Type Command",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type_command"
+      ],
+      "title": "TypeCommand",
+      "type": "object"
+    },
+    "Wait": {
+      "additionalProperties": false,
+      "description": "Block until ``wait.screen`` matches the terminal content.",
+      "properties": {
+        "wait": {
+          "$ref": "#/$defs/WaitSpec"
+        }
+      },
+      "required": [
+        "wait"
+      ],
+      "title": "Wait",
+      "type": "object"
+    },
+    "WaitSpec": {
+      "additionalProperties": false,
+      "description": "Wait until the screen matches a regular expression.",
+      "properties": {
+        "screen": {
+          "minLength": 1,
+          "title": "Screen",
+          "type": "string"
+        },
+        "timeout_ms": {
+          "default": 15000,
+          "exclusiveMinimum": 0,
+          "title": "Timeout Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "screen"
+      ],
+      "title": "WaitSpec",
+      "type": "object"
+    },
+    "Workspace": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "default": ".",
+          "title": "Source",
+          "type": "string"
+        },
+        "mode": {
+          "default": "snapshot",
+          "enum": [
+            "snapshot",
+            "rw",
+            "ro"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "include_uncommitted": {
+          "default": true,
+          "title": "Include Uncommitted",
+          "type": "boolean"
+        },
+        "caches": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "Caches",
+          "type": "object"
+        },
+        "artifacts": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        }
+      },
+      "title": "Workspace",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A complete ``.narratty.yaml`` document.",
+  "properties": {
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "meta": {
+      "$ref": "#/$defs/Meta",
+      "default": {
+        "title": "Untitled"
+      }
+    },
+    "tts": {
+      "$ref": "#/$defs/TtsConfig",
+      "default": {
+        "provider": "piper",
+        "voice": "en_US-lessac-medium",
+        "piper": {
+          "length_scale": 1.0,
+          "sentence_silence": 0.2
+        },
+        "kokoro": {
+          "lang": "en-us",
+          "speed": 1.0
+        }
+      }
+    },
+    "timing": {
+      "$ref": "#/$defs/Timing",
+      "default": {
+        "narration_buffer_ms": 500,
+        "lead_in_ms": 300,
+        "tail_ms": 1000
+      }
+    },
+    "terminal": {
+      "$ref": "#/$defs/Terminal",
+      "default": {
+        "width": 1200,
+        "height": 700,
+        "theme": "Dracula",
+        "font_size": 22,
+        "typing_speed_ms": 40,
+        "shell": "bash",
+        "prompt": "$ "
+      }
+    },
+    "requires": {
+      "$ref": "#/$defs/Requires",
+      "default": {
+        "tools": []
+      }
+    },
+    "workspace": {
+      "$ref": "#/$defs/Workspace",
+      "default": {
+        "source": ".",
+        "mode": "snapshot",
+        "include_uncommitted": true,
+        "caches": {},
+        "artifacts": []
+      }
+    },
+    "sandbox": {
+      "$ref": "#/$defs/Sandbox",
+      "default": {
+        "network": "none",
+        "allow_hosts": [],
+        "env_passthrough": [],
+        "env": {},
+        "extra_mounts": [],
+        "ssh_agent": false
+      }
+    },
+    "scenes": {
+      "items": {
+        "$ref": "#/$defs/Scene"
+      },
+      "minItems": 1,
+      "title": "Scenes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "scenes"
+  ],
+  "title": "narratty spec",
+  "type": "object"
+}

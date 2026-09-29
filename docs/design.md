@@ -367,7 +367,7 @@ narratty/
 ## The `.narratty.yaml` spec
 
 ```yaml
-# yaml-language-server: $schema=https://<host>/narratty/schema/v1.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
 version: 1
 meta:
   title: "Repository layout tour"
@@ -517,9 +517,10 @@ Rev 2 makes the timeline explicit:
 class TtsProvider(Protocol):
     name: ClassVar[str]
     model_version: str
+
     def synthesize(self, text: str, voice: str, out: Path, opts: ProviderOpts) -> Path: ...
     def list_voices(self) -> list[VoiceInfo]: ...
-    def check(self) -> list[DoctorFinding]: ...   # used by doctor
+    def check(self) -> list[DoctorFinding]: ...  # used by doctor
 ```
 
 | Provider | How | Voice ids | Notes |
