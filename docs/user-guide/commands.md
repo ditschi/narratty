@@ -5,12 +5,17 @@
 | `narratty init [FILE] [--force]` | Write a commented starter spec (default `demo.narratty.yaml`) |
 | `narratty validate SPEC` | Check a spec and report every problem with line and column |
 | `narratty schema` | Print the spec's JSON Schema |
+| `narratty voices [--provider P] [--installed]` | List curated and installed voices |
+| `narratty voices pull VOICE` | Download a voice (and the Kokoro model) |
+| `narratty tts SPEC [--offline]` | Synthesize all narration clips and print their lengths |
+| `narratty cache info` / `prune [--older-than 30d] [--all]` | Inspect or prune the audio cache |
+| `narratty plan SPEC` | Print the timeline and total length |
+| `narratty tape SPEC [-o VIDEO]` | Print the VHS tape |
+| `narratty render SPEC [-o VIDEO]` | Record the silent video |
+| `narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]` | Build the narrated video |
 | `narratty doctor [--runtime R]` | Check the tools the selected runtime needs |
 | `narratty --version` | Print the version |
 | `narratty --install-completion` | Install shell completion |
-
-More commands (`tts`, `render`, `build`, …) arrive with the next milestones;
-see the [design](../design.md#cli-surface).
 
 ## Exit codes
 

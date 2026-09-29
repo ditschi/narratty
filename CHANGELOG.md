@@ -12,3 +12,8 @@ commitizen.
   resolution (`auto`, `native`, `docker`, `podman`)
 - spec format v1 with `init`, `validate` (line/column errors, did-you-mean hints) and
   `schema` (JSON Schema, committed as `schema/v1.json`); spec-path shell completion
+- local TTS with Piper (default) and Kokoro (`narratty[kokoro]`), a curated voice
+  catalog, `voices` / `voices pull`, `tts`, and a content-addressed audio cache with
+  `cache info` / `cache prune`
+- `build`: timeline, VHS tape, silent recording, narration track and mux into a
+  narrated mp4 with a drift check; plus `plan`, `tape` and `render`

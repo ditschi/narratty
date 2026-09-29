@@ -93,5 +93,5 @@ def test_provider_options() -> None:
     spec = Spec.model_validate(
         _spec(tts={"provider": "kokoro", "voice": "af_heart", "kokoro": {"speed": 1.2}})
     )
-    assert spec.tts.provider_options() == {"speed": 1.2, "lang": "en-us"}
+    assert spec.tts.provider_options() == {"speed": 1.2, "lang": None}
     assert Spec.model_validate(_spec(tts={"provider": "custom"})).tts.provider_options() == {}

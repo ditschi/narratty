@@ -81,9 +81,17 @@
           "type": "number"
         },
         "lang": {
-          "default": "en-us",
-          "title": "Lang",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Language code; defaults to the voice's language.",
+          "title": "Lang"
         }
       },
       "title": "KokoroOptions",
@@ -402,7 +410,7 @@
           "$ref": "#/$defs/KokoroOptions",
           "default": {
             "speed": 1.0,
-            "lang": "en-us"
+            "lang": null
           }
         }
       },
@@ -530,7 +538,7 @@
           "sentence_silence": 0.2
         },
         "kokoro": {
-          "lang": "en-us",
+          "lang": null,
           "speed": 1.0
         }
       }

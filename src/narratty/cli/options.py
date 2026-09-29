@@ -14,3 +14,7 @@ RuntimeOption = typer.Option(
     case_sensitive=False,
     help="Where to run: auto (container if available), native, docker or podman.",
 )
+
+OfflineOption = typer.Option(
+    False, "--offline", envvar="NARRATTY_OFFLINE", help="Fail instead of downloading a missing voice."
+)
