@@ -60,6 +60,13 @@ def tests(session: nox.Session) -> None:
     )
 
 
+@nox.session(python=DEFAULT_PYTHON, tags=["integration"])
+def integration(session: nox.Session) -> None:
+    """Run real TTS engines, VHS and ffmpeg (downloads voices on first run)."""
+    session.install("-e", ".[test,kokoro]")
+    session.run("pytest", "-m", "integration", "tests/integration/", *session.posargs)
+
+
 @nox.session(python=DEFAULT_PYTHON, tags=["performance"])
 def performance(session: nox.Session) -> None:
     """Check CLI cold-start latency budgets (help and shell completion)."""
@@ -126,6 +133,7 @@ def necessary_imports(session: nox.Session) -> None:
         "--deps-parser-choice",
         "pyproject.toml",
         "--ignore-unused",
+        "piper-tts",  # run as a subprocess (`python -m piper`), never imported
         "commitizen",
         "fawltydeps",
         "mike",

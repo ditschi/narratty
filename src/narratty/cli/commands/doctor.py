@@ -9,10 +9,12 @@ from narratty.runtime import Runtime
 def doctor_command(runtime: Runtime = RuntimeOption) -> None:
     """Check that the tools the selected runtime needs are installed."""
     # Imported lazily so ``--help`` and shell completion stay fast.
+    from rich.markup import escape
     from rich.table import Table
 
-    from narratty.doctor import run_checks
+    from narratty.doctor import provider_checks, run_checks
     from narratty.errors import MissingDependencyError
+    from narratty.paths import data_dir
     from narratty.runtime import resolve_runtime
     from narratty.ui.console import out
 
@@ -28,10 +30,20 @@ def doctor_command(runtime: Runtime = RuntimeOption) -> None:
     for result in results:
         status = "[green]ok[/]" if result.ok else "[red]missing[/]"
         detail = result.path if result.path is not None else result.tool.install_hint
-        table.add_row(result.tool.name, status, result.tool.purpose, detail)
+        table.add_row(result.tool.name, status, result.tool.purpose, escape(detail))
+    missing = [result.tool.name for result in results if not result.ok]
+    if resolved.runtime is Runtime.NATIVE:
+        for check in provider_checks(data_dir()):
+            if check.ok:
+                status = "[green]ok[/]"
+            else:
+                status = "[red]missing[/]" if check.required else "[yellow]optional[/]"
+            purpose = "text-to-speech" + ("" if check.required else " (optional)")
+            table.add_row(check.name, status, purpose, escape(check.reason or "installed"))
+            if check.required and not check.ok:
+                missing.append(check.name)
     out.print(table)
 
-    missing = [result.tool.name for result in results if not result.ok]
     if missing:
         raise MissingDependencyError(
             f"missing: {', '.join(missing)}",

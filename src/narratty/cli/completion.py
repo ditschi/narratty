@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 
+import typer
+
 SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml")
 
 
@@ -32,3 +34,18 @@ def complete_spec_path(incomplete: str) -> list[str]:
         elif name.endswith(SPEC_SUFFIXES):
             matches.append(f"{head}{name}")
     return matches
+
+
+def complete_provider(incomplete: str) -> list[str]:
+    """Complete TTS provider names."""
+    from narratty.tts.catalog import PROVIDERS
+
+    return [name for name in PROVIDERS if name.startswith(incomplete)]
+
+
+def complete_voice(ctx: typer.Context, incomplete: str) -> list[str]:
+    """Complete curated voice ids, of the ``--provider`` given on the command line if any."""
+    from narratty.tts.catalog import voice_ids
+
+    provider = ctx.params.get("provider")
+    return [voice for voice in voice_ids(provider) if voice.startswith(incomplete)]

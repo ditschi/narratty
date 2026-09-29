@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 from dataclasses import dataclass
+from pathlib import Path
 
 from narratty.runtime import ResolvedRuntime, Runtime, Which
 
@@ -34,8 +35,7 @@ NATIVE_TOOLS: tuple[Tool, ...] = (
     Tool("vhs", "renders the terminal session", "https://github.com/charmbracelet/vhs#installation"),
     Tool("ttyd", "terminal backend used by VHS", "apt install ttyd  |  brew install ttyd"),
     Tool("ffmpeg", "encodes and muxes video and audio", "apt install ffmpeg  |  brew install ffmpeg"),
-    Tool("ffprobe", "measures narration durations", "ships with ffmpeg"),
-    Tool("piper", "default text-to-speech provider", "pip install piper-tts"),
+    Tool("ffprobe", "verifies the rendered video", "ships with ffmpeg"),
     Tool("git", "creates snapshot workspaces", "apt install git  |  brew install git"),
 )
 
@@ -43,6 +43,31 @@ CONTAINER_TOOLS: dict[Runtime, Tool] = {
     Runtime.DOCKER: Tool("docker", "runs the sandboxed render", "https://docs.docker.com/get-docker/"),
     Runtime.PODMAN: Tool("podman", "runs the sandboxed render", "https://podman.io/docs/installation"),
 }
+
+
+@dataclass(frozen=True)
+class ProviderCheck:
+    """Can a TTS provider run in this environment?"""
+
+    name: str
+    reason: str | None
+    required: bool
+
+    @property
+    def ok(self) -> bool:
+        """True when the provider can run."""
+        return self.reason is None
+
+
+def provider_checks(data_dir: Path, *, required: str = "piper") -> list[ProviderCheck]:
+    """Check each built-in TTS provider; only ``required`` blocks a render."""
+    from narratty.tts.catalog import PROVIDERS
+    from narratty.tts.registry import get_provider
+
+    return [
+        ProviderCheck(name, get_provider(name, data_dir).unavailable_reason(), name == required)
+        for name in PROVIDERS
+    ]
 
 
 def required_tools(resolved: ResolvedRuntime) -> tuple[Tool, ...]:

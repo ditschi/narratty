@@ -12,10 +12,13 @@ import os
 import typer
 
 from narratty import __version__
+from narratty.cli.commands.cache import cache_app
 from narratty.cli.commands.doctor import doctor_command
 from narratty.cli.commands.init import init_command
 from narratty.cli.commands.schema import schema_command
+from narratty.cli.commands.tts import tts_command
 from narratty.cli.commands.validate import validate_command
+from narratty.cli.commands.voices import voices_app
 
 app = typer.Typer(
     name="narratty",
@@ -57,4 +60,7 @@ def main_callback(
 app.command("init")(init_command)
 app.command("validate")(validate_command)
 app.command("schema")(schema_command)
+app.command("tts")(tts_command)
+app.add_typer(voices_app, name="voices")
 app.command("doctor")(doctor_command)
+app.add_typer(cache_app, name="cache")
