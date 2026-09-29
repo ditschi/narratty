@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from typer.testing import CliRunner
 
 from narratty.cli.app import app
+from narratty.cli.completion import complete_spec_path
 from tests.helpers import plain
 
 runner = CliRunner()
@@ -32,3 +36,22 @@ def test_completes_runtime_values() -> None:
 def test_show_completion_is_available() -> None:
     result = runner.invoke(app, ["--help"])
     assert "--install-completion" in plain(result.output)
+
+
+def test_completes_spec_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "demo.narratty.yaml").write_text("", encoding="utf-8")
+    (tmp_path / "other.yaml").write_text("", encoding="utf-8")
+    (tmp_path / "examples").mkdir()
+    (tmp_path / ".hidden").mkdir()
+    monkeypatch.chdir(tmp_path)
+    assert complete_spec_path("") == ["demo.narratty.yaml", "examples/"]
+    assert complete_spec_path("ex") == ["examples/"]
+    (tmp_path / "examples" / "tour.narratty.yml").write_text("", encoding="utf-8")
+    assert complete_spec_path("examples/") == ["examples/tour.narratty.yml"]
+    assert complete_spec_path("missing/") == []
+
+
+def test_validate_completes_spec_argument(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "demo.narratty.yaml").write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    assert "demo.narratty.yaml" in _complete_bash("narratty validate ", 2)

@@ -1,0 +1,114 @@
+# Spec reference
+
+A narratty video is described by a `.narratty.yaml` file. `narratty init` writes a
+commented starter, `narratty validate` checks one, and `narratty schema` prints the JSON
+Schema. The starter's first line points editors that use
+[yaml-language-server](https://github.com/redhat-developer/yaml-language-server) at the
+schema, so you get completion and inline errors:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+```
+
+Unknown keys are errors, and `validate` reports every problem with its line and column,
+plus a "did you mean" for typos:
+
+```text
+$ narratty validate demo.narratty.yaml
+demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did you mean 'type_command'?)
+```
+
+## Top level
+
+| Key | Default | Meaning |
+|---|---|---|
+| `version` | `1` | Spec format version |
+| `meta.title` | `Untitled` | Title of the video |
+| `tts` | | Voice settings, see below |
+| `timing` | | Sync settings, see below |
+| `terminal` | | Look of the recorded terminal |
+| `requires.tools` | `[]` | Extra commands the demo needs (checked by `doctor`) |
+| `workspace` | | What directory the demo runs in |
+| `sandbox` | | Permissions of the container |
+| `scenes` | required | At least one scene |
+
+## `tts`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `provider` | `piper` | `piper` or `kokoro` |
+| `voice` | `en_US-lessac-medium` | Voice id of the provider |
+| `piper.length_scale` | `1.0` | Larger is slower speech |
+| `piper.sentence_silence` | `0.2` | Seconds of silence between sentences |
+| `kokoro.speed` | `1.0` | Speech speed |
+| `kokoro.lang` | `en-us` | Language code |
+
+## `timing`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `narration_buffer_ms` | `500` | Pause after each narration before the next scene |
+| `lead_in_ms` | `300` | Silence before the first scene |
+| `tail_ms` | `1000` | Time the last frame stays on screen |
+
+## `terminal`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `width`, `height` | `1200`, `700` | Video size in pixels |
+| `theme` | `Dracula` | Any VHS theme |
+| `font_size` | `22` | Font size |
+| `typing_speed_ms` | `40` | Time per typed key |
+| `shell` | `bash` | `bash`, `zsh`, `fish` or `sh` |
+| `prompt` | `"$ "` | Prompt shown in the recording |
+
+## `workspace`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `source` | `.` | Directory the demo runs in, relative to the spec |
+| `mode` | `snapshot` | `snapshot` (throwaway copy), `rw` (the real directory) or `ro` (read-only) |
+| `include_uncommitted` | `true` | Copy uncommitted files into the snapshot |
+| `caches` | `{}` | Named cache volumes, `name: /path/in/container` |
+| `artifacts` | `[]` | Paths copied out of the workspace after the run |
+
+## `sandbox`
+
+Only used when the demo runs in a container. Anything beyond the defaults is shown to
+you for approval before the first run.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `network` | `none` | `none`, `allowlist` or `full` |
+| `allow_hosts` | `[]` | `host:port` entries, required with `allowlist` |
+| `env_passthrough` | `[]` | Host environment variables passed in |
+| `env` | `{}` | Fixed environment variables |
+| `extra_mounts` | `[]` | `{host, container, mode: ro\|rw}` |
+| `ssh_agent` | `false` | Forward the host SSH agent |
+
+## Scenes
+
+| Key | Default | Meaning |
+|---|---|---|
+| `id` | required | Lowercase letters, digits, `-` and `_`; unique |
+| `narration` | none | Text spoken while the scene plays |
+| `actions` | `[]` | What happens in the terminal |
+| `hidden` | `false` | Run without recording (setup); cannot have narration |
+| `typing_speed_ms` | terminal's | Per-scene typing speed |
+| `narration_start` | `with_actions` | Or `after_actions` |
+
+A scene lasts as long as its actions or its narration plus `narration_buffer_ms`,
+whichever is longer.
+
+### Actions
+
+| Action | Example | Does |
+|---|---|---|
+| `type_command` | `- type_command: "ls -la"` | Types the text |
+| `enter` | `- enter` | Presses Enter |
+| `ctrl_sequence` | `- ctrl_sequence: C-c` | Presses Ctrl plus a key |
+| `key` | `- key: Up` or `- key: Down 3` | Presses a named VHS key, optionally repeated |
+| `hold` | `- hold: 1500` or `- hold: auto` | Waits; `auto` waits until the narration is done |
+| `wait` | `- wait: {screen: "Done", timeout_ms: 15000}` | Waits until the screen matches a regex |
+
+A scene has at most one `hold: auto`, and only when it has narration.

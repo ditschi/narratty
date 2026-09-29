@@ -10,3 +10,5 @@ commitizen.
 
 - project scaffold: CLI with `--version`, `doctor` and shell completion; runtime
   resolution (`auto`, `native`, `docker`, `podman`)
+- spec format v1 with `init`, `validate` (line/column errors, did-you-mean hints) and
+  `schema` (JSON Schema, committed as `schema/v1.json`); spec-path shell completion

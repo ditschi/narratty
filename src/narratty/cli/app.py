@@ -13,6 +13,9 @@ import typer
 
 from narratty import __version__
 from narratty.cli.commands.doctor import doctor_command
+from narratty.cli.commands.init import init_command
+from narratty.cli.commands.schema import schema_command
+from narratty.cli.commands.validate import validate_command
 
 app = typer.Typer(
     name="narratty",
@@ -51,4 +54,7 @@ def main_callback(
         os.environ["NARRATTY_DEBUG"] = "1"
 
 
+app.command("init")(init_command)
+app.command("validate")(validate_command)
+app.command("schema")(schema_command)
 app.command("doctor")(doctor_command)

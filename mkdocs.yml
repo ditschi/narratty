@@ -79,6 +79,7 @@ nav:
       - Installation: user-guide/installation.md
       - Shell completion: user-guide/shell-completion.md
       - Commands: user-guide/commands.md
+      - Spec reference: user-guide/spec.md
   - Design: design.md
   - Contributor Guide:
       - Development setup: contributor-guide/dev-setup.md

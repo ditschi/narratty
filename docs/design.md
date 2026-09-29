@@ -367,7 +367,7 @@ narratty/
 ## The `.narratty.yaml` spec
 
 ```yaml
-# yaml-language-server: $schema=https://<host>/narratty/schema/v1.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
 version: 1
 meta:
   title: "Repository layout tour"
