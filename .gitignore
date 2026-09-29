@@ -1,0 +1,37 @@
+# generated files
+src/narratty/_version.py
+
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+.env
+
+# Tooling caches
+.nox/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Editor
+.idea/
+*.swp
+
+
+
+
+# MkDocs build output
+site/
+
+# narratty render output
+out/
