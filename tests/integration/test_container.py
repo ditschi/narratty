@@ -32,12 +32,15 @@ scenes:
 """
 
 
-def test_container_build(tmp_path: Path) -> None:
+@pytest.mark.parametrize(("mode", "written"), [("rw", True), ("snapshot", False)])
+def test_container_build(tmp_path: Path, mode: str, written: bool) -> None:
     spec = tmp_path / "demo.narratty.yaml"
     spec.write_text(SPEC, encoding="utf-8")
     out = tmp_path / "out" / "demo.mp4"
-    result = CliRunner().invoke(app, ["build", str(spec), "--runtime", "docker", "-o", str(out)])
+    args = ["build", str(spec), "--runtime", "docker", "--workspace-mode", mode, "-o", str(out)]
+    result = CliRunner().invoke(app, args)
     assert result.exit_code == 0, result.output
     info = media.probe(out)
     assert info.has_video and info.has_audio
-    assert (tmp_path / "made-in-container").is_dir(), "the workspace is mounted into the container"
+    # rw mounts the workspace itself; snapshot leaves it untouched.
+    assert (tmp_path / "made-in-container").is_dir() is written
