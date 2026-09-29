@@ -1,0 +1,2821 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Turn a YAML script into a narrated terminal video with local TTS, VHS rendering and automatic voiceover sync.">
+      
+      
+      
+        <link rel="canonical" href="https://ditschi.github.io/narratty/latest/design/">
+      
+      
+        <link rel="prev" href="../user-guide/commands/">
+      
+      
+        <link rel="next" href="../contributor-guide/dev-setup/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Design - narratty</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#narratty-setup--implementation-plan-rev-23" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="narratty" class="md-header__button md-logo" aria-label="narratty" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            narratty
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Design
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ditschi/narratty" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ditschi/narratty
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../user-guide/installation/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Design
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../contributor-guide/dev-setup/" class="md-tabs__link">
+          
+  
+  
+  Contributor Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../api-reference/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="narratty" class="md-nav__button md-logo" aria-label="narratty" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    narratty
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ditschi/narratty" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ditschi/narratty
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/shell-completion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shell completion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-modes-native-and-sandboxed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run modes: native and sandboxed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Run modes: native and sandboxed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#selecting-the-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Selecting the mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-sandboxed-mode-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How sandboxed mode works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#safety-note-for-native-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Safety note for native mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workspace--build-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workspace &amp; build outputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sandbox-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sandbox permissions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tech-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tech stack
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shell-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shell completion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-narrattyyaml-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The .narratty.yaml spec
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The .narratty.yaml spec">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#actions-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Actions (v1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sync-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts-pluggable-piper--kokoro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TTS: pluggable Piper + Kokoro
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vhs-tape-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VHS tape generation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packaging--container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packaging &amp; container
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Packaging &amp; container">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Images
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#long-tail-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Long-tail tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#paths-mounts-sandboxing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paths, mounts, sandboxing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinism--caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Determinism &amp; caching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ux--flexibility-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UX &amp; flexibility considerations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="UX &amp; flexibility considerations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fast-authoring-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fast authoring loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-quality-and-accessibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output quality and accessibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pronunciation-lexicon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pronunciation lexicon
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#predictable-terminal-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predictable terminal content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flexible-specs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flexible specs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extensibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extensibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#behaviour-people-notice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behaviour people notice
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#milestones" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions-proposed-answers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions: proposed answers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions-confirmed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions (confirmed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#still-open" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Still open
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributor Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributor Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor-guide/dev-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor-guide/release-process/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release process
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-modes-native-and-sandboxed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run modes: native and sandboxed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Run modes: native and sandboxed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#selecting-the-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Selecting the mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-sandboxed-mode-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How sandboxed mode works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#safety-note-for-native-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Safety note for native mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workspace--build-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workspace &amp; build outputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sandbox-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sandbox permissions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tech-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tech stack
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shell-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shell completion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-narrattyyaml-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The .narratty.yaml spec
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The .narratty.yaml spec">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#actions-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Actions (v1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sync-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts-pluggable-piper--kokoro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TTS: pluggable Piper + Kokoro
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vhs-tape-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VHS tape generation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packaging--container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packaging &amp; container
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Packaging &amp; container">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Images
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#long-tail-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Long-tail tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#paths-mounts-sandboxing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paths, mounts, sandboxing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinism--caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Determinism &amp; caching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ux--flexibility-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UX &amp; flexibility considerations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="UX &amp; flexibility considerations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fast-authoring-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fast authoring loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-quality-and-accessibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output quality and accessibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pronunciation-lexicon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pronunciation lexicon
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#predictable-terminal-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predictable terminal content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flexible-specs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flexible specs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extensibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extensibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#behaviour-people-notice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behaviour people notice
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#milestones" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions-proposed-answers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions: proposed answers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions-confirmed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions (confirmed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#still-open" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Still open
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/ditschi/narratty/edit/main/docs/design.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="narratty-setup--implementation-plan-rev-23">narratty: setup &amp; implementation plan (rev 2.3)<a class="headerlink" href="#narratty-setup--implementation-plan-rev-23" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Renamed from <em>shellcast</em> on 2026-09-29: that name is taken on PyPI and npm and used
+by several terminal projects and a commercial iOS app.</p>
+</blockquote>
+<p><code>narratty</code> is the standalone terminal recorder for the Video-as-Code pipeline and
+the symmetric peer to demo-machine. It turns a <code>.narratty.yaml</code> spec into a
+narrated terminal video, doing its own TTS, timing, VHS rendering and muxing. It is
+usable on its own, and the top-level <code>videogen</code> CLI also generates its spec from the
+combined tutorial file.</p>
+<blockquote>
+<p><strong>What changed in rev 2</strong> (vs. the pasted draft)
+1. Two run modes: <strong>native</strong> (host-installed Python CLI + host tools) and
+   <strong>sandboxed</strong> (the same CLI re-executes itself inside <code>narratty-base</code> via
+   Docker/Podman). See <a href="#run-modes-native-and-sandboxed">Run modes</a>.
+2. A concrete <strong>modern Python stack</strong> (uv, Typer, Pydantic v2, pydantic-settings,
+   Rich, ruff, mypy, nox, pytest + syrupy). See <a href="#tech-stack">Tech stack</a>.
+3. <strong>Shell completion</strong> for bash/zsh/fish/PowerShell with dynamic completers
+   for voices, providers, scene ids and spec files. See <a href="#shell-completion">Shell completion</a>.
+4. <strong>Sync model fix</strong>: the draft appended <code>Sleep &lt;audio&gt;</code> <em>after</em> the actions but
+   concatenated audio back-to-back, so narration drifts ahead of the video by the
+   typing time of every scene. Rev 2 computes an explicit timeline and places each
+   clip at its scene's start. See <a href="#sync-model">Sync model</a>.
+5. New actions <code>wait</code> and <code>hidden</code> scenes, new commands (<code>init</code>, <code>schema</code>,
+   <code>voices</code>, <code>tape</code>, <code>cache</code>), and proposed answers to all open questions.
+6. Kokoro via <code>kokoro-onnx</code> (the <code>kokoro</code> package is PyTorch-based, not ONNX) and
+   a licensing flag on Piper. See <a href="#tts-pluggable-piper--kokoro">TTS</a>.
+7. <strong>Writable workspaces</strong> (rev 2.1): the read-only repo mount is replaced by a
+   <code>workspace</code> block with <code>snapshot</code> (default), <code>rw</code> and <code>ro</code> modes, persistent build
+   caches, artifact export and per-spec network, so demos can run builds that write
+   into the repo. See <a href="#workspace--build-outputs">Workspace &amp; build outputs</a>.
+8. <strong>UX &amp; flexibility</strong> (rev 2.1): draft previews, subtitles, pronunciation lexicon,
+   deterministic prompt/env, hooks, spec reuse, plugins, and more. See
+   <a href="#ux--flexibility-considerations">UX &amp; flexibility</a>.
+9. <strong>Sandbox permissions in the spec</strong> (rev 2.2): network (<code>none</code>/<code>full</code>/<code>allowlist</code>
+   of host:port, for licence servers and remote caches), env passthrough and extra
+   mounts, with a consent prompt. See <a href="#sandbox-permissions">Sandbox permissions</a>.
+10. <strong>Layered pronunciation lexicon</strong> (rev 2.2): built-in, user, project, spec.
+   See <a href="#pronunciation-lexicon">Pronunciation lexicon</a>.
+11. <strong>Tooling aligned with repo-env</strong> (rev 2.2), plus the decisions confirmed so far.
+   See <a href="#decisions-confirmed">Decisions</a>.</p>
+</blockquote>
+<hr />
+<h2 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h2>
+<ul>
+<li>One command turns a <code>.narratty.yaml</code> into a narrated <code>.mp4</code>.</li>
+<li>Voiceover-synchronized: every narration clip starts exactly when its scene starts
+  on screen, and a scene never ends before its narration does.</li>
+<li>Pluggable TTS with two supported local providers: Piper and Kokoro.</li>
+<li>Reproducible: pinned toolchain, hash-based audio cache, deterministic tapes.</li>
+<li>Runs <strong>sandboxed</strong> (container, spec declares tools and paths) <strong>or natively</strong>
+  (after <code>uv tool install narratty</code>), with the same CLI and the same spec.</li>
+<li>First-class CLI ergonomics: rich errors with YAML line numbers, shell completion,
+  JSON Schema for editor autocompletion of specs.</li>
+</ul>
+<h2 id="non-goals">Non-goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h2>
+<ul>
+<li>No browser/GUI automation (that is demo-machine / Track A).</li>
+<li>No authoring of the combined multi-engine file (that is the <code>videogen</code> CLI).</li>
+<li>No cloud TTS.</li>
+<li>No native Windows support in v1 (Windows users run sandboxed mode or WSL).</li>
+</ul>
+<hr />
+<h2 id="run-modes-native-and-sandboxed">Run modes: native and sandboxed<a class="headerlink" href="#run-modes-native-and-sandboxed" title="Permanent link">&para;</a></h2>
+<p>One Python package, one CLI. The mode only decides <em>where</em> the pipeline runs.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><strong>native</strong></th>
+<th><strong>sandboxed</strong> (<code>docker</code> / <code>podman</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Install</td>
+<td><code>uv tool install narratty</code> (or <code>pipx install narratty</code>); <code>narratty[kokoro]</code> for Kokoro</td>
+<td>Same CLI on the host, plus Docker or Podman</td>
+</tr>
+<tr>
+<td>Where commands run</td>
+<td>Your shell, your user, your filesystem</td>
+<td>Inside <code>narratty-base</code>, non-root, no network</td>
+</tr>
+<tr>
+<td>Tools (<code>vhs</code>, <code>ffmpeg</code>, <code>ttyd</code>, <code>requires.tools</code>)</td>
+<td>Must be on <code>PATH</code>; <code>doctor</code> checks and prints install hints</td>
+<td>Baked into the image or the generated requirements layer</td>
+</tr>
+<tr>
+<td><code>workspace</code></td>
+<td>Same modes; snapshot is a scratch clone on the host</td>
+<td>Same modes; the chosen dir is bind-mounted at <code>/work</code></td>
+</tr>
+<tr>
+<td>Reproducibility</td>
+<td>Best effort; <code>doctor</code> warns on version drift from pinned versions</td>
+<td>Pinned by image digest</td>
+</tr>
+<tr>
+<td>Use for</td>
+<td>Fast authoring loop, trusted specs, machines without Docker</td>
+<td>CI, reference renders, specs you did not write</td>
+</tr>
+</tbody>
+</table>
+<h3 id="selecting-the-mode">Selecting the mode<a class="headerlink" href="#selecting-the-mode" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>narratty build demo.narratty.yaml --runtime native|docker|podman|auto
+</code></pre></div>
+<p>Precedence: CLI flag &gt; <code>NARRATTY_RUNTIME</code> env &gt; user config
+(<code>~/.config/narratty/config.toml</code>) &gt; default <code>auto</code>.</p>
+<p><code>auto</code> resolves to: <strong>native</strong> when already inside the container
+(<code>NARRATTY_IN_CONTAINER=1</code>), otherwise <strong>docker</strong>, then <strong>podman</strong> if either is
+available, otherwise <strong>native</strong> with a one-line warning that the run is not
+sandboxed. The resolved mode is always printed on the first line of output.</p>
+<h3 id="how-sandboxed-mode-works">How sandboxed mode works<a class="headerlink" href="#how-sandboxed-mode-works" title="Permanent link">&para;</a></h3>
+<p>The host CLI acts as a thin launcher:</p>
+<ol>
+<li>Parse and validate the spec on the host (fast failure, good errors, no container
+   start for typos).</li>
+<li>Resolve the image: <code>narratty-base:&lt;cli-version&gt;@&lt;digest&gt;</code>, or the hash-tagged
+   requirements layer when <code>requires.tools</code> exceeds the base (built with network,
+   then run without).</li>
+<li>Run one container, re-invoking the same subcommand inside it with
+   <code>--runtime native</code>:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--user<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>id<span class="w"> </span>-u<span class="k">)</span><span class="s2">:</span><span class="k">$(</span>id<span class="w"> </span>-g<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--read-only<span class="w"> </span>--tmpfs<span class="w"> </span>/tmp<span class="w"> </span>--tmpfs<span class="w"> </span>/home/narratty<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--cap-drop<span class="w"> </span>ALL<span class="w"> </span>--security-opt<span class="w"> </span>no-new-privileges<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--network<span class="w"> </span>none<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>-e<span class="w"> </span><span class="nv">NARRATTY_IN_CONTAINER</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$WORKSPACE_DIR</span><span class="s2">:/work:rw"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/out:/out:rw"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$CACHE_DIR</span><span class="s2">:/cache:rw"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span>-v<span class="w"> </span>narratty-cache-bazel:/home/narratty/.cache/bazel<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span>-w<span class="w"> </span>/work<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span>narratty-base:0.1.0@sha256:...<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span>build<span class="w"> </span>/work/demo.narratty.yaml<span class="w"> </span>-o<span class="w"> </span>/out/demo.mp4<span class="w"> </span>--runtime<span class="w"> </span>native
+</code></pre></div>
+<ul>
+<li><code>$WORKSPACE_DIR</code> is the snapshot dir (default), the repo itself (<code>rw</code>), or the repo
+  with <code>:ro</code>. <code>--network</code> follows <code>sandbox.network</code> (see
+  <a href="#sandbox-permissions">Sandbox permissions</a>). One named volume per entry in
+  <code>workspace.caches</code>.</li>
+<li>The audio cache is a host directory (<code>platformdirs</code> user cache dir) mounted into
+  the container, so native and sandboxed runs share cache hits.</li>
+<li>VHS drives headless Chromium; under <code>--cap-drop ALL</code> it needs its own sandbox
+  disabled (<code>VHS_NO_SANDBOX=true</code>). The container is the sandbox.</li>
+<li>Podman runs rootless with the same flags (<code>--userns keep-id</code> instead of <code>--user</code>).</li>
+<li>The CLI version and the image tag are released together, so a given <code>narratty</code>
+  always runs the image it was tested with.</li>
+</ul>
+<h3 id="safety-note-for-native-mode">Safety note for native mode<a class="headerlink" href="#safety-note-for-native-mode" title="Permanent link">&para;</a></h3>
+<p>A spec's <code>type_command</code> actions are real commands executed in a real shell as your
+user. Native mode is for specs you trust. <code>narratty build</code> in native mode prints the
+list of commands on first run of a spec and <code>--yes</code> / <code>NARRATTY_ASSUME_YES</code> skips the
+prompt (CI). Sandboxed mode needs no prompt.</p>
+<hr />
+<h2 id="workspace--build-outputs">Workspace &amp; build outputs<a class="headerlink" href="#workspace--build-outputs" title="Permanent link">&para;</a></h2>
+<p>Many demos run a build (<code>bazel build //...</code>, <code>cmake --build</code>, <code>npm run build</code>) that
+writes into the repo: <code>bazel-*</code> symlinks, <code>build/</code>, <code>node_modules/</code>, lockfile
+updates. A read-only repo mount breaks those demos, and a plain read-write mount has
+two problems: it dirties your real checkout, and the second render starts from a
+different state than the first (the build is already done, output looks different).</p>
+<p>So the workspace gets an explicit mode:</p>
+<table>
+<thead>
+<tr>
+<th><code>workspace.mode</code></th>
+<th>What <code>/work</code> is</th>
+<th>Use for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>snapshot</code></strong> (default)</td>
+<td>A disposable copy of the repo, writable, deleted after the render</td>
+<td>Anything that builds or edits files; every render starts from the same clean state</td>
+</tr>
+<tr>
+<td><code>rw</code></td>
+<td>The real repo, bind-mounted read-write</td>
+<td>When the demo must leave results behind, or the repo is too big to copy</td>
+</tr>
+<tr>
+<td><code>ro</code></td>
+<td>The real repo, read-only</td>
+<td>Pure tours (<code>ls</code>, <code>cat</code>, <code>git log</code>); fastest, safest</td>
+</tr>
+</tbody>
+</table>
+<p><strong>How <code>snapshot</code> works</strong> (identical in native and sandboxed mode):
+1. <code>git clone --local --no-checkout</code> into a scratch dir under the narratty cache
+   (objects are hard-linked, so it is fast even for big repos), then check out <code>HEAD</code>.
+2. With <code>include_uncommitted: true</code> (default), copy modified and untracked,
+   non-ignored files on top (<code>git ls-files -m -o --exclude-standard</code>), so you can
+   demo work in progress without committing.
+3. Non-git directories fall back to a copy honouring <code>.gitignore</code>/<code>.narrattyignore</code>.
+4. Mount or <code>cd</code> into it, render, copy <code>artifacts</code> to <code>out/</code>, delete the snapshot
+   (<code>--keep-workspace</code> keeps it for debugging and prints its path).</p>
+<p><strong>Build caches.</strong> Demo builds should be quick on screen. <code>workspace.caches</code> maps a
+name to a path inside the session (e.g. <code>~/.cache/bazel</code>, <code>~/.npm</code>, <code>~/.m2</code>). In
+sandboxed mode each becomes a named Docker volume <code>narratty-cache-&lt;name&gt;</code>; in native
+mode the real cache dirs are used. Combine with a <code>hidden</code> warm-up scene or a
+<code>before</code> hook (see UX below) so the recorded build shows a fast incremental run.</p>
+<p><strong>Ownership.</strong> Containers run with the caller's UID/GID (<code>--user</code> on Docker,
+<code>--userns keep-id</code> on Podman), so anything written to an <code>rw</code> workspace or <code>out/</code> is
+owned by you, not root.</p>
+<p><strong>Network, secrets, extra mounts.</strong> Declared in the spec's <code>sandbox</code> block, next to
+<code>workspace</code>; see <a href="#sandbox-permissions">Sandbox permissions</a>.</p>
+<p><strong>Guard rails.</strong> <code>rw</code> mode requires a clean git tree unless <code>--allow-dirty</code> is passed,
+and prints which paths the render changed afterwards (<code>git status --short</code>), so a demo
+never silently mixes with your own edits.</p>
+<hr />
+<h2 id="sandbox-permissions">Sandbox permissions<a class="headerlink" href="#sandbox-permissions" title="Permanent link">&para;</a></h2>
+<p>Some demos need to reach the outside: a licence server for a commercial tool, a
+Bazel/ccache remote cache, a package registry. Like <code>workspace.mode</code>, this is declared
+in the spec, because the spec author knows what the demo needs.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">sandbox</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">none | allowlist | full</span><span class="w">   </span><span class="c1"># default: none</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">allow_hosts</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">host</span><span class="p p-Indicator">:</span><span class="nv">port</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">...</span><span class="p p-Indicator">]</span><span class="w">      </span><span class="c1"># only for allowlist</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">env_passthrough</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">NAME</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">...</span><span class="p p-Indicator">]</span><span class="w">       </span><span class="c1"># copied from your shell; values never live in the spec</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">env</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> NAME</span><span class="p">:</span><span class="w"> </span><span class="nv">value</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w">               </span><span class="c1"># fixed, non-secret values</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">extra_mounts</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="w"> </span><span class="nv">host</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">container</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">mode</span><span class="w"> </span><span class="p p-Indicator">}]</span><span class="w">   </span><span class="c1"># e.g. ~/.netrc, a licence file</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">ssh_agent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                   </span><span class="c1"># forward SSH_AUTH_SOCK (e.g. git over ssh)</span>
+</code></pre></div>
+<p><strong>How <code>allowlist</code> works.</strong> The container sits on an internal Docker network with no
+route out. A small forwarder sidecar (part of narratty, same image) listens on each
+allowed <code>host:port</code> and passes TCP through to the real host; <code>--add-host</code> maps each
+name to the sidecar. Because it forwards plain TCP, it works for raw protocols
+(FlexLM-style licence servers) and for TLS (remote caches, SNI and certificates
+intact), and no proxy settings are needed inside the demo. Anything not listed fails
+to resolve or connect.</p>
+<p><strong>Who decides.</strong> The spec declares what it needs; you stay in control:
+- <strong>Consent</strong>: the first run of a spec that asks for more than <code>network: none</code>, any
+  <code>env_passthrough</code>, <code>extra_mounts</code> or <code>ssh_agent</code> shows a short summary and asks
+  (questionary prompt). The approval is remembered per spec path and a hash of its
+  <code>sandbox</code> block, so a changed spec asks again. <code>--yes</code> for CI.
+- <strong>Overrides</strong>: <code>--network none|allowlist|full</code> and <code>--allow-host</code> on the command
+  line; a user policy in <code>~/.config/narratty/config.toml</code> can cap what any spec may
+  get (e.g. <code>max_network = "allowlist"</code>, <code>allow_env = ["LM_LICENSE_FILE"]</code>). A spec
+  that needs more than the cap fails with a clear message rather than running
+  half-broken.
+- <strong>Native mode</strong> cannot enforce any of this. narratty says so once and runs with your
+  normal environment and network.
+- <code>manifest.json</code> records the effective permissions of every render, and <code>doctor</code>
+  warns that network-dependent renders are less reproducible.</p>
+<p>Milestones: <code>none</code>, <code>full</code>, env passthrough and extra mounts in v1; <code>allowlist</code> right
+after (it needs the sidecar).</p>
+<hr />
+<h2 id="tech-stack">Tech stack<a class="headerlink" href="#tech-stack" title="Permanent link">&para;</a></h2>
+<p>Target <strong>Python ≥ 3.12</strong>. Heavy dependencies are lazy-imported so <code>--help</code> and
+completion stay fast.</p>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Project/env/lock</td>
+<td><strong>uv</strong> (<code>uv.lock</code>, <code>uv tool install</code>)</td>
+<td>Same as repo-env</td>
+</tr>
+<tr>
+<td>Build backend / version</td>
+<td><strong>hatchling</strong> + <strong>hatch-vcs</strong></td>
+<td>Version from git tags, same as repo-env</td>
+</tr>
+<tr>
+<td>Task runner</td>
+<td><strong>nox</strong> (uv backend)</td>
+<td>Same session layout as repo-env (<code>lint</code>, <code>check_types</code>, <code>tests</code>, <code>integration</code>)</td>
+</tr>
+<tr>
+<td>Prompts</td>
+<td><strong>questionary</strong></td>
+<td>Consent prompts; same as repo-env</td>
+</tr>
+<tr>
+<td>CLI</td>
+<td><strong>Typer</strong> (Click underneath)</td>
+<td>Type-hint CLI, Rich help, built-in shell completion</td>
+</tr>
+<tr>
+<td>Terminal output</td>
+<td><strong>Rich</strong></td>
+<td>Progress per stage, tables for <code>voices</code>/<code>doctor</code>, pretty errors</td>
+</tr>
+<tr>
+<td>Spec models</td>
+<td><strong>Pydantic v2</strong></td>
+<td>Validation, discriminated unions for actions, JSON Schema export</td>
+</tr>
+<tr>
+<td>Config/env</td>
+<td><strong>pydantic-settings</strong></td>
+<td><code>NARRATTY_*</code> env + TOML user config, same models</td>
+</tr>
+<tr>
+<td>YAML</td>
+<td><strong>ruamel.yaml</strong> (safe loader)</td>
+<td>Keeps line/column so validation errors point at the YAML line</td>
+</tr>
+<tr>
+<td>Paths</td>
+<td><strong>platformdirs</strong></td>
+<td>Correct cache/config dirs on Linux and macOS</td>
+</tr>
+<tr>
+<td>Downloads (voices/models)</td>
+<td><strong>httpx</strong> + sha256 verification</td>
+<td>Pinned model files, resumable, no network in container</td>
+</tr>
+<tr>
+<td>Audio</td>
+<td><code>ffprobe</code>/<code>ffmpeg</code> subprocess; <strong>soundfile</strong> for WAV I/O in Kokoro</td>
+<td>No heavyweight audio stack</td>
+</tr>
+<tr>
+<td>Piper</td>
+<td><strong>piper-tts</strong> (Python package, provides <code>piper</code>)</td>
+<td>Same package in native and container; no separate binary download</td>
+</tr>
+<tr>
+<td>Kokoro</td>
+<td><strong>kokoro-onnx</strong> + onnxruntime (optional extra <code>narratty[kokoro]</code>)</td>
+<td>ONNX, no PyTorch; ~300 MB model instead of multi-GB torch</td>
+</tr>
+<tr>
+<td>Lint/format</td>
+<td><strong>ruff</strong></td>
+<td>Single fast tool</td>
+</tr>
+<tr>
+<td>Types</td>
+<td><strong>mypy</strong> (strict on <code>src/</code>)</td>
+<td>Same as repo-env</td>
+</tr>
+<tr>
+<td>Docs</td>
+<td><strong>mkdocs-material</strong> + mkdocstrings, versioned with mike</td>
+<td>Same as repo-env</td>
+</tr>
+<tr>
+<td>Commits/releases</td>
+<td><strong>commitizen</strong>, CHANGELOG, release workflow</td>
+<td>Same as repo-env</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td><strong>pytest</strong>, <strong>syrupy</strong> (snapshot tapes), <strong>hypothesis</strong> (timeline math)</td>
+<td>Golden tapes as snapshots</td>
+</tr>
+<tr>
+<td>Hooks/CI</td>
+<td><strong>pre-commit</strong> (ruff, mypy, codespell), GitHub Actions with a uv cache</td>
+<td></td>
+</tr>
+<tr>
+<td>Code quality</td>
+<td>vulture, fawltydeps</td>
+<td>Same as repo-env</td>
+</tr>
+<tr>
+<td>Container</td>
+<td>Multi-stage Dockerfile, <code>uv sync --frozen</code> in the image</td>
+<td>Same lockfile as native</td>
+</tr>
+</tbody>
+</table>
+<p><code>pyproject.toml</code> sketch:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[project]</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"narratty"</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">dynamic</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"version"</span><span class="p">]</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">license</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">text</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"MIT"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">requires-python</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"&gt;=3.12"</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="s2">"typer&gt;=0.12"</span><span class="p">,</span><span class="w"> </span><span class="s2">"rich&gt;=13"</span><span class="p">,</span><span class="w"> </span><span class="s2">"questionary&gt;=2.0"</span><span class="p">,</span><span class="w"> </span><span class="s2">"pydantic&gt;=2.7"</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="s2">"pydantic-settings&gt;=2.3"</span><span class="p">,</span><span class="w"> </span><span class="s2">"ruamel.yaml&gt;=0.18"</span><span class="p">,</span><span class="w"> </span><span class="s2">"platformdirs&gt;=4"</span><span class="p">,</span><span class="w"> </span><span class="s2">"httpx&gt;=0.27"</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="s2">"piper-tts&gt;=1.3"</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">]</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="k">[project.scripts]</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">narratty</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"narratty.cli:app"</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="k">[build-system]</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="n">requires</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"hatchling"</span><span class="p">,</span><span class="w"> </span><span class="s2">"hatch-vcs"</span><span class="p">]</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">build-backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"hatchling.build"</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="k">[project.optional-dependencies]</span><span class="w">      </span><span class="c1"># grouped like repo-env</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="n">kokoro</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"kokoro-onnx&gt;=0.4"</span><span class="p">,</span><span class="w"> </span><span class="s2">"soundfile&gt;=0.12"</span><span class="p">]</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="n">test</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"pytest"</span><span class="p">,</span><span class="w"> </span><span class="s2">"pytest-cov"</span><span class="p">,</span><span class="w"> </span><span class="s2">"pytest-xdist"</span><span class="p">,</span><span class="w"> </span><span class="s2">"syrupy"</span><span class="p">,</span><span class="w"> </span><span class="s2">"hypothesis"</span><span class="p">]</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="n">lint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"ruff"</span><span class="p">]</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="n">type-check</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mypy"</span><span class="p">]</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="n">docs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mkdocs-material"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mkdocstrings[python]"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mike"</span><span class="p">]</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"nox"</span><span class="p">,</span><span class="w"> </span><span class="s2">"commitizen"</span><span class="p">,</span><span class="w"> </span><span class="s2">"narratty[test,lint,type-check,docs,kokoro]"</span><span class="p">]</span>
+</code></pre></div>
+<hr />
+<h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
+<p>Typer provides completion for <strong>bash, zsh, fish and PowerShell</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>narratty<span class="w"> </span>--install-completion<span class="w">        </span><span class="c1"># detects the current shell and installs it</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>narratty<span class="w"> </span>--show-completion<span class="w"> </span>zsh<span class="w">       </span><span class="c1"># print the script (for dotfiles / packaging)</span>
+</code></pre></div>
+<p>Dynamic completers (<code>autocompletion=</code> callbacks) on top of the built-in ones:</p>
+<table>
+<thead>
+<tr>
+<th>Argument / option</th>
+<th>Completes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;spec&gt;</code></td>
+<td><code>*.narratty.yaml</code> / <code>*.narratty.yml</code> in the current tree</td>
+</tr>
+<tr>
+<td><code>--provider</code></td>
+<td><code>piper</code>, <code>kokoro</code> (Kokoro only if the extra is installed)</td>
+</tr>
+<tr>
+<td><code>--voice</code></td>
+<td>voice ids for the provider in the spec or <code>--provider</code> (from the curated catalog, no model loading)</td>
+</tr>
+<tr>
+<td><code>--scene</code> / <code>--from-scene</code></td>
+<td>scene ids read from the spec on the command line</td>
+</tr>
+<tr>
+<td><code>--runtime</code></td>
+<td><code>auto</code>, <code>native</code>, <code>docker</code>, <code>podman</code></td>
+</tr>
+<tr>
+<td><code>--theme</code></td>
+<td>VHS theme names (static list shipped with the package)</td>
+</tr>
+</tbody>
+</table>
+<p>Rules that keep completion usable:
+- Completers never import onnxruntime, piper or kokoro and never start a container;
+  they read static catalogs and the spec file only. Target &lt; 150 ms.
+- In sandboxed mode completion still runs on the host CLI, so it works identically.
+- A test runs each completer through Click's completion test harness.</p>
+<hr />
+<h2 id="project-layout">Project layout<a class="headerlink" href="#project-layout" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>narratty/
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>├── pyproject.toml            # package + entry point (narratty = narratty.cli:app)
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>├── uv.lock
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>├── README.md                 # this plan, later the user guide
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>├── Dockerfile                # narratty-base (VHS + ttyd + ffmpeg + Piper + CLIs)
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>├── Dockerfile.kokoro         # FROM narratty-base, adds kokoro-onnx + model
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>├── src/narratty/
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>│   ├── __init__.py
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>│   ├── cli.py                # Typer app: commands + completers
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>│   ├── settings.py           # pydantic-settings: env, config file, defaults
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>│   ├── model.py              # Pydantic models for .narratty.yaml
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>│   ├── parser.py             # ruamel load → model; errors with line/col
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>│   ├── schema.py             # JSON Schema export
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>│   ├── timeline.py           # scene start/end times from actions + audio
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>│   ├── tape.py               # timeline → byte-stable VHS .tape
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>│   ├── render.py             # run VHS → silent video
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>│   ├── mux.py                # place clips on the timeline, mux onto video
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>│   ├── workspace.py          # snapshot/rw/ro prep, caches, artifact export, cleanup
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>│   ├── runtime/
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>│   │   ├── base.py           # Runtime protocol: run(cmd, spec, settings)
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>│   │   ├── native.py         # subprocess on the host
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>│   │   └── container.py      # docker/podman launcher, mounts, image resolve
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>│   ├── tts/
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>│   │   ├── base.py           # TtsProvider protocol + registry
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>│   │   ├── normalize.py      # shared text normalization
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>│   │   ├── catalog.py        # curated voices: id, url, sha256, license
+<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>│   │   ├── piper.py
+<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>│   │   └── kokoro.py
+<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>│   ├── cache.py              # content-addressed audio cache
+<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a>│   ├── media.py              # ffprobe helpers (durations, stream checks)
+<a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>│   ├── doctor.py             # preflight per runtime
+<a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a>│   └── data/
+<a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a>│       ├── voices.toml       # curated catalog
+<a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>│       └── themes.txt        # VHS theme names for completion
+<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a>└── tests/
+<a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>    ├── unit/                 # parser, timeline, tape snapshots, cache keys
+<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a>    ├── contract/             # each TtsProvider against the protocol
+<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a>    ├── cli/                  # CliRunner + completion tests
+<a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a>    └── integration/          # end-to-end build (marked, runs in container CI)
+</code></pre></div>
+<hr />
+<h2 id="the-narrattyyaml-spec">The <code>.narratty.yaml</code> spec<a class="headerlink" href="#the-narrattyyaml-spec" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># yaml-language-server: $schema=https://&lt;host&gt;/narratty/schema/v1.json</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nt">meta</span><span class="p">:</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"Repository</span><span class="nv"> </span><span class="s">layout</span><span class="nv"> </span><span class="s">tour"</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nt">tts</span><span class="p">:</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">piper</span><span class="w">                 </span><span class="c1"># piper | kokoro</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="nt">voice</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">en_US-lessac-medium</span><span class="w">      </span><span class="c1"># provider-specific voice id</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span><span class="c1"># piper:  { length_scale: 1.0 }</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span><span class="c1"># kokoro: { speed: 1.0 }</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="nt">timing</span><span class="p">:</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">  </span><span class="nt">narration_buffer_ms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span><span class="w">        </span><span class="c1"># silence after each narration (matches demo-machine)</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">  </span><span class="nt">lead_in_ms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span><span class="w">                 </span><span class="c1"># before the first scene</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span><span class="nt">tail_ms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span><span class="w">                   </span><span class="c1"># after the last scene</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="nt">terminal</span><span class="p">:</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">  </span><span class="nt">width</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1200</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">  </span><span class="nt">height</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">700</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">  </span><span class="nt">theme</span><span class="p">:</span><span class="w"> </span><span class="s">"Dracula"</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">  </span><span class="nt">font_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">22</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">  </span><span class="nt">typing_speed_ms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">40</span><span class="w">             </span><span class="c1"># overridable per scene</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="w">  </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bash</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="nt">requires</span><span class="p">:</span><span class="w">                         </span><span class="c1"># drives the container; checked by doctor in native mode</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="w">  </span><span class="nt">tools</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">bat</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">eza</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">yazi</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">bazelisk</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="nt">workspace</span><span class="p">:</span><span class="w">                        </span><span class="c1"># see "Workspace &amp; build outputs"</span>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="w">  </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span><span class="w">                       </span><span class="c1"># repo to demo, relative to the spec file</span>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">snapshot</span><span class="w">                  </span><span class="c1"># snapshot (default) | rw | ro</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="w">  </span><span class="nt">include_uncommitted</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">       </span><span class="c1"># snapshot: carry over modified + untracked files</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="w">  </span><span class="nt">caches</span><span class="p">:</span><span class="w">                         </span><span class="c1"># persistent across renders, never part of the repo</span>
+<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="w">    </span><span class="nt">bazel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">~/.cache/bazel</span>
+<a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a><span class="w">  </span><span class="nt">artifacts</span><span class="p">:</span><span class="w">                      </span><span class="c1"># copied to out/ after the render</span>
+<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bazel-bin/app/app</span>
+<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a><span class="nt">sandbox</span><span class="p">:</span><span class="w">                          </span><span class="c1"># what the demo may reach; see "Sandbox permissions"</span>
+<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">allowlist</span><span class="w">              </span><span class="c1"># none (default) | allowlist | full</span>
+<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a><span class="w">  </span><span class="nt">allow_hosts</span><span class="p">:</span>
+<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">license.example.com:27000</span><span class="w">   </span><span class="c1"># e.g. a licence server (raw TCP)</span>
+<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.example.com:443</span><span class="w">       </span><span class="c1"># e.g. a Bazel remote cache</span>
+<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a><span class="w">  </span><span class="nt">env_passthrough</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">LM_LICENSE_FILE</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">BAZEL_REMOTE_CACHE_TOKEN</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># names only</span>
+<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a><span class="w">  </span><span class="nt">env</span><span class="p">:</span>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="w">    </span><span class="nt">TERM</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xterm-256color</span>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="w">  </span><span class="nt">extra_mounts</span><span class="p">:</span>
+<a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> host</span><span class="p">:</span><span class="w"> </span><span class="nv">~/.netrc</span><span class="p p-Indicator">,</span><span class="nt"> container</span><span class="p">:</span><span class="w"> </span><span class="nv">~/.netrc</span><span class="p p-Indicator">,</span><span class="nt"> mode</span><span class="p">:</span><span class="w"> </span><span class="nv">ro</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-6-41" name="__codelineno-6-41" href="#__codelineno-6-41"></a>
+<a id="__codelineno-6-42" name="__codelineno-6-42" href="#__codelineno-6-42"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-6-43" name="__codelineno-6-43" href="#__codelineno-6-43"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">setup</span>
+<a id="__codelineno-6-44" name="__codelineno-6-44" href="#__codelineno-6-44"></a><span class="w">    </span><span class="nt">hidden</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                  </span><span class="c1"># runs but is not recorded (VHS Hide/Show)</span>
+<a id="__codelineno-6-45" name="__codelineno-6-45" href="#__codelineno-6-45"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-6-46" name="__codelineno-6-46" href="#__codelineno-6-46"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type_command</span><span class="p">:</span><span class="w"> </span><span class="s">"cd</span><span class="nv"> </span><span class="s">/work</span><span class="nv"> </span><span class="s">&amp;&amp;</span><span class="nv"> </span><span class="s">clear"</span>
+<a id="__codelineno-6-47" name="__codelineno-6-47" href="#__codelineno-6-47"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">enter</span>
+<a id="__codelineno-6-48" name="__codelineno-6-48" href="#__codelineno-6-48"></a>
+<a id="__codelineno-6-49" name="__codelineno-6-49" href="#__codelineno-6-49"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">intro</span>
+<a id="__codelineno-6-50" name="__codelineno-6-50" href="#__codelineno-6-50"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<a id="__codelineno-6-51" name="__codelineno-6-51" href="#__codelineno-6-51"></a><span class="w">      </span><span class="no">This is a quick tour of the repository layout.</span>
+<a id="__codelineno-6-52" name="__codelineno-6-52" href="#__codelineno-6-52"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-6-53" name="__codelineno-6-53" href="#__codelineno-6-53"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type_command</span><span class="p">:</span><span class="w"> </span><span class="s">"eza</span><span class="nv"> </span><span class="s">--tree</span><span class="nv"> </span><span class="s">--level=1</span><span class="nv"> </span><span class="s">."</span>
+<a id="__codelineno-6-54" name="__codelineno-6-54" href="#__codelineno-6-54"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">enter</span>
+<a id="__codelineno-6-55" name="__codelineno-6-55" href="#__codelineno-6-55"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> screen</span><span class="p">:</span><span class="w"> </span><span class="s">'\$</span><span class="nv"> </span><span class="s">$'</span><span class="p p-Indicator">,</span><span class="nt"> timeout_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">5000</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># wait for the prompt to return</span>
+<a id="__codelineno-6-56" name="__codelineno-6-56" href="#__codelineno-6-56"></a>
+<a id="__codelineno-6-57" name="__codelineno-6-57" href="#__codelineno-6-57"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">wrap</span>
+<a id="__codelineno-6-58" name="__codelineno-6-58" href="#__codelineno-6-58"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<a id="__codelineno-6-59" name="__codelineno-6-59" href="#__codelineno-6-59"></a><span class="w">      </span><span class="no">That is the high level map.</span>
+<a id="__codelineno-6-60" name="__codelineno-6-60" href="#__codelineno-6-60"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-6-61" name="__codelineno-6-61" href="#__codelineno-6-61"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">hold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</code></pre></div>
+<p>Changes vs. draft: top-level <code>version</code>, a <code>timing</code> block, <code>hidden</code> scenes, <code>wait</code>
+action, <code>shell</code>, and a schema comment so editors autocomplete and validate specs
+(<code>narratty schema &gt; narratty.schema.json</code>).</p>
+<h3 id="actions-v1">Actions (v1)<a class="headerlink" href="#actions-v1" title="Permanent link">&para;</a></h3>
+<p>Modelled as a Pydantic discriminated union; unknown keys are errors.</p>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Meaning</th>
+<th>VHS emission</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type_command: "…"</code></td>
+<td>type text at the scene's typing speed</td>
+<td><code>Type "…"</code></td>
+</tr>
+<tr>
+<td><code>enter</code></td>
+<td>press Enter</td>
+<td><code>Enter</code></td>
+</tr>
+<tr>
+<td><code>ctrl_sequence: "C-c"</code></td>
+<td>control chord</td>
+<td><code>Ctrl+C</code></td>
+</tr>
+<tr>
+<td><code>hold: auto \| &lt;ms&gt;</code></td>
+<td>pause; <code>auto</code> = fill to the end of the narration</td>
+<td><code>Sleep &lt;n&gt;ms</code></td>
+</tr>
+<tr>
+<td><code>wait: { screen: &lt;regex&gt;, timeout_ms }</code></td>
+<td>block until the regex matches the last line</td>
+<td><code>Wait+Screen@&lt;t&gt; /&lt;regex&gt;/</code></td>
+</tr>
+<tr>
+<td><code>key: "&lt;VHS key&gt;"</code></td>
+<td>raw VHS key (escape hatch)</td>
+<td><code>&lt;key&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>narration</code> is scene-level (one voiceover per scene).</p>
+<hr />
+<h2 id="pipeline">Pipeline<a class="headerlink" href="#pipeline" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart LR
+  S[.narratty.yaml] --&gt; P[parser]
+  P --&gt; T[tts provider&lt;br/&gt;piper or kokoro]
+  T &lt;--&gt; C[(audio cache)]
+  T --&gt; D[ffprobe durations]
+  D --&gt; L[timeline]
+  P --&gt; L
+  L --&gt; G[tape generator]
+  G --&gt; R[VHS render&lt;br/&gt;silent mp4]
+  L --&gt; M[mux: place clips&lt;br/&gt;at scene starts]
+  T --&gt; M
+  R --&gt; M
+  M --&gt; V[verify durations]
+  V --&gt; OUT[final .mp4]</code></pre>
+<ol>
+<li><strong>parse</strong>: load and validate into typed models (host side, always).</li>
+<li><strong>tts</strong>: one clip per narrated scene; cache hit skips synthesis. Scenes are
+   synthesized in parallel (thread pool, <code>--jobs</code>).</li>
+<li><strong>durations</strong>: <code>ffprobe</code> each clip for exact seconds.</li>
+<li><strong>timeline</strong>: compute each scene's start and length (below).</li>
+<li><strong>tape</strong>: emit the byte-stable <code>.tape</code>.</li>
+<li><strong>render</strong>: <code>vhs scene.tape</code> → silent <code>video.mp4</code>.</li>
+<li><strong>mux</strong>: build the narration track by placing each clip at its scene start
+   (<code>adelay</code> + <code>amix</code>, or a generated silence-padded concat), then mux onto the video.</li>
+<li><strong>verify</strong>: ffprobe the result; fail if total video length differs from the
+   timeline by more than a threshold (default 250 ms), warn above 100 ms.</li>
+</ol>
+<hr />
+<h2 id="sync-model">Sync model<a class="headerlink" href="#sync-model" title="Permanent link">&para;</a></h2>
+<p>The draft emitted <code>actions</code> then <code>Sleep &lt;audio&gt;</code> per scene, but concatenated audio
+back to back. Each scene's video was therefore <code>typing + audio</code> long while its audio
+was only <code>audio</code> long, so narration drifted earlier with every scene.</p>
+<p>Rev 2 makes the timeline explicit:</p>
+<ul>
+<li>Narration starts <strong>when the scene starts</strong>, so the voice talks while the command is
+  typed (natural screencast feel). Option <code>narration_start: after_actions</code> per scene
+  for the draft's behaviour.</li>
+<li><code>action_ms</code> = deterministic time of the scene's actions: characters × typing
+  speed, plus fixed key costs, plus literal <code>hold</code> values. <code>wait</code> counts its expected
+  time as 0 and relies on the fill below.</li>
+<li><code>scene_ms = max(action_ms, audio_ms + narration_buffer_ms)</code>; the tape appends
+  <code>Sleep (scene_ms - action_ms)</code> after the actions. <code>hold: auto</code> is where that fill
+  goes if it appears mid-scene.</li>
+<li>Scenes without narration use their literal timing. <code>hidden</code> scenes contribute 0 ms.</li>
+<li>The mux places clip <em>n</em> at <code>lead_in_ms + Σ scene_ms[0..n-1]</code>, so an error in one
+  scene never accumulates into later scenes' audio.</li>
+<li>Known limit: a command whose output takes longer than its scene's fill (or a <code>wait</code>
+  that blocks long) stretches the video. <code>verify</code> catches this; the fix in the spec is
+  a larger <code>hold</code> or moving the slow command into a <code>hidden</code> scene.</li>
+</ul>
+<hr />
+<h2 id="tts-pluggable-piper--kokoro">TTS: pluggable Piper + Kokoro<a class="headerlink" href="#tts-pluggable-piper--kokoro" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># tts/base.py</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">TtsProvider</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">name</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">model_version</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">synthesize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">voice</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">opts</span><span class="p">:</span> <span class="n">ProviderOpts</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">list_voices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">VoiceInfo</span><span class="p">]:</span> <span class="o">...</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">DoctorFinding</span><span class="p">]:</span> <span class="o">...</span>   <span class="c1"># used by doctor</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>How</th>
+<th>Voice ids</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Piper</td>
+<td><code>piper-tts</code> package (<code>piper</code> CLI / Python API), text on stdin</td>
+<td><code>en_US-lessac-medium</code></td>
+<td>CPU, tiny models, fast; default and CI provider</td>
+</tr>
+<tr>
+<td>Kokoro</td>
+<td><code>kokoro-onnx</code> + onnxruntime → 24 kHz WAV</td>
+<td><code>af_heart</code>, <code>am_adam</code></td>
+<td>82M model, better prosody; optional extra and separate image</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Selection</strong>: <code>tts.provider</code> + <code>tts.voice</code>; validation checks the voice against the
+  catalog (see answers below).</li>
+<li><strong>Cache key</strong>: <code>sha256(provider, voice, normalized_text, model_version, sorted opts)</code>.
+  Content-addressed under the user cache dir; <code>narratty cache prune --older-than 30d</code>.</li>
+<li><strong>Normalization</strong>: shared by both providers (whitespace, numbers, punctuation) so
+  keys and prosody stay consistent.</li>
+<li><strong>Parity with demo-machine</strong>: same provider + voice + normalization gives identical
+  audio on both tracks. Share <code>normalize.py</code> and <code>voices.toml</code> with demo-machine if
+  possible.</li>
+<li><strong>Failure handling</strong>: missing package, model or voice fails in <code>doctor</code>/<code>validate</code>,
+  never mid-render.</li>
+<li><strong>Licensing flag</strong>: Piper development moved to OHF-Voice/piper1-gpl and current
+  <code>piper-tts</code> releases are <strong>GPL-3.0</strong>; both Piper and Kokoro rely on espeak-ng (GPL)
+  for phonemization. Individual voices have their own licences (recorded per voice in
+  <code>voices.toml</code>). Calling Piper as a subprocess instead of importing it keeps
+  narratty's own licence independent (e.g. MIT or Apache-2.0); importing it as a
+  library would pull narratty towards GPL-3.0.</li>
+</ul>
+<hr />
+<h2 id="vhs-tape-generation">VHS tape generation<a class="headerlink" href="#vhs-tape-generation" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Header from <code>terminal</code>: <code>Output</code>, <code>Set Width/Height/FontSize/Theme/Shell/TypingSpeed</code>.</li>
+<li>Per scene: a <code># scene: &lt;id&gt;</code> comment, then <code>Type</code>/<code>Enter</code>/<code>Ctrl+…</code>/<code>Wait</code>/<code>Sleep</code>.</li>
+<li><code>hidden</code> scenes are wrapped in <code>Hide</code> … <code>Show</code>.</li>
+<li>Durations are emitted in integer milliseconds; ordering is deterministic, so the
+  tape is byte-stable for a given spec and audio set (snapshot-tested).</li>
+<li><code>narratty tape &lt;spec&gt;</code> prints the tape without rendering, for debugging.</li>
+</ul>
+<hr />
+<h2 id="packaging--container">Packaging &amp; container<a class="headerlink" href="#packaging--container" title="Permanent link">&para;</a></h2>
+<h3 id="images">Images<a class="headerlink" href="#images" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>narratty-base</code></strong>: pinned <code>debian:stable-slim</code> digest, Python 3.12, the
+  <code>narratty</code> package installed with <code>uv sync --frozen</code>, <code>vhs</code> + <code>ttyd</code> + <code>ffmpeg</code>
+  (pinned), Chromium for VHS, fontconfig + one monospace Nerd Font, Piper with one
+  default voice, and the curated CLIs (<code>bat</code>, <code>eza</code>, <code>yazi</code>, <code>fd</code>, <code>ripgrep</code>, <code>git</code>,
+  <code>jq</code>). Non-root user <code>narratty</code>. <code>ENTRYPOINT ["narratty"]</code>.</li>
+<li><strong><code>narratty-base:&lt;ver&gt;-kokoro</code></strong>: <code>FROM narratty-base</code>, adds <code>kokoro-onnx</code>,
+  onnxruntime and the pinned Kokoro model. Pulled only when <code>tts.provider: kokoro</code>.</li>
+<li>Both published to GHCR with the CLI release.</li>
+</ul>
+<h3 id="long-tail-tools">Long-tail tools<a class="headerlink" href="#long-tail-tools" title="Permanent link">&para;</a></h3>
+<p>If <code>requires.tools</code> names something outside the base, the launcher generates a thin
+<code>FROM narratty-base</code> Dockerfile that installs only those tools with a pinned
+installer (<code>mise</code> by default, version-pinned apt as fallback) and tags it
+<code>narratty-req:&lt;sha256(requires + base digest)&gt;</code>. Cached locally, rebuilt only when the
+requirements or the base change. Network is enabled only for that build.</p>
+<p>In native mode the same list is only checked (<code>doctor</code> reports what is missing and how
+to install it).</p>
+<h3 id="paths-mounts-sandboxing">Paths, mounts, sandboxing<a class="headerlink" href="#paths-mounts-sandboxing" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The workspace (see <a href="#workspace--build-outputs">Workspace &amp; build outputs</a>) is bind
+  mounted at <code>/work</code>, the output dir at <code>/out</code>; repo data is never baked into an image.</li>
+<li>Non-root, read-only rootfs with tmpfs for <code>/tmp</code> and <code>$HOME</code>, <code>--cap-drop ALL</code>,
+  <code>no-new-privileges</code>, <code>--network none</code>.</li>
+<li><code>videogen</code> calls <code>narratty build</code> and gets the same runtime selection for free.</li>
+</ul>
+<hr />
+<h2 id="cli-surface">CLI surface<a class="headerlink" href="#cli-surface" title="Permanent link">&para;</a></h2>
+<p>Global options: <code>--runtime</code>, <code>--image</code>, <code>--cache-dir</code>, <code>--jobs</code>, <code>-v/-q</code>, <code>--json</code>
+(machine-readable output for <code>videogen</code>), <code>--yes</code>, <code>--install-completion</code>,
+<code>--show-completion</code>, <code>--version</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>narratty init [path]</code></td>
+<td>Scaffold a commented <code>.narratty.yaml</code> with the schema line</td>
+</tr>
+<tr>
+<td><code>narratty validate &lt;spec&gt;</code></td>
+<td>Parse + schema-validate; check voice, actions, <code>requires</code></td>
+</tr>
+<tr>
+<td><code>narratty schema</code></td>
+<td>Print the JSON Schema for the spec</td>
+</tr>
+<tr>
+<td><code>narratty voices [--provider]</code></td>
+<td>List catalog voices, marking which are installed locally</td>
+</tr>
+<tr>
+<td><code>narratty voices pull &lt;id&gt;</code></td>
+<td>Download and verify a voice/model (native mode)</td>
+</tr>
+<tr>
+<td><code>narratty plan &lt;spec&gt;</code></td>
+<td>Print the timeline and total length without rendering (estimates if audio is not cached)</td>
+</tr>
+<tr>
+<td><code>narratty tts &lt;spec&gt;</code></td>
+<td>Synthesize or cache-hit all clips; print durations and the timeline</td>
+</tr>
+<tr>
+<td><code>narratty tape &lt;spec&gt;</code></td>
+<td>Print the generated <code>.tape</code></td>
+</tr>
+<tr>
+<td><code>narratty render &lt;spec&gt;</code></td>
+<td>TTS + tape + VHS → silent video</td>
+</tr>
+<tr>
+<td><code>narratty build &lt;spec&gt; -o out.mp4</code></td>
+<td>Full pipeline + verify; <code>--scene</code>, <code>--draft</code>, <code>--workspace-mode</code>, <code>--keep-workspace</code>, <code>--network</code>, <code>--var k=v</code></td>
+</tr>
+<tr>
+<td><code>narratty watch &lt;spec&gt;</code></td>
+<td>Re-render a draft on every spec change</td>
+</tr>
+<tr>
+<td><code>narratty doctor [&lt;spec&gt;]</code></td>
+<td>Preflight for the chosen runtime: tools and versions, voices, mounts, container runtime, image availability</td>
+</tr>
+<tr>
+<td><code>narratty cache {info,prune}</code></td>
+<td>Inspect or prune the audio cache, snapshots and build-cache volumes</td>
+</tr>
+</tbody>
+</table>
+<p>Exit codes: 0 ok, 1 unexpected error, 2 usage error, 3 validation error, 4 missing
+dependency (doctor), 5 render/mux failure, 6 sync verification failure.</p>
+<hr />
+<h2 id="determinism--caching">Determinism &amp; caching<a class="headerlink" href="#determinism--caching" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Content-addressed audio cache (key above), shared between native and sandboxed runs.</li>
+<li>Byte-stable <code>.tape</code> for a given spec + audio set.</li>
+<li>Pinned: base image digest, Python lockfile, Piper and Kokoro model files (sha256 in
+  <code>voices.toml</code>), VHS, ttyd, ffmpeg, font.</li>
+<li><code>build --check</code>: rebuild and compare sampled frames (one per scene, at scene
+  midpoint) against a golden set, like demo-machine's golden frames. Only meaningful in
+  sandboxed mode.</li>
+</ul>
+<hr />
+<h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Unit</strong>: parser errors with line numbers; action union; timeline math (hypothesis:
+  clip <em>n</em> always starts at the sum of previous scene lengths, no scene shorter than
+  its narration); tape snapshots (syrupy); cache key stability; settings precedence;
+  runtime <code>auto</code> resolution; container command construction (snapshot of the
+  <code>docker run</code> argv).</li>
+<li><strong>CLI</strong>: <code>CliRunner</code> for every command; completion callbacks return expected values
+  and do not import heavy modules.</li>
+<li><strong>Provider contract</strong>: Piper and Kokoro satisfy <code>TtsProvider</code> and produce a readable,
+  non-empty WAV for a fixture line (Kokoro tests skipped when the extra is missing).</li>
+<li><strong>Integration</strong>: 3-scene fixture (one hidden) → <code>build</code> in the container → assert
+  video + audio streams and duration ≈ timeline total; run once natively on a
+  Linux CI runner with tools installed to keep native mode honest.</li>
+<li>CI runs without network; models are baked into the images, and native CI caches them.</li>
+</ul>
+<hr />
+<h2 id="ux--flexibility-considerations">UX &amp; flexibility considerations<a class="headerlink" href="#ux--flexibility-considerations" title="Permanent link">&para;</a></h2>
+<p>Grouped by where they help. Items marked <strong>v1</strong> are worth building in the first
+release; the rest are cheap to add later if the design leaves room now.</p>
+<h3 id="fast-authoring-loop">Fast authoring loop<a class="headerlink" href="#fast-authoring-loop" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>v1 <code>--draft</code></strong>: half resolution, low fps, audio from a length estimate
+  (words ÷ speaking rate) instead of TTS. Lets you iterate on actions in seconds.</li>
+<li><strong>v1 <code>--scene intro --scene wrap</code></strong> and <code>--from-scene</code>: render a subset. The shell
+  state still needs earlier scenes, so skipped scenes run <code>hidden</code>, not dropped.</li>
+<li><strong>v1 <code>narratty plan &lt;spec&gt;</code></strong>: prints the timeline table (scene, narration length,
+  action length, total) and the total video length before anything renders.</li>
+<li><code>narratty watch &lt;spec&gt;</code>: re-render the draft whenever the spec changes.</li>
+<li><code>narratty preview</code>: play the result (or open the draft) when done.</li>
+</ul>
+<h3 id="output-quality-and-accessibility">Output quality and accessibility<a class="headerlink" href="#output-quality-and-accessibility" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>v1 subtitles</strong>: the timeline already knows each narration's start and length, so
+  emit <code>.srt</code>/<code>.vtt</code> for free; <code>--burn-subtitles</code> to hard-code them.</li>
+<li><strong>v1 chapters</strong>: scene ids/titles as MP4 chapter markers.</li>
+<li><strong>v1 pronunciation lexicon</strong>: layered built-in, user, project and spec lists; see
+  <a href="#pronunciation-lexicon">Pronunciation lexicon</a>. Technical words are where TTS
+  sounds worst.</li>
+<li>More formats: <code>-o demo.webm</code>, <code>-o demo.gif</code> (GIF without audio, for READMEs).</li>
+<li>Per-scene voice/speed overrides, for a two-speaker dialogue or emphasis.</li>
+<li>Background music track with automatic ducking under narration.</li>
+</ul>
+<h3 id="pronunciation-lexicon">Pronunciation lexicon<a class="headerlink" href="#pronunciation-lexicon" title="Permanent link">&para;</a></h3>
+<p>A mix of all levels, merged in this order (later wins):</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Where</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Built-in</td>
+<td>shipped with narratty, versioned</td>
+<td>Common tech terms: <code>kubectl</code>, <code>nginx</code>, <code>sudo</code>, <code>YAML</code>, <code>CLI</code>, <code>GUI</code>…</td>
+</tr>
+<tr>
+<td>2. User</td>
+<td><code>~/.config/narratty/lexicon.toml</code></td>
+<td>Your personal preferences</td>
+</tr>
+<tr>
+<td>3. Project</td>
+<td><code>narratty.lexicon.toml</code> next to the spec or up to the repo root, or pulled in via <code>extends</code></td>
+<td>Terms of the subject being demoed, shared by a series of videos</td>
+</tr>
+<tr>
+<td>4. Spec</td>
+<td><code>tts.lexicon:</code> in <code>.narratty.yaml</code></td>
+<td>One-offs for this video</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># narratty.lexicon.toml</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">Bazel</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s2">"Bay-zel"</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">kubectl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"cube control"</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="k">[nginx]</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">say</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"engine x"</span><span class="w">                  </span><span class="c1"># respelling, works with every provider</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">ipa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"ˈɛndʒɪn ˈɛks"</span><span class="w">              </span><span class="c1"># used where the provider accepts phonemes</span>
+</code></pre></div>
+<ul>
+<li>Matching is whole-word; case-sensitive for entries with capitals, so <code>Bazel</code> and
+  a variable called <code>bazel</code> can differ.</li>
+<li><strong>Reproducibility</strong>: only the entries that actually change a narration go into that
+  clip's cache key and into <code>manifest.json</code>, so a user entry can't silently change
+  someone else's render; <code>--no-user-config</code> ignores level 2 (default in CI).</li>
+<li><strong>Sandboxed mode</strong>: the host CLI resolves all levels and hands the container a fully
+  merged spec, so user and project files never need mounting.</li>
+<li><code>narratty lexicon show &lt;spec&gt;</code> prints the merged list with each entry's source;
+  <code>narratty lexicon check &lt;spec&gt;</code> lists likely problem words in the narration
+  (all-caps, camelCase, words with digits or dots) that no level covers.</li>
+</ul>
+<h3 id="predictable-terminal-content">Predictable terminal content<a class="headerlink" href="#predictable-terminal-content" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>v1 deterministic session</strong>: clean <code>HOME</code>, fixed <code>PS1</code> (configurable, e.g.
+  <code>prompt: "$ "</code> or a starship config), fixed <code>TZ</code>/<code>LANG</code>, fixed hostname/user in the
+  container, <code>sandbox.env</code> for everything else. Stops real usernames, paths and
+  timestamps from leaking into videos and golden frames.</li>
+<li><strong>v1 fail on command errors</strong>: the prompt embeds an invisible exit-code marker;
+  a <code>wait</code> or scene end that sees a non-zero exit fails the render with the scene id
+  (opt out per action with <code>allow_fail: true</code>). Otherwise a broken demo is only
+  noticed when someone watches the video.</li>
+<li>Redaction: <code>redact: ["ghp_[A-Za-z0-9]+", "$HOME"]</code> masks patterns in typed text.</li>
+</ul>
+<h3 id="flexible-specs">Flexible specs<a class="headerlink" href="#flexible-specs" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>v1 hooks</strong>: <code>before</code>/<code>after</code> shell commands that run in the same workspace but are
+  not recorded and do not open a VHS session (warm caches, seed files, fetch deps).
+  <code>hidden</code> scenes stay for things that must happen in the recorded shell (<code>cd</code>, <code>export</code>).</li>
+<li><strong>v1 variables</strong>: <code>${VAR}</code> and <code>${VAR:-default}</code> interpolation from <code>vars:</code> and the
+  environment, so one spec serves several branches/targets (<code>--var target=//app:all</code>).</li>
+<li><code>extends: ../common.narratty.yaml</code> to share terminal, TTS and lexicon settings
+  across a series of videos; project-level <code>narratty.toml</code> for defaults.</li>
+<li>Scene snippets/includes for recurring sequences (e.g. "build and run").</li>
+<li><code>narratty import demo.tape</code>: turn an existing VHS tape into a spec skeleton.</li>
+</ul>
+<h3 id="extensibility">Extensibility<a class="headerlink" href="#extensibility" title="Permanent link">&para;</a></h3>
+<ul>
+<li>TTS providers and actions registered through Python entry points
+  (<code>narratty.tts</code>, <code>narratty.actions</code>), so a team can add a provider without forking.
+  Piper and Kokoro themselves are registered that way.</li>
+<li>Stable <code>--json</code> output and a <code>manifest.json</code> next to every render (spec hash, tool
+  and model versions, image digest, per-scene timing, artifact list), which <code>videogen</code>
+  and CI can consume.</li>
+</ul>
+<h3 id="output-layout">Output layout<a class="headerlink" href="#output-layout" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>out/&lt;spec-name&gt;/
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>├── &lt;spec-name&gt;.mp4
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>├── &lt;spec-name&gt;.srt / .vtt
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>├── manifest.json
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>├── artifacts/            # workspace.artifacts
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>└── debug/                # --keep-intermediates: tape, silent video, audio clips
+</code></pre></div>
+<h3 id="behaviour-people-notice">Behaviour people notice<a class="headerlink" href="#behaviour-people-notice" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Ctrl+C stops the container, removes the snapshot and leaves no half-written <code>.mp4</code>
+  (write to a temp name, rename on success).</li>
+<li>Every error names the scene id and the YAML line; unknown keys get "did you mean".</li>
+<li>A progress line per stage with timings; <code>-q</code> for CI, <code>-v</code> shows the exact
+  <code>docker run</code> / <code>vhs</code> / <code>ffmpeg</code> commands so users can reproduce by hand.</li>
+</ul>
+<hr />
+<h2 id="milestones">Milestones<a class="headerlink" href="#milestones" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Scaffold</strong>: uv project with repo-env's layout (hatch-vcs, nox, ruff, mypy, pytest,
+   pre-commit, mkdocs, commitizen, CI and release workflows, MIT licence), Typer app with
+   <code>--version</code> and working shell completion.</li>
+<li><strong>Spec + validate</strong>: Pydantic models, ruamel parser with line numbers, <code>validate</code>,
+   <code>schema</code>, <code>init</code>, <code>doctor</code> (native tool checks).</li>
+<li><strong>TTS layer</strong>: <code>TtsProvider</code>, Piper backend, normalization, cache, durations,
+   <code>voices</code>, <code>tts</code>.</li>
+<li><strong>Timeline + tape + render</strong>: timeline math, <code>tape</code>, VHS render to silent video
+   (native).</li>
+<li><strong>Mux + verify</strong>: timeline-placed audio, mux, verify → first narrated <code>.mp4</code>
+   natively.</li>
+<li><strong>Workspace + sandboxed mode</strong>: <code>snapshot</code>/<code>rw</code>/<code>ro</code> workspaces, caches, artifacts;
+   <code>narratty-base</code> image, container runtime, hardening flags, shared cache;
+   <code>--runtime auto</code>.
+5a. <strong>Sandbox permissions</strong>: <code>sandbox</code> block, consent prompt, user policy caps;
+   <code>none</code>/<code>full</code>, env passthrough, extra mounts. Then <code>allowlist</code> with the sidecar.
+5b. <strong>UX v1</strong>: <code>plan</code>, <code>--draft</code>, subtitles, chapters, layered lexicon, deterministic
+   session, exit-code checks, hooks, variables, <code>manifest.json</code>.</li>
+<li><strong>Kokoro</strong>: backend, <code>[kokoro]</code> extra, <code>-kokoro</code> image, voice validation for both.</li>
+<li><strong>Requirements layer</strong>: hash-tagged thin image from <code>requires.tools</code>.</li>
+<li><strong>Reference render</strong>: the Bazel-basics storyboard end to end in both modes, plus
+   <code>--check</code> golden frames.</li>
+</ol>
+<p>Native mode lands first (milestones 1–4) because it gives the fastest feedback loop;
+sandboxed mode then wraps a pipeline that already works.</p>
+<hr />
+<h2 id="open-questions-proposed-answers">Open questions: proposed answers<a class="headerlink" href="#open-questions-proposed-answers" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Kokoro size in the base image</strong> → Make it optional. Separate
+   <code>narratty-base:&lt;ver&gt;-kokoro</code> image (pulled only when <code>tts.provider: kokoro</code>) and a
+   <code>narratty[kokoro]</code> extra for native mode. Keeps the default image and CI lean and
+   still gives one-command Kokoro renders.</li>
+<li><strong>Voice catalog: allowlist vs. discovery</strong> → Both, layered. Ship a curated
+   <code>voices.toml</code> (id, provider, language, download URL, sha256, licence) that drives
+   validation, <code>voices</code> and completion, and accept any locally discovered model too
+   (with a warning that it is uncatalogued and not pinned). Sandboxed mode accepts only
+   voices baked into the image.</li>
+<li><strong>Buffer / lead-in defaults</strong> → Match demo-machine: <code>narration_buffer_ms: 500</code>.
+   Add <code>lead_in_ms: 300</code> and <code>tail_ms: 1000</code>, all overridable in <code>timing</code> and per
+   scene. Ideally both tools read the defaults from one shared place.</li>
+</ol>
+<h2 id="decisions-confirmed">Decisions (confirmed)<a class="headerlink" href="#decisions-confirmed" title="Permanent link">&para;</a></h2>
+<p>Confirmed by the user on 2026-09-29:
+- <strong>Default runtime</strong>: <code>auto</code>, meaning Docker (or Podman) automatically when installed,
+  otherwise native with a warning.
+- <strong>Repo home</strong>: a public GitHub repo under <code>ditschi</code>; images on GHCR, package on PyPI.
+- <strong>macOS</strong>: optional. Native mode on macOS is best-effort, with a non-blocking macOS
+  smoke job in CI; sandboxed mode works there through Docker Desktop or Podman anyway.
+- <strong>Workspace and sandbox permissions are configured in the spec</strong>, with CLI and user
+  policy overrides.
+- <strong>Licence</strong>: MIT (same as repo-env). Piper stays a subprocess so its GPL-3.0 does
+  not apply to narratty.
+- <strong>Default workspace mode</strong>: <code>snapshot</code>.</p>
+<h2 id="still-open">Still open<a class="headerlink" href="#still-open" title="Permanent link">&para;</a></h2>
+<p>Nothing blocking; the plan is ready to implement.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ditschi/narratty" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
