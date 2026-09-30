@@ -639,6 +639,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#asciicast-with-narration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asciicast with narration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#looking-before-rendering" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -940,6 +951,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#asciicast-with-narration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asciicast with narration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#looking-before-rendering" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1021,6 +1043,31 @@
 <a href="../spec/#end_card"><code>end_card</code></a>); <code>--no-end-card</code> leaves it out.</p>
 <p>With <code>--work-dir</code> the tape, the silent video and the narration track are kept for
 inspection.</p>
+<h2 id="asciicast-with-narration">Asciicast with narration<a class="headerlink" href="#asciicast-with-narration" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--format<span class="w"> </span>cast<span class="w">   </span><span class="c1"># demo.cast, demo.mp3, demo.html</span>
+</code></pre></div>
+<p>Instead of a video, this writes an <a href="https://docs.asciinema.org/manual/asciicast/v2/">asciicast</a>
+(<code>.cast</code>), the narration as MP3, and an HTML page that plays both with
+<a href="https://docs.asciinema.org/manual/player/">asciinema-player</a>. The player uses the
+audio as its clock, so pausing and seeking stay in sync. Terminal text stays
+selectable, and the cast is a few kilobytes.</p>
+<ul>
+<li><strong>The page is self-contained</strong>: cast and audio are embedded, so it works opened
+  from disk or on any static host. The player itself loads from jsDelivr.</li>
+<li><strong><code>-o</code></strong> names the page; the <code>.cast</code> and <code>.mp3</code> go beside it.</li>
+<li><strong>Recording</strong>: VHS cannot write asciicasts, so narratty runs the scenes itself in a
+  pseudo-terminal of the same size and shell. Each clip is placed at its scene's
+  recorded start, so there is no drift check.</li>
+<li><strong>Size</strong>: columns and rows follow <code>terminal.width</code>, <code>height</code> and <code>font_size</code>. The
+  theme applies when asciinema-player has one of the same name (Dracula, Monokai,
+  Nord, Solarized, Tango, …).</li>
+<li><strong><code>wait</code></strong> matches the text printed since the last clear, not a rendered screen;
+  full-screen programs such as <code>vim</code> are not modelled.</li>
+</ul>
+<p>To embed the recording in your own page, use the <code>.cast</code> and <code>.mp3</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nx">AsciinemaPlayer</span><span class="p">.</span><span class="nx">create</span><span class="p">(</span><span class="s2">"demo.cast"</span><span class="p">,</span><span class="w"> </span><span class="nx">element</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">audioUrl</span><span class="o">:</span><span class="w"> </span><span class="s2">"demo.mp3"</span><span class="w"> </span><span class="p">});</span>
+</code></pre></div>
+<p>Seeking needs a server that supports range requests, as most static hosts do.</p>
 <h2 id="looking-before-rendering">Looking before rendering<a class="headerlink" href="#looking-before-rendering" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

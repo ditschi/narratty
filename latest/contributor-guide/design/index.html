@@ -1037,6 +1037,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#asciicast-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asciicast output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#packaging--container" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1530,6 +1541,17 @@
     <span class="md-ellipsis">
       
         VHS tape generation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#asciicast-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asciicast output
       
     </span>
   </a>
@@ -2516,6 +2538,14 @@ was only <code>audio</code> long, so narration drifted earlier with every scene.
   tape is byte-stable for a given spec and audio set (snapshot-tested).</li>
 <li><code>narratty tape &lt;spec&gt;</code> prints the tape without rendering, for debugging.</li>
 </ul>
+<h2 id="asciicast-output">Asciicast output<a class="headerlink" href="#asciicast-output" title="Permanent link">&para;</a></h2>
+<p><code>build --format cast</code> records without VHS. <code>render/script.py</code> turns spec and timeline
+into steps (<code>Type</code>, <code>Press</code>, <code>Sleep</code>, <code>WaitScreen</code>, <code>Hide</code>, …); <code>render/tape.py</code>
+prints them as a tape, <code>render/cast.py</code> plays them in a pseudo-terminal and writes
+asciicast v2 events. Its clock stops while hidden, so hidden output lands at the
+moment recording resumes. Visible scenes become markers; their recorded starts
+place the clips. <code>render/player.py</code> writes the page (asciinema-player with
+<code>audioUrl</code>, cast and MP3 embedded).</p>
 <hr />
 <h2 id="packaging--container">Packaging &amp; container<a class="headerlink" href="#packaging--container" title="Permanent link">&para;</a></h2>
 <h3 id="images">Images<a class="headerlink" href="#images" title="Permanent link">&para;</a></h3>
