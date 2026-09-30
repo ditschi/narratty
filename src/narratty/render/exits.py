@@ -29,12 +29,18 @@ def _fish_quote(value: str) -> str:
 def exit_hook(shell: str, log: Path) -> str | None:
     """Shell code that logs the exit code of every command line, or None for ``sh``."""
     if shell == "bash":
-        # Enter first copies the line (bash has no preexec, and VHS turns history off).
+        # bash has no preexec. From 4.0, Enter first copies the line; bash 3.2 (macOS)
+        # lacks READLINE_LINE, so it turns history on (VHS turns it off) and reads it.
         return (
-            "_narratty_line=; "
+            "_narratty_line=; _narratty_last=; "
+            "if ((BASH_VERSINFO[0] >= 4)); then "
             "bind -x '\"\\C-x\\C-n\": _narratty_line=$READLINE_LINE'; "
             'bind \'"\\C-m": "\\C-x\\C-n\\C-j"\'; '
-            "_narratty_exit() { local s=$?; "
+            "else set -o history; fi; "
+            "_narratty_exit() { local s=$? h re='^ *[0-9]+[*]? +(.*)$'; "
+            "if ((BASH_VERSINFO[0] < 4)); then h=$(HISTTIMEFORMAT= builtin history 1); "
+            '[[ $h != "$_narratty_last" && $h =~ $re ]] && _narratty_line=${BASH_REMATCH[1]}; '
+            "_narratty_last=$h; fi; "
             "[[ $_narratty_line = *[![:space:]]* ]] && "
             f'printf \'%s\\t%s\\n\' "$s" "$_narratty_line" >>{_sh_quote(str(log))}; '
             "_narratty_line=; return $s; }; "

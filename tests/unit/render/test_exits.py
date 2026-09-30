@@ -142,8 +142,16 @@ scenes:
 """
 
 
-@pytest.mark.parametrize("shell", ["bash", "zsh", "fish"])
-def test_hook_logs_real_shells(shell: str, tmp_path: Path) -> None:
+def _as_bash_3(shell: str, log: Path) -> str | None:
+    """The hook as bash 3.2 (macOS) takes it: from history instead of READLINE_LINE."""
+    return str(exit_hook(shell, log)).replace(">= 4", ">= 99").replace("< 4", "< 99")
+
+
+@pytest.mark.parametrize("shell", ["bash", "bash-3", "zsh", "fish"])
+def test_hook_logs_real_shells(shell: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    if shell == "bash-3":
+        shell = "bash"
+        monkeypatch.setattr("narratty.render.script.exit_hook", _as_bash_3)
     if not shutil.which(shell):
         pytest.skip(f"{shell} is not installed")
     spec = parse_spec(RECORDED.format(shell=shell), tmp_path / "t.narratty.yaml")
