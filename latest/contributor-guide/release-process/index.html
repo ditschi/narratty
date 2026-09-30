@@ -961,7 +961,8 @@
 <p>When the bump commit reaches <code>main</code>, <code>.github/workflows/release.yml</code> tags it <code>vX.Y.Z</code>
 and releases it: build, publish to TestPyPI, verify the install, publish to PyPI,
 container images, GitHub release and versioned docs. Pushing a <code>v*</code> tag by hand
-triggers the same release.</p>
+triggers the same release. If a release fails after tagging, the next push to <code>main</code> retries it
+until the GitHub release exists.</p>
 <p>The release calls <code>.github/workflows/docker.yml</code>, which pushes the container images to
 GHCR for linux/amd64 and linux/arm64:</p>
 <table>
