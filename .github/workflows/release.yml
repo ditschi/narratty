@@ -167,16 +167,13 @@ jobs:
         with:
           ref: v${{ needs.build.outputs.version }}
           fetch-depth: 0
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - uses: astral-sh/setup-uv@v7
-      - name: Install commitizen
-        run: uv tool install commitizen
       - name: Extract changelog for this version
         run: |
-          cz changelog --dry-run "${{ needs.build.outputs.version }}" > /tmp/release-notes.md || \
-          echo "Release ${{ needs.build.outputs.version }}" > /tmp/release-notes.md
+          # The CHANGELOG section of this version, without its heading.
+          awk -v heading="## v${{ needs.build.outputs.version }} " \
+            'index($0, heading) == 1 { found = 1; next } found && /^## / { exit } found' \
+            CHANGELOG.md > /tmp/release-notes.md
+          [[ -s /tmp/release-notes.md ]] || echo "Release ${{ needs.build.outputs.version }}" > /tmp/release-notes.md
       - uses: actions/download-artifact@v8
         with:
           name: dist
