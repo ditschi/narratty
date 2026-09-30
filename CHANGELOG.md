@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Conventional Commits](https://www.conventionalcommits.org/) and is maintained by
 commitizen.
 
+## v0.2.0 (2026-09-30)
+
+### Feat
+
+- **tts**: make Kokoro with its fp16 model the default voice
+- **toolkit**: publish static demo tools as the narratty-toolkit image
+- **build**: add --format cast: asciicast, MP3 narration and player page
+
 ## v0.1.0 (2026-09-30)
 
 ### Feat
