@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import jsonschema
 import pytest
+from ruamel.yaml import YAML
 
-from narratty.spec.schema import SCHEMA_ID, schema_url, spec_schema_json
+from narratty.spec.schema import SCHEMA_ID, schema_url, spec_schema, spec_schema_json
 from narratty.spec.template import render_template
 
 
@@ -37,3 +39,35 @@ def test_schema_url_follows_the_installed_version(version: str, ref: str) -> Non
 def test_template_header_points_at_the_versions_schema() -> None:
     first = render_template("1.2.3").splitlines()[0]
     assert first == f"# yaml-language-server: $schema={schema_url('1.2.3')}"
+
+
+SHORTHANDS = """\
+end_card: false
+scenes:
+  - id: a
+    narration: Hi.
+    actions:
+      - run: ls
+      - type_command: pwd
+      - enter
+      - wait: "done"
+      - wait: {screen: done, timeout_ms: 1000}
+      - hold: auto
+"""
+EXAMPLES = sorted((Path(__file__).parents[3] / "examples").glob("**/*.narratty.yaml"))
+
+
+@pytest.mark.parametrize(
+    "text",
+    [SHORTHANDS, render_template("1.2.3"), *(path.read_text(encoding="utf-8") for path in EXAMPLES)],
+    ids=["shorthands", "template", *(path.parent.name for path in EXAMPLES)],
+)
+def test_editors_accept_valid_specs(text: str) -> None:
+    """What the models accept, the schema accepts too (editors must not flag it)."""
+    jsonschema.validate(YAML(typ="safe").load(text), spec_schema())
+
+
+def test_editors_reject_unknown_actions() -> None:
+    data = YAML(typ="safe").load("scenes:\n  - id: a\n    actions: [enterr, {type_comand: ls}]\n")
+    errors = list(jsonschema.Draft202012Validator(spec_schema()).iter_errors(data))
+    assert len(errors) == 2

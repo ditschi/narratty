@@ -4,9 +4,6 @@
 version: 1
 meta:
   title: Editor layout with tmux and yazi
-tts:
-  provider: kokoro
-  voice: af_heart
 timing:
   tail_ms: 0          # the last visible frame is held in the edit scene instead
 terminal:
@@ -22,19 +19,16 @@ scenes:
     hidden: true
     actions:
       # Explorer (yazi) on top, a terminal below; focus stays in the terminal.
-      - type_command: >-
+      - run: >-
           tmux new-session -s ide yazi \;
           split-window -v -l 30% "PS1='$ ' bash --norc" \;
           select-pane -t 1 -T Explorer \; select-pane -t 2 -T Terminal
-      - enter
-      - wait: {screen: "Terminal"}
+      - wait: Terminal
 
   - id: intro
     narration: >-
       This demo looks like an editor. Files and a preview on top, and a terminal
       below, all in one tmux window.
-    actions:
-      - hold: auto
 
   - id: explore
     narration: >-
@@ -49,34 +43,27 @@ scenes:
       - key: Right
       - hold: 600
       - key: Down
-      - hold: auto
 
   - id: run
     narration: Back in the terminal, run the program.
     actions:
       - ctrl_sequence: C-b
       - key: Down
-      - type_command: PYTHONPATH=src python3 -m greet Ada Grace
-      - enter
-      - wait: {screen: "Hello, Grace!"}
-      - hold: auto
+      - run: PYTHONPATH=src python3 -m greet Ada Grace
+      - wait: "Hello, Grace!"
 
   - id: edit
     narration: >-
       Change the greeting from the terminal. The preview picks up the change, and
       the next run uses it.
     actions:
-      - type_command: sed -i 's/Hello/Welcome/' src/greet/__main__.py
-      - enter
-      - hold: 800
-      - type_command: PYTHONPATH=src python3 -m greet Ada
-      - enter
-      - wait: {screen: "Welcome, Ada!"}
-      - hold: auto
+      - run: sed -i 's/Hello/Welcome/' src/greet/__main__.py
+      - run: PYTHONPATH=src python3 -m greet Ada
+      - wait: "Welcome, Ada!"
+      - hold: auto        # wait for the narration, then keep the result on screen
       - hold: 1500
 
   - id: close
     hidden: true
     actions:
-      - type_command: tmux kill-server
-      - enter
+      - run: tmux kill-server

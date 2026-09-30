@@ -72,6 +72,7 @@ demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did 
 | `narration_buffer_ms` | `500` | Pause after each narration before the next scene |
 | `lead_in_ms` | `300` | Silence before the first scene |
 | `tail_ms` | `1000` | Time the last frame stays on screen |
+| `run_hold_ms` | `500` | Pause after each `run` action |
 
 ## `terminal`
 
@@ -150,11 +151,14 @@ whichever is longer.
 
 | Action | Example | Does |
 |---|---|---|
-| `type_command` | `- type_command: "ls -la"` | Types the text |
+| `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms` |
+| `type_command` | `- type_command: "ls -la"` | Types the text, without Enter |
 | `enter` | `- enter` | Presses Enter |
 | `ctrl_sequence` | `- ctrl_sequence: C-c` | Presses Ctrl plus a key |
 | `key` | `- key: Up` or `- key: Down 3` | Presses a named VHS key, optionally repeated |
 | `hold` | `- hold: 1500` or `- hold: auto` | Waits; `auto` waits until the narration is done |
-| `wait` | `- wait: {screen: "Done", timeout_ms: 15000}` | Waits until the screen matches a regex |
+| `wait` | `- wait: "Done"` or `- wait: {screen: "Done", timeout_ms: 60000}` | Waits until the screen matches a regex (default timeout 15 s) |
 
-A scene has at most one `hold: auto`, and only when it has narration.
+Every list item starts with `- `. A scene always waits for its narration after its
+last action, so `hold: auto` is only needed in the middle of a scene; a scene has at
+most one. See [Writing specs](writing-specs.md) for when to use which action.

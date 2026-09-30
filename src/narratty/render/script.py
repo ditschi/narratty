@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass
 
 from narratty.end_card import CREDIT
-from narratty.spec.model import Action, CtrlSequence, Enter, Hold, Key, Scene, Spec, TypeCommand, Wait
+from narratty.spec.model import Action, CtrlSequence, Enter, Hold, Key, Run, Scene, Spec, TypeCommand, Wait
 from narratty.timeline import SceneTiming, Timeline, typing_speed
 
 
@@ -87,8 +87,11 @@ def prompt_setup(shell: str, prompt: str) -> str:
     return f"PS1={_shell_quote(prompt)}; clear"
 
 
-def action_steps(action: Action, speed: int) -> list[Step]:
+def action_steps(action: Action, speed: int, run_hold_ms: int = 0) -> list[Step]:
     """Steps for one action (``hold: auto`` is placed by the caller)."""
+    if isinstance(action, Run):
+        steps: list[Step] = [Type(action.run, speed), Press("Enter", speed)]
+        return [*steps, Sleep(run_hold_ms)] if run_hold_ms else steps
     if isinstance(action, TypeCommand):
         return [Type(action.type_command, speed)]
     if isinstance(action, Enter):
@@ -119,7 +122,7 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming) -> list[Step]:
                 steps.append(Sleep(timing.fill_ms))
             filled = True
             continue
-        steps += action_steps(action, speed)
+        steps += action_steps(action, speed, spec.timing.run_hold_ms)
     if not filled and timing.fill_ms:
         steps.append(Sleep(timing.fill_ms))
     if scene.hidden:

@@ -68,7 +68,7 @@
     },
     "Hold": {
       "additionalProperties": false,
-      "description": "Pause. ``auto`` fills the scene until its narration has finished.",
+      "description": "Pause. ``auto`` waits here until the narration has finished.\n\nOnly needed mid-scene: after the last action, a scene always waits for its narration.",
       "properties": {
         "hold": {
           "anyOf": [
@@ -205,6 +205,22 @@
       "title": "Requires",
       "type": "object"
     },
+    "Run": {
+      "additionalProperties": false,
+      "description": "Type a command, press Enter, then pause for ``timing.run_hold_ms``.",
+      "properties": {
+        "run": {
+          "minLength": 1,
+          "title": "Run",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "Run",
+      "type": "object"
+    },
     "Sandbox": {
       "additionalProperties": false,
       "properties": {
@@ -287,6 +303,9 @@
           "items": {
             "oneOf": [
               {
+                "$ref": "#/$defs/Run"
+              },
+              {
                 "$ref": "#/$defs/TypeCommand"
               },
               {
@@ -303,6 +322,10 @@
               },
               {
                 "$ref": "#/$defs/Key"
+              },
+              {
+                "const": "enter",
+                "description": "Press Enter. Written as the bare string ``enter`` in YAML."
               }
             ]
           },
@@ -415,6 +438,13 @@
           "minimum": 0,
           "title": "Tail Ms",
           "type": "integer"
+        },
+        "run_hold_ms": {
+          "default": 500,
+          "description": "Pause after each `run` action.",
+          "minimum": 0,
+          "title": "Run Hold Ms",
+          "type": "integer"
         }
       },
       "title": "Timing",
@@ -467,7 +497,7 @@
     },
     "TypeCommand": {
       "additionalProperties": false,
-      "description": "Type text at the scene's typing speed (does not press Enter).",
+      "description": "Type text at the scene's typing speed without pressing Enter (use ``run`` for commands).",
       "properties": {
         "type_command": {
           "minLength": 1,
@@ -483,10 +513,18 @@
     },
     "Wait": {
       "additionalProperties": false,
-      "description": "Block until ``wait.screen`` matches the terminal content.",
+      "description": "Block until ``wait.screen`` matches the terminal content.\n\n``wait: \"pattern\"`` is short for ``wait: {screen: \"pattern\"}``.",
       "properties": {
         "wait": {
-          "$ref": "#/$defs/WaitSpec"
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Regular expression; short for {screen: ...}."
+            },
+            {
+              "$ref": "#/$defs/WaitSpec"
+            }
+          ]
         }
       },
       "required": [
@@ -597,7 +635,8 @@
       "default": {
         "narration_buffer_ms": 500,
         "lead_in_ms": 300,
-        "tail_ms": 1000
+        "tail_ms": 1000,
+        "run_hold_ms": 500
       }
     },
     "terminal": {
@@ -640,7 +679,15 @@
       }
     },
     "end_card": {
-      "$ref": "#/$defs/EndCard",
+      "anyOf": [
+        {
+          "type": "boolean",
+          "description": "Short for {enabled: ...}."
+        },
+        {
+          "$ref": "#/$defs/EndCard"
+        }
+      ],
       "default": {
         "enabled": null,
         "duration_ms": 4000,

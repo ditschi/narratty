@@ -445,11 +445,12 @@ Modelled as a Pydantic discriminated union; unknown keys are errors.
 
 | Action | Meaning | VHS emission |
 |---|---|---|
+| `run: "…"` | type a command, press Enter, pause `timing.run_hold_ms` | `Type "…"`, `Enter`, `Sleep` |
 | `type_command: "…"` | type text at the scene's typing speed | `Type "…"` |
 | `enter` | press Enter | `Enter` |
 | `ctrl_sequence: "C-c"` | control chord | `Ctrl+C` |
 | `hold: auto \| <ms>` | pause; `auto` = fill to the end of the narration | `Sleep <n>ms` |
-| `wait: { screen: <regex>, timeout_ms }` | block until the regex matches the last line | `Wait+Screen@<t> /<regex>/` |
+| `wait: <regex>` or `wait: { screen: <regex>, timeout_ms }` | block until the regex matches the last line | `Wait+Screen@<t> /<regex>/` |
 | `key: "<VHS key>"` | raw VHS key (escape hatch) | `<key>` |
 
 `narration` is scene-level (one voiceover per scene).

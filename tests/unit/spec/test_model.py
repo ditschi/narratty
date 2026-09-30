@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from narratty.spec.model import CtrlSequence, Enter, Hold, Key, Sandbox, Spec, TypeCommand, Wait
+from narratty.spec.model import CtrlSequence, Enter, Hold, Key, Run, Sandbox, Spec, TypeCommand, Wait
 
 
 def _spec(**overrides: Any) -> dict[str, Any]:
@@ -41,10 +41,19 @@ def test_all_action_forms_parse() -> None:
         {"wait": {"screen": r"\$ $"}},
         {"key": "Down 3"},
         {"hold": "auto"},
+        {"run": "make"},
+        {"wait": "done"},
     ]
     spec = Spec.model_validate(_spec(scenes=[{"id": "a", "narration": "x", "actions": actions}]))
     kinds = [type(a) for a in spec.scenes[0].actions]
-    assert kinds == [TypeCommand, Enter, Enter, CtrlSequence, Hold, Wait, Key, Hold]
+    assert kinds == [TypeCommand, Enter, Enter, CtrlSequence, Hold, Wait, Key, Hold, Run, Wait]
+
+
+def test_wait_shorthand_uses_the_default_timeout() -> None:
+    spec = Spec.model_validate(_spec(scenes=[{"id": "a", "actions": [{"wait": "done"}]}]))
+    wait = spec.scenes[0].actions[0]
+    assert isinstance(wait, Wait)
+    assert (wait.wait.screen, wait.wait.timeout_ms) == ("done", 15000)
 
 
 def test_narration_whitespace_is_collapsed() -> None:
@@ -64,6 +73,8 @@ def test_narration_whitespace_is_collapsed() -> None:
         ({"id": "a", "actions": [{"ctrl_sequence": "C-cc"}]}, "String should match pattern"),
         ({"id": "a", "actions": [{"wait": {"screen": "("}}]}, "regular expression"),
         ({"id": "a", "actions": [{"type_command": "ls", "enter": True}]}, "exactly one"),
+        ({"id": "a", "actions": [{"run": ""}]}, "at least 1 character"),
+        ({"id": "a", "actions": [{"wait": "("}]}, "regular expression"),
     ],
 )
 def test_invalid_scenes(scene: dict[str, Any], message: str) -> None:

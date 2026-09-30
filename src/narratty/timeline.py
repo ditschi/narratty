@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from narratty.spec.model import Action, Enter, Hold, Key, Scene, Spec, TypeCommand
+from narratty.spec.model import Action, Enter, Hold, Key, Run, Scene, Spec, TypeCommand
 
 
 def typing_speed(spec: Spec, scene: Scene) -> int:
@@ -22,8 +22,10 @@ def typing_speed(spec: Spec, scene: Scene) -> int:
     return scene.typing_speed_ms or spec.terminal.typing_speed_ms
 
 
-def action_ms(action: Action, speed: int) -> int:
+def action_ms(action: Action, speed: int, run_hold_ms: int = 0) -> int:
     """Deterministic duration of one action (``wait`` and ``hold: auto`` count as 0)."""
+    if isinstance(action, Run):
+        return (len(action.run) + 1) * speed + run_hold_ms
     if isinstance(action, TypeCommand):
         return len(action.type_command) * speed
     if isinstance(action, Enter):
@@ -85,7 +87,7 @@ def build_timeline(spec: Spec, audio_ms: Mapping[str, int]) -> Timeline:
     timings: list[SceneTiming] = []
     for scene in spec.scenes:
         speed = typing_speed(spec, scene)
-        actions = sum(action_ms(action, speed) for action in scene.actions)
+        actions = sum(action_ms(action, speed, spec.timing.run_hold_ms) for action in scene.actions)
         audio = audio_ms.get(scene.id, 0) if scene.narration else 0
         if scene.hidden:
             timings.append(SceneTiming(scene.id, True, cursor, actions, 0, 0, 0))

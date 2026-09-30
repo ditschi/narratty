@@ -52,9 +52,15 @@ class _Model(BaseModel):
 
 
 class TypeCommand(_Model):
-    """Type text at the scene's typing speed (does not press Enter)."""
+    """Type text at the scene's typing speed without pressing Enter (use ``run`` for commands)."""
 
     type_command: str = Field(min_length=1)
+
+
+class Run(_Model):
+    """Type a command, press Enter, then pause for ``timing.run_hold_ms``."""
+
+    run: str = Field(min_length=1)
 
 
 class Enter(_Model):
@@ -70,7 +76,10 @@ class CtrlSequence(_Model):
 
 
 class Hold(_Model):
-    """Pause. ``auto`` fills the scene until its narration has finished."""
+    """Pause. ``auto`` waits here until the narration has finished.
+
+    Only needed mid-scene: after the last action, a scene always waits for its narration.
+    """
 
     hold: Literal["auto"] | PositiveInt
 
@@ -99,9 +108,17 @@ class WaitSpec(_Model):
 
 
 class Wait(_Model):
-    """Block until ``wait.screen`` matches the terminal content."""
+    """Block until ``wait.screen`` matches the terminal content.
+
+    ``wait: "pattern"`` is short for ``wait: {screen: "pattern"}``.
+    """
 
     wait: WaitSpec
+
+    @field_validator("wait", mode="before")
+    @classmethod
+    def _pattern_shorthand(cls, value: Any) -> Any:
+        return {"screen": value} if isinstance(value, str) else value
 
 
 class Key(_Model):
@@ -117,7 +134,7 @@ class Key(_Model):
         return value
 
 
-ACTION_KEYS = ("type_command", "enter", "ctrl_sequence", "hold", "wait", "key")
+ACTION_KEYS = ("run", "type_command", "enter", "ctrl_sequence", "hold", "wait", "key")
 
 
 def _action_tag(value: Any) -> str | None:
@@ -136,7 +153,8 @@ def _expand_shorthand(value: Any) -> Any:
 
 
 Action = Annotated[
-    Annotated[TypeCommand, Tag("type_command")]
+    Annotated[Run, Tag("run")]
+    | Annotated[TypeCommand, Tag("type_command")]
     | Annotated[Enter, Tag("enter")]
     | Annotated[CtrlSequence, Tag("ctrl_sequence")]
     | Annotated[Hold, Tag("hold")]
@@ -243,6 +261,7 @@ class Timing(_Model):
     narration_buffer_ms: int = Field(500, ge=0)
     lead_in_ms: int = Field(300, ge=0)
     tail_ms: int = Field(1000, ge=0)
+    run_hold_ms: int = Field(500, ge=0, description="Pause after each `run` action.")
 
 
 class Terminal(_Model):

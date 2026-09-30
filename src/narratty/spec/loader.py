@@ -147,6 +147,11 @@ def _to_plain(value: Any) -> Any:
     return value
 
 
+def _bullet(line: str) -> bool:
+    """True for a line that uses a Markdown bullet (``* item``) as a list marker."""
+    return line.lstrip().startswith("* ")
+
+
 def parse_spec(text: str, file: Path) -> Spec:
     """Parse YAML ``text`` (from ``file``) into a validated :class:`Spec`."""
     yaml = YAML(typ="rt")
@@ -156,7 +161,11 @@ def parse_spec(text: str, file: Path) -> Spec:
         mark = error.problem_mark
         line = mark.line + 1 if mark is not None else None
         column = mark.column + 1 if mark is not None else None
-        raise SpecError(file, [Issue("", f"invalid YAML: {error.problem}", line, column)]) from error
+        message = f"invalid YAML: {error.problem}"
+        lines = text.splitlines()
+        if line is not None and line <= len(lines) and _bullet(lines[line - 1]):
+            message = "invalid YAML: list items start with '- ', not '* ' ('*' starts an alias in YAML)"
+        raise SpecError(file, [Issue("", message, line, column)]) from error
     if not isinstance(data, dict):
         raise SpecError(file, [Issue("", "the spec must be a YAML mapping with a 'scenes' list", 1, 1)])
     try:

@@ -37,6 +37,8 @@ scenes:
     narration: Afterwards.
     narration_start: after_actions
     actions: [{type_command: "pwd"}, enter]
+  - id: run
+    actions: [{run: "pwd"}]
 """
 )
 AUDIO = {"short-actions": 3000, "long-actions": 1000, "after": 1500}
@@ -51,6 +53,7 @@ def test_scene_lengths() -> None:
         "long-actions": 3100,  # 11 keys × 100 ms + 2000 ms hold beats 1000 + 500
         "keys": 120,  # Down ×3 at 40 ms; ctrl and wait count as 0
         "after": 160 + 1500 + 500,
+        "run": 160 + 500,  # like type_command + enter, plus timing.run_hold_ms
     }
 
 

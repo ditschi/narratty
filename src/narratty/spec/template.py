@@ -6,40 +6,31 @@ from narratty.spec.schema import schema_url
 
 _TEMPLATE = """\
 # yaml-language-server: $schema={schema_url}
+# Write only what differs from the defaults; `narratty schema` lists every key.
 version: 1
 meta:
   title: "My first narratty video"
 
-tts:
-  provider: kokoro                # kokoro | piper (piper has more languages, e.g. German)
-  voice: af_heart                 # `narratty voices` lists the options
-  # lexicon:                      # say terms differently from how the narration spells them
-  #   k8s: kubernetes
-
-terminal:
-  width: 1200
-  height: 700
-  theme: "Dracula"
-  font_size: 22
-  typing_speed_ms: 40
-
-workspace:
-  source: .                       # directory the demo runs in
-  mode: snapshot                  # snapshot (throwaway copy) | rw | ro
+# tts:
+#   voice: af_heart               # `narratty voices` lists the options
+#   lexicon:                      # say terms differently from how the narration spells them
+#     k8s: kubernetes
+# terminal:
+#   width: 1200
+#   height: 700
+#   theme: Dracula
+# workspace:
+#   source: .                     # directory the demo runs in (a throwaway copy by default)
 
 scenes:
   - id: intro
     narration: >
       This is a quick look at the files in this project.
     actions:
-      - type_command: "ls -la"
-      - enter
+      - run: ls -la               # types the command, presses Enter, pauses briefly
 
-  - id: wrap
-    narration: >
-      That is all for now.
-    actions:
-      - hold: auto
+  - id: wrap                      # no actions: the scene lasts as long as its narration
+    narration: That is all for now.
 """
 
 

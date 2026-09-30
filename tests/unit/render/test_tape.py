@@ -97,6 +97,19 @@ def test_fill_goes_last_without_hold_auto() -> None:
     assert tape.endswith("Sleep 1000ms\n")
 
 
+def test_run_types_presses_enter_and_holds() -> None:
+    tape = _tape("timing: {run_hold_ms: 700}\nscenes:\n  - id: a\n    actions: [{run: ls}, {run: pwd}]\n")
+    scene = tape.split("# scene: a\n", 1)[1].split("\n\n", 1)[0].splitlines()
+    assert scene == [
+        'Type@40ms "ls"',
+        "Enter@40ms",
+        "Sleep 700ms",
+        'Type@40ms "pwd"',
+        "Enter@40ms",
+        "Sleep 700ms",
+    ]
+
+
 def test_tape_is_byte_stable() -> None:
     assert _tape() == _tape()
 

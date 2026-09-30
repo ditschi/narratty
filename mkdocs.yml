@@ -82,6 +82,7 @@ nav:
       - Shell completion: user-guide/shell-completion.md
       - Commands: user-guide/commands.md
       - Spec reference: user-guide/spec.md
+      - Writing specs: user-guide/writing-specs.md
       - Voices and audio cache: user-guide/voices.md
       - Building a video: user-guide/building.md
       - Sandboxed runs: user-guide/container.md

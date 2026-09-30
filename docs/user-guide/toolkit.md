@@ -120,35 +120,28 @@ scenes:
   - id: clone
     narration: Clone the repository.
     actions:
-      - type_command: git clone https://github.com/acme/app && cd app
-      - enter
+      - run: git clone https://github.com/acme/app && cd app
       - wait: {screen: "done\\.", timeout_ms: 120000}
   - id: build                    # add the toolkit and build, both unrecorded
     hidden: true
     actions:
-      - type_command: >-
+      - run: >-
           echo 'COPY --from=ghcr.io/ditschi/narratty-toolkit:latest / /usr/local/'
           >> .devcontainer/Dockerfile &&
           docker compose up -d --build >/tmp/build.log 2>&1 && echo ready
-      - enter
       - wait: {screen: "ready", timeout_ms: 900000}
   - id: enter
     narration: Open a shell in the dev container.
     actions:
-      - type_command: docker compose exec dev bash
-      - enter
-      - hold: auto
+      - run: docker compose exec dev bash
   - id: settings
     hidden: true
     actions:
-      - type_command: . /usr/local/share/narratty/env.sh
-      - enter
+      - run: . /usr/local/share/narratty/env.sh
   - id: explore
     narration: This is the project inside the container.
     actions:
-      - type_command: eza --tree --level 2
-      - enter
-      - hold: auto
+      - run: eza --tree --level 2
 ```
 
 Things to watch:
@@ -171,12 +164,11 @@ preview on top, a shell below. A hidden first scene builds the layout:
 - id: layout
   hidden: true
   actions:
-    - type_command: >-
+    - run: >-
         tmux new-session -s ide yazi \;
         split-window -v -l 30% "PS1='$ ' bash --norc" \;
         select-pane -t 1 -T Explorer \; select-pane -t 2 -T Terminal
-    - enter
-    - wait: {screen: "Terminal"}
+    - wait: Terminal
 ```
 
 The scenes after it press `Ctrl+b` and an arrow key to move between the panes
