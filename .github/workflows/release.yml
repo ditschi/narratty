@@ -184,6 +184,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: v${{ needs.build.outputs.version }} # the run may come from a push to main
           body_path: /tmp/release-notes.md
           files: dist/*
           fail_on_unmatched_files: true
