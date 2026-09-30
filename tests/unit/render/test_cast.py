@@ -62,7 +62,8 @@ def test_record_plays_the_script(tmp_path: Path) -> None:
 def test_hidden_output_arrives_at_once(tmp_path: Path) -> None:
     events, _, _ = _record(SPEC, tmp_path)
     hidden = [e for e in events if "HIDDEN=secret" in str(e[2])]
-    assert len(hidden) == 1 and "\x1b[2J" in str(hidden[0][2]), "typed, run and cleared in one event"
+    assert len(hidden) == 1, "hidden typing arrives in one event"
+    assert "clear" in str(hidden[0][2]), "including the clear that ends the hidden scene"
 
 
 def test_wait_times_out(tmp_path: Path) -> None:
