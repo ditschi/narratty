@@ -5,6 +5,7 @@
 | Path | Holds |
 |---|---|
 | `~/.config/narratty/config.toml` | Your defaults and limits (below) |
+| `~/.config/narratty/lexicon.toml` | Your [pronunciation](voices.md#pronunciation) entries |
 | `~/.config/narratty/approvals.json` | Sandbox permissions you approved, per spec |
 | `~/.local/share/narratty/` | Downloaded voices and models |
 | `~/.cache/narratty/` | Audio cache, workspace snapshots, build caches |

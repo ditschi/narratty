@@ -13,6 +13,8 @@ meta:
 tts:
   provider: kokoro                # kokoro | piper (piper has more languages, e.g. German)
   voice: af_heart                 # `narratty voices` lists the options
+  # lexicon:                      # say terms differently from how the narration spells them
+  #   k8s: kubernetes
 
 terminal:
   width: 1200

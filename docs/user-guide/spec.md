@@ -51,6 +51,7 @@ demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did 
 | `sandbox` | | Permissions of the container |
 | `environment` | | Run the demo shell in a project image |
 | `end_card` | on | Closing card, see below |
+| `subtitles` | `none` | `none`, `files`, `track` or `burn`; see [Subtitles](building.md#subtitles) |
 | `scenes` | required | At least one scene |
 
 ## `tts`
@@ -63,6 +64,7 @@ demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did 
 | `piper.sentence_silence` | `0.2` | Seconds of silence between sentences |
 | `kokoro.speed` | `1.0` | Speech speed |
 | `kokoro.lang` | voice's language | Language code, e.g. `en-gb` |
+| `lexicon` | `{}` | How to say terms, e.g. `{k8s: kubernetes}`; see [Pronunciation](voices.md#pronunciation) |
 
 ## `timing`
 

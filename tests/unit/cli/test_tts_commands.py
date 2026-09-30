@@ -120,3 +120,19 @@ def test_provider_and_voice_completion() -> None:
     voices = complete_voice(Ctx(), "af_")  # type: ignore[arg-type]
     assert voices and all(v.startswith("af_") for v in voices)
     assert set(voices) <= set(catalog.voice_ids("kokoro"))
+
+
+def test_lexicon_show_and_check(tmp_path: Path) -> None:
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(
+        "tts:\n  lexicon: {bm_rat_b: B M rat B}\n"
+        "scenes:\n  - id: intro\n    narration: Run bm_rat_b with kubectl on k8s.\n",
+        encoding="utf-8",
+    )
+    shown = runner.invoke(app, ["lexicon", "show", str(spec)], env={"COLUMNS": "200"})
+    assert shown.exit_code == 0, shown.output
+    assert "B M rat B" in plain(shown.output) and "built-in" in plain(shown.output)
+    checked = runner.invoke(app, ["lexicon", "check", str(spec)])
+    assert checked.exit_code == 0, checked.output
+    assert "intro: k8s" in checked.stdout
+    assert "kubectl" not in checked.stdout

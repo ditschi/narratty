@@ -1,0 +1,11 @@
+# Built-in pronunciation lexicon, used with English voices.
+# Only terms the engines get wrong on their own; espeak-ng (used by Kokoro and Piper)
+# already says bazel, YAML, JSON, nginx, npm and uv well.
+# Later levels (user, project, spec) override these; see docs/user-guide/voices.md.
+
+CLI = "C L I"
+kubectl = "cube control"
+PyPI = "pie P I"
+stderr = "standard error"
+stdin = "standard in"
+stdout = "standard out"

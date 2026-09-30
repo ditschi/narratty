@@ -8,11 +8,15 @@
 | `narratty voices [--provider P] [--installed]` | List curated and installed voices |
 | `narratty voices pull VOICE` | Download a voice (and the Kokoro model) |
 | `narratty tts SPEC [--offline]` | Synthesize all narration clips and print their lengths |
+| `narratty lexicon show SPEC` | List the [pronunciation lexicon](voices.md#pronunciation) entries and where each comes from |
+| `narratty lexicon check SPEC` | List narration words that look hard to pronounce and have no entry |
 | `narratty cache info` / `prune [--older-than 30d] [--all]` | Inspect or prune the audio cache |
-| `narratty plan SPEC` | Print the timeline and total length |
+| `narratty plan SPEC [--draft]` | Print the timeline and total length |
 | `narratty tape SPEC [-o VIDEO]` | Print the VHS tape |
 | `narratty render SPEC [-o VIDEO]` | Record the silent video |
 | `narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]` | Build the narrated video |
+| `narratty build SPEC --subtitles MODE` | Add [subtitles](building.md#subtitles): `none`, `files`, `track` or `burn` |
+| `narratty build SPEC --draft` | Build a fast [draft](building.md#draft) (`demo.draft.mp4`) |
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
 | `narratty env shell SPEC` | Open a shell in the spec's [project environment](environments.md) |
 
