@@ -267,25 +267,6 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="design/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Design
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
     
     
       <li class="md-tabs__item">
@@ -298,25 +279,6 @@
         </a>
       </li>
     
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="api-reference/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  API Reference
-
-      </a>
-    </li>
   
 
       
@@ -451,10 +413,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quick-look" class="md-nav__link">
+  <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick look
+        Quick start
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-it-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where it runs
       
     </span>
   </a>
@@ -717,28 +690,21 @@
 
               
             
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
+              
+                
   
   
   
   
     <li class="md-nav__item">
-      <a href="design/" class="md-nav__link">
+      <a href="user-guide/configuration/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Design
+    Configuration
   
 
     
@@ -747,6 +713,14 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -771,10 +745,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -792,8 +766,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -859,28 +833,21 @@
 
               
             
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
+              
+                
   
   
   
   
     <li class="md-nav__item">
-      <a href="api-reference/" class="md-nav__link">
+      <a href="contributor-guide/design/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    API Reference
+    Design notes
   
 
     
@@ -889,6 +856,14 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -947,10 +922,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quick-look" class="md-nav__link">
+  <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick look
+        Quick start
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-it-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where it runs
       
     </span>
   </a>
@@ -983,20 +969,50 @@
 
 
 <h1 id="narratty">narratty<a class="headerlink" href="#narratty" title="Permanent link">&para;</a></h1>
-<p>Turn a YAML script into a narrated terminal video: scripted shell sessions rendered with
-<a href="https://github.com/charmbracelet/vhs">VHS</a>, voiceover from local text-to-speech (Piper or
-Kokoro), and automatic audio sync. Runs natively or sandboxed in Docker or Podman.</p>
-<div class="admonition warning">
-<p class="admonition-title">Early development</p>
-<p>narratty is being built milestone by milestone. Today it ships the CLI skeleton,
-<code>narratty doctor</code> and shell completion. The <a href="design/">design</a> describes where it
-is going.</p>
-</div>
-<h2 id="quick-look">Quick look<a class="headerlink" href="#quick-look" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>narratty<span class="w">        </span><span class="c1"># or: pipx install narratty</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>narratty<span class="w"> </span>--install-completion<span class="w">   </span><span class="c1"># bash, zsh, fish or PowerShell</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>narratty<span class="w"> </span>doctor<span class="w">                 </span><span class="c1"># which tools does my runtime need?</span>
+<p>Turn a YAML script into a narrated terminal video. narratty types your commands in a
+real terminal (VHS), speaks the narration with local text-to-speech (Piper or Kokoro)
+and keeps voice and picture in sync. It runs sandboxed in Docker or Podman, or
+natively.</p>
+<h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>narratty<span class="w">            </span><span class="c1"># or: pipx install narratty</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>narratty<span class="w"> </span>init<span class="w">                       </span><span class="c1"># writes demo.narratty.yaml</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>narratty<span class="w"> </span>validate<span class="w"> </span>demo.narratty.yaml
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w">   </span><span class="c1"># writes demo.mp4</span>
 </code></pre></div>
+<p>A minimal spec:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">intro</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is a quick tour of the repository layout.</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type_command</span><span class="p">:</span><span class="w"> </span><span class="s">"ls</span><span class="nv"> </span><span class="s">-la"</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">enter</span>
+</code></pre></div>
+<p>Each scene lasts as long as its actions or its narration, whichever is longer. See
+<a href="user-guide/building/">Building a video</a> for how timing works and the
+<a href="user-guide/spec/">spec reference</a> for every key.</p>
+<h2 id="where-it-runs">Where it runs<a class="headerlink" href="#where-it-runs" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Runtime</th>
+<th>Needs</th>
+<th>Chosen when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docker</code> / <code>podman</code></td>
+<td>the container runtime</td>
+<td>installed (default)</td>
+</tr>
+<tr>
+<td><code>native</code></td>
+<td><code>vhs</code>, <code>ttyd</code>, <code>ffmpeg</code>, <code>git</code></td>
+<td>no container runtime, or <code>--runtime native</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>narratty doctor</code> checks what the selected runtime needs.</p>
 
 
 

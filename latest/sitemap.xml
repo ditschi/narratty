@@ -5,15 +5,11 @@
          <lastmod>2026-09-30</lastmod>
     </url>
     <url>
-         <loc>https://ditschi.github.io/narratty/latest/api-reference/</loc>
-         <lastmod>2026-09-30</lastmod>
-    </url>
-    <url>
          <loc>https://ditschi.github.io/narratty/latest/changelog/</loc>
          <lastmod>2026-09-30</lastmod>
     </url>
     <url>
-         <loc>https://ditschi.github.io/narratty/latest/design/</loc>
+         <loc>https://ditschi.github.io/narratty/latest/contributor-guide/design/</loc>
          <lastmod>2026-09-30</lastmod>
     </url>
     <url>
@@ -30,6 +26,10 @@
     </url>
     <url>
          <loc>https://ditschi.github.io/narratty/latest/user-guide/commands/</loc>
+         <lastmod>2026-09-30</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/user-guide/configuration/</loc>
          <lastmod>2026-09-30</lastmod>
     </url>
     <url>
