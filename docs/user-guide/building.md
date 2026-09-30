@@ -27,6 +27,38 @@ After the last scene and the tail comes the end card (4 s by default; see
 With `--work-dir` the tape, the silent video and the narration track are kept for
 inspection.
 
+## Asciicast with narration
+
+```bash
+narratty build demo.narratty.yaml --format cast   # demo.cast, demo.mp3, demo.html
+```
+
+Instead of a video, this writes an [asciicast](https://docs.asciinema.org/manual/asciicast/v2/)
+(`.cast`), the narration as MP3, and an HTML page that plays both with
+[asciinema-player](https://docs.asciinema.org/manual/player/). The player uses the
+audio as its clock, so pausing and seeking stay in sync. Terminal text stays
+selectable, and the cast is a few kilobytes.
+
+- **The page is self-contained**: cast and audio are embedded, so it works opened
+  from disk or on any static host. The player itself loads from jsDelivr.
+- **`-o`** names the page; the `.cast` and `.mp3` go beside it.
+- **Recording**: VHS cannot write asciicasts, so narratty runs the scenes itself in a
+  pseudo-terminal of the same size and shell. Each clip is placed at its scene's
+  recorded start, so there is no drift check.
+- **Size**: columns and rows follow `terminal.width`, `height` and `font_size`. The
+  theme applies when asciinema-player has one of the same name (Dracula, Monokai,
+  Nord, Solarized, Tango, …).
+- **`wait`** matches the text printed since the last clear, not a rendered screen;
+  full-screen programs such as `vim` are not modelled.
+
+To embed the recording in your own page, use the `.cast` and `.mp3`:
+
+```js
+AsciinemaPlayer.create("demo.cast", element, { audioUrl: "demo.mp3" });
+```
+
+Seeking needs a server that supports range requests, as most static hosts do.
+
 ## Looking before rendering
 
 | Command | Shows |

@@ -13,6 +13,7 @@
 | `narratty tape SPEC [-o VIDEO]` | Print the VHS tape |
 | `narratty render SPEC [-o VIDEO]` | Record the silent video |
 | `narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]` | Build the narrated video |
+| `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
 
 `plan`, `tape`, `render` and `build` take `--end-card` / `--no-end-card` to override
 [`end_card`](spec.md#end_card). `build` and `render` also take `--workspace-mode`,

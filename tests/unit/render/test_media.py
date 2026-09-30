@@ -56,6 +56,16 @@ def test_mux_copies_video_and_encodes_aac(tmp_path: Path) -> None:
     assert (tmp_path / "out").is_dir()
 
 
+def test_encode_mp3(tmp_path: Path) -> None:
+    runner = FakeRunner()
+    media.encode_mp3(Path("a.wav"), tmp_path / "out" / "a.mp3", runner=runner)
+    argv = runner.calls[0][0]
+    assert argv[argv.index("-c:a") + 1] == "libmp3lame"
+    assert argv[-1] == str(tmp_path / "out" / "a.mp3")
+    with pytest.raises(RenderError, match="encode"):
+        media.encode_mp3(Path("a.wav"), tmp_path / "a.mp3", runner=FakeRunner(returncode=1))
+
+
 def test_run_vhs_uses_the_workspace_and_reports_errors(tmp_path: Path) -> None:
     runner = FakeRunner()
     media.run_vhs(tmp_path / "t.tape", tmp_path, runner=runner)

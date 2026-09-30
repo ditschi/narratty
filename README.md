@@ -21,6 +21,7 @@ scenes:
 ```bash
 uv tool install narratty            # or: pipx install narratty
 narratty build demo.narratty.yaml   # writes demo.mp4
+narratty build demo.narratty.yaml -f cast  # demo.cast + demo.mp3 + demo.html
 ```
 
 With Docker or Podman installed, the build runs in the `ghcr.io/ditschi/narratty`

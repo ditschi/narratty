@@ -4,11 +4,28 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
-from narratty.end_card import CREDIT
-from narratty.spec.model import Action, CtrlSequence, Enter, Hold, Key, Scene, Spec, TypeCommand, Wait
-from narratty.timeline import SceneTiming, Timeline, typing_speed
+from narratty.render.script import (
+    Ctrl,
+    Hide,
+    Mark,
+    Press,
+    Show,
+    Sleep,
+    Step,
+    Type,
+    WaitScreen,
+    end_card_steps,
+    prompt_setup,
+    scene_steps,
+    setup_steps,
+)
+from narratty.spec.model import Spec
+from narratty.timeline import Timeline
+
+__all__ = ["FRAMERATE", "generate_tape", "prompt_setup", "quote_chunks"]
 
 FRAMERATE = 30
 _DELIMITERS = ('"', "'", "`")
@@ -34,76 +51,32 @@ def quote_chunks(text: str) -> list[str]:
     return chunks
 
 
-def _type(text: str, speed: int) -> list[str]:
-    return [f"Type@{speed}ms {literal}" for literal in quote_chunks(text)]
+def step_lines(step: Step) -> list[str]:
+    """VHS commands for one step."""
+    match step:
+        case Type(text, speed):
+            return [f"Type@{speed}ms {literal}" for literal in quote_chunks(text)]
+        case Press(key, speed, count):
+            return [f"{key}@{speed}ms" + (f" {count}" if count else "")]
+        case Ctrl(char):
+            return [f"Ctrl+{char}"]
+        case Sleep(ms):
+            return [f"Sleep {ms}ms"]
+        case WaitScreen(pattern, timeout_ms):
+            return [f"Wait+Screen@{timeout_ms}ms /{pattern.replace('/', '\\/')}/"]
+        case Hide():
+            return ["Hide"]
+        case Show():
+            return ["Show"]
+        case Mark(None):
+            return ["# end card"]
+        case Mark(scene_id, hidden):
+            return [f"# scene: {scene_id}" + (" (hidden)" if hidden else "")]
+    raise AssertionError(step)  # pragma: no cover
 
 
-def _shell_quote(value: str) -> str:
-    return "'" + value.replace("'", "'\\''") + "'"
-
-
-def prompt_setup(shell: str, prompt: str) -> str:
-    """Shell command that sets a fixed prompt and clears the screen."""
-    if shell == "fish":
-        return f"function fish_prompt; printf '%s' {_shell_quote(prompt)}; end; clear"
-    return f"PS1={_shell_quote(prompt)}; clear"
-
-
-def action_lines(action: Action, speed: int) -> list[str]:
-    """VHS commands for one action (``hold: auto`` is emitted by the caller)."""
-    if isinstance(action, TypeCommand):
-        return _type(action.type_command, speed)
-    if isinstance(action, Enter):
-        return [f"Enter@{speed}ms"]
-    if isinstance(action, Key):
-        name, _, count = action.key.partition(" ")
-        return [f"{name}@{speed}ms" + (f" {count}" if count else "")]
-    if isinstance(action, CtrlSequence):
-        return [f"Ctrl+{action.ctrl_sequence.removeprefix('C-').upper()}"]
-    if isinstance(action, Wait):
-        pattern = action.wait.screen.replace("/", "\\/")
-        return [f"Wait+Screen@{action.wait.timeout_ms}ms /{pattern}/"]
-    if isinstance(action, Hold) and action.hold != "auto":
-        return [f"Sleep {action.hold}ms"]
-    return []
-
-
-def _scene_lines(spec: Spec, scene: Scene, timing: SceneTiming) -> list[str]:
-    speed = typing_speed(spec, scene)
-    fill_at_hold = scene.narration_start == "with_actions"
-    lines = [f"# scene: {scene.id}" + (" (hidden)" if scene.hidden else "")]
-    if scene.hidden:
-        lines.append("Hide")
-    filled = False
-    for action in scene.actions:
-        if isinstance(action, Hold) and action.hold == "auto" and fill_at_hold:
-            if timing.fill_ms:
-                lines.append(f"Sleep {timing.fill_ms}ms")
-            filled = True
-            continue
-        lines += action_lines(action, speed)
-    if not filled and timing.fill_ms:
-        lines.append(f"Sleep {timing.fill_ms}ms")
-    if scene.hidden:
-        # Clear what the hidden commands printed; hidden time is not recorded.
-        lines += ['Type@1ms "clear"', "Enter@1ms", "Sleep 300ms", "Show"]
-    return lines
-
-
-def end_card_lines(spec: Spec, timeline: Timeline, python: str) -> list[str]:
-    """Draw the end card while hidden, then keep it on screen for its duration."""
-    command = f"{prompt_setup(spec.terminal.shell, '')}; {_shell_quote(python)} -m narratty.end_card"
-    if not spec.end_card.qr:
-        command += " --no-qr"
-    return [
-        "# end card",
-        "Hide",
-        *_type(command, 1),
-        "Enter@1ms",
-        f"Wait+Screen@30s /{CREDIT}/",
-        "Show",
-        f"Sleep {timeline.end_card_ms}ms",
-    ]
+def _lines(steps: Iterable[Step]) -> list[str]:
+    return [line for step in steps for line in step_lines(step)]
 
 
 def generate_tape(spec: Spec, timeline: Timeline, output: Path, *, python: str | None = None) -> str:
@@ -123,20 +96,15 @@ def generate_tape(spec: Spec, timeline: Timeline, output: Path, *, python: str |
         f"Set TypingSpeed {term.typing_speed_ms}ms",
         f"Set Framerate {FRAMERATE}",
         "",
-        "Hide",
-        *_type(prompt_setup(term.shell, term.prompt), 1),
-        "Enter@1ms",
-        "Sleep 500ms",  # hidden, so it costs no video time; lets `clear` finish
-        "Show",
+        *_lines(setup_steps(spec)),
     ]
     if timeline.lead_in_ms:
         lines.append(f"Sleep {timeline.lead_in_ms}ms")
     for scene in spec.scenes:
-        lines.append("")
-        lines += _scene_lines(spec, scene, timeline.scene(scene.id))
+        lines += ["", *_lines(scene_steps(spec, scene, timeline.scene(scene.id)))]
     lines.append("")
     if timeline.tail_ms:
         lines.append(f"Sleep {timeline.tail_ms}ms")
     if timeline.end_card_ms:
-        lines += ["", *end_card_lines(spec, timeline, python or sys.executable)]
+        lines += ["", *_lines(end_card_steps(spec, timeline, python or sys.executable))]
     return "\n".join(lines) + "\n"

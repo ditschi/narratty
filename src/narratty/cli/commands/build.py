@@ -1,7 +1,8 @@
-"""``narratty build``: the full pipeline, from spec to narrated mp4."""
+"""``narratty build``: the full pipeline, from spec to narrated mp4 (or asciicast)."""
 
 from __future__ import annotations
 
+from enum import StrEnum
 from pathlib import Path
 
 import typer
@@ -25,10 +26,27 @@ from narratty.cli.options import (
 from narratty.runtime import Runtime
 
 
+class OutputFormat(StrEnum):
+    """Values of ``--format``."""
+
+    MP4 = "mp4"
+    CAST = "cast"
+
+
 def build_command(
     spec: Path = SpecArgument,
     output: Path | None = typer.Option(
-        None, "--output", "-o", help="Where to write the video (default: next to the spec, as .mp4)."
+        None,
+        "--output",
+        "-o",
+        help="Where to write the video, or the HTML page for --format cast (default: next to the spec).",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.MP4,
+        "--format",
+        "-f",
+        case_sensitive=False,
+        help="mp4: narrated video. cast: asciicast + MP3 + an HTML page playing both.",
     ),
     work_dir: Path | None = typer.Option(
         None, "--work-dir", help="Keep the tape, silent video and narration track in this directory."
@@ -50,12 +68,13 @@ def build_command(
     runtime: Runtime = RuntimeOption,
     image: str | None = ImageOption,
 ) -> None:
-    """Build the narrated video."""
-    from narratty.build import WorkspaceOptions, build, default_output
+    """Build the narrated video (or asciicast)."""
+    from narratty.build import WorkspaceOptions, build, build_cast, default_output
     from narratty.container import SandboxRequest, delegate
     from narratty.end_card import container_flag
     from narratty.ui.console import err, out
 
+    cast = output_format is OutputFormat.CAST
     workspace = WorkspaceOptions(
         workspace_mode.value if workspace_mode else None, allow_dirty, keep_workspace
     )
@@ -65,9 +84,15 @@ def build_command(
         spec,
         runtime=runtime,
         image=image,
-        output=output or default_output(spec),
+        output=output or default_output(spec, f".{'html' if cast else 'mp4'}"),
         work_dir=work_dir,
-        extra_args=["--max-drift", str(max_drift), container_flag(spec, end_card)],
+        extra_args=[
+            "--format",
+            output_format.value,
+            "--max-drift",
+            str(max_drift),
+            container_flag(spec, end_card),
+        ],
         sandbox=request,
     )
     if code is not None:
@@ -79,18 +104,29 @@ def build_command(
             status.update(message)
             err.print(f"[dim]{message}[/]", highlight=False, soft_wrap=True)
 
-        result = build(
-            spec,
-            output,
-            work_dir=work_dir,
-            offline=offline,
-            max_drift=max_drift,
-            workspace=workspace,
-            end_card=end_card,
-            log=log,
-        )
+        if cast:
+            result = build_cast(
+                spec,
+                output,
+                work_dir=work_dir,
+                offline=offline,
+                workspace=workspace,
+                end_card=end_card,
+                log=log,
+            )
+        else:
+            result = build(
+                spec,
+                output,
+                work_dir=work_dir,
+                offline=offline,
+                max_drift=max_drift,
+                workspace=workspace,
+                end_card=end_card,
+                log=log,
+            )
     err.print(
-        f"video {result.video_ms / 1000:.2f}s, "
+        f"{'cast' if cast else 'video'} {result.video_ms / 1000:.2f}s, "
         f"planned {result.expected_ms / 1000:.2f}s ({result.drift:+.1%})",
         highlight=False,
     )

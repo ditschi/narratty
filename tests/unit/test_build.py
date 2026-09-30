@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from narratty.build import BuildResult, Plan, default_output, place_clips, verify
+from narratty.build import BuildResult, CastOutputs, Plan, default_output, place_clips, place_clips_at, verify
 from narratty.errors import RenderError, SyncError
 from narratty.render import media
 from narratty.spec.loader import parse_spec
@@ -43,6 +43,15 @@ def test_place_clips_scales_with_the_rendered_length(tmp_path: Path) -> None:
     assert planned.timeline.total_ms == 3000
     assert [p.start_ms for p in place_clips(planned, 3000)] == [0, 2000]
     assert [p.start_ms for p in place_clips(planned, 2940)] == [0, 1960]
+
+
+def test_place_clips_at_recorded_scene_starts(tmp_path: Path) -> None:
+    assert [p.start_ms for p in place_clips_at(_plan(tmp_path), {"a": 10, "b": 2500})] == [10, 2500]
+
+
+def test_cast_outputs_sit_beside_the_page() -> None:
+    outputs = CastOutputs(Path("out/demo.html"))
+    assert (outputs.cast, outputs.audio) == (Path("out/demo.cast"), Path("out/demo.mp3"))
 
 
 def test_workspace_is_relative_to_the_spec(tmp_path: Path) -> None:
