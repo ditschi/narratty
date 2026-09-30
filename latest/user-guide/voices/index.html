@@ -1053,34 +1053,40 @@
 <thead>
 <tr>
 <th>Provider</th>
-<th>Install</th>
-<th>Voices</th>
+<th>Sound</th>
+<th>Languages</th>
+<th>Download</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>piper</code> (default)</td>
-<td>comes with narratty</td>
-<td><code>en_US-lessac-medium</code> and the other curated Piper voices</td>
+<td><code>kokoro</code> (default)</td>
+<td>natural</td>
+<td>English (US, UK), Spanish, French, Italian, Portuguese, Hindi, Japanese, Chinese</td>
+<td>one 205 MB model shared by all voices (<code>af_heart</code>, <code>bf_emma</code>, …)</td>
 </tr>
 <tr>
-<td><code>kokoro</code></td>
-<td><code>uv tool install 'narratty[kokoro]'</code></td>
-<td><code>af_heart</code>, <code>bf_emma</code>, … (one ~300 MB model shared by all voices)</td>
+<td><code>piper</code></td>
+<td>clear, more synthetic</td>
+<td>many, including German</td>
+<td>about 60 MB per voice (<code>en_US-lessac-medium</code>, <code>de_DE-thorsten-medium</code>, …)</td>
 </tr>
 </tbody>
 </table>
-<p>Pick one in the spec:</p>
+<p>Both come with narratty. Without a <code>tts</code> block a spec uses Kokoro with <code>af_heart</code>;
+with only <code>provider</code>, the voice defaults to that provider's first voice:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">tts</span><span class="p">:</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kokoro</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">voice</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">af_heart</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">kokoro</span><span class="p">:</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">speed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.1</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">piper</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">voice</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">de_DE-thorsten-medium</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">piper</span><span class="p">:</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">length_scale</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.1</span>
 </code></pre></div>
+<p>narratty uses Kokoro's fp16 model: half the size of the full model, faster on a CPU
+and sounds the same.</p>
 <h2 id="listing-and-downloading-voices">Listing and downloading voices<a class="headerlink" href="#listing-and-downloading-voices" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>narratty<span class="w"> </span>voices<span class="w">                      </span><span class="c1"># curated voices of both providers</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>narratty<span class="w"> </span>voices<span class="w"> </span>--provider<span class="w"> </span>piper<span class="w"> </span>--installed
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>narratty<span class="w"> </span>voices<span class="w"> </span>pull<span class="w"> </span>en_GB-alan-medium
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>narratty<span class="w"> </span>voices<span class="w"> </span>pull<span class="w"> </span>bf_emma
 </code></pre></div>
 <p><code>narratty tts</code> and <code>narratty build</code> download a missing voice on first use; pass
 <code>--offline</code> (or set <code>NARRATTY_OFFLINE=1</code>) to fail instead. Kokoro model files are

@@ -1084,7 +1084,7 @@
 <h1 id="sandboxed-runs">Sandboxed runs<a class="headerlink" href="#sandboxed-runs" title="Permanent link">&para;</a></h1>
 <p>With Docker or Podman installed, <code>build</code>, <code>render</code>, <code>tts</code>, <code>plan</code> and <code>tape</code> run
 inside the narratty image by default (<code>--runtime auto</code>). The image contains VHS,
-ttyd, Chromium, ffmpeg, fonts, Piper, <code>git</code>, <code>tree</code> and the <a href="../toolkit/">demo toolkit</a>
+ttyd, Chromium, ffmpeg, fonts, Kokoro, Piper, <code>git</code>, <code>tree</code> and the <a href="../toolkit/">demo toolkit</a>
 (<code>bat</code>, <code>eza</code>, <code>fd</code>, <code>ripgrep</code>, <code>jq</code>, <code>yazi</code>, <code>tmux</code>, <code>zsh</code>). You only need narratty
 itself and a container runtime on the host.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w">                    </span><span class="c1"># container if available</span>
@@ -1102,11 +1102,7 @@ itself and a container runtime on the host.</p>
 <tbody>
 <tr>
 <td><code>ghcr.io/ditschi/narratty:&lt;version&gt;</code></td>
-<td>Piper with <code>en_US-lessac-medium</code></td>
-</tr>
-<tr>
-<td><code>ghcr.io/ditschi/narratty:&lt;version&gt;-kokoro</code></td>
-<td>The above, plus Kokoro and its model</td>
+<td>Kokoro with <code>af_heart</code>, Piper with <code>en_US-lessac-medium</code></td>
 </tr>
 <tr>
 <td><code>ghcr.io/ditschi/narratty-toolkit:&lt;version&gt;</code></td>
@@ -1114,9 +1110,9 @@ itself and a container runtime on the host.</p>
 </tr>
 </tbody>
 </table>
-<p>narratty picks the tag matching its own version (<code>edge</code> for development builds) and
-the <code>-kokoro</code> variant when the spec uses Kokoro. Override the image with <code>--image</code> or
-<code>NARRATTY_IMAGE</code>.</p>
+<p>narratty picks the tag matching its own version (<code>edge</code> for development builds).
+Override the image with <code>--image</code> or <code>NARRATTY_IMAGE</code>. Up to 0.1, Kokoro needed a
+separate <code>-kokoro</code> image; from 0.2 on, the one image has both engines.</p>
 <h2 id="what-the-container-can-see">What the container can see<a class="headerlink" href="#what-the-container-can-see" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

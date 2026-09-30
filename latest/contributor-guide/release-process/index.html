@@ -985,6 +985,7 @@
 <p>Versions come from git tags (hatch-vcs); commitizen writes the changelog.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>cz<span class="w"> </span>bump<span class="w">        </span><span class="c1"># bumps the version, updates CHANGELOG.md, commits "bump: version …"</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>push<span class="w">              </span><span class="c1"># push main (not the tag); or open a PR with the bump commit</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">                      </span><span class="c1"># (merge it with a merge commit, so the bump commit reaches main)</span>
 </code></pre></div>
 <p>When the bump commit reaches <code>main</code>, <code>.github/workflows/release.yml</code> tags it <code>vX.Y.Z</code>
 and releases it: build, publish to TestPyPI, verify the install, publish to PyPI,
@@ -1007,22 +1008,24 @@ GHCR for linux/amd64 and linux/arm64:</p>
 </tr>
 <tr>
 <td>Push to <code>main</code></td>
-<td><code>edge</code>, <code>edge-kokoro</code></td>
+<td><code>edge</code></td>
 </tr>
 <tr>
 <td>Release <code>v1.2.3</code></td>
-<td><code>1.2.3</code>, <code>1.2</code>, <code>latest</code> and the same with <code>-kokoro</code></td>
+<td><code>1.2.3</code>, <code>1.2</code>, <code>latest</code></td>
 </tr>
 </tbody>
 </table>
+<p><code>narratty-toolkit</code> gets the same tags.</p>
 <h2 id="one-time-setup">One-time setup<a class="headerlink" href="#one-time-setup" title="Permanent link">&para;</a></h2>
 <ul>
 <li>PyPI and TestPyPI: add a <em>trusted publisher</em> for <code>ditschi/narratty</code>, workflow
   <code>release.yml</code>, environments <code>pypi</code> and <code>testpypi</code>.</li>
 <li>GitHub: create the <code>pypi</code> and <code>testpypi</code> environments, and enable GitHub Pages from the
   <code>gh-pages</code> branch for the docs.</li>
-<li>GHCR: after the first push, open the <code>narratty</code> package settings on GitHub and set
-  its visibility to public so <code>docker pull</code> works without logging in.</li>
+<li>GHCR: after the first push, open the <code>narratty</code> and <code>narratty-toolkit</code> package
+  settings on GitHub and set their visibility to public so <code>docker pull</code> works
+  without logging in.</li>
 </ul>
 
 

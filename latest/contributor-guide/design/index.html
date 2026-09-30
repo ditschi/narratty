@@ -2862,7 +2862,10 @@ sandboxed mode then wraps a pipeline that already works.</p>
 <li><strong>Kokoro size in the base image</strong> → Make it optional. Separate
    <code>narratty-base:&lt;ver&gt;-kokoro</code> image (pulled only when <code>tts.provider: kokoro</code>) and a
    <code>narratty[kokoro]</code> extra for native mode. Keeps the default image and CI lean and
-   still gives one-command Kokoro renders.</li>
+   still gives one-command Kokoro renders.
+   <em>Revised in 0.2:</em> Kokoro is the default provider and a regular dependency, and the
+   one image contains it. The fp16 model (177 MB) keeps the size down; Piper stays
+   for languages Kokoro lacks, such as German.</li>
 <li><strong>Voice catalog: allowlist vs. discovery</strong> → Both, layered. Ship a curated
    <code>voices.toml</code> (id, provider, language, download URL, sha256, licence) that drives
    validation, <code>voices</code> and completion, and accept any locally discovered model too
