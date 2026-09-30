@@ -647,6 +647,18 @@
         "qr": true
       }
     },
+    "subtitles": {
+      "default": "none",
+      "description": "Subtitles from the narration: files (.srt/.vtt beside the output), track (soft track in the mp4) or burn (drawn into the video).",
+      "enum": [
+        "none",
+        "files",
+        "track",
+        "burn"
+      ],
+      "title": "Subtitles",
+      "type": "string"
+    },
     "scenes": {
       "items": {
         "$ref": "#/$defs/Scene"

@@ -317,6 +317,11 @@ class Spec(_Model):
     workspace: Workspace = Workspace()
     sandbox: Sandbox = Sandbox()
     end_card: EndCard = EndCard()
+    subtitles: Literal["none", "files", "track", "burn"] = Field(
+        "none",
+        description="Subtitles from the narration: files (.srt/.vtt beside the output), "
+        "track (soft track in the mp4) or burn (drawn into the video).",
+    )
     scenes: list[Scene] = Field(min_length=1)
 
     @field_validator("end_card", mode="before")

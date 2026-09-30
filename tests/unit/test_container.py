@@ -121,6 +121,17 @@ def test_delegate_mounts_and_arguments(tmp_path: Path, monkeypatch: pytest.Monke
     assert lexicon.startswith("NARRATTY_LEXICON=/cache/lexicons/"), "host lexicon levels travel via the cache"
 
 
+def test_draft_fetches_no_voice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("narratty.tts.piper.PiperProvider.is_installed", lambda self, voice: False)
+    monkeypatch.setattr("narratty.tts.piper.PiperProvider.install", lambda *a, **k: pytest.fail("fetched"))
+    spec = _write_spec(tmp_path)
+    code = delegate(
+        "plan", spec, runtime=Runtime.DOCKER, image="img:test", extra_args=["--draft"], runner=lambda argv: 0
+    )
+    assert code == 0
+
+
 @pytest.fixture
 def docker_calls(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")

@@ -33,6 +33,15 @@ class OutputFormat(StrEnum):
     CAST = "cast"
 
 
+class SubtitleMode(StrEnum):
+    """Values of ``--subtitles``."""
+
+    NONE = "none"
+    FILES = "files"
+    TRACK = "track"
+    BURN = "burn"
+
+
 def build_command(
     spec: Path = SpecArgument,
     output: Path | None = typer.Option(
@@ -57,6 +66,19 @@ def build_command(
         min=0.0,
         help="Fail when the video's length differs from the plan by more (0.10 = 10%).",
     ),
+    subtitles: SubtitleMode | None = typer.Option(
+        None,
+        "--subtitles",
+        case_sensitive=False,
+        help="Override the spec's subtitles: none, files (.srt/.vtt beside the output), "
+        "track (soft track in the mp4) or burn (drawn into the video). --format cast writes files.",
+    ),
+    draft: bool = typer.Option(
+        False,
+        "--draft",
+        help="Fast preview: no TTS (estimated narration lengths), half size, 10 fps, silent, "
+        "narration burned in as subtitles. Writes <spec>.draft.mp4 by default.",
+    ),
     workspace_mode: WorkspaceMode | None = WorkspaceModeOption,
     keep_workspace: bool = KeepWorkspaceOption,
     allow_dirty: bool = AllowDirtyOption,
@@ -72,9 +94,13 @@ def build_command(
     from narratty.build import WorkspaceOptions, build, build_cast, default_output
     from narratty.container import SandboxRequest, delegate
     from narratty.end_card import container_flag
+    from narratty.errors import UsageError
     from narratty.ui.console import err, out
 
     cast = output_format is OutputFormat.CAST
+    if draft and cast:
+        raise UsageError("--draft only applies to --format mp4")
+    suffix = ".html" if cast else ".draft.mp4" if draft else ".mp4"
     workspace = WorkspaceOptions(
         workspace_mode.value if workspace_mode else None, allow_dirty, keep_workspace
     )
@@ -84,7 +110,7 @@ def build_command(
         spec,
         runtime=runtime,
         image=image,
-        output=output or default_output(spec, f".{'html' if cast else 'mp4'}"),
+        output=output or default_output(spec, suffix),
         work_dir=work_dir,
         extra_args=[
             "--format",
@@ -92,6 +118,8 @@ def build_command(
             "--max-drift",
             str(max_drift),
             container_flag(spec, end_card),
+            *(["--subtitles", subtitles.value] if subtitles else []),
+            *(["--draft"] if draft else []),
         ],
         sandbox=request,
     )
@@ -112,6 +140,7 @@ def build_command(
                 offline=offline,
                 workspace=workspace,
                 end_card=end_card,
+                subtitles=subtitles.value if subtitles else None,
                 log=log,
             )
         else:
@@ -123,6 +152,8 @@ def build_command(
                 max_drift=max_drift,
                 workspace=workspace,
                 end_card=end_card,
+                subtitles=subtitles.value if subtitles else None,
+                draft=draft,
                 log=log,
             )
     err.print(
