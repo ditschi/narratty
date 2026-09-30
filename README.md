@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ditschi/narratty/main/docs/assets/logo.svg" alt="narratty" width="320">
+</p>
+
 # narratty
 
 Turn a YAML script into a narrated terminal video. narratty types your commands in a

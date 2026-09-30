@@ -1,5 +1,7 @@
 # narratty
 
+![narratty](assets/logo.svg){ width="320" }
+
 Turn a YAML script into a narrated terminal video. narratty types your commands in a
 real terminal (VHS), speaks the narration with local text-to-speech (Kokoro or Piper)
 and keeps voice and picture in sync. It runs sandboxed in Docker or Podman, or

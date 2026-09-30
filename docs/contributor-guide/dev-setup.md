@@ -25,3 +25,18 @@ uv run pre-commit install    # ruff, mypy, codespell, commit-msg check
 
 Commits and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/)
 (`feat: …`, `fix: …`, `docs: …`). PRs are squash-merged, so the PR title becomes the commit.
+
+## Logo
+
+`docs/assets/` holds the logo files:
+
+| File | Use |
+|---|---|
+| `logo-source.svg` | Editable source (text as `<text>`) |
+| `logo.svg`, `logo.png` | Full logo, text converted to paths (README, docs home) |
+| `icon.svg`, `icon.png` | Square mark (docs header, avatars) |
+| `favicon.ico` | Docs favicon (16, 32, 48 px) |
+| `social-preview.png` | GitHub social preview (1280x640, set in the repository settings) |
+
+After editing `logo-source.svg`, convert the text to paths (JetBrains Mono NL
+ExtraBold, Bold for the output line) and re-export the PNGs.
