@@ -16,6 +16,7 @@ from narratty.cli.commands.build import build_command
 from narratty.cli.commands.cache import cache_app
 from narratty.cli.commands.doctor import doctor_command
 from narratty.cli.commands.init import init_command
+from narratty.cli.commands.lexicon import lexicon_app
 from narratty.cli.commands.plan import plan_command
 from narratty.cli.commands.render import render_command
 from narratty.cli.commands.schema import schema_command
@@ -70,5 +71,6 @@ app.command("tts")(tts_command)
 app.command("tape")(tape_command)
 app.command("render")(render_command)
 app.add_typer(voices_app, name="voices")
+app.add_typer(lexicon_app, name="lexicon")
 app.command("doctor")(doctor_command)
 app.add_typer(cache_app, name="cache")
