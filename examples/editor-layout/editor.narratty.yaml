@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+# An editor-like layout: yazi as file explorer and preview on top, a shell below.
+# tmux and yazi come from the narratty toolkit, which the narratty image contains.
+version: 1
+meta:
+  title: Editor layout with tmux and yazi
+terminal:
+  width: 1600
+  height: 900
+  font_size: 18
+requires:
+  tools: [tmux, yazi]
+workspace:
+  source: project
+scenes:
+  - id: layout
+    hidden: true
+    actions:
+      # Explorer (yazi) on top, a terminal below; focus stays in the terminal.
+      - type_command: >-
+          tmux new-session -s ide yazi \;
+          split-window -v -l 30% "PS1='$ ' bash --norc" \;
+          select-pane -t 1 -T Explorer \; select-pane -t 2 -T Terminal
+      - enter
+      - wait: {screen: "Terminal"}
+
+  - id: intro
+    narration: >-
+      This demo looks like an editor. Files and a preview on top, and a terminal
+      below, all in one tmux window.
+    actions:
+      - hold: auto
+
+  - id: explore
+    narration: >-
+      Switch to the explorer and open the source folder. The preview shows the
+      selected file with syntax highlighting.
+    actions:
+      - ctrl_sequence: C-b
+      - key: Up
+      - hold: 600
+      - key: Right
+      - hold: 600
+      - key: Right
+      - hold: 600
+      - key: Down
+      - hold: auto
+
+  - id: run
+    narration: Back in the terminal, run the program.
+    actions:
+      - ctrl_sequence: C-b
+      - key: Down
+      - type_command: PYTHONPATH=src python3 -m greet Ada Grace
+      - enter
+      - wait: {screen: "Hello, Grace!"}
+      - hold: auto
+
+  - id: edit
+    narration: >-
+      Change the greeting from the terminal. The preview picks up the change, and
+      the next run uses it.
+    actions:
+      - type_command: sed -i 's/Hello/Welcome/' src/greet/__main__.py
+      - enter
+      - hold: 800
+      - type_command: PYTHONPATH=src python3 -m greet Ada
+      - enter
+      - wait: {screen: "Welcome, Ada!"}
+      - hold: auto
+
+  - id: close
+    hidden: true
+    actions:
+      - type_command: tmux kill-server
+      - enter
