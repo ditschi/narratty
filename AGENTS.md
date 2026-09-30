@@ -2,7 +2,7 @@
 
 `narratty` is a Python CLI (command and import package `narratty`) that turns a
 `.narratty.yaml` spec into a narrated terminal video. The design and milestones live in
-`docs/design.md`; read it before adding features.
+`docs/contributor-guide/design.md`; read it before adding features.
 
 ## Tooling
 

@@ -1,5 +1,10 @@
 # narratty: setup & implementation plan (rev 2.3)
 
+!!! note "Planning document"
+    This is the original plan. Some of it is not built yet: `--draft`, `watch`,
+    subtitles and chapters, the pronunciation lexicon, `manifest.json`, the
+    requirements image and golden-frame checks. The user guide describes what exists.
+
 > Renamed from *shellcast* on 2026-09-29: that name is taken on PyPI and npm and used
 > by several terminal projects and a commercial iOS app.
 
