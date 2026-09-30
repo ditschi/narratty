@@ -22,6 +22,7 @@ max_network = "allowlist"          # none | allowlist | full
 allow_env = ["LM_LICENSE_FILE"]    # env_passthrough names a spec may use
 allow_mounts = true
 allow_ssh_agent = false
+allow_docker = false               # no spec gets your Docker/Podman engine
 ```
 
 Every key is optional. A command-line flag beats the spec, and the spec beats this

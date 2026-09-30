@@ -203,6 +203,7 @@ sandbox:
   env: { NAME: value }               # fixed, non-secret values
   extra_mounts: [{ host, container, mode }]   # e.g. ~/.netrc, a licence file
   ssh_agent: false                   # forward SSH_AUTH_SOCK (e.g. git over ssh)
+  docker: false                      # mount the engine socket (Docker outside of Docker)
 ```
 
 **How `allowlist` works.** The container sits on an internal Docker network with no
@@ -215,7 +216,7 @@ to resolve or connect.
 
 **Who decides.** The spec declares what it needs; you stay in control:
 - **Consent**: the first run of a spec that asks for more than `network: none`, any
-  `env_passthrough`, `extra_mounts` or `ssh_agent` shows a short summary and asks
+  `env_passthrough`, `extra_mounts`, `ssh_agent` or `docker` shows a short summary and asks
   (questionary prompt). The approval is remembered per spec path and a hash of its
   `sandbox` block, so a changed spec asks again. `--yes` for CI.
 - **Overrides**: `--network none|allowlist|full` and `--allow-host` on the command

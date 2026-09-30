@@ -2,7 +2,8 @@
 
 With Docker or Podman installed, `build`, `render`, `tts`, `plan` and `tape` run
 inside the narratty image by default (`--runtime auto`). The image contains VHS,
-ttyd, Chromium, ffmpeg, fonts, Kokoro, Piper, `git`, `tree` and the [demo toolkit](toolkit.md)
+ttyd, Chromium, ffmpeg, fonts, Kokoro, Piper, `git`, `tree`, the Docker CLI (with
+Compose and Buildx) and the [demo toolkit](toolkit.md)
 (`bat`, `eza`, `fd`, `ripgrep`, `jq`, `yazi`, `tmux`, `zsh`). You only need narratty
 itself and a container runtime on the host.
 
@@ -74,6 +75,7 @@ sandbox:
   extra_mounts:
     - {host: ~/.netrc, container: ~/.netrc, mode: ro}
   ssh_agent: false
+  docker: false
 ```
 
 - **`network: allowlist`** puts the container on an internal network with no route
@@ -85,6 +87,29 @@ sandbox:
 - **`network: full`** uses the container runtime's normal network.
 - `--network none|allowlist|full` and `--allow-host HOST:PORT` (repeatable) override
   the spec for one run.
+
+### Docker in the demo
+
+`docker: true` mounts your Docker or Podman engine's socket into the container. The
+demo's `docker` and `docker compose` commands then start containers on your machine,
+next to the narratty container.
+
+!!! warning "This is full access to your machine"
+    Whoever can use the engine can start a privileged container that mounts `/`.
+    Use it only for specs you trust. The approval prompt says so, and
+    `allow_docker = false` in the policy blocks it for every spec.
+
+- The socket is `DOCKER_HOST` (a `unix://` path) or `/var/run/docker.sock` for
+  Docker, and `CONTAINER_HOST` or the socket `podman info` reports for Podman
+  (`systemctl --user enable --now podman.socket`).
+- The workspace is mounted at its path on the host instead of `/work`, so bind mounts
+  the demo passes to the engine (`-v .:/app`, Compose `volumes:`) point at the same
+  files.
+- Containers the demo starts use the engine's networks, not the sandbox's. A port
+  they publish is on your machine, not on `localhost` in the narratty container; use
+  `docker compose exec` to work inside them.
+- They keep running after the render. Stop them in a hidden last scene
+  (`docker compose down`).
 
 ### You stay in control
 
@@ -101,6 +126,7 @@ max_network = "allowlist"          # none | allowlist | full
 allow_env = ["LM_LICENSE_FILE"]    # env_passthrough names a spec may use
 allow_mounts = true
 allow_ssh_agent = false
+allow_docker = false
 ```
 
 A spec that needs more than the policy allows fails with a message naming what is

@@ -256,6 +256,12 @@
           "default": false,
           "title": "Ssh Agent",
           "type": "boolean"
+        },
+        "docker": {
+          "default": false,
+          "description": "Give the demo your Docker or Podman engine. This is full control of the host.",
+          "title": "Docker",
+          "type": "boolean"
         }
       },
       "title": "Sandbox",
@@ -622,7 +628,8 @@
         "env_passthrough": [],
         "env": {},
         "extra_mounts": [],
-        "ssh_agent": false
+        "ssh_agent": false,
+        "docker": false
       }
     },
     "end_card": {
