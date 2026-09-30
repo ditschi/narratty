@@ -81,3 +81,11 @@ def test_load_spec_reads_file(tmp_path: Path) -> None:
     path = tmp_path / "demo.narratty.yaml"
     path.write_text(render_template("1.2.3"), encoding="utf-8")
     assert load_spec(path).meta.title == "My first narratty video"
+
+
+EXAMPLES = sorted((Path(__file__).parents[3] / "examples").glob("**/*.narratty.yaml"))
+
+
+@pytest.mark.parametrize("path", EXAMPLES, ids=lambda path: path.parent.name)
+def test_examples_are_valid(path: Path) -> None:
+    assert load_spec(path).scenes

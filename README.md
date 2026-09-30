@@ -30,6 +30,22 @@ tools native mode needs.
 
 **Documentation:** <https://ditschi.github.io/narratty/>
 
+## Features
+
+- **Spec to video:** a `.narratty.yaml` file becomes an MP4, or an asciicast with
+  narration and a player page (`--format cast`).
+- **Local voices:** Piper or Kokoro, no cloud service; narration and typing stay in
+  sync, and audio is cached.
+- **Sandboxed by default:** runs in Docker or Podman with no network unless the spec
+  asks for it and you approve. The demo runs in a throwaway snapshot of your
+  repository. Native mode is available too.
+- **Scripting:** hidden setup scenes, waits for screen output, key presses and
+  per-scene typing speed.
+- **Demo toolkit:** bat, eza, fd, ripgrep, jq, yazi, tmux and zsh as static binaries,
+  for the narratty image and, with one `COPY` line, for any dev container.
+- **Editor support:** a JSON Schema for completion and inline errors, `validate` with
+  line numbers, and shell completion.
+
 ## Development
 
 ```bash

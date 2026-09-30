@@ -1,0 +1,10 @@
+# narratty: yazi as an editor side bar. File list on the left, a wide preview on the right.
+[mgr]
+ratio = [0, 2, 5]
+show_hidden = false
+sort_dir_first = true
+linemode = "none"
+
+[preview]
+wrap = "no"
+tab_size = 4
