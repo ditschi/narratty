@@ -1,0 +1,4 @@
+# narratty: bat for recordings
+--paging=never
+--style=numbers,header,grid
+--theme=Dracula

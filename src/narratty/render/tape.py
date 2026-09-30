@@ -28,6 +28,13 @@ from narratty.timeline import Timeline
 __all__ = ["FRAMERATE", "generate_tape", "prompt_setup", "quote_chunks"]
 
 FRAMERATE = 30
+# VHS's default font list plus a Nerd Font fallback, so icons (yazi, eza --icons) render
+# when the toolkit's Symbols Nerd Font is installed. Chromium does not fall back to it
+# on its own.
+FONT_FAMILY = (
+    "JetBrains Mono,DejaVu Sans Mono,Menlo,Bitstream Vera Sans Mono,Inconsolata,"
+    "Roboto Mono,Hack,Consolas,ui-monospace,Symbols Nerd Font Mono,monospace"
+)
 _DELIMITERS = ('"', "'", "`")
 
 
@@ -92,6 +99,7 @@ def generate_tape(spec: Spec, timeline: Timeline, output: Path, *, python: str |
         f"Set Width {term.width}",
         f"Set Height {term.height}",
         f"Set FontSize {term.font_size}",
+        f"Set FontFamily {json.dumps(FONT_FAMILY)}",
         f"Set Theme {json.dumps(term.theme)}",
         f"Set TypingSpeed {term.typing_speed_ms}ms",
         f"Set Framerate {FRAMERATE}",

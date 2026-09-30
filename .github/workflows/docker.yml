@@ -2,6 +2,7 @@ name: Docker image
 # PRs: build and test the image (amd64, not pushed).
 # main: push :edge / :edge-kokoro.  Releases (release.yml calls this with the tag):
 # push :<version>, :<major.minor>, :latest (and -kokoro).
+# The toolkit target is published the same way as narratty-toolkit.
 on:
   pull_request:
   push:
@@ -18,7 +19,7 @@ concurrency:
 permissions:
   contents: read
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/narratty
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
 jobs:
   image:
     name: Image (${{ matrix.variant }})
@@ -32,10 +33,16 @@ jobs:
         include:
           - variant: base
             target: base
+            image: narratty
             suffix: ""
           - variant: kokoro
             target: kokoro
+            image: narratty
             suffix: "-kokoro"
+          - variant: toolkit
+            target: toolkit
+            image: narratty-toolkit
+            suffix: ""
     steps:
       - uses: actions/checkout@v7
         with:
@@ -51,7 +58,7 @@ jobs:
       - uses: docker/metadata-action@v6
         id: meta
         with:
-          images: ${{ env.IMAGE }}
+          images: ${{ env.REGISTRY }}/${{ matrix.image }}
           flavor: |
             latest=false
             suffix=${{ matrix.suffix }},onlatest=true
@@ -77,16 +84,29 @@ jobs:
           platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: ${{ github.event_name != 'pull_request' }}
           load: ${{ github.event_name == 'pull_request' }}
-          tags: ${{ github.event_name == 'pull_request' && format('narratty:test{0}', matrix.suffix) || steps.meta.outputs.tags }}
+          tags: ${{ github.event_name == 'pull_request' && format('{0}:test{1}', matrix.image, matrix.suffix) || steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.variant }}
           cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
+      - name: Smoke test (toolkit in foreign images, as a non-root user)
+        if: github.event_name == 'pull_request' && matrix.variant == 'toolkit'
+        run: |
+          cid=$(docker create narratty-toolkit:test /bin/true)
+          mkdir toolkit && docker cp "$cid":/. toolkit && docker rm "$cid"
+          for image in debian:trixie-slim alpine:3.22 busybox:1.37; do
+            echo "== $image"
+            docker run --rm --user 4321:4321 -e HOME=/tmp \
+              -v "$PWD/toolkit:/usr/local:ro" -v "$PWD/docker/toolkit/smoke.sh:/smoke.sh:ro" \
+              "$image" sh /smoke.sh
+          done
       - name: Smoke test
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && matrix.variant != 'toolkit'
         run: |
           docker run --rm narratty:test${{ matrix.suffix }} --version
           docker run --rm narratty:test${{ matrix.suffix }} doctor --runtime native
           docker run --rm narratty:test${{ matrix.suffix }} voices --installed
+          docker run --rm --entrypoint sh -v "$PWD/docker/toolkit/smoke.sh:/smoke.sh:ro" \
+            narratty:test${{ matrix.suffix }} /smoke.sh
       - uses: actions/setup-python@v6
         if: github.event_name == 'pull_request' && matrix.variant == 'base'
         with:

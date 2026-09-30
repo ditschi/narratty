@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
-from narratty.render.tape import generate_tape, prompt_setup, quote_chunks
+from narratty.render.tape import FONT_FAMILY, generate_tape, prompt_setup, quote_chunks
 from narratty.spec.loader import parse_spec
 from narratty.timeline import build_timeline
 
@@ -56,13 +57,14 @@ def test_prompt_setup_per_shell() -> None:
 
 def test_header_and_setup() -> None:
     lines = _tape().splitlines()
-    assert lines[:9] == [
+    assert lines[:10] == [
         '# narratty tape for "Demo"',
         'Output "/out/v.mp4"',
         "Set Shell zsh",
         "Set Width 800",
         "Set Height 400",
         "Set FontSize 18",
+        f"Set FontFamily {json.dumps(FONT_FAMILY)}",
         'Set Theme "Nord"',
         "Set TypingSpeed 40ms",
         "Set Framerate 30",
