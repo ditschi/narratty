@@ -29,6 +29,7 @@ dependencies = [
     "pydantic>=2.12",
     "ruamel.yaml>=0.18",
     "platformdirs>=4.2",
+    "segno>=1.6",
     # GPL-3.0; only ever run as a subprocess (`python -m piper`), never imported.
     "piper-tts>=1.8",
 ]

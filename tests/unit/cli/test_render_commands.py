@@ -44,7 +44,32 @@ def test_plan_prints_the_timeline(spec: Path) -> None:
     text = plain(result.output)
     assert "setup (hidden)" in text
     assert "intro" in text and "0.40s" in text  # four words of tone
-    assert "total: 2.20s" in text  # 300 lead-in + 400 + 500 buffer + 1000 tail
+    assert "end card" in text and "4.00s" in text
+    assert "total: 6.20s" in text  # 300 lead-in + 400 + 500 buffer + 1000 tail + 4000 end card
+
+
+def test_plan_without_end_card(spec: Path) -> None:
+    result = runner.invoke(app, ["plan", str(spec), "--no-end-card"], env={"COLUMNS": "200"})
+    assert result.exit_code == 0, result.output
+    text = plain(result.output)
+    assert "end card" not in text
+    assert "total: 2.20s" in text
+
+
+def test_tape_draws_the_end_card(spec: Path) -> None:
+    result = runner.invoke(app, ["tape", str(spec)])
+    assert result.exit_code == 0, result.output
+    assert "# end card" in result.output
+    assert "-m narratty.end_card" in result.output
+    result = runner.invoke(app, ["tape", str(spec), "--no-end-card"])
+    assert "# end card" not in result.output
+
+
+def test_config_turns_the_end_card_off(spec: Path, tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "config.toml").write_text("[end_card]\nenabled = false\n", encoding="utf-8")
+    assert "# end card" not in runner.invoke(app, ["tape", str(spec)]).output
+    assert "# end card" in runner.invoke(app, ["tape", str(spec), "--end-card"]).output
 
 
 def test_tape_prints_vhs_commands(spec: Path) -> None:

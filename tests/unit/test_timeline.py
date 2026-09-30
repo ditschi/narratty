@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from narratty.spec.loader import parse_spec
-from narratty.spec.model import Spec
+from narratty.spec.model import EndCard, Spec
 from narratty.timeline import build_timeline
 
 
@@ -79,3 +79,12 @@ def test_no_scene_is_shorter_than_its_narration(actions_ms: int, audio_ms: int) 
     assert scene.length_ms >= actions_ms
     if audio_ms:
         assert scene.length_ms >= audio_ms + spec.timing.narration_buffer_ms
+
+
+def test_end_card_adds_to_the_total() -> None:
+    base = Spec.model_validate({"scenes": [{"id": "a", "actions": [{"hold": 1000}]}]})
+    with_card = base.model_copy(update={"end_card": EndCard(enabled=True, duration_ms=3000)})
+    plain_timeline = build_timeline(base, {})
+    card_timeline = build_timeline(with_card, {})
+    assert card_timeline.end_card_ms == 3000
+    assert card_timeline.total_ms == plain_timeline.total_ms + 3000

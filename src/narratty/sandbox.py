@@ -14,29 +14,18 @@ import json
 import os
 import socket
 import subprocess
-import tomllib
 import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
+from narratty.config import config_dir, config_file, config_section
 from narratty.errors import NarrattyError, UsageError
 from narratty.spec.model import Sandbox
 
 NETWORK_LEVELS = ("none", "allowlist", "full")
 CONTAINER_HOME = "/home/narratty"
-
-
-def config_dir(env: Mapping[str, str] | None = None) -> Path:
-    """``~/.config/narratty`` (``NARRATTY_CONFIG_DIR`` overrides it)."""
-    env = os.environ if env is None else env
-    if override := env.get("NARRATTY_CONFIG_DIR"):
-        return Path(override).expanduser()
-    from platformdirs import user_config_path
-
-    return user_config_path("narratty")
 
 
 @dataclass(frozen=True)
@@ -51,13 +40,8 @@ class Policy:
 
 def load_policy(directory: Path | None = None) -> Policy:
     """Read the policy; a missing file means no cap."""
-    path = (directory or config_dir()) / "config.toml"
-    if not path.is_file():
-        return Policy()
-    try:
-        raw: dict[str, Any] = tomllib.loads(path.read_text(encoding="utf-8")).get("sandbox", {})
-    except tomllib.TOMLDecodeError as error:
-        raise UsageError(f"cannot read {path}: {error}") from error
+    path = config_file(directory)
+    raw = config_section("sandbox", directory)
     max_network = raw.get("max_network", "full")
     if max_network not in NETWORK_LEVELS:
         raise UsageError(f"{path}: max_network must be one of {', '.join(NETWORK_LEVELS)}")

@@ -10,6 +10,7 @@ from narratty.cli.arguments import SpecArgument
 from narratty.cli.options import (
     AllowDirtyOption,
     AllowHostOption,
+    EndCardOption,
     ImageOption,
     KeepWorkspaceOption,
     NetworkMode,
@@ -33,6 +34,7 @@ def render_command(
     network: NetworkMode | None = NetworkOption,
     allow_host: list[str] | None = AllowHostOption,
     yes: bool = YesOption,
+    end_card: bool | None = EndCardOption,
     offline: bool = OfflineOption,
     runtime: Runtime = RuntimeOption,
     image: str | None = ImageOption,
@@ -47,6 +49,7 @@ def render_command(
         workspace_for,
     )
     from narratty.container import SandboxRequest, delegate
+    from narratty.end_card import container_flag
     from narratty.ui.console import err
 
     video = (output or default_output(spec, ".silent.mp4")).resolve()
@@ -54,11 +57,19 @@ def render_command(
         workspace_mode.value if workspace_mode else None, allow_dirty, keep_workspace
     )
     request = SandboxRequest(workspace, network.value if network else None, check_hosts(allow_host), yes)
-    code = delegate("render", spec, runtime=runtime, image=image, output=video, sandbox=request)
+    code = delegate(
+        "render",
+        spec,
+        runtime=runtime,
+        image=image,
+        output=video,
+        extra_args=[container_flag(spec, end_card)],
+        sandbox=request,
+    )
     if code is not None:
         raise typer.Exit(code)
     with err.status("synthesizing narration"):
-        planned = plan(spec, offline=offline)
+        planned = plan(spec, offline=offline, end_card=end_card)
     with (
         err.status("recording with VHS"),
         work_directory(None) as work,

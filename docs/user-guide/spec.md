@@ -49,6 +49,7 @@ demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did 
 | `requires.tools` | `[]` | Extra commands the demo needs (checked by `doctor`) |
 | `workspace` | | What directory the demo runs in |
 | `sandbox` | | Permissions of the container |
+| `end_card` | on | Closing card, see below |
 | `scenes` | required | At least one scene |
 
 ## `tts`
@@ -104,6 +105,30 @@ you for approval before the first run.
 | `env` | `{}` | Fixed environment variables |
 | `extra_mounts` | `[]` | `{host, container, mode: ro\|rw}` |
 | `ssh_agent` | `false` | Forward the host SSH agent |
+
+## `end_card`
+
+The video ends with a short card that says "Created with narratty", with a link to
+this documentation and a QR code of the link. The QR code sits beside the text, or
+above it on a narrow terminal; it is left out when the terminal is too small for it.
+The card is drawn in black and white so it scans on any theme.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | unset | `true` or `false`; unset follows your config (on by default) |
+| `duration_ms` | `4000` | How long the card stays on screen (at least 1000) |
+| `qr` | `true` | Show the QR code |
+
+`end_card: false` is short for `end_card: {enabled: false}`. To turn the card off for
+every video, put this in `~/.config/narratty/config.toml`:
+
+```toml
+[end_card]
+enabled = false
+```
+
+`--end-card` / `--no-end-card` on the command line win over the spec, and the spec
+wins over the config.
 
 ## Scenes
 

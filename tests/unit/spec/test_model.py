@@ -95,3 +95,15 @@ def test_provider_options() -> None:
     )
     assert spec.tts.provider_options() == {"speed": 1.2, "lang": None}
     assert Spec.model_validate(_spec(tts={"provider": "custom"})).tts.provider_options() == {}
+
+
+@pytest.mark.parametrize(("value", "enabled"), [(False, False), (True, True), ({}, None)])
+def test_end_card_shorthand(value: Any, enabled: bool | None) -> None:
+    spec = Spec.model_validate(_spec(end_card=value))
+    assert spec.end_card.enabled is enabled
+    assert spec.end_card.duration_ms == 4000 and spec.end_card.qr
+
+
+def test_end_card_needs_a_visible_duration() -> None:
+    with pytest.raises(ValidationError, match="greater than or equal to 1000"):
+        Spec.model_validate(_spec(end_card={"duration_ms": 200}))
