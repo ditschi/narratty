@@ -285,6 +285,36 @@ class Sandbox(_Model):
         return bool(self.network != "none" or self.env_passthrough or self.extra_mounts or self.ssh_agent)
 
 
+ENV_SOURCES = ("image",)
+
+
+class Environment(_Model):
+    """A project container the demo shell runs in; the rest of narratty stays outside it."""
+
+    image: str | None = Field(None, min_length=1, description="Image to run the demo shell in.")
+    workdir: str = Field(
+        "/work", pattern=r"^/", description="Where the workspace is mounted and the shell starts."
+    )
+    user: str = Field(
+        "host",
+        pattern=r"^(host|image|[0-9]+(:[0-9]+)?)$",
+        description="host: your user id, so files stay yours; image: the image's user; or UID[:GID].",
+    )
+    read_only: bool = Field(False, description="Mount the image's root filesystem read-only.")
+
+    @model_validator(mode="after")
+    def _one_source(self) -> Environment:
+        given = [name for name in ENV_SOURCES if getattr(self, name) is not None]
+        if len(given) != 1:
+            raise ValueError(f"set exactly one of: {', '.join(ENV_SOURCES)}")
+        return self
+
+    @property
+    def source(self) -> str:
+        """The key naming where the container comes from (``image``, …)."""
+        return next(name for name in ENV_SOURCES if getattr(self, name) is not None)
+
+
 class EndCard(_Model):
     """The closing "Created with narratty" card with a link and QR code to the docs."""
 
@@ -306,6 +336,7 @@ class Spec(_Model):
     requires: Requires = Requires()
     workspace: Workspace = Workspace()
     sandbox: Sandbox = Sandbox()
+    environment: Environment | None = None
     end_card: EndCard = EndCard()
     scenes: list[Scene] = Field(min_length=1)
 

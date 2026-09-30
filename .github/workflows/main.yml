@@ -24,6 +24,20 @@ jobs:
         run: uv tool install nox
       - name: Run all quality gates
         run: nox --no-error-on-missing-interpreters
+  # ── Agent: narratty-agent (Go) ───────────────────────────────────────────────
+  agent:
+    name: Agent (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: agent/go.mod
+      - uses: astral-sh/setup-uv@v7
+      - name: Install nox
+        run: uv tool install nox
+      - name: Vet and test
+        run: nox -s agent
   # ── 2. Tests: multi-Python matrix, macOS best effort ────────────────────────
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
@@ -54,7 +68,7 @@ jobs:
   docs-deploy:
     name: Deploy docs (latest)
     runs-on: ubuntu-latest
-    needs: [quality, tests]
+    needs: [quality, tests, agent]
     permissions:
       contents: write
     steps:

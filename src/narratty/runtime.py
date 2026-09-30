@@ -61,3 +61,16 @@ def resolve_runtime(
         "no container runtime found, running natively (not sandboxed)",
         False,
     )
+
+
+def container_engine(*, which: Which | None = None) -> str:
+    """``docker``, else ``podman``: the engine that runs project environments natively."""
+    from narratty.errors import MissingDependencyError
+
+    lookup = shutil.which if which is None else which
+    for candidate in (Runtime.DOCKER, Runtime.PODMAN):
+        if lookup(candidate.value):
+            return candidate.value
+    raise MissingDependencyError(
+        "the spec's environment needs Docker or Podman", hint="Install one, or pass --no-env."
+    )

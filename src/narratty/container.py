@@ -27,7 +27,8 @@ from narratty.runtime import Runtime
 
 if TYPE_CHECKING:
     from narratty.build import WorkspaceOptions
-    from narratty.spec.model import Spec
+    from narratty.environment import EnvironmentOptions
+    from narratty.spec.model import Sandbox, Spec
 
 IMAGE_REPOSITORY = "ghcr.io/ditschi/narratty"
 _RELEASE = re.compile(r"^\d+\.\d+\.\d+$")
@@ -72,6 +73,8 @@ class ContainerSpec:
     network: str = "none"
     tty: bool = False
     volumes: Sequence[str] = ()
+    entrypoint: str | None = None
+    interactive: bool = False
 
 
 def _user_flags(engine: Runtime) -> list[str]:
@@ -98,6 +101,10 @@ def run_argv(spec: ContainerSpec) -> list[str]:
     ]  # fmt: skip
     if spec.tty:
         argv += ["--tty"]
+    if spec.interactive:
+        argv += ["--interactive"]
+    if spec.entrypoint:
+        argv += ["--entrypoint", spec.entrypoint]
     for mount in spec.mounts:
         argv += ["--volume", mount.flag()]
     for volume in spec.volumes:
@@ -132,12 +139,45 @@ class SandboxRequest:
     network: str | None = None
     allow_hosts: tuple[str, ...] = ()
     assume_yes: bool = False
+    environment: EnvironmentOptions = field(default_factory=lambda: _default_environment_options())
 
 
 def _default_workspace_options() -> WorkspaceOptions:
     from narratty.build import WorkspaceOptions
 
     return WorkspaceOptions()
+
+
+def _default_environment_options() -> EnvironmentOptions:
+    from narratty.environment import EnvironmentOptions
+
+    return EnvironmentOptions()
+
+
+def approved_sandbox(spec_file: Path, spec: Spec, request: SandboxRequest) -> Sandbox:
+    """The spec's sandbox with overrides applied, checked against the policy and approved."""
+    import sys
+
+    import typer
+
+    from narratty.environment import check_policy as check_environment_policy
+    from narratty.environment import resolve
+    from narratty.sandbox import apply_overrides, check_policy, ensure_consent, load_policy
+
+    sandbox = apply_overrides(spec.sandbox, network=request.network, allow_hosts=request.allow_hosts)
+    policy = load_policy()
+    check_policy(sandbox, policy)
+    environment = resolve(spec.environment, request.environment)
+    if environment is not None:
+        check_environment_policy(environment, policy.allow_environment)
+    ensure_consent(
+        spec_file,
+        sandbox,
+        assume_yes=request.assume_yes,
+        interactive=sys.stdin.isatty(),
+        confirm=lambda question: typer.confirm(question, default=False, err=True),
+    )
+    return sandbox
 
 
 def delegate(
@@ -240,39 +280,24 @@ class _Invocation:
 
 
 def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runner: Runner | None) -> int:
-    import sys
-
-    import typer
-
+    from narratty.bridge import BRIDGE_ENV, encode
     from narratty.build import Plan
+    from narratty.environment import provide, resolve
     from narratty.paths import cache_dir
-    from narratty.sandbox import (
-        allowlist_network,
-        apply_overrides,
-        check_policy,
-        container_access,
-        ensure_consent,
-        load_policy,
-    )
+    from narratty.sandbox import allowlist_network, container_access
     from narratty.ui.console import err
     from narratty.workspace import prepare_workspace
 
     spec_file = invocation.mounts[0].host
-    sandbox = apply_overrides(spec.sandbox, network=request.network, allow_hosts=request.allow_hosts)
-    check_policy(sandbox, load_policy())
-    ensure_consent(
-        spec_file,
-        sandbox,
-        assume_yes=request.assume_yes,
-        interactive=sys.stdin.isatty(),
-        confirm=lambda question: typer.confirm(question, default=False, err=True),
-    )
-    access = container_access(
-        sandbox, spec_dir=spec_file.parent, caches=spec.workspace.caches, cache_root=cache_dir()
-    )
-    invocation.env.update(access.env)
-    invocation.volumes += access.volumes
-    invocation.network = access.network
+    sandbox = approved_sandbox(spec_file, spec, request)
+    environment = resolve(spec.environment, request.environment)
+    if environment is None:
+        access = container_access(
+            sandbox, spec_dir=spec_file.parent, caches=spec.workspace.caches, cache_root=cache_dir()
+        )
+        invocation.env.update(access.env)
+        invocation.volumes += access.volumes
+        invocation.network = access.network
     invocation.env["NARRATTY_WORKSPACE"] = CONTAINER_WORKSPACE
 
     def log(message: str) -> None:
@@ -290,6 +315,23 @@ def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runn
         log=log,
     ) as workspace:
         invocation.mounts.append(Mount(workspace.path, CONTAINER_WORKSPACE, read_only=workspace.read_only))
+        if environment is not None:
+            # The demo runs in the environment; the recorder only reaches its agent.
+            with provide(
+                environment,
+                spec,
+                spec_dir=spec_file.parent,
+                sandbox=sandbox,
+                workspace=workspace,
+                engine=invocation.engine.value,
+                narratty_image=invocation.image,
+                with_agent=True,
+                keep=request.environment.keep,
+                log=log,
+            ) as session:
+                invocation.volumes.append(session.recorder_volume())
+                invocation.env[BRIDGE_ENV] = encode(session.agent_bridge())
+                return run(invocation.container(), runner=runner)
         if sandbox.network != "allowlist":
             return run(invocation.container(), runner=runner)
         with allowlist_network(invocation.engine.value, invocation.image, sandbox.allow_hosts) as network:

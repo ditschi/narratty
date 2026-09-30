@@ -12,16 +12,19 @@ from narratty.cli.options import (
     AllowDirtyOption,
     AllowHostOption,
     EndCardOption,
+    EnvImageOption,
     ImageOption,
+    KeepEnvOption,
     KeepWorkspaceOption,
     NetworkMode,
     NetworkOption,
+    NoEnvOption,
     OfflineOption,
     RuntimeOption,
     WorkspaceMode,
     WorkspaceModeOption,
     YesOption,
-    check_hosts,
+    sandbox_request,
 )
 from narratty.runtime import Runtime
 
@@ -62,6 +65,9 @@ def build_command(
     allow_dirty: bool = AllowDirtyOption,
     network: NetworkMode | None = NetworkOption,
     allow_host: list[str] | None = AllowHostOption,
+    env_image: str | None = EnvImageOption,
+    no_env: bool = NoEnvOption,
+    keep_env: bool = KeepEnvOption,
     yes: bool = YesOption,
     end_card: bool | None = EndCardOption,
     offline: bool = OfflineOption,
@@ -69,16 +75,15 @@ def build_command(
     image: str | None = ImageOption,
 ) -> None:
     """Build the narrated video (or asciicast)."""
-    from narratty.build import WorkspaceOptions, build, build_cast, default_output
-    from narratty.container import SandboxRequest, delegate
+    from narratty.build import build, build_cast, default_output
+    from narratty.container import delegate
     from narratty.end_card import container_flag
     from narratty.ui.console import err, out
 
     cast = output_format is OutputFormat.CAST
-    workspace = WorkspaceOptions(
-        workspace_mode.value if workspace_mode else None, allow_dirty, keep_workspace
+    request = sandbox_request(
+        workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env_image, no_env, keep_env
     )
-    request = SandboxRequest(workspace, network.value if network else None, check_hosts(allow_host), yes)
     code = delegate(
         "build",
         spec,
@@ -110,8 +115,9 @@ def build_command(
                 output,
                 work_dir=work_dir,
                 offline=offline,
-                workspace=workspace,
+                workspace=request.workspace,
                 end_card=end_card,
+                sandbox=request,
                 log=log,
             )
         else:
@@ -121,8 +127,9 @@ def build_command(
                 work_dir=work_dir,
                 offline=offline,
                 max_drift=max_drift,
-                workspace=workspace,
+                workspace=request.workspace,
                 end_card=end_card,
+                sandbox=request,
                 log=log,
             )
     err.print(

@@ -77,3 +77,46 @@ def test_verify_needs_both_streams(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(10000, True, False))
     with pytest.raises(RenderError, match="audio stream"):
         verify(_result(tmp_path, 10000), max_drift=0.1)
+
+
+def _env_plan(tmp_path: Path) -> Plan:
+    spec_path = tmp_path / "s.narratty.yaml"
+    spec = parse_spec("environment: {image: acme/dev:1}\nscenes: [{id: a}]\n", spec_path)
+    return Plan(spec_path, spec, (), build_timeline(spec, {}))
+
+
+def test_environment_bridge_natively(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from contextlib import contextmanager
+
+    from narratty.build import environment_bridge
+    from narratty.environment import Session
+    from narratty.workspace import PreparedWorkspace
+
+    started: list[dict[str, object]] = []
+
+    @contextmanager
+    def fake_provide(environment: object, spec: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        started.append(kwargs)
+        yield Session("podman", "env-1", "/work")
+
+    monkeypatch.setattr("narratty.environment.provide", fake_provide)
+    monkeypatch.setattr("narratty.runtime.container_engine", lambda: "podman")
+    workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge is not None
+        assert bridge[:2] == ["podman", "exec"] and bridge[-1] == "env-1"
+    assert started[0]["with_agent"] is False and started[0]["engine"] == "podman"
+
+
+def test_environment_bridge_in_the_container(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from narratty.bridge import BRIDGE_ENV, encode
+    from narratty.build import environment_bridge
+    from narratty.workspace import PreparedWorkspace
+
+    workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
+    monkeypatch.setenv("NARRATTY_IN_CONTAINER", "1")
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge is None, "the host ran it with --no-env"
+    monkeypatch.setenv(BRIDGE_ENV, encode(["narratty-agent", "connect"]))
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge == ["narratty-agent", "connect"]

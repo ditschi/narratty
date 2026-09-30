@@ -36,6 +36,7 @@ class Policy:
     allow_env: tuple[str, ...] | None = None  # None = any name
     allow_mounts: bool = True
     allow_ssh_agent: bool = True
+    allow_environment: tuple[str, ...] | None = None  # None = any source
 
 
 def load_policy(directory: Path | None = None) -> Policy:
@@ -46,11 +47,13 @@ def load_policy(directory: Path | None = None) -> Policy:
     if max_network not in NETWORK_LEVELS:
         raise UsageError(f"{path}: max_network must be one of {', '.join(NETWORK_LEVELS)}")
     allow_env = raw.get("allow_env")
+    allow_environment = raw.get("allow_environment")
     return Policy(
         max_network=max_network,
         allow_env=tuple(allow_env) if allow_env is not None else None,
         allow_mounts=bool(raw.get("allow_mounts", True)),
         allow_ssh_agent=bool(raw.get("allow_ssh_agent", True)),
+        allow_environment=tuple(allow_environment) if allow_environment is not None else None,
     )
 
 
@@ -164,8 +167,8 @@ class ContainerAccess:
     volumes: list[str] = field(default_factory=list)
 
 
-def _container_path(path: str) -> str:
-    return CONTAINER_HOME + path[1:] if path.startswith("~") else path
+def _container_path(path: str, home: str = CONTAINER_HOME) -> str:
+    return home.rstrip("/") + path[1:] if path.startswith("~") else path
 
 
 def container_access(
@@ -175,8 +178,12 @@ def container_access(
     caches: Mapping[str, str],
     cache_root: Path,
     environ: Mapping[str, str] | None = None,
+    home: str = CONTAINER_HOME,
 ) -> ContainerAccess:
-    """Flags for everything but the allowlist network (see :func:`allowlist_network`)."""
+    """Flags for everything but the allowlist network (see :func:`allowlist_network`).
+
+    ``~`` in container paths means ``home``.
+    """
     environ = os.environ if environ is None else environ
     access = ContainerAccess(network="none" if sandbox.network == "none" else "bridge")
     access.env.update(sandbox.env)
@@ -188,11 +195,11 @@ def container_access(
         if not host.exists():
             raise UsageError(f"extra mount {mount.host} does not exist", hint=f"Resolved to {host}.")
         suffix = ":ro" if mount.mode == "ro" else ""
-        access.volumes.append(f"{host}:{_container_path(mount.container)}{suffix}")
+        access.volumes.append(f"{host}:{_container_path(mount.container, home)}{suffix}")
     for name, path in sorted(caches.items()):
         host = cache_root / "build-caches" / name
         host.mkdir(parents=True, exist_ok=True)
-        access.volumes.append(f"{host}:{_container_path(path)}")
+        access.volumes.append(f"{host}:{_container_path(path, home)}")
     if sandbox.ssh_agent:
         sock = environ.get("SSH_AUTH_SOCK")
         if not sock:

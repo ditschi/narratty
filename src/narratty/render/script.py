@@ -128,14 +128,21 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming) -> list[Step]:
     return steps
 
 
-def end_card_steps(spec: Spec, timeline: Timeline, python: str) -> list[Step]:
-    """Draw the end card while hidden, then keep it on screen for its duration."""
-    command = f"{prompt_setup(spec.terminal.shell, '')}; {_shell_quote(python)} -m narratty.end_card"
+def end_card_steps(spec: Spec, timeline: Timeline, python: str, *, remote: bool = False) -> list[Step]:
+    """Draw the end card while hidden, then keep it on screen for its duration.
+
+    ``remote``: the shell runs in a project environment without narratty. Leaving it
+    drops to a local ``sh`` (see ``narratty.bridge``), which draws the card.
+    """
+    shell = "sh" if remote else spec.terminal.shell
+    command = f"{prompt_setup(shell, '')}; {_shell_quote(python)} -m narratty.end_card"
     if not spec.end_card.qr:
         command += " --no-qr"
+    leave: list[Step] = [Type("exit", 1), Press("Enter", 1), Sleep(500)] if remote else []
     return [
         Mark(None),
         Hide(),
+        *leave,
         Type(command, 1),
         Press("Enter", 1),
         WaitScreen(CREDIT, END_CARD_TIMEOUT_MS),
@@ -151,10 +158,13 @@ def setup_steps(spec: Spec) -> list[Step]:
     return [Hide(), Type(prompt_setup(term.shell, term.prompt), 1), Press("Enter", 1), Sleep(500), Show()]
 
 
-def build_script(spec: Spec, timeline: Timeline, *, python: str | None = None) -> list[Step]:
+def build_script(
+    spec: Spec, timeline: Timeline, *, python: str | None = None, remote: bool = False
+) -> list[Step]:
     """Every step of the recording, from prompt setup to the end card.
 
-    ``python`` is the interpreter that draws the end card (default: the running one).
+    ``python`` is the interpreter that draws the end card (default: the running one);
+    ``remote`` says the shell runs in a project environment.
     """
     steps = setup_steps(spec)
     if timeline.lead_in_ms:
@@ -164,5 +174,5 @@ def build_script(spec: Spec, timeline: Timeline, *, python: str | None = None) -
     if timeline.tail_ms:
         steps.append(Sleep(timeline.tail_ms))
     if timeline.end_card_ms:
-        steps += end_card_steps(spec, timeline, python or sys.executable)
+        steps += end_card_steps(spec, timeline, python or sys.executable, remote=remote)
     return steps

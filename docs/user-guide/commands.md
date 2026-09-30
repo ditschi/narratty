@@ -14,12 +14,14 @@
 | `narratty render SPEC [-o VIDEO]` | Record the silent video |
 | `narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]` | Build the narrated video |
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
+| `narratty env shell SPEC` | Open a shell in the spec's [project environment](environments.md) |
 
 `plan`, `tape`, `render` and `build` take `--end-card` / `--no-end-card` to override
 [`end_card`](spec.md#end_card). `build` and `render` also take `--workspace-mode`,
 `--keep-workspace`, `--allow-dirty`, `--network`, `--allow-host` and `--yes`; see
-[Sandboxed runs](container.md). Every command that runs the pipeline takes `--runtime`
-and `--image`.
+[Sandboxed runs](container.md). They take `--env-image`, `--no-env` and `--keep-env` for
+[project environments](environments.md). Every command that runs the pipeline takes
+`--runtime` and `--image`.
 
 | Command | Does |
 |---|---|

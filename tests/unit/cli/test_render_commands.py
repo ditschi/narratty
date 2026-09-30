@@ -138,3 +138,10 @@ def test_build_sync_failure_exit_code(spec: Path, monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr("narratty.build.build", failing_build)
     result = runner.invoke(app, ["build", str(spec)])
     assert isinstance(result.exception, SyncError)
+
+
+def test_env_shell_needs_an_environment(tmp_path: Path) -> None:
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text("scenes: [{id: a}]\n", encoding="utf-8")
+    result = CliRunner().invoke(app, ["env", "shell", str(spec)])
+    assert "has no environment" in str(result.exception)

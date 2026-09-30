@@ -180,3 +180,73 @@ def test_full_network_needs_consent(tmp_path: Path, docker_calls: list[list[str]
     )
     argv = docker_calls[-1]
     assert argv[argv.index("--network") + 1] == "bridge"
+
+
+def _write_env_spec(tmp_path: Path) -> Path:
+    spec = _write_spec(tmp_path)
+    spec.write_text(
+        spec.read_text(encoding="utf-8") + "environment: {image: acme/dev:1}\nsandbox: {env: {TZ: UTC}}\n",
+        encoding="utf-8",
+    )
+    return spec
+
+
+@pytest.fixture
+def provided(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
+    from contextlib import contextmanager
+
+    from narratty.environment import Session
+
+    calls: list[dict[str, object]] = []
+
+    @contextmanager
+    def fake_provide(environment: object, spec: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        calls.append({"environment": environment, **kwargs})
+        yield Session("docker", "narratty-env-1", "/work", "narratty-env-1-run")
+
+    monkeypatch.setattr("narratty.environment.provide", fake_provide)
+    return calls
+
+
+def test_environment_runs_the_demo_elsewhere(
+    tmp_path: Path, docker_calls: list[list[str]], provided: list[dict[str, object]]
+) -> None:
+    from narratty.bridge import BRIDGE_ENV
+
+    spec = _write_env_spec(tmp_path)
+    assert delegate("render", spec, runtime=Runtime.DOCKER, image="img", sandbox=SandboxRequest()) == 0
+    assert provided[0]["with_agent"] is True
+    assert provided[0]["narratty_image"] == "img"
+    argv = docker_calls[0]
+    assert "narratty-env-1-run:/run/narratty" in _volumes(argv)
+    bridge = next(arg for arg in argv if arg.startswith(f"{BRIDGE_ENV}="))
+    assert "narratty-agent" in bridge
+    assert argv[argv.index("--network") + 1] == "none"
+    assert "TZ=UTC" not in argv, "the sandbox applies to the environment, not the recorder"
+
+
+def test_no_env_runs_the_demo_in_the_narratty_image(
+    tmp_path: Path, docker_calls: list[list[str]], provided: list[dict[str, object]]
+) -> None:
+    from narratty.environment import EnvironmentOptions
+
+    spec = _write_env_spec(tmp_path)
+    request = SandboxRequest(environment=EnvironmentOptions(disabled=True))
+    delegate("render", spec, runtime=Runtime.DOCKER, image="img", sandbox=request)
+    assert provided == []
+    assert "TZ=UTC" in docker_calls[0]
+
+
+def test_policy_can_forbid_environments(
+    tmp_path: Path, docker_calls: list[list[str]], provided: list[dict[str, object]]
+) -> None:
+    from narratty.errors import UsageError
+
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "config.toml").write_text("[sandbox]\nallow_environment = []\n", encoding="utf-8")
+    with pytest.raises(UsageError, match="does not allow"):
+        delegate(
+            "render", _write_env_spec(tmp_path), runtime=Runtime.DOCKER, image="img", sandbox=SandboxRequest()
+        )
+    assert docker_calls == []

@@ -11,16 +11,19 @@ from narratty.cli.options import (
     AllowDirtyOption,
     AllowHostOption,
     EndCardOption,
+    EnvImageOption,
     ImageOption,
+    KeepEnvOption,
     KeepWorkspaceOption,
     NetworkMode,
     NetworkOption,
+    NoEnvOption,
     OfflineOption,
     RuntimeOption,
     WorkspaceMode,
     WorkspaceModeOption,
     YesOption,
-    check_hosts,
+    sandbox_request,
 )
 from narratty.runtime import Runtime
 
@@ -33,6 +36,9 @@ def render_command(
     allow_dirty: bool = AllowDirtyOption,
     network: NetworkMode | None = NetworkOption,
     allow_host: list[str] | None = AllowHostOption,
+    env_image: str | None = EnvImageOption,
+    no_env: bool = NoEnvOption,
+    keep_env: bool = KeepEnvOption,
     yes: bool = YesOption,
     end_card: bool | None = EndCardOption,
     offline: bool = OfflineOption,
@@ -41,22 +47,21 @@ def render_command(
 ) -> None:
     """Synthesize the narration (for timing) and record the silent video with VHS."""
     from narratty.build import (
-        WorkspaceOptions,
         default_output,
+        environment_bridge,
         plan,
         render_silent,
         work_directory,
         workspace_for,
     )
-    from narratty.container import SandboxRequest, delegate
+    from narratty.container import delegate
     from narratty.end_card import container_flag
     from narratty.ui.console import err
 
     video = (output or default_output(spec, ".silent.mp4")).resolve()
-    workspace = WorkspaceOptions(
-        workspace_mode.value if workspace_mode else None, allow_dirty, keep_workspace
+    request = sandbox_request(
+        workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env_image, no_env, keep_env
     )
-    request = SandboxRequest(workspace, network.value if network else None, check_hosts(allow_host), yes)
     code = delegate(
         "render",
         spec,
@@ -73,7 +78,8 @@ def render_command(
     with (
         err.status("recording with VHS"),
         work_directory(None) as work,
-        workspace_for(planned, workspace) as ws,
+        workspace_for(planned, request.workspace, request) as ws,
+        environment_bridge(planned, ws, request) as bridge,
     ):
-        render_silent(planned, video, work, ws.path)
+        render_silent(planned, video, work, ws.path, bridge)
     err.print(f"[green]wrote[/] {video}", highlight=False, soft_wrap=True)

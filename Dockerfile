@@ -1,12 +1,27 @@
 # syntax=docker/dockerfile:1.7
 # narratty image: the CLI plus everything a native render needs (VHS, ttyd, Chromium,
-# ffmpeg, fonts, Kokoro and Piper with a default voice each) and the demo toolkit. ttyd is not
-# packaged in Debian trixie, so its static release binary is used. Targets:
+# ffmpeg, fonts, Kokoro and Piper with a default voice each), the demo toolkit and
+# narratty-agent for project environments. ttyd is not packaged in Debian trixie, so
+# its static release binary is used. Targets:
 #   toolkit ghcr.io/ditschi/narratty-toolkit:<version>  (static demo tools, see below)
 #   base    ghcr.io/ditschi/narratty:<version>
 
 ARG PYTHON_IMAGE=docker.io/library/python:3.12-slim-trixie
 ARG RUST_IMAGE=docker.io/library/rust:1-trixie
+ARG GO_IMAGE=docker.io/library/golang:1.24-trixie
+
+# ── agent ─────────────────────────────────────────────────────────────────────
+# narratty-agent serves the demo shell inside project environments. Static, for
+# amd64 and arm64 whatever the image's own platform: an environment's image may
+# differ from it.
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS agent
+ARG NARRATTY_VERSION=0.0.0.dev0
+WORKDIR /src
+COPY agent/ ./
+RUN for arch in amd64 arm64; do \
+      CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
+        -ldflags "-s -w -X main.version=${NARRATTY_VERSION}" -o /agent/$arch/narratty-agent . ; \
+    done
 
 # ── toolkit ───────────────────────────────────────────────────────────────────
 # Statically linked demo tools (bat, eza, fd, ripgrep, jq, yazi, zsh, tmux), a Nerd
@@ -60,6 +75,9 @@ RUN apt-get update \
 
 COPY --from=toolkit / /usr/local/
 RUN if command -v fc-cache >/dev/null; then fc-cache -f; fi
+
+COPY --from=agent /agent/ /opt/narratty/agent/
+RUN ln -s "/opt/narratty/agent/${TARGETARCH:-amd64}/narratty-agent" /usr/local/bin/narratty-agent
 
 COPY --from=wheel /dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/narratty-*.whl && rm /tmp/narratty-*.whl

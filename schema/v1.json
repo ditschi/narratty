@@ -66,6 +66,48 @@
       "title": "Enter",
       "type": "object"
     },
+    "Environment": {
+      "additionalProperties": false,
+      "description": "A project container the demo shell runs in; the rest of narratty stays outside it.",
+      "properties": {
+        "image": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Image to run the demo shell in.",
+          "title": "Image"
+        },
+        "workdir": {
+          "default": "/work",
+          "description": "Where the workspace is mounted and the shell starts.",
+          "pattern": "^/",
+          "title": "Workdir",
+          "type": "string"
+        },
+        "user": {
+          "default": "host",
+          "description": "host: your user id, so files stay yours; image: the image's user; or UID[:GID].",
+          "pattern": "^(host|image|[0-9]+(:[0-9]+)?)$",
+          "title": "User",
+          "type": "string"
+        },
+        "read_only": {
+          "default": false,
+          "description": "Mount the image's root filesystem read-only.",
+          "title": "Read Only",
+          "type": "boolean"
+        }
+      },
+      "title": "Environment",
+      "type": "object"
+    },
     "Hold": {
       "additionalProperties": false,
       "description": "Pause. ``auto`` fills the scene until its narration has finished.",
@@ -624,6 +666,17 @@
         "extra_mounts": [],
         "ssh_agent": false
       }
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Environment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "end_card": {
       "$ref": "#/$defs/EndCard",

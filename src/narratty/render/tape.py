@@ -86,10 +86,13 @@ def _lines(steps: Iterable[Step]) -> list[str]:
     return [line for step in steps for line in step_lines(step)]
 
 
-def generate_tape(spec: Spec, timeline: Timeline, output: Path, *, python: str | None = None) -> str:
+def generate_tape(
+    spec: Spec, timeline: Timeline, output: Path, *, python: str | None = None, remote: bool = False
+) -> str:
     """The complete tape rendering ``spec`` into ``output``.
 
-    ``python`` is the interpreter that draws the end card (default: the running one).
+    ``python`` is the interpreter that draws the end card (default: the running one);
+    ``remote`` says the shell runs in a project environment.
     """
     term = spec.terminal
     lines = [
@@ -114,5 +117,5 @@ def generate_tape(spec: Spec, timeline: Timeline, output: Path, *, python: str |
     if timeline.tail_ms:
         lines.append(f"Sleep {timeline.tail_ms}ms")
     if timeline.end_card_ms:
-        lines += ["", *_lines(end_card_steps(spec, timeline, python or sys.executable))]
+        lines += ["", *_lines(end_card_steps(spec, timeline, python or sys.executable, remote=remote))]
     return "\n".join(lines) + "\n"

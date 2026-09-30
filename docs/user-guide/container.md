@@ -6,6 +6,9 @@ ttyd, Chromium, ffmpeg, fonts, Kokoro, Piper, `git`, `tree` and the [demo toolki
 (`bat`, `eza`, `fd`, `ripgrep`, `jq`, `yazi`, `tmux`, `zsh`). You only need narratty
 itself and a container runtime on the host.
 
+To run the demo shell in your project's own image instead, see
+[Project environments](environments.md).
+
 ```bash
 narratty build demo.narratty.yaml                    # container if available
 narratty build demo.narratty.yaml --runtime native   # tools from your PATH

@@ -15,6 +15,7 @@ from narratty import __version__
 from narratty.cli.commands.build import build_command
 from narratty.cli.commands.cache import cache_app
 from narratty.cli.commands.doctor import doctor_command
+from narratty.cli.commands.env import env_app
 from narratty.cli.commands.init import init_command
 from narratty.cli.commands.plan import plan_command
 from narratty.cli.commands.render import render_command
@@ -71,4 +72,5 @@ app.command("tape")(tape_command)
 app.command("render")(render_command)
 app.add_typer(voices_app, name="voices")
 app.command("doctor")(doctor_command)
+app.add_typer(env_app, name="env")
 app.add_typer(cache_app, name="cache")

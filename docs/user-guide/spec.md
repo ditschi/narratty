@@ -49,6 +49,7 @@ demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did 
 | `requires.tools` | `[]` | Extra commands the demo needs (checked by `doctor`) |
 | `workspace` | | What directory the demo runs in |
 | `sandbox` | | Permissions of the container |
+| `environment` | | Run the demo shell in a project image |
 | `end_card` | on | Closing card, see below |
 | `scenes` | required | At least one scene |
 
@@ -105,6 +106,17 @@ you for approval before the first run.
 | `env` | `{}` | Fixed environment variables |
 | `extra_mounts` | `[]` | `{host, container, mode: ro\|rw}` |
 | `ssh_agent` | `false` | Forward the host SSH agent |
+
+## `environment`
+
+Runs the demo shell in your project's image; see [Project environments](environments.md).
+
+| Key | Default | Meaning |
+|---|---|---|
+| `image` | | Image to run the shell in (required) |
+| `workdir` | `/work` | Where the workspace is mounted and the shell starts |
+| `user` | `host` | `host` (your user id), `image` (the image's user) or `UID[:GID]` |
+| `read_only` | `false` | Mount the image's root filesystem read-only |
 
 ## `end_card`
 

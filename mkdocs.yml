@@ -85,6 +85,7 @@ nav:
       - Voices and audio cache: user-guide/voices.md
       - Building a video: user-guide/building.md
       - Sandboxed runs: user-guide/container.md
+      - Project environments: user-guide/environments.md
       - Demo toolkit: user-guide/toolkit.md
       - Configuration: user-guide/configuration.md
   - Contributor Guide:
