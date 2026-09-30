@@ -955,12 +955,14 @@
 
 <h1 id="release-process">Release process<a class="headerlink" href="#release-process" title="Permanent link">&para;</a></h1>
 <p>Versions come from git tags (hatch-vcs); commitizen writes the changelog.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>cz<span class="w"> </span>bump<span class="w">        </span><span class="c1"># bumps the version, updates CHANGELOG.md, creates the vX.Y.Z tag</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>push<span class="w"> </span>--follow-tags
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>cz<span class="w"> </span>bump<span class="w">        </span><span class="c1"># bumps the version, updates CHANGELOG.md, commits "bump: version …"</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>push<span class="w">              </span><span class="c1"># push main (not the tag); or open a PR with the bump commit</span>
 </code></pre></div>
-<p>Pushing a <code>v*</code> tag runs <code>.github/workflows/release.yml</code>: build, publish to TestPyPI, verify
-the install, publish to PyPI, create the GitHub release and deploy versioned docs.</p>
-<p>The same tag runs <code>.github/workflows/docker.yml</code>, which pushes the container images to
+<p>When the bump commit reaches <code>main</code>, <code>.github/workflows/release.yml</code> tags it <code>vX.Y.Z</code>
+and releases it: build, publish to TestPyPI, verify the install, publish to PyPI,
+container images, GitHub release and versioned docs. Pushing a <code>v*</code> tag by hand
+triggers the same release.</p>
+<p>The release calls <code>.github/workflows/docker.yml</code>, which pushes the container images to
 GHCR for linux/amd64 and linux/arm64:</p>
 <table>
 <thead>
@@ -979,7 +981,7 @@ GHCR for linux/amd64 and linux/arm64:</p>
 <td><code>edge</code>, <code>edge-kokoro</code></td>
 </tr>
 <tr>
-<td>Tag <code>v1.2.3</code></td>
+<td>Release <code>v1.2.3</code></td>
 <td><code>1.2.3</code>, <code>1.2</code>, <code>latest</code> and the same with <code>-kokoro</code></td>
 </tr>
 </tbody>
