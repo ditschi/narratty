@@ -562,6 +562,16 @@ class TtsProvider(Protocol):
   tape is byte-stable for a given spec and audio set (snapshot-tested).
 - `narratty tape <spec>` prints the tape without rendering, for debugging.
 
+## Asciicast output
+
+`build --format cast` records without VHS. `render/script.py` turns spec and timeline
+into steps (`Type`, `Press`, `Sleep`, `WaitScreen`, `Hide`, …); `render/tape.py`
+prints them as a tape, `render/cast.py` plays them in a pseudo-terminal and writes
+asciicast v2 events. Its clock stops while hidden, so hidden output lands at the
+moment recording resumes. Visible scenes become markers; their recorded starts
+place the clips. `render/player.py` writes the page (asciinema-player with
+`audioUrl`, cast and MP3 embedded).
+
 ---
 
 ## Packaging & container

@@ -101,3 +101,15 @@ def mux(video: Path, audio: Path, out: Path, *, runner: Runner = _run) -> None:
     result = runner(argv)
     if result.returncode != 0:
         raise RenderError(f"ffmpeg failed to mux {out}:\n{_tail(result)}")
+
+
+def encode_mp3(audio: Path, out: Path, *, runner: Runner = _run) -> None:
+    """Encode ``audio`` as a mono MP3 (64 kbit/s, plenty for speech)."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    argv = [
+        require("ffmpeg"), "-y", "-v", "error", "-i", str(audio),
+        "-ac", "1", "-c:a", "libmp3lame", "-b:a", "64k", str(out),
+    ]  # fmt: skip
+    result = runner(argv)
+    if result.returncode != 0:
+        raise RenderError(f"ffmpeg failed to encode {out}:\n{_tail(result)}")

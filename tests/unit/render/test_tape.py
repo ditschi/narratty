@@ -109,7 +109,7 @@ def test_end_card_is_drawn_hidden_and_then_held() -> None:
     card = tape.split("# end card\n", 1)[1].splitlines()
     assert card[0] == "Hide"
     assert card[1] == "Type@1ms \"PS1=''; clear; '/opt/py 3/bin/python' -m narratty.end_card\""
-    assert card[2:] == ["Enter@1ms", "Wait+Screen@30s /Created with narratty/", "Show", "Sleep 2500ms"]
+    assert card[2:] == ["Enter@1ms", "Wait+Screen@30000ms /Created with narratty/", "Show", "Sleep 2500ms"]
     assert tape.index("Sleep 1000ms\n\n# end card") > 0, "after the tail"
 
 

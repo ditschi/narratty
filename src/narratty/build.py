@@ -185,13 +185,97 @@ def build(
         track = work / "narration.wav"
         used = build_track(placements, video_ms, track)
         media.mux(silent, track, output)
-        if planned.spec.workspace.artifacts:
-            dest = output.with_name(output.name.removesuffix(output.suffix) + ".artifacts")
-            copied = export_artifacts(ws.path, planned.spec.workspace.artifacts, dest)
-            say(f"exported {len(copied)} artifacts to {dest}")
+        _export_artifacts(planned, ws.path, output, say)
     result = BuildResult(output, planned.timeline.total_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
     return result
+
+
+def _export_artifacts(planned: Plan, workspace: Path, output: Path, say: Log) -> None:
+    if planned.spec.workspace.artifacts:
+        dest = output.with_name(output.name.removesuffix(output.suffix) + ".artifacts")
+        copied = export_artifacts(workspace, planned.spec.workspace.artifacts, dest)
+        say(f"exported {len(copied)} artifacts to {dest}")
+
+
+@dataclass(frozen=True)
+class CastOutputs:
+    """The files of a cast build: the page and, beside it, the cast and its audio."""
+
+    page: Path
+
+    @property
+    def cast(self) -> Path:
+        """The asciicast (v2)."""
+        return self.page.with_suffix(".cast")
+
+    @property
+    def audio(self) -> Path:
+        """The narration track (MP3)."""
+        return self.page.with_suffix(".mp3")
+
+
+def place_clips_at(planned: Plan, scene_starts_ms: dict[str, int]) -> list[Placement]:
+    """Clip positions at the recorded start of each scene."""
+    return [
+        Placement(
+            clip.scene_id,
+            clip.path,
+            scene_starts_ms[clip.scene_id] + planned.timeline.scene(clip.scene_id).audio_offset_ms,
+        )
+        for clip in planned.clips
+    ]
+
+
+def build_cast(
+    spec_path: Path,
+    output: Path | None = None,
+    *,
+    work_dir: Path | None = None,
+    offline: bool = False,
+    workspace: WorkspaceOptions | None = None,
+    end_card: bool | None = None,
+    log: Log | None = None,
+) -> BuildResult:
+    """Record an asciicast with a narration track and a page that plays both.
+
+    ``output`` is the HTML page; the ``.cast`` and ``.mp3`` are written beside it.
+    Clips are placed at the recorded start of their scene, so there is no drift to check.
+    """
+    from narratty.render.cast import record
+    from narratty.render.player import player_page, player_theme
+    from narratty.render.script import build_script
+
+    say = log or (lambda _message: None)
+    outputs = CastOutputs((output or default_output(spec_path, ".html")).resolve())
+    say("synthesizing narration")
+    planned = plan(spec_path, offline=offline, end_card=end_card)
+    warn_unenforced_sandbox(planned.spec, say)
+    spec = planned.spec
+    with (
+        work_directory(work_dir) as work,
+        workspace_for(planned, workspace or WorkspaceOptions(), log=say) as ws,
+    ):
+        say(f"recording {len(planned.timeline.scenes)} scenes as an asciicast")
+        recording = record(
+            build_script(spec, planned.timeline),
+            terminal=spec.terminal,
+            cwd=ws.path,
+            env={**os.environ, **spec.sandbox.env},
+            title=spec.meta.title,
+        )
+        outputs.page.parent.mkdir(parents=True, exist_ok=True)
+        outputs.cast.write_text(recording.cast, encoding="utf-8")
+        say("mixing narration")
+        track = work / "narration.wav"
+        used = build_track(place_clips_at(planned, recording.scene_starts_ms), recording.duration_ms, track)
+        media.encode_mp3(track, outputs.audio)
+        page = player_page(
+            spec.meta.title, recording.cast, outputs.audio, theme=player_theme(spec.terminal.theme)
+        )
+        outputs.page.write_text(page, encoding="utf-8")
+        _export_artifacts(planned, ws.path, outputs.page, say)
+    return BuildResult(outputs.page, planned.timeline.total_ms, recording.duration_ms, tuple(used))
 
 
 def verify(result: BuildResult, *, max_drift: float) -> None:

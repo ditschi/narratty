@@ -102,6 +102,35 @@ def test_build_reports_drift(spec: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     assert "-2.0%" in plain(result.output)
 
 
+def test_build_cast_writes_page_cast_and_audio(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_mp3(audio: Path, out: Path) -> None:
+        out.write_bytes(b"ID3")
+
+    monkeypatch.setattr("narratty.render.media.encode_mp3", fake_mp3)
+    result = runner.invoke(app, ["build", str(spec), "--format", "cast", "--no-end-card"])
+    assert result.exit_code == 0, result.output
+    assert "cast " in plain(result.output)
+    page, cast = spec.with_name("demo.html"), spec.with_name("demo.cast")
+    assert spec.with_name("demo.mp3").read_bytes() == b"ID3"
+    assert '"m", "intro"' in cast.read_text(encoding="utf-8")
+    assert "data:audio/mpeg;base64,SUQz" in page.read_text(encoding="utf-8")
+
+
+def test_build_cast_in_a_container(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_delegate(command: str, spec_path: Path, **kwargs: object) -> int:
+        calls.append(kwargs)
+        return 0
+
+    monkeypatch.setattr("narratty.container.delegate", fake_delegate)
+    result = runner.invoke(app, ["build", str(spec), "-f", "cast", "--runtime", "docker"])
+    assert result.exit_code == 0, result.output
+    assert calls[0]["output"] == spec.with_name("demo.html")
+    extra = calls[0]["extra_args"]
+    assert isinstance(extra, list) and extra[:2] == ["--format", "cast"]
+
+
 def test_build_sync_failure_exit_code(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def failing_build(*args: object, **kwargs: object) -> BuildResult:
         raise SyncError("drifted")
