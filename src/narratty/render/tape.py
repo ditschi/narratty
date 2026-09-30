@@ -86,7 +86,9 @@ def _lines(steps: Iterable[Step]) -> list[str]:
     return [line for step in steps for line in step_lines(step)]
 
 
-def generate_tape(spec: Spec, timeline: Timeline, output: Path, *, python: str | None = None) -> str:
+def generate_tape(
+    spec: Spec, timeline: Timeline, output: Path, *, python: str | None = None, framerate: int = FRAMERATE
+) -> str:
     """The complete tape rendering ``spec`` into ``output``.
 
     ``python`` is the interpreter that draws the end card (default: the running one).
@@ -102,7 +104,7 @@ def generate_tape(spec: Spec, timeline: Timeline, output: Path, *, python: str |
         f"Set FontFamily {json.dumps(FONT_FAMILY)}",
         f"Set Theme {json.dumps(term.theme)}",
         f"Set TypingSpeed {term.typing_speed_ms}ms",
-        f"Set Framerate {FRAMERATE}",
+        f"Set Framerate {framerate}",
         "",
         *_lines(setup_steps(spec)),
     ]

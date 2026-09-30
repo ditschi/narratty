@@ -453,6 +453,19 @@
             "speed": 1.0,
             "lang": null
           }
+        },
+        "lexicon": {
+          "additionalProperties": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "default": {},
+          "description": "How to say terms the narration spells literally, e.g. {'k8s': 'kubernetes'}. Overrides the built-in, user and project lexicons.",
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Lexicon",
+          "type": "object"
         }
       },
       "title": "TtsConfig",
@@ -581,7 +594,8 @@
         "kokoro": {
           "lang": null,
           "speed": 1.0
-        }
+        },
+        "lexicon": {}
       }
     },
     "timing": {
@@ -639,6 +653,18 @@
         "duration_ms": 4000,
         "qr": true
       }
+    },
+    "subtitles": {
+      "default": "none",
+      "description": "Subtitles from the narration: files (.srt/.vtt beside the output), track (soft track in the mp4) or burn (drawn into the video).",
+      "enum": [
+        "none",
+        "files",
+        "track",
+        "burn"
+      ],
+      "title": "Subtitles",
+      "type": "string"
     },
     "scenes": {
       "items": {

@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from narratty.build import BuildResult
 from narratty.cli.app import app
-from narratty.errors import SyncError
+from narratty.errors import SyncError, UsageError
 from narratty.tts.base import TtsProvider
 from tests.helpers import plain
 from tests.unit.tts.test_synth import ToneProvider
@@ -138,3 +138,50 @@ def test_build_sync_failure_exit_code(spec: Path, monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr("narratty.build.build", failing_build)
     result = runner.invoke(app, ["build", str(spec)])
     assert isinstance(result.exception, SyncError)
+
+
+def test_plan_draft_estimates_without_tts(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("narratty.build.get_provider", lambda *args: pytest.fail("TTS loaded"))
+    result = runner.invoke(app, ["plan", str(spec), "--draft"], env={"COLUMNS": "200"})
+    assert result.exit_code == 0, result.output
+    assert "(estimated)" in plain(result.output)
+
+
+def test_build_draft_passes_its_options(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_build(spec_path: Path, output: Path | None, **kwargs: object) -> BuildResult:
+        assert kwargs["draft"] is True
+        assert kwargs["subtitles"] == "track"
+        return BuildResult(spec_path.with_name("demo.draft.mp4"), 10000, 10000, ())
+
+    monkeypatch.setattr("narratty.build.build", fake_build)
+    result = runner.invoke(app, ["build", str(spec), "--draft", "--subtitles", "track"])
+    assert result.exit_code == 0, result.output
+
+
+def test_build_draft_in_a_container(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_delegate(command: str, spec_path: Path, **kwargs: object) -> int:
+        calls.append(kwargs)
+        return 0
+
+    monkeypatch.setattr("narratty.container.delegate", fake_delegate)
+    result = runner.invoke(
+        app, ["build", str(spec), "--draft", "--subtitles", "files", "--runtime", "docker"]
+    )
+    assert result.exit_code == 0, result.output
+    assert calls[0]["output"] == spec.with_name("demo.draft.mp4")
+    extra = calls[0]["extra_args"]
+    assert isinstance(extra, list) and extra[-3:] == ["--subtitles", "files", "--draft"]
+
+
+def test_build_draft_needs_mp4(spec: Path) -> None:
+    result = runner.invoke(app, ["build", str(spec), "--draft", "--format", "cast"])
+    assert isinstance(result.exception, UsageError)
+
+
+def test_build_cast_writes_subtitle_files(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("narratty.render.media.encode_mp3", lambda audio, out: out.write_bytes(b"ID3"))
+    result = runner.invoke(app, ["build", str(spec), "-f", "cast", "--no-end-card", "--subtitles", "burn"])
+    assert result.exit_code == 0, result.output
+    assert "Hello there my friend." in spec.with_name("demo.vtt").read_text(encoding="utf-8")

@@ -1,9 +1,9 @@
 # narratty: setup & implementation plan (rev 2.3)
 
 !!! note "Planning document"
-    This is the original plan. Some of it is not built yet: `--draft`, `watch`,
-    subtitles and chapters, the pronunciation lexicon, `manifest.json`, the
-    requirements image and golden-frame checks. The user guide describes what exists.
+    This is the original plan. Some of it is not built yet: chapters, the
+    pronunciation lexicon, `manifest.json`, the requirements image and golden-frame
+    checks. The user guide describes what exists.
 
 > Renamed from *shellcast* on 2026-09-29: that name is taken on PyPI and npm and used
 > by several terminal projects and a commercial iOS app.
@@ -627,7 +627,6 @@ Global options: `--runtime`, `--image`, `--cache-dir`, `--jobs`, `-v/-q`, `--jso
 | `narratty tape <spec>` | Print the generated `.tape` |
 | `narratty render <spec>` | TTS + tape + VHS → silent video |
 | `narratty build <spec> -o out.mp4` | Full pipeline + verify; `--scene`, `--draft`, `--workspace-mode`, `--keep-workspace`, `--network`, `--var k=v` |
-| `narratty watch <spec>` | Re-render a draft on every spec change |
 | `narratty doctor [<spec>]` | Preflight for the chosen runtime: tools and versions, voices, mounts, container runtime, image availability |
 | `narratty cache {info,prune}` | Inspect or prune the audio cache, snapshots and build-cache volumes |
 
@@ -678,7 +677,6 @@ release; the rest are cheap to add later if the design leaves room now.
   state still needs earlier scenes, so skipped scenes run `hidden`, not dropped.
 - **v1 `narratty plan <spec>`**: prints the timeline table (scene, narration length,
   action length, total) and the total video length before anything renders.
-- `narratty watch <spec>`: re-render the draft whenever the spec changes.
 - `narratty preview`: play the result (or open the draft) when done.
 
 ### Output quality and accessibility
@@ -693,6 +691,9 @@ release; the rest are cheap to add later if the design leaves room now.
 - Background music track with automatic ducking under narration.
 
 ### Pronunciation lexicon
+
+Implemented without `ipa` and `--no-user-config`; the user guide's Pronunciation section
+describes the shipped behaviour.
 
 A mix of all levels, merged in this order (later wins):
 

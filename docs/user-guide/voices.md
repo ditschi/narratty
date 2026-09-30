@@ -46,9 +46,57 @@ narratty tts demo.narratty.yaml
 prints one row per narrated scene with the clip's length and whether it came from the
 cache.
 
+## Pronunciation
+
+Write narration with the real spelling of technical terms (`.bazelrc`, `kubectl`,
+`bm_rat_b`), not a phonetic workaround such as "dot Basel R C". The text stays
+searchable and correct in the spec. The engines already say most terms well
+(`bazel`, `YAML`, `bm_rat_b`), and narratty speaks a leading dot as "dot". For the
+rest, the lexicon tells the engine how to say a term:
+
+```yaml
+tts:
+  lexicon:
+    k8s: "kubernetes"
+    kubectl: "cube C T L"
+```
+
+Entries come from four levels; a later level overrides an earlier one:
+
+| Level | Where |
+|---|---|
+| Built-in | shipped with narratty (`kubectl`, `stdout`, `CLI`, …); English voices only |
+| User | `~/.config/narratty/lexicon.toml` |
+| Project | nearest `narratty.lexicon.toml` from the spec's directory up to the git root |
+| Spec | `tts.lexicon` |
+
+The TOML files use the same pairs:
+
+```toml
+kubectl = "cube C T L"
+[k8s]
+say = "kubernetes"
+```
+
+- Matching is whole-word. A term with a capital letter matches only that case
+  (`API`); an all-lowercase term matches any case (`k8s`, `K8s`).
+- A leading dot is spoken as "dot", also before a term with an entry:
+  `.kubectl` becomes "dot cube C T L".
+- Only the spoken text changes; the lexicon result is part of the audio cache key.
+- Sandboxed runs get the user and project entries from the host.
+
+```bash
+narratty lexicon show demo.narratty.yaml    # merged entries and their source
+narratty lexicon check demo.narratty.yaml   # dotted, snake_case, camelCase, ALL-CAPS or digit words without an entry
+```
+
+When an AI writes the scene list, tell it to spell terms as written in the code and to
+put pronunciations in `tts.lexicon`; then run `narratty lexicon check` and listen to
+`narratty tts`.
+
 ## Audio cache
 
-Every clip is stored under a key made of the provider, voice, normalized text, model
+Every clip is stored under a key made of the provider, voice, spoken text, model
 version and provider options, so only changed narration is synthesized again. The
 cache is in `~/.cache/narratty` on Linux (override with `NARRATTY_CACHE_DIR`).
 

@@ -18,6 +18,7 @@ def _seconds(ms: int) -> str:
 def plan_command(
     spec: Path = SpecArgument,
     end_card: bool | None = EndCardOption,
+    draft: bool = typer.Option(False, "--draft", help="Estimate narration lengths instead of running TTS."),
     offline: bool = OfflineOption,
     runtime: Runtime = RuntimeOption,
     image: str | None = ImageOption,
@@ -30,11 +31,12 @@ def plan_command(
     from narratty.end_card import container_flag
     from narratty.ui.console import err, out
 
-    code = delegate("plan", spec, runtime=runtime, image=image, extra_args=[container_flag(spec, end_card)])
+    extra = [container_flag(spec, end_card), *(["--draft"] if draft else [])]
+    code = delegate("plan", spec, runtime=runtime, image=image, extra_args=extra)
     if code is not None:
         raise typer.Exit(code)
-    with err.status("synthesizing narration"):
-        planned = plan(spec, offline=offline, end_card=end_card)
+    with err.status("estimating narration" if draft else "synthesizing narration"):
+        planned = plan(spec, offline=offline, end_card=end_card, draft=draft)
     table = Table(show_header=True, header_style="bold")
     for column in ("scene", "start", "actions", "narration", "length"):
         table.add_column(column, justify="left" if column == "scene" else "right")
@@ -53,4 +55,6 @@ def plan_command(
     if planned.timeline.end_card_ms:
         table.add_row("[dim]end card[/]", "", "", "", _seconds(planned.timeline.end_card_ms))
     out.print(table)
-    out.print(f"total: {_seconds(planned.timeline.total_ms)}", highlight=False)
+    out.print(
+        f"total: {_seconds(planned.timeline.total_ms)}" + (" (estimated)" if draft else ""), highlight=False
+    )

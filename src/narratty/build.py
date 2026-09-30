@@ -15,10 +15,12 @@ from narratty.errors import RenderError, SyncError
 from narratty.paths import cache_dir, data_dir
 from narratty.render import media
 from narratty.render.narration import Placement, build_track
+from narratty.render.subtitles import Narrated, SubtitleFiles, cues_for, to_srt
 from narratty.render.tape import generate_tape
 from narratty.spec import load_spec
 from narratty.spec.model import Spec
 from narratty.timeline import Timeline, build_timeline
+from narratty.tts.lexicon import load_lexicon
 from narratty.tts.registry import get_provider
 from narratty.tts.synth import Clip, synthesize_spec
 from narratty.workspace import PreparedWorkspace, export_artifacts, prepare_workspace
@@ -46,6 +48,7 @@ class Plan:
     spec: Spec
     clips: tuple[Clip, ...]
     timeline: Timeline
+    draft: bool = False
 
     @property
     def workspace_source(self) -> Path:
@@ -58,14 +61,24 @@ class Plan:
         return (spec_path.resolve().parent / spec.workspace.source).resolve()
 
 
-def plan(spec_path: Path, *, offline: bool = False, end_card: bool | None = None) -> Plan:
+def plan(
+    spec_path: Path, *, offline: bool = False, end_card: bool | None = None, draft: bool = False
+) -> Plan:
     """Load ``spec_path``, synthesize (or reuse) its narration and compute the timeline.
 
     ``end_card`` overrides the spec and the user's config (see ``narratty.end_card``).
+    A ``draft`` skips TTS: it has no clips, estimated narration lengths and a
+    half-size terminal (see ``narratty.draft``).
     """
     spec = with_end_card(load_spec(spec_path), end_card)
+    if draft:
+        from narratty.draft import draft_spec, estimated_audio_ms
+
+        spec = draft_spec(spec)
+        return Plan(spec_path, spec, (), build_timeline(spec, estimated_audio_ms(spec)), draft=True)
     provider = get_provider(spec.tts.provider, data_dir())
-    clips = synthesize_spec(spec, provider, AudioCache(cache_dir()), download=not offline)
+    lexicon = load_lexicon(spec_path, spec.tts)
+    clips = synthesize_spec(spec, provider, AudioCache(cache_dir()), download=not offline, lexicon=lexicon)
     timeline = build_timeline(spec, {clip.scene_id: clip.duration_ms for clip in clips})
     return Plan(spec_path, spec, tuple(clips), timeline)
 
@@ -118,8 +131,14 @@ def warn_unenforced_sandbox(spec: Spec, log: Log) -> None:
 
 def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> Path:
     """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``."""
+    from narratty.draft import FRAMERATE as DRAFT_FRAMERATE
+    from narratty.render.tape import FRAMERATE
+
     tape = work / "scene.tape"
-    tape.write_text(generate_tape(planned.spec, planned.timeline, video.resolve()), encoding="utf-8")
+    framerate = DRAFT_FRAMERATE if planned.draft else FRAMERATE
+    tape.write_text(
+        generate_tape(planned.spec, planned.timeline, video.resolve(), framerate=framerate), encoding="utf-8"
+    )
     media.run_vhs(tape, workspace, extra_env=planned.spec.sandbox.env)
     if not video.is_file():
         raise RenderError(f"VHS finished but wrote no video to {video}")
@@ -147,12 +166,29 @@ def place_clips(planned: Plan, video_ms: int) -> list[Placement]:
     VHS runs slightly faster or slower than its nominal timing (a few percent,
     depending on the machine); scaling keeps each clip at its scene's actual start.
     """
+    starts = scaled_starts(planned, video_ms)
+    return [Placement(clip.scene_id, clip.path, starts[clip.scene_id]) for clip in planned.clips]
+
+
+def scaled_starts(planned: Plan, video_ms: int) -> dict[str, int]:
+    """Narration start of each narrated scene, stretched like :func:`place_clips`."""
     scale = video_ms / planned.timeline.total_ms if planned.timeline.total_ms else 1.0
+    return {
+        scene.id: round(planned.timeline.scene(scene.id).audio_start_ms * scale)
+        for scene in planned.spec.narrated_scenes
+    }
+
+
+def subtitle_mode(planned: Plan, override: str | None) -> str:
+    """``--subtitles``, else ``burn`` for a draft, else the spec's ``subtitles``."""
+    return override or ("burn" if planned.draft else planned.spec.subtitles)
+
+
+def narrations(planned: Plan, starts: dict[str, int]) -> list[Narrated]:
+    """Each narration as written in the spec, at ``starts``, with its planned length."""
     return [
-        Placement(
-            clip.scene_id, clip.path, round(planned.timeline.scene(clip.scene_id).audio_start_ms * scale)
-        )
-        for clip in planned.clips
+        Narrated(scene.narration or "", starts[scene.id], planned.timeline.scene(scene.id).audio_ms)
+        for scene in planned.spec.narrated_scenes
     ]
 
 
@@ -165,13 +201,19 @@ def build(
     max_drift: float = DEFAULT_MAX_DRIFT,
     workspace: WorkspaceOptions | None = None,
     end_card: bool | None = None,
+    subtitles: str | None = None,
+    draft: bool = False,
     log: Log | None = None,
 ) -> BuildResult:
-    """Run the full pipeline and verify the result."""
+    """Run the full pipeline and verify the result.
+
+    ``subtitles`` overrides the spec's ``subtitles`` (a draft burns them in by default).
+    """
     say = log or (lambda _message: None)
-    output = (output or default_output(spec_path)).resolve()
-    say("synthesizing narration")
-    planned = plan(spec_path, offline=offline, end_card=end_card)
+    output = (output or default_output(spec_path, ".draft.mp4" if draft else ".mp4")).resolve()
+    say("estimating narration" if draft else "synthesizing narration")
+    planned = plan(spec_path, offline=offline, end_card=end_card, draft=draft)
+    mode = subtitle_mode(planned, subtitles)
     warn_unenforced_sandbox(planned.spec, say)
     with (
         work_directory(work_dir) as work,
@@ -184,7 +226,15 @@ def build(
         say("mixing narration")
         track = work / "narration.wav"
         used = build_track(placements, video_ms, track)
-        media.mux(silent, track, output)
+        starts = scaled_starts(planned, video_ms) | {p.scene_id: p.start_ms for p in used}
+        cues = cues_for(narrations(planned, starts))
+        srt: Path | None = None
+        if mode in ("track", "burn") and cues:
+            srt = work / "subtitles.srt"
+            srt.write_text(to_srt(cues), encoding="utf-8")
+        media.mux(silent, track, output, subtitles=srt, burn=mode == "burn", fast=planned.draft)
+        if mode == "files":
+            SubtitleFiles.beside(output).write(cues)
         _export_artifacts(planned, ws.path, output, say)
     result = BuildResult(output, planned.timeline.total_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
@@ -235,11 +285,13 @@ def build_cast(
     offline: bool = False,
     workspace: WorkspaceOptions | None = None,
     end_card: bool | None = None,
+    subtitles: str | None = None,
     log: Log | None = None,
 ) -> BuildResult:
     """Record an asciicast with a narration track and a page that plays both.
 
-    ``output`` is the HTML page; the ``.cast`` and ``.mp3`` are written beside it.
+    ``output`` is the HTML page; the ``.cast`` and ``.mp3`` are written beside it, and
+    with any ``subtitles`` mode but ``none`` also the ``.srt`` and ``.vtt``.
     Clips are placed at the recorded start of their scene, so there is no drift to check.
     """
     from narratty.render.cast import record
@@ -270,6 +322,9 @@ def build_cast(
         track = work / "narration.wav"
         used = build_track(place_clips_at(planned, recording.scene_starts_ms), recording.duration_ms, track)
         media.encode_mp3(track, outputs.audio)
+        if subtitle_mode(planned, subtitles) != "none":
+            starts = {p.scene_id: p.start_ms for p in used}
+            SubtitleFiles.beside(outputs.page).write(cues_for(narrations(planned, starts)))
         page = player_page(
             spec.meta.title, recording.cast, outputs.audio, theme=player_theme(spec.terminal.theme)
         )

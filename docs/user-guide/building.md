@@ -27,6 +27,44 @@ After the last scene and the tail comes the end card (4 s by default; see
 With `--work-dir` the tape, the silent video and the narration track are kept for
 inspection.
 
+## Subtitles
+
+```bash
+narratty build demo.narratty.yaml --subtitles files   # demo.mp4, demo.srt, demo.vtt
+```
+
+Subtitles come from the narration: each clip becomes one cue per sentence, and long
+sentences are split so a cue fits in two lines. Cues show the text as written in the
+spec. Set the mode with [`subtitles`](spec.md#top-level) or `--subtitles`:
+
+| Mode | Result |
+|---|---|
+| `none` | No subtitles (default) |
+| `files` | `.srt` and `.vtt` beside the video |
+| `track` | A soft subtitle track in the mp4; players can switch it on and off |
+| `burn` | Drawn into the picture; re-encodes the video |
+
+With `--format cast`, every mode except `none` writes the `.srt` and `.vtt` beside
+the page.
+
+## Draft
+
+```bash
+narratty build demo.narratty.yaml --draft      # writes demo.draft.mp4
+```
+
+A draft checks actions and timing without waiting for TTS:
+
+- narration lengths are estimated from the text (about 14 characters per second,
+  scaled by the voice speed); no voice is loaded or downloaded;
+- the terminal is half the size with half the font, so the layout stays the same;
+- VHS captures 10 frames per second instead of 30;
+- the video is silent and the narration is burned in as subtitles, so you see
+  where each line would be spoken (`--subtitles` picks another mode).
+
+`narratty plan SPEC --draft` prints the estimated timeline. `--draft` only applies to
+mp4 output.
+
 ## Asciicast with narration
 
 ```bash
@@ -64,6 +102,7 @@ Seeking needs a server that supports range requests, as most static hosts do.
 | Command | Shows |
 |---|---|
 | `narratty plan SPEC` | Each scene's start, action time, narration length and the total |
+| `narratty plan SPEC --draft` | The same with estimated narration lengths, without TTS |
 | `narratty tape SPEC` | The generated VHS tape |
 | `narratty render SPEC` | Records only the silent video (`demo.silent.mp4`) |
 

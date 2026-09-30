@@ -24,6 +24,7 @@ def tts_command(
     from narratty.container import delegate
     from narratty.paths import cache_dir, data_dir
     from narratty.spec import load_spec
+    from narratty.tts.lexicon import load_lexicon
     from narratty.tts.registry import get_provider
     from narratty.tts.synth import synthesize_spec
     from narratty.ui.console import err, out
@@ -34,7 +35,13 @@ def tts_command(
     loaded = load_spec(spec)
     provider = get_provider(loaded.tts.provider, data_dir())
     with err.status(f"synthesizing with {provider.name}/{loaded.tts.voice}"):
-        clips = synthesize_spec(loaded, provider, AudioCache(cache_dir()), download=not offline)
+        clips = synthesize_spec(
+            loaded,
+            provider,
+            AudioCache(cache_dir()),
+            download=not offline,
+            lexicon=load_lexicon(spec, loaded.tts),
+        )
 
     table = Table(show_header=True, header_style="bold")
     for column in ("scene", "length", "cache", "file"):
