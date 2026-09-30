@@ -726,6 +726,45 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#workspace-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workspace modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sandbox-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sandbox permissions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sandbox permissions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#you-stay-in-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        You stay in control
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -986,6 +1025,45 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#workspace-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workspace modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sandbox-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sandbox permissions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sandbox permissions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#you-stay-in-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        You stay in control
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1059,9 +1137,9 @@ the <code>-kokoro</code> variant when the spec uses Kokoro. Override the image w
 <td>read-only</td>
 </tr>
 <tr>
-<td><code>workspace.source</code></td>
+<td>the prepared workspace (see below)</td>
 <td><code>/work</code></td>
-<td>read-write</td>
+<td>read-write, or read-only with <code>ro</code></td>
 </tr>
 <tr>
 <td>the output file's directory</td>
@@ -1083,6 +1161,83 @@ the <code>-kokoro</code> variant when the spec uses Kokoro. Override the image w
 <p>Voices are downloaded on the host before the container starts. The container runs
 with no network, all capabilities dropped, <code>no-new-privileges</code>, a read-only root
 filesystem and your own user id, so files it writes belong to you.</p>
+<h2 id="workspace-modes">Workspace modes<a class="headerlink" href="#workspace-modes" title="Permanent link">&para;</a></h2>
+<p><code>workspace.mode</code> decides what directory the demo runs in. <code>--workspace-mode</code>
+overrides it for one run.</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Runs in</th>
+<th>Use it when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>snapshot</code> (default)</td>
+<td>a throwaway copy: for git repositories a local clone of <code>HEAD</code> plus your uncommitted and untracked files (not ignored ones)</td>
+<td>the demo builds or writes files; your checkout stays untouched</td>
+</tr>
+<tr>
+<td><code>rw</code></td>
+<td>the real directory</td>
+<td>build results should stay in the repository; refused on a tree with uncommitted changes unless <code>--allow-dirty</code>, and afterwards narratty lists the files the demo changed</td>
+</tr>
+<tr>
+<td><code>ro</code></td>
+<td>the real directory, read-only</td>
+<td>the demo only reads; enforced in the container only</td>
+</tr>
+</tbody>
+</table>
+<p><code>--keep-workspace</code> keeps the snapshot (under the cache directory) for inspection.
+<code>workspace.include_uncommitted: false</code> snapshots exactly <code>HEAD</code>.</p>
+<p>Files the demo produces can be copied out with <code>workspace.artifacts</code>, a list of globs
+relative to the workspace. They land next to the video in <code>&lt;name&gt;.artifacts/</code>.</p>
+<p><code>workspace.caches</code> maps a name to a directory inside the container
+(e.g. <code>bazel: ~/.cache/bazel</code>). Each is a directory under the cache directory on the
+host that persists across runs, so builds in the demo stay fast. In native mode your
+real cache directories are used.</p>
+<h2 id="sandbox-permissions">Sandbox permissions<a class="headerlink" href="#sandbox-permissions" title="Permanent link">&para;</a></h2>
+<p>A spec declares what else the demo needs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">sandbox</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">allowlist</span><span class="w">               </span><span class="c1"># none (default) | allowlist | full</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">allow_hosts</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">license.example.com:27000</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.example.com:443</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">env_passthrough</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">LM_LICENSE_FILE</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># copied from your shell, never stored in the spec</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">env</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">TZ</span><span class="p">:</span><span class="w"> </span><span class="nv">UTC</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">extra_mounts</span><span class="p">:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="nv">~/.netrc</span><span class="p p-Indicator">,</span><span class="nt"> container</span><span class="p">:</span><span class="w"> </span><span class="nv">~/.netrc</span><span class="p p-Indicator">,</span><span class="nt"> mode</span><span class="p">:</span><span class="w"> </span><span class="nv">ro</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="nt">ssh_agent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</code></pre></div>
+<ul>
+<li><strong><code>network: allowlist</code></strong> puts the container on an internal network with no route
+  out. For each allowed host a small forwarder (in the same image) joins that network
+  under the host's name and passes its ports through to the real host, which narratty
+  resolves on your machine. TCP is forwarded as is, so licence servers, TLS (with SNI
+  and certificates intact) and other protocols work without proxy settings. Nothing
+  else is reachable.</li>
+<li><strong><code>network: full</code></strong> uses the container runtime's normal network.</li>
+<li><code>--network none|allowlist|full</code> and <code>--allow-host HOST:PORT</code> (repeatable) override
+  the spec for one run.</li>
+</ul>
+<h3 id="you-stay-in-control">You stay in control<a class="headerlink" href="#you-stay-in-control" title="Permanent link">&para;</a></h3>
+<p>The first run of a spec that asks for more than the defaults lists what it wants and
+asks for approval. The answer is remembered for that spec file and that exact
+<code>sandbox</code> block, so a changed spec asks again. Pass <code>--yes</code> (or set <code>NARRATTY_YES=1</code>)
+in CI.</p>
+<p>A policy in <code>~/.config/narratty/config.toml</code> caps what any spec may get:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[sandbox]</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">max_network</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"allowlist"</span><span class="w">          </span><span class="c1"># none | allowlist | full</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">allow_env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"LM_LICENSE_FILE"</span><span class="p">]</span><span class="w">    </span><span class="c1"># env_passthrough names a spec may use</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">allow_mounts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">allow_ssh_agent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+</code></pre></div>
+<p>A spec that needs more than the policy allows fails with a message naming what is
+over the limit.</p>
+<p>In native mode none of this can be enforced: the demo runs with your own network and
+environment, and narratty says so. <code>sandbox.env</code> is still applied.</p>
 
 
 

@@ -698,6 +698,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#end_card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        end_card
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#scenes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1125,6 +1136,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#end_card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        end_card
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#scenes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1250,6 +1272,11 @@ plus a "did you mean" for typos:</p>
 <td><code>sandbox</code></td>
 <td></td>
 <td>Permissions of the container</td>
+</tr>
+<tr>
+<td><code>end_card</code></td>
+<td>on</td>
+<td>Closing card, see below</td>
 </tr>
 <tr>
 <td><code>scenes</code></td>
@@ -1450,6 +1477,44 @@ you for approval before the first run.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="end_card"><code>end_card</code><a class="headerlink" href="#end_card" title="Permanent link">&para;</a></h2>
+<p>The video ends with a short card that says "Created with narratty", with a link to
+this documentation and a QR code of the link. The QR code sits beside the text, or
+above it on a narrow terminal; it is left out when the terminal is too small for it.
+The card is drawn in black and white so it scans on any theme.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enabled</code></td>
+<td>unset</td>
+<td><code>true</code> or <code>false</code>; unset follows your config (on by default)</td>
+</tr>
+<tr>
+<td><code>duration_ms</code></td>
+<td><code>4000</code></td>
+<td>How long the card stays on screen (at least 1000)</td>
+</tr>
+<tr>
+<td><code>qr</code></td>
+<td><code>true</code></td>
+<td>Show the QR code</td>
+</tr>
+</tbody>
+</table>
+<p><code>end_card: false</code> is short for <code>end_card: {enabled: false}</code>. To turn the card off for
+every video, put this in <code>~/.config/narratty/config.toml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[end_card]</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+</code></pre></div>
+<p><code>--end-card</code> / <code>--no-end-card</code> on the command line win over the spec, and the spec
+wins over the config.</p>
 <h2 id="scenes">Scenes<a class="headerlink" href="#scenes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

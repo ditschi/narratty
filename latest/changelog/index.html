@@ -1035,6 +1035,13 @@ commitizen.</p>
 <li>container runtime: <code>--runtime docker|podman</code> (default when installed) runs the
   pipeline in the hardened <code>ghcr.io/ditschi/narratty</code> image (<code>-kokoro</code> variant for
   Kokoro), published to GHCR on main (<code>edge</code>) and release tags (<code>&lt;version&gt;</code>, <code>latest</code>)</li>
+<li>workspace modes <code>snapshot</code> (default), <code>rw</code> (dirty-tree guard) and <code>ro</code>, build caches
+  and artifact export; sandbox network <code>none</code> / <code>allowlist</code> (forwarder sidecars) /
+  <code>full</code>, env passthrough, extra mounts and SSH agent, with one-time consent and a
+  user policy cap</li>
+<li>end card: "Created with narratty" with a link and QR code to the docs, on by
+  default; off with <code>end_card: false</code>, <code>--no-end-card</code> or <code>[end_card] enabled = false</code>
+  in config.toml</li>
 </ul>
 
 

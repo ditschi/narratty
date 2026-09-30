@@ -1053,6 +1053,8 @@
    within <code>--max-drift</code> of the plan (10% by default). Otherwise the build exits
    with code 6.</li>
 </ol>
+<p>After the last scene and the tail comes the end card (4 s by default; see
+<a href="../spec/#end_card"><code>end_card</code></a>); <code>--no-end-card</code> leaves it out.</p>
 <p>With <code>--work-dir</code> the tape, the silent video and the narration track are kept for
 inspection.</p>
 <h2 id="looking-before-rendering">Looking before rendering<a class="headerlink" href="#looking-before-rendering" title="Permanent link">&para;</a></h2>
@@ -1096,8 +1098,8 @@ match, so each clip still starts with its scene.</p>
   off the video is.</li>
 <li><strong>Hidden scenes</strong> run without being recorded and clear the screen afterwards, which
   makes them good for setup such as <code>cd</code>, exporting variables or warming caches.</li>
-<li><strong>The workspace</strong> is used in place for now, also when the build runs in a
-  <a href="../container/">container</a>.</li>
+<li><strong>The workspace</strong> is a throwaway snapshot by default, so demos can build and write
+  files without touching your checkout; see <a href="../container/#workspace-modes">workspace modes</a>.</li>
 </ul>
 
 

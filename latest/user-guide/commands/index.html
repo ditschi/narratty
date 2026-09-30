@@ -1042,6 +1042,21 @@
 <td><code>narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]</code></td>
 <td>Build the narrated video</td>
 </tr>
+</tbody>
+</table>
+<p><code>plan</code>, <code>tape</code>, <code>render</code> and <code>build</code> take <code>--end-card</code> / <code>--no-end-card</code> to override
+<a href="../spec/#end_card"><code>end_card</code></a>. <code>build</code> and <code>render</code> also take <code>--workspace-mode</code>,
+<code>--keep-workspace</code>, <code>--allow-dirty</code>, <code>--network</code>, <code>--allow-host</code> and <code>--yes</code>; see
+<a href="../container/">Sandboxed runs</a>. Every command that runs the pipeline takes <code>--runtime</code>
+and <code>--image</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td><code>narratty doctor [--runtime R]</code></td>
 <td>Check the tools the selected runtime needs</td>
