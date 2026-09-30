@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from narratty.build import build
+from narratty.build import WorkspaceOptions, build
 from narratty.cli.app import app
 from narratty.render import media
 from tests.helpers import plain
@@ -53,7 +53,7 @@ def spec(tmp_path: Path) -> Path:
 
 
 def test_build_produces_a_synced_video(spec: Path, tmp_path: Path) -> None:
-    result = build(spec, work_dir=tmp_path / "work")
+    result = build(spec, work_dir=tmp_path / "work", workspace=WorkspaceOptions(mode="rw"))
     info = media.probe(result.output)
     assert info.has_video and info.has_audio
     assert abs(result.drift) < 0.05, f"video {result.video_ms} ms vs plan {result.expected_ms} ms"
@@ -61,11 +61,12 @@ def test_build_produces_a_synced_video(spec: Path, tmp_path: Path) -> None:
     assert [p.scene_id for p in result.placements] == ["list", "wrap"]
     work = tmp_path / "work"
     assert {"scene.tape", "silent.mp4", "narration.wav"} <= {p.name for p in work.iterdir()}
-    assert (spec.parent / "demo" / "one.txt").exists(), "the hidden setup ran in the workspace"
+    assert (spec.parent / "demo" / "one.txt").exists(), "rw mode runs in place"
 
 
-def test_build_command(spec: Path) -> None:
+def test_build_command_leaves_the_workspace_alone(spec: Path) -> None:
     result = CliRunner().invoke(app, ["build", str(spec), "-o", str(spec.parent / "out.mp4")])
     assert result.exit_code == 0, result.output
     assert (spec.parent / "out.mp4").is_file()
     assert "planned" in plain(result.output)
+    assert not (spec.parent / "demo").exists(), "the default snapshot mode keeps the source untouched"

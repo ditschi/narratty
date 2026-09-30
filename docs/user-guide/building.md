@@ -53,5 +53,5 @@ match, so each clip still starts with its scene.
   off the video is.
 - **Hidden scenes** run without being recorded and clear the screen afterwards, which
   makes them good for setup such as `cd`, exporting variables or warming caches.
-- **The workspace** is used in place for now, also when the build runs in a
-  [container](container.md).
+- **The workspace** is a throwaway snapshot by default, so demos can build and write
+  files without touching your checkout; see [workspace modes](container.md#workspace-modes).

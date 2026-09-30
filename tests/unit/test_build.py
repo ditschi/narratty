@@ -46,7 +46,7 @@ def test_place_clips_scales_with_the_rendered_length(tmp_path: Path) -> None:
 
 
 def test_workspace_is_relative_to_the_spec(tmp_path: Path) -> None:
-    assert _plan(tmp_path).workspace == tmp_path.resolve()
+    assert _plan(tmp_path).workspace_source == tmp_path.resolve()
 
 
 def _result(tmp_path: Path, video_ms: int) -> BuildResult:

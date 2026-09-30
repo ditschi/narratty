@@ -87,10 +87,10 @@ jobs:
       - name: Install ffprobe (the test checks the video on the host)
         if: github.event_name == 'pull_request' && matrix.variant == 'base'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-      - name: Build a video through the container runtime
+      - name: Build a video through the container runtime and test the sandbox network
         if: github.event_name == 'pull_request' && matrix.variant == 'base'
         env:
           NARRATTY_IMAGE: narratty:test
         run: |
           uv tool install nox
-          nox -s integration -- -k container
+          nox -s integration -- -k "container or sandbox_network"

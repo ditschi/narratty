@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,6 +20,7 @@ from narratty.spec.model import Spec
 from narratty.timeline import Timeline, build_timeline
 from narratty.tts.registry import get_provider
 from narratty.tts.synth import Clip, synthesize_spec
+from narratty.workspace import PreparedWorkspace, export_artifacts, prepare_workspace
 
 SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml", ".yaml", ".yml")
 DEFAULT_MAX_DRIFT = 0.10
@@ -46,11 +47,14 @@ class Plan:
     timeline: Timeline
 
     @property
-    def workspace(self) -> Path:
-        """Directory the recorded shell starts in (``NARRATTY_WORKSPACE`` overrides it)."""
-        if override := os.environ.get("NARRATTY_WORKSPACE"):
-            return Path(override)
-        return (self.spec_path.parent / self.spec.workspace.source).resolve()
+    def workspace_source(self) -> Path:
+        """``workspace.source``, relative to the spec."""
+        return self.source_of(self.spec_path, self.spec)
+
+    @staticmethod
+    def source_of(spec_path: Path, spec: Spec) -> Path:
+        """``workspace.source`` of ``spec``, resolved relative to its file."""
+        return (spec_path.resolve().parent / spec.workspace.source).resolve()
 
 
 def plan(spec_path: Path, *, offline: bool = False) -> Plan:
@@ -73,16 +77,46 @@ def work_directory(path: Path | None) -> Iterator[Path]:
         yield Path(tmp)
 
 
-def render_silent(planned: Plan, video: Path, work: Path) -> Path:
-    """Write the tape into ``work`` and record it with VHS into ``video``."""
+@dataclass(frozen=True)
+class WorkspaceOptions:
+    """Command-line choices about the workspace."""
+
+    mode: str | None = None
+    allow_dirty: bool = False
+    keep: bool = False
+
+
+def workspace_for(
+    planned: Plan, options: WorkspaceOptions, *, in_container: bool = False, log: Log | None = None
+) -> AbstractContextManager[PreparedWorkspace]:
+    """The prepared workspace (inside the container: the one the host mounted)."""
+    if override := os.environ.get("NARRATTY_WORKSPACE"):
+        path = Path(override)
+        return nullcontext(PreparedWorkspace(path, "rw", path))
+    spec = planned.spec
+    return prepare_workspace(
+        planned.workspace_source,
+        options.mode or spec.workspace.mode,
+        scratch=cache_dir() / "workspaces",
+        include_uncommitted=spec.workspace.include_uncommitted,
+        allow_dirty=options.allow_dirty,
+        keep=options.keep,
+        in_container=in_container,
+        log=log,
+    )
+
+
+def warn_unenforced_sandbox(spec: Spec, log: Log) -> None:
+    """Native runs cannot restrict network or mounts; say so once."""
+    if spec.sandbox.elevated and not os.environ.get("NARRATTY_IN_CONTAINER"):
+        log("sandbox settings are only enforced in a container; running natively with your own access")
+
+
+def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> Path:
+    """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``."""
     tape = work / "scene.tape"
     tape.write_text(generate_tape(planned.spec, planned.timeline, video.resolve()), encoding="utf-8")
-    workspace = planned.workspace
-    if not workspace.is_dir():
-        raise RenderError(
-            f"workspace {workspace} does not exist", hint="Check `workspace.source` in the spec."
-        )
-    media.run_vhs(tape, workspace)
+    media.run_vhs(tape, workspace, extra_env=planned.spec.sandbox.env)
     if not video.is_file():
         raise RenderError(f"VHS finished but wrote no video to {video}")
     return video
@@ -125,6 +159,7 @@ def build(
     work_dir: Path | None = None,
     offline: bool = False,
     max_drift: float = DEFAULT_MAX_DRIFT,
+    workspace: WorkspaceOptions | None = None,
     log: Log | None = None,
 ) -> BuildResult:
     """Run the full pipeline and verify the result."""
@@ -132,15 +167,23 @@ def build(
     output = (output or default_output(spec_path)).resolve()
     say("synthesizing narration")
     planned = plan(spec_path, offline=offline)
-    with work_directory(work_dir) as work:
+    warn_unenforced_sandbox(planned.spec, say)
+    with (
+        work_directory(work_dir) as work,
+        workspace_for(planned, workspace or WorkspaceOptions(), log=say) as ws,
+    ):
         say(f"recording {len(planned.timeline.scenes)} scenes with VHS")
-        silent = render_silent(planned, work / "silent.mp4", work)
+        silent = render_silent(planned, work / "silent.mp4", work, ws.path)
         video_ms = media.probe(silent).duration_ms
         placements = place_clips(planned, video_ms)
         say("mixing narration")
         track = work / "narration.wav"
         used = build_track(placements, video_ms, track)
         media.mux(silent, track, output)
+        if planned.spec.workspace.artifacts:
+            dest = output.with_name(output.name.removesuffix(output.suffix) + ".artifacts")
+            copied = export_artifacts(ws.path, planned.spec.workspace.artifacts, dest)
+            say(f"exported {len(copied)} artifacts to {dest}")
     result = BuildResult(output, planned.timeline.total_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
     return result
