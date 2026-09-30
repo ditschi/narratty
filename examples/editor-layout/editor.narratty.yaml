@@ -4,6 +4,11 @@
 version: 1
 meta:
   title: Editor layout with tmux and yazi
+tts:
+  provider: kokoro
+  voice: af_heart
+timing:
+  tail_ms: 0          # the last visible frame is held in the edit scene instead
 terminal:
   width: 1600
   height: 900
@@ -68,6 +73,7 @@ scenes:
       - enter
       - wait: {screen: "Welcome, Ada!"}
       - hold: auto
+      - hold: 1500
 
   - id: close
     hidden: true
