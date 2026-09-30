@@ -1,10 +1,9 @@
 # syntax=docker/dockerfile:1.7
 # narratty image: the CLI plus everything a native render needs (VHS, ttyd, Chromium,
-# ffmpeg, fonts, Piper with a default voice) and the demo toolkit. ttyd is not
+# ffmpeg, fonts, Kokoro and Piper with a default voice each) and the demo toolkit. ttyd is not
 # packaged in Debian trixie, so its static release binary is used. Targets:
 #   toolkit ghcr.io/ditschi/narratty-toolkit:<version>  (static demo tools, see below)
 #   base    ghcr.io/ditschi/narratty:<version>
-#   kokoro  ghcr.io/ditschi/narratty:<version>-kokoro  (adds kokoro-onnx and its model)
 
 ARG PYTHON_IMAGE=docker.io/library/python:3.12-slim-trixie
 ARG RUST_IMAGE=docker.io/library/rust:1-trixie
@@ -41,6 +40,7 @@ ARG TARGETARCH
 ARG VHS_VERSION=0.12.1
 ARG TTYD_VERSION=1.7.7
 # Voices baked into the image, so it renders without network access.
+ARG KOKORO_VOICES="af_heart"
 ARG PIPER_VOICES="en_US-lessac-medium"
 
 RUN apt-get update \
@@ -75,6 +75,7 @@ ENV NARRATTY_IN_CONTAINER=1 \
 
 RUN useradd --create-home --uid 1000 --shell /bin/bash narratty \
  && mkdir -p /opt/narratty/data /cache /work /out \
+ && for voice in ${KOKORO_VOICES}; do narratty voices pull "$voice" --provider kokoro; done \
  && for voice in ${PIPER_VOICES}; do narratty voices pull "$voice" --provider piper; done \
  && chown -R narratty:narratty /cache /work /out /home/narratty \
  && chmod -R a+rX /opt/narratty \
@@ -84,12 +85,3 @@ USER narratty
 WORKDIR /work
 ENTRYPOINT ["narratty"]
 CMD ["--help"]
-
-# ── kokoro ────────────────────────────────────────────────────────────────────
-FROM base AS kokoro
-ARG KOKORO_VOICE=af_heart
-USER root
-RUN pip install --no-cache-dir "kokoro-onnx>=0.6" \
- && narratty voices pull "${KOKORO_VOICE}" --provider kokoro \
- && chmod -R a+rX /opt/narratty
-USER narratty

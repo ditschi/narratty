@@ -5,6 +5,7 @@ Versions come from git tags (hatch-vcs); commitizen writes the changelog.
 ```bash
 uv run cz bump        # bumps the version, updates CHANGELOG.md, commits "bump: version …"
 git push              # push main (not the tag); or open a PR with the bump commit
+                      # (merge it with a merge commit, so the bump commit reaches main)
 ```
 
 When the bump commit reaches `main`, `.github/workflows/release.yml` tags it `vX.Y.Z`
@@ -19,8 +20,10 @@ GHCR for linux/amd64 and linux/arm64:
 | Event | Tags |
 |---|---|
 | Pull request | built and tested, not pushed |
-| Push to `main` | `edge`, `edge-kokoro` |
-| Release `v1.2.3` | `1.2.3`, `1.2`, `latest` and the same with `-kokoro` |
+| Push to `main` | `edge` |
+| Release `v1.2.3` | `1.2.3`, `1.2`, `latest` |
+
+`narratty-toolkit` gets the same tags.
 
 ## One-time setup
 
@@ -28,5 +31,6 @@ GHCR for linux/amd64 and linux/arm64:
   `release.yml`, environments `pypi` and `testpypi`.
 - GitHub: create the `pypi` and `testpypi` environments, and enable GitHub Pages from the
   `gh-pages` branch for the docs.
-- GHCR: after the first push, open the `narratty` package settings on GitHub and set
-  its visibility to public so `docker pull` works without logging in.
+- GHCR: after the first push, open the `narratty` and `narratty-toolkit` package
+  settings on GitHub and set their visibility to public so `docker pull` works
+  without logging in.

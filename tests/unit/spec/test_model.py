@@ -18,11 +18,17 @@ def _spec(**overrides: Any) -> dict[str, Any]:
 
 def test_defaults() -> None:
     spec = Spec.model_validate(_spec())
-    assert spec.tts.provider == "piper"
+    assert (spec.tts.provider, spec.tts.voice) == ("kokoro", "af_heart")
     assert spec.timing.narration_buffer_ms == 500
     assert spec.workspace.mode == "snapshot"
     assert spec.sandbox.network == "none"
     assert not spec.sandbox.elevated
+
+
+def test_default_voice_follows_the_provider() -> None:
+    assert Spec.model_validate(_spec(tts={"provider": "piper"})).tts.voice == "en_US-lessac-medium"
+    assert Spec.model_validate(_spec(tts={"provider": "kokoro"})).tts.voice == "af_heart"
+    assert Spec.model_validate(_spec(tts={"voice": "bf_emma"})).tts.voice == "bf_emma"
 
 
 def test_all_action_forms_parse() -> None:

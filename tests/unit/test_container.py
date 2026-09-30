@@ -15,22 +15,20 @@ from narratty.runtime import Runtime
 
 
 @pytest.mark.parametrize(
-    ("version", "provider", "expected"),
+    ("version", "expected"),
     [
-        ("1.2.3", "piper", "ghcr.io/ditschi/narratty:1.2.3"),
-        ("1.2.3", "kokoro", "ghcr.io/ditschi/narratty:1.2.3-kokoro"),
-        ("0.1.1.dev4+gabc", "piper", "ghcr.io/ditschi/narratty:edge"),
-        ("0.1.1.dev4+gabc", "kokoro", "ghcr.io/ditschi/narratty:edge-kokoro"),
+        ("1.2.3", "ghcr.io/ditschi/narratty:1.2.3"),
+        ("0.1.1.dev4+gabc", "ghcr.io/ditschi/narratty:edge"),
     ],
 )
-def test_image_ref(version: str, provider: str, expected: str) -> None:
-    assert image_ref(provider, version=version) == expected
+def test_image_ref(version: str, expected: str) -> None:
+    assert image_ref(version=version) == expected
 
 
 def test_image_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert image_ref("piper", override="me/img:1") == "me/img:1"
+    assert image_ref(override="me/img:1") == "me/img:1"
     monkeypatch.setenv("NARRATTY_IMAGE", "env/img:2")
-    assert image_ref("piper") == "env/img:2"
+    assert image_ref() == "env/img:2"
 
 
 def test_run_argv_is_hardened() -> None:
@@ -63,7 +61,10 @@ def test_podman_keeps_the_user_id() -> None:
 def _write_spec(tmp_path: Path) -> Path:
     spec = tmp_path / "proj" / "demo.narratty.yaml"
     spec.parent.mkdir()
-    spec.write_text("workspace: {source: ..}\nscenes:\n  - id: a\n    narration: Hi.\n", encoding="utf-8")
+    spec.write_text(
+        "tts: {provider: piper}\nworkspace: {source: ..}\nscenes:\n  - id: a\n    narration: Hi.\n",
+        encoding="utf-8",
+    )
     return spec
 
 

@@ -59,7 +59,7 @@ class ProviderCheck:
         return self.reason is None
 
 
-def provider_checks(data_dir: Path, *, required: str = "piper") -> list[ProviderCheck]:
+def provider_checks(data_dir: Path, *, required: str = "kokoro") -> list[ProviderCheck]:
     """Check each built-in TTS provider; only ``required`` blocks a render."""
     from narratty.tts.catalog import PROVIDERS
     from narratty.tts.registry import get_provider

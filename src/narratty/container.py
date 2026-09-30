@@ -35,16 +35,16 @@ _RELEASE = re.compile(r"^\d+\.\d+\.\d+$")
 Runner = Callable[[Sequence[str]], int]
 
 
-def image_ref(provider: str, *, version: str = __version__, override: str | None = None) -> str:
+def image_ref(*, version: str = __version__, override: str | None = None) -> str:
     """The image for this narratty version (``:edge`` for development builds).
 
-    Kokoro needs the ``-kokoro`` variant. ``--image`` / ``NARRATTY_IMAGE`` override it.
+    It contains Kokoro and Piper. ``--image`` / ``NARRATTY_IMAGE`` override it.
     """
     override = override or os.environ.get("NARRATTY_IMAGE")
     if override:
         return override
     tag = version if _RELEASE.match(version) else "edge"
-    return f"{IMAGE_REPOSITORY}:{tag}{'-kokoro' if provider == 'kokoro' else ''}"
+    return f"{IMAGE_REPOSITORY}:{tag}"
 
 
 @dataclass(frozen=True)
@@ -173,7 +173,7 @@ def delegate(
         )
     spec = load_spec(spec_path)  # fail fast on the host, with host paths in the messages
     _ensure_voice(spec.tts.provider, spec.tts.voice)
-    chosen_image = image_ref(spec.tts.provider, override=image)
+    chosen_image = image_ref(override=image)
     base = _Invocation(command, spec_path.resolve(), resolved.runtime, chosen_image, extra_args)
     if output is not None:
         base.add_output(output)

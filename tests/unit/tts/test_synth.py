@@ -44,7 +44,7 @@ class ToneProvider:
         return None if self.available else "tone engine missing"
 
     def voices(self) -> list[VoiceInfo]:
-        return [VoiceInfo(self.name, "en_US-lessac-medium", "tone", "en", self.installed)]
+        return [VoiceInfo(self.name, "af_heart", "tone", "en", self.installed)]
 
     def is_installed(self, voice: str) -> bool:
         return self.installed
@@ -99,7 +99,7 @@ def test_missing_voice_is_downloaded(tmp_path: Path) -> None:
     synthesize_spec(
         parse_spec(SPEC, Path("t.narratty.yaml")), provider, AudioCache(tmp_path), show_progress=False
     )
-    assert provider.installs == ["en_US-lessac-medium"]
+    assert provider.installs == ["af_heart"]
 
 
 def test_offline_fails_before_synthesizing(tmp_path: Path) -> None:
@@ -108,7 +108,7 @@ def test_offline_fails_before_synthesizing(tmp_path: Path) -> None:
         synthesize_spec(
             parse_spec(SPEC, Path("t.narratty.yaml")), provider, AudioCache(tmp_path), download=False
         )
-    assert "voices pull en_US-lessac-medium" in (raised.value.hint or "")
+    assert "voices pull af_heart" in (raised.value.hint or "")
     assert provider.spoken == []
 
 

@@ -59,7 +59,9 @@ def test_voices_pull_guesses_kokoro(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_validate_rejects_unknown_voice(tmp_path: Path) -> None:
     spec = tmp_path / "demo.narratty.yaml"
-    spec.write_text("tts:\n  voice: en_US-lessac-medum\nscenes:\n  - id: a\n", encoding="utf-8")
+    spec.write_text(
+        "tts:\n  provider: piper\n  voice: en_US-lessac-medum\nscenes:\n  - id: a\n", encoding="utf-8"
+    )
     result = runner.invoke(app, ["validate", str(spec)])
     assert isinstance(result.exception, ValidationError)
     assert "did you mean 'en_US-lessac-medium'" in result.exception.message
@@ -82,7 +84,9 @@ def test_tts_prints_clip_table(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr("narratty.tts.piper.find_piper", lambda: ["piper"])
     monkeypatch.setattr("narratty.tts.piper.PiperProvider.synthesize", fake_synthesize)
     spec = tmp_path / "demo.narratty.yaml"
-    spec.write_text("scenes:\n  - id: intro\n    narration: Hi there.\n", encoding="utf-8")
+    spec.write_text(
+        "tts: {provider: piper}\nscenes:\n  - id: intro\n    narration: Hi there.\n", encoding="utf-8"
+    )
     first = runner.invoke(app, ["tts", str(spec)], env={"COLUMNS": "200"})
     assert first.exit_code == 0, first.output
     assert "intro" in plain(first.output) and "0.75s" in plain(first.output) and "new" in plain(first.output)

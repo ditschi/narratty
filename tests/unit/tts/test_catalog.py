@@ -32,7 +32,7 @@ def test_piper_voice_card_and_language() -> None:
 
 def test_kokoro_files_are_pinned() -> None:
     files = catalog.kokoro_files()
-    assert [f.name for f in files] == ["kokoro-v1.0.onnx", "voices-v1.0.bin"]
+    assert [f.name for f in files] == ["kokoro-v1.0.fp16.onnx", "voices-v1.0.bin"]
     assert all(f.sha256 and re.fullmatch(r"[0-9a-f]{64}", f.sha256) for f in files)
 
 

@@ -202,11 +202,26 @@ class KokoroOptions(_Model):
     lang: str | None = Field(None, description="Language code; defaults to the voice's language.")
 
 
+DEFAULT_VOICES = {"kokoro": "af_heart", "piper": "en_US-lessac-medium"}
+
+
 class TtsConfig(_Model):
-    provider: str = "piper"
-    voice: str = "en_US-lessac-medium"
+    provider: str = "kokoro"
+    voice: str = Field(
+        "af_heart",
+        description="Voice id; defaults to af_heart for kokoro and en_US-lessac-medium for piper.",
+    )
     piper: PiperOptions = PiperOptions()
     kokoro: KokoroOptions = KokoroOptions()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _provider_default_voice(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "voice" not in data:
+            provider = data.get("provider", "kokoro")
+            if provider in DEFAULT_VOICES:
+                return {**data, "voice": DEFAULT_VOICES[provider]}
+        return data
 
     def provider_options(self) -> dict[str, Any]:
         """Options of the selected provider, as a plain dict (part of the cache key)."""

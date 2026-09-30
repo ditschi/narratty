@@ -169,10 +169,10 @@ def test_kokoro_installation_state(tmp_path: Path) -> None:
     assert not provider.is_installed("zz_nobody")
 
 
-def test_kokoro_without_the_extra(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_kokoro_without_kokoro_onnx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("importlib.util.find_spec", lambda name: None)
     provider = KokoroProvider(tmp_path)
-    assert "narratty[kokoro]" in (provider.unavailable_reason() or "")
+    assert "kokoro-onnx is not installed" in (provider.unavailable_reason() or "")
     _install_kokoro(tmp_path)
     with pytest.raises(MissingDependencyError):
         provider.synthesize("Hi.", "af_heart", tmp_path / "x.wav", {})

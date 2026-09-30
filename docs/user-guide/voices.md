@@ -2,27 +2,31 @@
 
 narratty speaks with local text-to-speech engines; nothing is sent to a cloud service.
 
-| Provider | Install | Voices |
-|---|---|---|
-| `piper` (default) | comes with narratty | `en_US-lessac-medium` and the other curated Piper voices |
-| `kokoro` | `uv tool install 'narratty[kokoro]'` | `af_heart`, `bf_emma`, … (one ~300 MB model shared by all voices) |
+| Provider | Sound | Languages | Download |
+|---|---|---|---|
+| `kokoro` (default) | natural | English (US, UK), Spanish, French, Italian, Portuguese, Hindi, Japanese, Chinese | one 205 MB model shared by all voices (`af_heart`, `bf_emma`, …) |
+| `piper` | clear, more synthetic | many, including German | about 60 MB per voice (`en_US-lessac-medium`, `de_DE-thorsten-medium`, …) |
 
-Pick one in the spec:
+Both come with narratty. Without a `tts` block a spec uses Kokoro with `af_heart`;
+with only `provider`, the voice defaults to that provider's first voice:
 
 ```yaml
 tts:
-  provider: kokoro
-  voice: af_heart
-  kokoro:
-    speed: 1.1
+  provider: piper
+  voice: de_DE-thorsten-medium
+  piper:
+    length_scale: 1.1
 ```
+
+narratty uses Kokoro's fp16 model: half the size of the full model, faster on a CPU
+and sounds the same.
 
 ## Listing and downloading voices
 
 ```bash
 narratty voices                      # curated voices of both providers
 narratty voices --provider piper --installed
-narratty voices pull en_GB-alan-medium
+narratty voices pull bf_emma
 ```
 
 `narratty tts` and `narratty build` download a missing voice on first use; pass

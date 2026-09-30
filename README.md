@@ -2,8 +2,8 @@
 
 Turn a YAML script into a narrated terminal video. narratty types your commands in a
 real terminal ([VHS](https://github.com/charmbracelet/vhs)), speaks the narration with
-local text-to-speech ([Piper](https://github.com/OHF-Voice/piper1-gpl) or
-[Kokoro](https://github.com/thewh1teagle/kokoro-onnx)) and keeps voice and picture in
+local text-to-speech ([Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or
+[Piper](https://github.com/OHF-Voice/piper1-gpl)) and keeps voice and picture in
 sync. It runs sandboxed in Docker or Podman, or natively.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -34,8 +34,9 @@ tools native mode needs.
 
 - **Spec to video:** a `.narratty.yaml` file becomes an MP4, or an asciicast with
   narration and a player page (`--format cast`).
-- **Local voices:** Piper or Kokoro, no cloud service; narration and typing stay in
-  sync, and audio is cached.
+- **Local voices:** Kokoro (natural sounding, the default) or Piper
+  (many languages), no cloud service. Narration and typing stay in sync, and audio is
+  cached.
 - **Sandboxed by default:** runs in Docker or Podman with no network unless the spec
   asks for it and you approve. The demo runs in a throwaway snapshot of your
   repository. Native mode is available too.

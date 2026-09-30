@@ -1,4 +1,4 @@
-"""Kokoro provider via ``kokoro-onnx`` (optional extra ``narratty[kokoro]``).
+"""Kokoro provider via ``kokoro-onnx`` (the default provider).
 
 Every Kokoro voice shares one ONNX model and one voice pack, stored in
 ``<data>/kokoro``.
@@ -48,7 +48,7 @@ class KokoroProvider:
 
     def unavailable_reason(self) -> str | None:
         if self._factory is None and importlib.util.find_spec("kokoro_onnx") is None:
-            return "kokoro-onnx is not installed (pip install 'narratty[kokoro]')"
+            return "kokoro-onnx is not installed (reinstall narratty)"
         return None
 
     def _files(self) -> list[Path]:
