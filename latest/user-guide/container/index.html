@@ -16,7 +16,7 @@
         <link rel="prev" href="../building/">
       
       
-        <link rel="next" href="../configuration/">
+        <link rel="next" href="../toolkit/">
       
       
         
@@ -743,6 +743,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../toolkit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo toolkit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../configuration/" class="md-nav__link">
         
   
@@ -1056,9 +1084,9 @@
 <h1 id="sandboxed-runs">Sandboxed runs<a class="headerlink" href="#sandboxed-runs" title="Permanent link">&para;</a></h1>
 <p>With Docker or Podman installed, <code>build</code>, <code>render</code>, <code>tts</code>, <code>plan</code> and <code>tape</code> run
 inside the narratty image by default (<code>--runtime auto</code>). The image contains VHS,
-ttyd, Chromium, ffmpeg, fonts, Piper and a few popular CLIs (<code>git</code>, <code>bat</code>, <code>eza</code>,
-<code>fd</code>, <code>ripgrep</code>, <code>jq</code>, <code>tree</code>). You only need narratty itself and a container
-runtime on the host.</p>
+ttyd, Chromium, ffmpeg, fonts, Piper, <code>git</code>, <code>tree</code> and the <a href="../toolkit/">demo toolkit</a>
+(<code>bat</code>, <code>eza</code>, <code>fd</code>, <code>ripgrep</code>, <code>jq</code>, <code>yazi</code>, <code>tmux</code>, <code>zsh</code>). You only need narratty
+itself and a container runtime on the host.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w">                    </span><span class="c1"># container if available</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--runtime<span class="w"> </span>native<span class="w">   </span><span class="c1"># tools from your PATH</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--runtime<span class="w"> </span>podman
@@ -1079,6 +1107,10 @@ runtime on the host.</p>
 <tr>
 <td><code>ghcr.io/ditschi/narratty:&lt;version&gt;-kokoro</code></td>
 <td>The above, plus Kokoro and its model</td>
+</tr>
+<tr>
+<td><code>ghcr.io/ditschi/narratty-toolkit:&lt;version&gt;</code></td>
+<td>Only the <a href="../toolkit/">demo toolkit</a>, to copy into other images</td>
 </tr>
 </tbody>
 </table>

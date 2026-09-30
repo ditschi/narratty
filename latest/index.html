@@ -413,6 +413,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -697,6 +708,34 @@
   
   
     <li class="md-nav__item">
+      <a href="user-guide/toolkit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo toolkit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="user-guide/configuration/" class="md-nav__link">
         
   
@@ -922,6 +961,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -973,6 +1023,23 @@
 real terminal (VHS), speaks the narration with local text-to-speech (Piper or Kokoro)
 and keeps voice and picture in sync. It runs sandboxed in Docker or Podman, or
 natively.</p>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Spec to video:</strong> a <code>.narratty.yaml</code> file becomes an MP4, or an asciicast with
+  narration and a player page (<code>--format cast</code>).</li>
+<li><strong><a href="user-guide/voices/">Local voices</a>:</strong> Piper or Kokoro, no cloud service; narration and typing stay in
+  sync, and audio is cached.</li>
+<li><strong><a href="user-guide/container/">Sandboxed by default</a>:</strong> runs in Docker or Podman with no network unless the spec
+  asks for it and you approve. The demo runs in a throwaway snapshot of your
+  repository. Native mode is available too.</li>
+<li><strong>Scripting:</strong> hidden setup scenes, waits for screen output, key presses and
+  per-scene typing speed.</li>
+<li><strong><a href="user-guide/toolkit/">Demo toolkit</a>:</strong> bat, eza, fd, ripgrep, jq, yazi, tmux and
+  zsh as static binaries, for the narratty image and, with one <code>COPY</code> line, for any
+  dev container.</li>
+<li><strong>Editor support:</strong> a JSON Schema for completion and inline errors, <code>validate</code> with
+  line numbers, and shell completion.</li>
+</ul>
 <h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>narratty<span class="w">            </span><span class="c1"># or: pipx install narratty</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>narratty<span class="w"> </span>init<span class="w">                       </span><span class="c1"># writes demo.narratty.yaml</span>
