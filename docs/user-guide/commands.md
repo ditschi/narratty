@@ -9,10 +9,12 @@
 | `narratty voices pull VOICE` | Download a voice (and the Kokoro model) |
 | `narratty tts SPEC [--offline]` | Synthesize all narration clips and print their lengths |
 | `narratty cache info` / `prune [--older-than 30d] [--all]` | Inspect or prune the audio cache |
-| `narratty plan SPEC` | Print the timeline and total length |
+| `narratty plan SPEC [--draft]` | Print the timeline and total length |
 | `narratty tape SPEC [-o VIDEO]` | Print the VHS tape |
 | `narratty render SPEC [-o VIDEO]` | Record the silent video |
 | `narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]` | Build the narrated video |
+| `narratty build SPEC --subtitles MODE` | Add [subtitles](building.md#subtitles): `none`, `files`, `track` or `burn` |
+| `narratty build SPEC --draft` | Build a fast [draft](building.md#draft) (`demo.draft.mp4`) |
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
 
 `plan`, `tape`, `render` and `build` take `--end-card` / `--no-end-card` to override

@@ -172,7 +172,8 @@ def delegate(
             f"{tool.name} is not installed", hint=f"{tool.install_hint}, or use --runtime native."
         )
     spec = load_spec(spec_path)  # fail fast on the host, with host paths in the messages
-    _ensure_voice(spec.tts.provider, spec.tts.voice)
+    if "--draft" not in extra_args:
+        _ensure_voice(spec.tts.provider, spec.tts.voice)
     chosen_image = image_ref(override=image)
     base = _Invocation(command, spec_path.resolve(), resolved.runtime, chosen_image, extra_args)
     if output is not None:

@@ -50,6 +50,7 @@ demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did 
 | `workspace` | | What directory the demo runs in |
 | `sandbox` | | Permissions of the container |
 | `end_card` | on | Closing card, see below |
+| `subtitles` | `none` | `none`, `files`, `track` or `burn`; see [Subtitles](building.md#subtitles) |
 | `scenes` | required | At least one scene |
 
 ## `tts`
