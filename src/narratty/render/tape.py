@@ -87,11 +87,18 @@ def _lines(steps: Iterable[Step]) -> list[str]:
 
 
 def generate_tape(
-    spec: Spec, timeline: Timeline, output: Path, *, python: str | None = None, framerate: int = FRAMERATE
+    spec: Spec,
+    timeline: Timeline,
+    output: Path,
+    *,
+    python: str | None = None,
+    framerate: int = FRAMERATE,
+    exit_log: Path | None = None,
 ) -> str:
     """The complete tape rendering ``spec`` into ``output``.
 
-    ``python`` is the interpreter that draws the end card (default: the running one).
+    ``python`` is the interpreter that draws the end card (default: the running one);
+    ``exit_log`` receives the commands' exit codes (see ``narratty.render.exits``).
     """
     term = spec.terminal
     lines = [
@@ -106,7 +113,7 @@ def generate_tape(
         f"Set TypingSpeed {term.typing_speed_ms}ms",
         f"Set Framerate {framerate}",
         "",
-        *_lines(setup_steps(spec)),
+        *_lines(setup_steps(spec, exit_log)),
     ]
     if timeline.lead_in_ms:
         lines.append(f"Sleep {timeline.lead_in_ms}ms")

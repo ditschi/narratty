@@ -142,6 +142,7 @@ wins over the config.
 | `hidden` | `false` | Run without recording (setup); cannot have narration |
 | `typing_speed_ms` | terminal's | Per-scene typing speed |
 | `narration_start` | `with_actions` | Or `after_actions` |
+| `expect_exit` | `success` | Exit codes of the scene's commands: `success`, `failure` or `any` |
 
 A scene lasts as long as its actions or its narration plus `narration_buffer_ms`,
 whichever is longer.
@@ -158,3 +159,27 @@ whichever is longer.
 | `wait` | `- wait: {screen: "Done", timeout_ms: 15000}` | Waits until the screen matches a regex |
 
 A scene has at most one `hold: auto`, and only when it has narration.
+
+### Exit codes
+
+narratty logs the exit code of every command line run at the shell prompt and checks
+it against the scene's `expect_exit` after recording:
+
+| Value | Build fails when |
+|---|---|
+| `success` (default) | a command exits non-zero |
+| `failure` | no command exits non-zero, e.g. an error demo that suddenly works |
+| `any` | never; exit codes are not checked |
+
+```yaml
+- id: typo
+  narration: A typo gives a helpful error.
+  expect_exit: failure
+  actions: [{type_command: "git stauts"}, enter]
+```
+
+The build exits with code 7 and names each offending command; the video is still
+written so you can inspect it. A line's exit code is that of its last command
+(`a; b` reports `b`). Commands stopped with `C-c` or `C-z` do not count as failures.
+Commands inside programs (a REPL, an editor, a nested shell) are not checked, nor is
+anything with `shell: sh`.

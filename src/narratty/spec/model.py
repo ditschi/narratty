@@ -159,6 +159,11 @@ class Scene(_Model):
     hidden: bool = False
     typing_speed_ms: PositiveInt | None = None
     narration_start: Literal["with_actions", "after_actions"] = "with_actions"
+    expect_exit: Literal["success", "failure", "any"] = Field(
+        "success",
+        description="Exit codes of the scene's commands: success (all exit 0), "
+        "failure (at least one fails) or any (not checked).",
+    )
 
     @field_validator("actions", mode="before")
     @classmethod

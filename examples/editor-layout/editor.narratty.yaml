@@ -20,6 +20,7 @@ workspace:
 scenes:
   - id: layout
     hidden: true
+    expect_exit: any    # `tmux kill-server` at the end makes this tmux client exit 1
     actions:
       # Explorer (yazi) on top, a terminal below; focus stays in the terminal.
       - type_command: >-

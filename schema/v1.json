@@ -335,6 +335,17 @@
           ],
           "title": "Narration Start",
           "type": "string"
+        },
+        "expect_exit": {
+          "default": "success",
+          "description": "Exit codes of the scene's commands: success (all exit 0), failure (at least one fails) or any (not checked).",
+          "enum": [
+            "success",
+            "failure",
+            "any"
+          ],
+          "title": "Expect Exit",
+          "type": "string"
         }
       },
       "required": [

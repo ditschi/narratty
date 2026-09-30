@@ -129,6 +129,20 @@ def warn_unenforced_sandbox(spec: Spec, log: Log) -> None:
         log("sandbox settings are only enforced in a container; running natively with your own access")
 
 
+def fresh_exit_log(work: Path) -> Path:
+    """An empty log in ``work`` for the recorded commands' exit codes."""
+    log = work / "exits.log"
+    log.write_text("", encoding="utf-8")
+    return log
+
+
+def check_exits(planned: Plan, work: Path, output: Path) -> None:
+    """Fail when a command's exit code contradicts its scene's ``expect_exit``."""
+    from narratty.render.exits import check
+
+    check(planned.spec, work / "exits.log", output=output)
+
+
 def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> Path:
     """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``."""
     from narratty.draft import FRAMERATE as DRAFT_FRAMERATE
@@ -136,8 +150,12 @@ def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> Pa
 
     tape = work / "scene.tape"
     framerate = DRAFT_FRAMERATE if planned.draft else FRAMERATE
+    exit_log = fresh_exit_log(work)
     tape.write_text(
-        generate_tape(planned.spec, planned.timeline, video.resolve(), framerate=framerate), encoding="utf-8"
+        generate_tape(
+            planned.spec, planned.timeline, video.resolve(), framerate=framerate, exit_log=exit_log
+        ),
+        encoding="utf-8",
     )
     media.run_vhs(tape, workspace, extra_env=planned.spec.sandbox.env)
     if not video.is_file():
@@ -236,6 +254,7 @@ def build(
         if mode == "files":
             SubtitleFiles.beside(output).write(cues)
         _export_artifacts(planned, ws.path, output, say)
+        check_exits(planned, work, output)
     result = BuildResult(output, planned.timeline.total_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
     return result
@@ -310,7 +329,7 @@ def build_cast(
     ):
         say(f"recording {len(planned.timeline.scenes)} scenes as an asciicast")
         recording = record(
-            build_script(spec, planned.timeline),
+            build_script(spec, planned.timeline, exit_log=fresh_exit_log(work)),
             terminal=spec.terminal,
             cwd=ws.path,
             env={**os.environ, **spec.sandbox.env},
@@ -330,6 +349,7 @@ def build_cast(
         )
         outputs.page.write_text(page, encoding="utf-8")
         _export_artifacts(planned, ws.path, outputs.page, say)
+        check_exits(planned, work, outputs.page)
     return BuildResult(outputs.page, planned.timeline.total_ms, recording.duration_ms, tuple(used))
 
 

@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 from narratty.end_card import CREDIT
+from narratty.render.exits import exit_hook
 from narratty.spec.model import Action, CtrlSequence, Enter, Hold, Key, Scene, Spec, TypeCommand, Wait
 from narratty.timeline import SceneTiming, Timeline, typing_speed
 
@@ -80,11 +82,16 @@ def _shell_quote(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"
 
 
-def prompt_setup(shell: str, prompt: str) -> str:
-    """Shell command that sets a fixed prompt and clears the screen."""
+def prompt_setup(shell: str, prompt: str, exit_log: Path | None = None) -> str:
+    """Shell command that sets a fixed prompt and clears the screen.
+
+    With ``exit_log``, it also installs the hook that logs exit codes there.
+    """
+    hook = exit_hook(shell, exit_log) if exit_log else None
+    prefix = f"{hook}; " if hook else ""
     if shell == "fish":
-        return f"function fish_prompt; printf '%s' {_shell_quote(prompt)}; end; clear"
-    return f"PS1={_shell_quote(prompt)}; clear"
+        return f"{prefix}function fish_prompt; printf '%s' {_shell_quote(prompt)}; end; clear"
+    return f"{prefix}PS1={_shell_quote(prompt)}; clear"
 
 
 def action_steps(action: Action, speed: int) -> list[Step]:
@@ -144,19 +151,23 @@ def end_card_steps(spec: Spec, timeline: Timeline, python: str) -> list[Step]:
     ]
 
 
-def setup_steps(spec: Spec) -> list[Step]:
-    """Set the prompt and clear the screen, unrecorded."""
+def setup_steps(spec: Spec, exit_log: Path | None = None) -> list[Step]:
+    """Set the prompt (and the exit-code hook) and clear the screen, unrecorded."""
     term = spec.terminal
     # The pause is hidden, so it costs no time; it lets `clear` finish.
-    return [Hide(), Type(prompt_setup(term.shell, term.prompt), 1), Press("Enter", 1), Sleep(500), Show()]
+    setup = prompt_setup(term.shell, term.prompt, exit_log)
+    return [Hide(), Type(setup, 1), Press("Enter", 1), Sleep(500), Show()]
 
 
-def build_script(spec: Spec, timeline: Timeline, *, python: str | None = None) -> list[Step]:
+def build_script(
+    spec: Spec, timeline: Timeline, *, python: str | None = None, exit_log: Path | None = None
+) -> list[Step]:
     """Every step of the recording, from prompt setup to the end card.
 
-    ``python`` is the interpreter that draws the end card (default: the running one).
+    ``python`` is the interpreter that draws the end card (default: the running one);
+    ``exit_log`` receives the commands' exit codes (see ``narratty.render.exits``).
     """
-    steps = setup_steps(spec)
+    steps = setup_steps(spec, exit_log)
     if timeline.lead_in_ms:
         steps.append(Sleep(timeline.lead_in_ms))
     for scene in spec.scenes:
