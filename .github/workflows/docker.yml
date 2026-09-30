@@ -1,7 +1,7 @@
 name: Docker image
 # PRs: build and test the image (amd64, not pushed).
-# main: push :edge / :edge-kokoro.  Releases (release.yml calls this with the tag):
-# push :<version>, :<major.minor>, :latest (and -kokoro).
+# main: push :edge.  Releases (release.yml calls this with the tag):
+# push :<version>, :<major.minor>, :latest.
 # The toolkit target is published the same way as narratty-toolkit.
 on:
   pull_request:
@@ -35,10 +35,6 @@ jobs:
             target: base
             image: narratty
             suffix: ""
-          - variant: kokoro
-            target: kokoro
-            image: narratty
-            suffix: "-kokoro"
           - variant: toolkit
             target: toolkit
             image: narratty-toolkit

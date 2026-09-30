@@ -56,8 +56,8 @@ demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did 
 
 | Key | Default | Meaning |
 |---|---|---|
-| `provider` | `piper` | `piper` or `kokoro` |
-| `voice` | `en_US-lessac-medium` | Voice id; see [Voices](voices.md) |
+| `provider` | `kokoro` | `kokoro` or `piper` |
+| `voice` | `af_heart` (`en_US-lessac-medium` with `piper`) | Voice id; see [Voices](voices.md) |
 | `piper.length_scale` | `1.0` | Larger is slower speech |
 | `piper.sentence_silence` | `0.2` | Seconds of silence between sentences |
 | `kokoro.speed` | `1.0` | Speech speed |

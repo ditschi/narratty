@@ -1125,6 +1125,7 @@ wheels = [
 name = "narratty"
 source = { editable = "." }
 dependencies = [
+    { name = "kokoro-onnx" },
     { name = "piper-tts" },
     { name = "platformdirs" },
     { name = "pydantic" },
@@ -1143,7 +1144,6 @@ code-quality = [
 dev = [
     { name = "commitizen" },
     { name = "fawltydeps" },
-    { name = "kokoro-onnx" },
     { name = "mike" },
     { name = "mkdocs" },
     { name = "mkdocs-material" },
@@ -1164,9 +1164,6 @@ docs = [
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extra = ["python"] },
 ]
-kokoro = [
-    { name = "kokoro-onnx" },
-]
 lint = [
     { name = "ruff" },
 ]
@@ -1184,8 +1181,7 @@ requires-dist = [
     { name = "commitizen", marker = "extra == 'dev'", specifier = ">=3.29" },
     { name = "fawltydeps", marker = "extra == 'code-quality'", specifier = ">=0.16" },
     { name = "fawltydeps", marker = "extra == 'dev'", specifier = ">=0.16" },
-    { name = "kokoro-onnx", marker = "extra == 'dev'", specifier = ">=0.6" },
-    { name = "kokoro-onnx", marker = "extra == 'kokoro'", specifier = ">=0.6" },
+    { name = "kokoro-onnx", specifier = ">=0.6" },
     { name = "mike", marker = "extra == 'dev'", specifier = ">=2.1" },
     { name = "mike", marker = "extra == 'docs'", specifier = ">=2.1" },
     { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.6,<2" },

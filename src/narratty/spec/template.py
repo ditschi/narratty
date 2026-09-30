@@ -11,8 +11,8 @@ meta:
   title: "My first narratty video"
 
 tts:
-  provider: piper                 # piper | kokoro
-  voice: en_US-lessac-medium      # `narratty voices` lists the options
+  provider: kokoro                # kokoro | piper (piper has more languages, e.g. German)
+  voice: af_heart                 # `narratty voices` lists the options
 
 terminal:
   width: 1200

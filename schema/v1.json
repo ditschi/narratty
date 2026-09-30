@@ -424,12 +424,13 @@
       "additionalProperties": false,
       "properties": {
         "provider": {
-          "default": "piper",
+          "default": "kokoro",
           "title": "Provider",
           "type": "string"
         },
         "voice": {
-          "default": "en_US-lessac-medium",
+          "default": "af_heart",
+          "description": "Voice id; defaults to af_heart for kokoro and en_US-lessac-medium for piper.",
           "title": "Voice",
           "type": "string"
         },
@@ -565,8 +566,8 @@
     "tts": {
       "$ref": "#/$defs/TtsConfig",
       "default": {
-        "provider": "piper",
-        "voice": "en_US-lessac-medium",
+        "provider": "kokoro",
+        "voice": "af_heart",
         "piper": {
           "length_scale": 1.0,
           "sentence_silence": 0.2

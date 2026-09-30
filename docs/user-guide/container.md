@@ -2,7 +2,7 @@
 
 With Docker or Podman installed, `build`, `render`, `tts`, `plan` and `tape` run
 inside the narratty image by default (`--runtime auto`). The image contains VHS,
-ttyd, Chromium, ffmpeg, fonts, Piper, `git`, `tree` and the [demo toolkit](toolkit.md)
+ttyd, Chromium, ffmpeg, fonts, Kokoro, Piper, `git`, `tree` and the [demo toolkit](toolkit.md)
 (`bat`, `eza`, `fd`, `ripgrep`, `jq`, `yazi`, `tmux`, `zsh`). You only need narratty
 itself and a container runtime on the host.
 
@@ -16,13 +16,12 @@ narratty build demo.narratty.yaml --runtime podman
 
 | Image | Contents |
 |---|---|
-| `ghcr.io/ditschi/narratty:<version>` | Piper with `en_US-lessac-medium` |
-| `ghcr.io/ditschi/narratty:<version>-kokoro` | The above, plus Kokoro and its model |
+| `ghcr.io/ditschi/narratty:<version>` | Kokoro with `af_heart`, Piper with `en_US-lessac-medium` |
 | `ghcr.io/ditschi/narratty-toolkit:<version>` | Only the [demo toolkit](toolkit.md), to copy into other images |
 
-narratty picks the tag matching its own version (`edge` for development builds) and
-the `-kokoro` variant when the spec uses Kokoro. Override the image with `--image` or
-`NARRATTY_IMAGE`.
+narratty picks the tag matching its own version (`edge` for development builds).
+Override the image with `--image` or `NARRATTY_IMAGE`. Up to 0.1, Kokoro needed a
+separate `-kokoro` image; from 0.2 on, the one image has both engines.
 
 ## What the container can see
 
