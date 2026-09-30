@@ -43,8 +43,9 @@ def plan_command(
             table.add_row(f"{timing.scene_id} [dim](hidden)[/]", "", "", "", "")
             continue
         narration = _seconds(timing.audio_ms) if timing.audio_ms else ""
+        name = timing.scene_id + (f" [dim](×{timing.timelapse:g}, plus waits)[/]" if timing.timelapse else "")
         table.add_row(
-            timing.scene_id,
+            name,
             _seconds(timing.start_ms),
             _seconds(timing.action_ms),
             narration,

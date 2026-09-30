@@ -13,7 +13,7 @@ from narratty.cache import AudioCache
 from narratty.end_card import with_end_card
 from narratty.errors import RenderError, SyncError
 from narratty.paths import cache_dir, data_dir
-from narratty.render import media
+from narratty.render import media, timelapse
 from narratty.render.narration import Placement, build_track
 from narratty.render.tape import generate_tape
 from narratty.spec import load_spec
@@ -116,14 +116,29 @@ def warn_unenforced_sandbox(spec: Spec, log: Log) -> None:
         log("sandbox settings are only enforced in a container; running natively with your own access")
 
 
-def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> Path:
-    """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``."""
+def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> timelapse.Layout | None:
+    """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``.
+
+    With timelapse scenes, VHS records into ``work``, the scenes are sped up into
+    ``video`` and the returned layout says where each scene landed.
+    """
     tape = work / "scene.tape"
-    tape.write_text(generate_tape(planned.spec, planned.timeline, video.resolve()), encoding="utf-8")
-    media.run_vhs(tape, workspace, extra_env=planned.spec.sandbox.env)
-    if not video.is_file():
-        raise RenderError(f"VHS finished but wrote no video to {video}")
-    return video
+    marks = (work / "marks").resolve() if planned.timeline.has_timelapse else None
+    recording = work / "recording.mp4" if marks else video
+    if marks:
+        marks.mkdir(parents=True, exist_ok=True)
+    tape.write_text(
+        generate_tape(planned.spec, planned.timeline, recording.resolve(), marks=marks), encoding="utf-8"
+    )
+    log = media.run_vhs(tape, workspace, extra_env=planned.spec.sandbox.env)
+    if not recording.is_file():
+        raise RenderError(f"VHS finished but wrote no video to {recording}")
+    if marks is None:
+        return None
+    positions = timelapse.marker_positions(log, marks, media.probe(recording).duration_ms)
+    layout = timelapse.layout(planned.timeline, positions)
+    timelapse.speed_up(recording, layout.segments, video)
+    return layout
 
 
 @dataclass(frozen=True)
@@ -178,15 +193,20 @@ def build(
         workspace_for(planned, workspace or WorkspaceOptions(), log=say) as ws,
     ):
         say(f"recording {len(planned.timeline.scenes)} scenes with VHS")
-        silent = render_silent(planned, work / "silent.mp4", work, ws.path)
+        silent = work / "silent.mp4"
+        layout = render_silent(planned, silent, work, ws.path)
         video_ms = media.probe(silent).duration_ms
-        placements = place_clips(planned, video_ms)
+        if layout is None:
+            expected_ms, placements = planned.timeline.total_ms, place_clips(planned, video_ms)
+        else:
+            expected_ms = layout.expected_ms(planned.timeline)
+            placements = place_clips_at(planned, layout.scene_starts_ms, layout.narration_offsets_ms)
         say("mixing narration")
         track = work / "narration.wav"
         used = build_track(placements, video_ms, track)
         media.mux(silent, track, output)
         _export_artifacts(planned, ws.path, output, say)
-    result = BuildResult(output, planned.timeline.total_ms, video_ms, tuple(used))
+    result = BuildResult(output, expected_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
     return result
 
@@ -215,13 +235,20 @@ class CastOutputs:
         return self.page.with_suffix(".mp3")
 
 
-def place_clips_at(planned: Plan, scene_starts_ms: dict[str, int]) -> list[Placement]:
-    """Clip positions at the recorded start of each scene."""
+def place_clips_at(
+    planned: Plan, scene_starts_ms: dict[str, int], offsets_ms: dict[str, int] | None = None
+) -> list[Placement]:
+    """Clip positions at the recorded start of each scene.
+
+    ``offsets_ms`` overrides the planned narration offset (timelapse scenes).
+    """
+    offsets = offsets_ms or {}
     return [
         Placement(
             clip.scene_id,
             clip.path,
-            scene_starts_ms[clip.scene_id] + planned.timeline.scene(clip.scene_id).audio_offset_ms,
+            scene_starts_ms[clip.scene_id]
+            + offsets.get(clip.scene_id, planned.timeline.scene(clip.scene_id).audio_offset_ms),
         )
         for clip in planned.clips
     ]
@@ -268,7 +295,8 @@ def build_cast(
         outputs.cast.write_text(recording.cast, encoding="utf-8")
         say("mixing narration")
         track = work / "narration.wav"
-        used = build_track(place_clips_at(planned, recording.scene_starts_ms), recording.duration_ms, track)
+        placements = place_clips_at(planned, recording.scene_starts_ms, recording.narration_offsets_ms)
+        used = build_track(placements, recording.duration_ms, track)
         media.encode_mp3(track, outputs.audio)
         page = player_page(
             spec.meta.title, recording.cast, outputs.audio, theme=player_theme(spec.terminal.theme)
