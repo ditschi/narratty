@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "ditschi" }]
 keywords = ["terminal", "screencast", "vhs", "tts", "text-to-speech", "video", "cli", "docs-as-code"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",

@@ -83,9 +83,9 @@ nav:
       - Voices and audio cache: user-guide/voices.md
       - Building a video: user-guide/building.md
       - Sandboxed runs: user-guide/container.md
-  - Design: design.md
+      - Configuration: user-guide/configuration.md
   - Contributor Guide:
       - Development setup: contributor-guide/dev-setup.md
       - Release process: contributor-guide/release-process.md
-  - API Reference: api-reference.md
+      - Design notes: contributor-guide/design.md
   - Changelog: changelog.md
