@@ -43,6 +43,72 @@ ENV YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
   (`<version>`, `<major.minor>`, `latest`, `edge`); pin a version for reproducible
   builds.
 
+## In a dev container
+
+The toolkit goes into the image the dev container is built from. Pick the case that
+matches your setup.
+
+**`devcontainer.json` with a Dockerfile.** Add the lines to that Dockerfile. In a
+multi-stage Dockerfile, add them to the stage the dev container uses (`build.target`):
+
+```dockerfile
+# .devcontainer/Dockerfile
+FROM mcr.microsoft.com/devcontainers/python:3.12
+# ... your setup ...
+COPY --from=ghcr.io/ditschi/narratty-toolkit:latest / /usr/local/
+ENV YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
+    BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config
+```
+
+**`devcontainer.json` with only `image`.** Replace `image` with a build of a
+two-line Dockerfile:
+
+```jsonc
+// .devcontainer/devcontainer.json
+{
+  "build": { "dockerfile": "Dockerfile" }   // was: "image": "ghcr.io/acme/dev:2"
+}
+```
+
+```dockerfile
+# .devcontainer/Dockerfile
+FROM ghcr.io/acme/dev:2
+COPY --from=ghcr.io/ditschi/narratty-toolkit:latest / /usr/local/
+ENV YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
+    BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config
+```
+
+**Docker Compose, without touching the project.** An override file adds the toolkit
+on top of the service's image with an inline Dockerfile (Compose 2.17 or later):
+
+```yaml
+# compose.narratty.yaml
+services:
+  dev:
+    image: acme-dev:narratty          # own tag, the original image stays as it is
+    build: !override                  # replaces the service's own build settings
+      dockerfile_inline: |
+        FROM ghcr.io/acme/dev:2
+        COPY --from=ghcr.io/ditschi/narratty-toolkit:latest / /usr/local/
+        ENV YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
+            BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config
+```
+
+```bash
+docker compose -f compose.yaml -f compose.narratty.yaml up -d --build
+docker compose -f compose.yaml -f compose.narratty.yaml exec dev bash
+```
+
+If the service is built from its own Dockerfile (`build:` in `compose.yaml`), build
+it first without the override and use its image name after `FROM`:
+
+```bash
+docker compose build dev
+docker compose config --images      # the image name to put after FROM
+```
+
+The dev container keeps its user; nothing runs as root at run time.
+
 ## Onboarding videos
 
 A video that clones a repository, starts its dev container and works inside it needs
@@ -89,6 +155,8 @@ Things to watch:
 
 - Hidden scenes take no time in the video, so long downloads and builds disappear.
   After a hidden scene the screen is cleared.
+- Instead of editing the Dockerfile, the hidden scene can write the
+  [Compose override](#in-a-dev-container) and start with both files.
 - The appended `COPY` line lands in the last stage of the Dockerfile. If the dev
   container builds an earlier stage (`target:`), add it there.
 - Viewers who follow the video do not have that line. Use the toolkit to show the

@@ -5,6 +5,23 @@ real terminal (VHS), speaks the narration with local text-to-speech (Piper or Ko
 and keeps voice and picture in sync. It runs sandboxed in Docker or Podman, or
 natively.
 
+## Features
+
+- **Spec to video:** a `.narratty.yaml` file becomes an MP4, or an asciicast with
+  narration and a player page (`--format cast`).
+- **[Local voices](user-guide/voices.md):** Piper or Kokoro, no cloud service; narration and typing stay in
+  sync, and audio is cached.
+- **[Sandboxed by default](user-guide/container.md):** runs in Docker or Podman with no network unless the spec
+  asks for it and you approve. The demo runs in a throwaway snapshot of your
+  repository. Native mode is available too.
+- **Scripting:** hidden setup scenes, waits for screen output, key presses and
+  per-scene typing speed.
+- **[Demo toolkit](user-guide/toolkit.md):** bat, eza, fd, ripgrep, jq, yazi, tmux and
+  zsh as static binaries, for the narratty image and, with one `COPY` line, for any
+  dev container.
+- **Editor support:** a JSON Schema for completion and inline errors, `validate` with
+  line numbers, and shell completion.
+
 ## Quick start
 
 ```bash
