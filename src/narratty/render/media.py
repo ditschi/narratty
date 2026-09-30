@@ -126,18 +126,54 @@ def probe(path: Path, *, runner: Runner = _run) -> MediaInfo:
     return MediaInfo(round(duration * 1000), "video" in kinds, "audio" in kinds)
 
 
-def mux(video: Path, audio: Path, out: Path, *, runner: Runner = _run) -> None:
-    """Combine the silent video with the narration track (AAC), keeping the video stream as is."""
+# Opaque box behind the text; sizes are in libass's 384x288 script coordinates.
+BURN_STYLE = (
+    "FontName=DejaVu Sans,FontSize=14,BorderStyle=3,OutlineColour=&H80000000,Outline=2,Shadow=0,MarginV=12"
+)
+
+
+def mux(
+    video: Path,
+    audio: Path,
+    out: Path,
+    *,
+    subtitles: Path | None = None,
+    burn: bool = False,
+    fast: bool = False,
+    runner: Runner = _run,
+) -> None:
+    """Combine the silent video with the narration track (AAC).
+
+    ``subtitles`` (an SRT) becomes a soft subtitle track, or with ``burn`` is drawn
+    into the picture, which re-encodes the video (``fast``: quicker, larger). Otherwise
+    the video stream is copied as is. ffmpeg runs in the SRT's directory so the filter
+    graph only sees its plain file name.
+    """
     out.parent.mkdir(parents=True, exist_ok=True)
-    argv = [
-        require("ffmpeg"), "-y", "-v", "error",
-        "-i", str(video), "-i", str(audio),
-        "-map", "0:v:0", "-map", "1:a:0",
-        "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
-        "-shortest", "-movflags", "+faststart",
+    argv = [require("ffmpeg"), "-y", "-v", "error", "-i", str(video), "-i", str(audio)]
+    maps = ["-map", "0:v:0", "-map", "1:a:0"]
+    # -shortest would also stop at the last subtitle, so a soft track ends at the video instead.
+    length = ["-shortest"]
+    if subtitles is not None and burn:
+        video_codec = [
+            "-vf", f"subtitles={subtitles.name}:force_style='{BURN_STYLE}'",
+            "-c:v", "libx264", "-preset", "ultrafast" if fast else "medium",
+            "-crf", "28" if fast else "18", "-pix_fmt", "yuv420p",
+        ]  # fmt: skip
+    else:
+        video_codec = ["-c:v", "copy"]
+    if subtitles is not None and not burn:
+        argv += ["-i", str(subtitles)]
+        maps += ["-map", "2:s:0"]
+        video_codec += ["-c:s", "mov_text"]
+        length = ["-t", f"{probe(video, runner=runner).duration_ms / 1000:.3f}"]
+    argv += [
+        *maps, *video_codec,
+        "-c:a", "aac", "-b:a", "160k",
+        *length, "-movflags", "+faststart",
         str(out),
     ]  # fmt: skip
-    result = runner(argv)
+    result = runner(argv, cwd=subtitles.parent) if subtitles is not None else runner(argv)
     if result.returncode != 0:
         raise RenderError(f"ffmpeg failed to mux {out}:\n{_tail(result)}")
 

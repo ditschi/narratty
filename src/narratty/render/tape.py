@@ -113,7 +113,13 @@ def _lines(steps: Iterable[Step], marks: Path | None = None) -> list[str]:
 
 
 def generate_tape(
-    spec: Spec, timeline: Timeline, output: Path, *, python: str | None = None, marks: Path | None = None
+    spec: Spec,
+    timeline: Timeline,
+    output: Path,
+    *,
+    python: str | None = None,
+    framerate: int = FRAMERATE,
+    marks: Path | None = None,
 ) -> str:
     """The complete tape rendering ``spec`` into ``output``.
 
@@ -131,7 +137,7 @@ def generate_tape(
         f"Set FontFamily {json.dumps(FONT_FAMILY)}",
         f"Set Theme {json.dumps(term.theme)}",
         f"Set TypingSpeed {term.typing_speed_ms}ms",
-        f"Set Framerate {FRAMERATE}",
+        f"Set Framerate {framerate}",
         "",
         *_lines(setup_steps(spec)),
     ]

@@ -143,7 +143,7 @@ def _position(positions: dict[str, int], label: str) -> int:
     return positions[label]
 
 
-def filter_graph(segments: Sequence[Segment]) -> str:
+def filter_graph(segments: Sequence[Segment], framerate: int = FRAMERATE) -> str:
     """ffmpeg filter that speeds up ``segments`` and keeps the rest as is."""
     parts: list[str] = []
     previous = 0
@@ -151,7 +151,7 @@ def filter_graph(segments: Sequence[Segment]) -> str:
         if segment.start_ms > previous:
             parts.append(f"trim=start={previous / 1000}:end={segment.start_ms / 1000},setpts=PTS-STARTPTS")
         speed = f"trim=start={segment.start_ms / 1000}:end={segment.end_ms / 1000}"
-        speed += f",setpts=(PTS-STARTPTS)/{segment.factor:g},fps={FRAMERATE}"
+        speed += f",setpts=(PTS-STARTPTS)/{segment.factor:g},fps={framerate}"
         if segment.freeze_ms:
             speed += f",tpad=stop_mode=clone:stop_duration={segment.freeze_ms / 1000}"
         parts.append(speed)
@@ -168,13 +168,15 @@ def filter_graph(segments: Sequence[Segment]) -> str:
     return ";".join(graph)
 
 
-def speed_up(video: Path, segments: Sequence[Segment], out: Path, *, runner: Runner = _run) -> None:
+def speed_up(
+    video: Path, segments: Sequence[Segment], out: Path, *, framerate: int = FRAMERATE, runner: Runner = _run
+) -> None:
     """Write ``video`` with ``segments`` sped up to ``out``."""
     argv = [
         require("ffmpeg"), "-y", "-v", "error", "-i", str(video),
-        "-filter_complex", filter_graph(segments), "-map", "[out]",
+        "-filter_complex", filter_graph(segments, framerate), "-map", "[out]",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
-        "-r", str(FRAMERATE), str(out),
+        "-r", str(framerate), str(out),
     ]  # fmt: skip
     result = runner(argv)
     if result.returncode != 0:

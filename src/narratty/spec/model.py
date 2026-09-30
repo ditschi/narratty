@@ -224,6 +224,13 @@ class TtsConfig(_Model):
     )
     piper: PiperOptions = PiperOptions()
     kokoro: KokoroOptions = KokoroOptions()
+    lexicon: dict[Annotated[str, Field(min_length=1)], Annotated[str, Field(min_length=1)]] = Field(
+        {},
+        description=(
+            "How to say terms the narration spells literally, e.g. {'k8s': 'kubernetes'}. "
+            "Overrides the built-in, user and project lexicons."
+        ),
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -235,7 +242,10 @@ class TtsConfig(_Model):
         return data
 
     def provider_options(self) -> dict[str, Any]:
-        """Options of the selected provider, as a plain dict (part of the cache key)."""
+        """Options of the selected provider, as a plain dict (part of the cache key).
+
+        The lexicon is not an option: it changes the spoken text, which is in the key.
+        """
         options = getattr(self, self.provider, None)
         return options.model_dump() if isinstance(options, BaseModel) else {}
 
@@ -318,6 +328,11 @@ class Spec(_Model):
     workspace: Workspace = Workspace()
     sandbox: Sandbox = Sandbox()
     end_card: EndCard = EndCard()
+    subtitles: Literal["none", "files", "track", "burn"] = Field(
+        "none",
+        description="Subtitles from the narration: files (.srt/.vtt beside the output), "
+        "track (soft track in the mp4) or burn (drawn into the video).",
+    )
     scenes: list[Scene] = Field(min_length=1)
 
     @field_validator("end_card", mode="before")
