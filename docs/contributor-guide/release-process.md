@@ -3,21 +3,23 @@
 Versions come from git tags (hatch-vcs); commitizen writes the changelog.
 
 ```bash
-uv run cz bump        # bumps the version, updates CHANGELOG.md, creates the vX.Y.Z tag
-git push --follow-tags
+uv run cz bump        # bumps the version, updates CHANGELOG.md, commits "bump: version …"
+git push              # push main (not the tag); or open a PR with the bump commit
 ```
 
-Pushing a `v*` tag runs `.github/workflows/release.yml`: build, publish to TestPyPI, verify
-the install, publish to PyPI, create the GitHub release and deploy versioned docs.
+When the bump commit reaches `main`, `.github/workflows/release.yml` tags it `vX.Y.Z`
+and releases it: build, publish to TestPyPI, verify the install, publish to PyPI,
+container images, GitHub release and versioned docs. Pushing a `v*` tag by hand
+triggers the same release.
 
-The same tag runs `.github/workflows/docker.yml`, which pushes the container images to
+The release calls `.github/workflows/docker.yml`, which pushes the container images to
 GHCR for linux/amd64 and linux/arm64:
 
 | Event | Tags |
 |---|---|
 | Pull request | built and tested, not pushed |
 | Push to `main` | `edge`, `edge-kokoro` |
-| Tag `v1.2.3` | `1.2.3`, `1.2`, `latest` and the same with `-kokoro` |
+| Release `v1.2.3` | `1.2.3`, `1.2`, `latest` and the same with `-kokoro` |
 
 ## One-time setup
 

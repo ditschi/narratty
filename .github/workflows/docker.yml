@@ -1,13 +1,19 @@
 name: Docker image
 # PRs: build and test the image (amd64, not pushed).
-# main: push :edge / :edge-kokoro.  Release tags v*: push :<version>, :latest (and -kokoro).
+# main: push :edge / :edge-kokoro.  Releases (release.yml calls this with the tag):
+# push :<version>, :<major.minor>, :latest (and -kokoro).
 on:
   pull_request:
   push:
     branches: [main]
-    tags: ["v[0-9]+.[0-9]+.[0-9]*"]
+  workflow_call:
+    inputs:
+      ref:
+        description: Release tag to build, e.g. v1.2.3
+        type: string
+        required: true
 concurrency:
-  group: docker-${{ github.ref }}
+  group: docker-${{ inputs.ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
@@ -33,6 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 0 # the version comes from git tags
       - uses: astral-sh/setup-uv@v7
       - name: Version
@@ -49,10 +56,10 @@ jobs:
             latest=false
             suffix=${{ matrix.suffix }},onlatest=true
           tags: |
-            type=edge,branch=main
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=edge,branch=main,enable=${{ !inputs.ref }}
+            type=semver,pattern={{version}},value=${{ inputs.ref }},enable=${{ !!inputs.ref }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.ref }},enable=${{ !!inputs.ref }}
+            type=raw,value=latest,enable=${{ !!inputs.ref }}
             type=ref,event=pr
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
