@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+tts:
+  provider: piper
+  voice: de_DE-thorsten-medium
+terminal: {width: 960, height: 540, font_size: 20}
+scenes:
+  - id: voice
+    narration: Das ist Piper mit der deutschen Stimme Thorsten. Piper spricht viele Sprachen.
+    actions:
+      - type_command: "grep -m1 -A2 tts: piper-de_DE-thorsten-medium.narratty.yaml"
+      - enter
+      - hold: auto

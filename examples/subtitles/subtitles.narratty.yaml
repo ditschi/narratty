@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+subtitles: burn
+terminal: {width: 960, height: 540, font_size: 20}
+scenes:
+  - id: intro
+    narration: >-
+      Subtitles come from the narration. Each sentence becomes one cue, and a long
+      sentence is split so that it fits in two lines.
+    actions:
+      - type_command: "grep -m1 subtitles subtitles.narratty.yaml"
+      - enter
+      - hold: auto
+  - id: modes
+    narration: Burned in, as here, or as files, or as a track that players can switch.
+    actions:
+      - type_command: 'echo "subtitles: none | files | track | burn"'
+      - enter
+      - hold: auto

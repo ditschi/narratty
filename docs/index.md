@@ -27,6 +27,8 @@ natively.
 - **Editor support:** a JSON Schema for completion and inline errors, `validate` with
   line numbers, and shell completion.
 
+[Examples](examples/index.md) shows each feature in a short recording.
+
 ## Quick start
 
 ```bash

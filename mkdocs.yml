@@ -28,6 +28,7 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.top
+    - navigation.indexes
     - search.highlight
     - content.code.copy
     - content.action.edit
@@ -63,6 +64,8 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.snippets:
       base_path: ["."]
       check_paths: true
@@ -87,6 +90,15 @@ nav:
       - Sandboxed runs: user-guide/container.md
       - Demo toolkit: user-guide/toolkit.md
       - Configuration: user-guide/configuration.md
+  - Examples:
+      - examples/index.md
+      - Voices and engines: examples/voices.md
+      - Pronunciation: examples/pronunciation.md
+      - Terminal look: examples/terminal.md
+      - Editor layout: examples/editor-layout.md
+      - Subtitles and drafts: examples/subtitles.md
+      - Asciicast player: examples/cast.md
+      - End card: examples/end-card.md
   - Contributor Guide:
       - Development setup: contributor-guide/dev-setup.md
       - Release process: contributor-guide/release-process.md

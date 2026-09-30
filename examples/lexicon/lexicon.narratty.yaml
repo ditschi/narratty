@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+tts:
+  lexicon:
+    k8s: kubernetes
+    kubectx: cube C T X
+    ttyd: T T Y D
+terminal: {width: 960, height: 540, font_size: 20}
+scenes:
+  - id: lexicon
+    narration: >-
+      Deploy to k8s with kubectl, switch clusters with kubectx, and share the
+      terminal with ttyd.
+    actions:
+      - type_command: "grep -m1 -A4 tts: lexicon.narratty.yaml"
+      - enter
+      - hold: auto

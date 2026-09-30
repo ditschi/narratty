@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+terminal:
+  width: 960
+  height: 540
+  font_size: 24
+  theme: Catppuccin Mocha
+  prompt: "❯ "
+  typing_speed_ms: 70
+scenes:
+  - id: look
+    narration: >-
+      The terminal block sets the size, font, theme, prompt and typing speed. Any
+      VHS theme works.
+    actions:
+      - type_command: "grep -m1 -A6 terminal: terminal-look.narratty.yaml"
+      - enter
+      - hold: auto

@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+terminal: {width: 1280, height: 720, font_size: 20}
+scenes:
+  - id: intro
+    narration: >-
+      Every video ends with a short card that links to narratty. Set end card to
+      false to leave it out.
+    actions:
+      - type_command: "echo 'end_card: false'"
+      - enter
+      - hold: auto
