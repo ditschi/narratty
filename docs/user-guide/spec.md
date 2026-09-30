@@ -182,4 +182,5 @@ The build exits with code 7 and names each offending command; the video is still
 written so you can inspect it. A line's exit code is that of its last command
 (`a; b` reports `b`). Commands stopped with `C-c` or `C-z` do not count as failures.
 Commands inside programs (a REPL, an editor, a nested shell) are not checked, nor is
-anything with `shell: sh`.
+anything with `shell: sh`. With bash 3.2 (macOS's default) narratty turns on shell
+history to read the command lines, so `key: Up` recalls earlier commands there.
