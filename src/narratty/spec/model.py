@@ -15,6 +15,7 @@ from pydantic import (
     Discriminator,
     Field,
     PositiveInt,
+    StringConstraints,
     Tag,
     field_validator,
     model_validator,
@@ -117,14 +118,48 @@ class Key(_Model):
         return value
 
 
-ACTION_KEYS = ("type_command", "enter", "ctrl_sequence", "hold", "wait", "key")
+class Focus(_Model):
+    """Move the keyboard to a pane of the editor layout."""
+
+    focus: Literal["explorer", "terminal"]
+
+
+class Reveal(_Model):
+    """Select a file or directory in the editor layout's explorer."""
+
+    reveal: str = Field(min_length=1, description="Path relative to the workspace.")
+
+
+_Path = Annotated[str, StringConstraints(min_length=1)]
+_Paths = Annotated[list[_Path], Field(min_length=1)]
+
+
+class Diff(_Model):
+    """Show what changed in the workspace since the recording started.
+
+    Written as the bare string ``diff`` in YAML, or with paths to limit it to.
+    """
+
+    diff: Literal[True] | _Path | _Paths = True
+
+    @property
+    def paths(self) -> list[str]:
+        """The paths the diff is limited to (empty: everything)."""
+        if self.diff is True:
+            return []
+        return [self.diff] if isinstance(self.diff, str) else list(self.diff)
+
+
+ACTION_KEYS = ("type_command", "enter", "ctrl_sequence", "hold", "wait", "key", "focus", "reveal", "diff")
+BARE_ACTIONS = ("enter", "diff")
+EDITOR_ACTIONS = ("focus", "reveal")
 
 
 def _action_tag(value: Any) -> str | None:
     if isinstance(value, BaseModel):
         return next(k for k in ACTION_KEYS if k in type(value).model_fields)
     if isinstance(value, str):
-        return value if value == "enter" else None
+        return value if value in BARE_ACTIONS else None
     if isinstance(value, dict) and len(value) == 1:
         key = next(iter(value))
         return key if key in ACTION_KEYS else None
@@ -132,7 +167,7 @@ def _action_tag(value: Any) -> str | None:
 
 
 def _expand_shorthand(value: Any) -> Any:
-    return {"enter": True} if value == "enter" else value
+    return {value: True} if isinstance(value, str) and value in BARE_ACTIONS else value
 
 
 Action = Annotated[
@@ -141,11 +176,16 @@ Action = Annotated[
     | Annotated[CtrlSequence, Tag("ctrl_sequence")]
     | Annotated[Hold, Tag("hold")]
     | Annotated[Wait, Tag("wait")]
-    | Annotated[Key, Tag("key")],
+    | Annotated[Key, Tag("key")]
+    | Annotated[Focus, Tag("focus")]
+    | Annotated[Reveal, Tag("reveal")]
+    | Annotated[Diff, Tag("diff")],
     Discriminator(
         _action_tag,
         custom_error_type="invalid_action",
-        custom_error_message=("expected 'enter' or a mapping with exactly one of: " + ", ".join(ACTION_KEYS)),
+        custom_error_message=(
+            "expected 'enter', 'diff' or a mapping with exactly one of: " + ", ".join(ACTION_KEYS)
+        ),
     ),
 ]
 
@@ -243,6 +283,9 @@ class Terminal(_Model):
     typing_speed_ms: PositiveInt = 40
     shell: Literal["bash", "zsh", "fish", "sh"] = "bash"
     prompt: str = "$ "
+    layout: Literal["plain", "editor"] = Field(
+        "plain", description="`editor`: a file explorer with preview on top, the shell below (tmux + yazi)."
+    )
 
 
 class Requires(_Model):
@@ -323,6 +366,22 @@ class Spec(_Model):
                 raise ValueError(f"duplicate scene id {scene.id!r}")
             seen.add(scene.id)
         return self
+
+    @model_validator(mode="after")
+    def _editor_actions_need_the_layout(self) -> Spec:
+        if self.terminal.layout == "editor":
+            return self
+        for scene in self.scenes:
+            for action in scene.actions:
+                name = next(iter(type(action).model_fields))
+                if name in EDITOR_ACTIONS:
+                    raise ValueError(f"scene {scene.id!r}: '{name}' needs 'terminal.layout: editor'")
+        return self
+
+    @property
+    def uses_diff(self) -> bool:
+        """True when a scene shows a diff (the recording then starts with a baseline)."""
+        return any(isinstance(action, Diff) for scene in self.scenes for action in scene.actions)
 
     @property
     def narrated_scenes(self) -> list[Scene]:

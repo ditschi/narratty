@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
 # An editor-like layout: yazi as file explorer and preview on top, a shell below.
-# tmux and yazi come from the narratty toolkit, which the narratty image contains.
+# tmux, yazi, micro and delta come from the narratty toolkit, which the narratty
+# image contains.
 version: 1
 meta:
   title: Editor layout with tmux and yazi
@@ -8,27 +9,17 @@ tts:
   provider: kokoro
   voice: af_heart
 timing:
-  tail_ms: 0          # the last visible frame is held in the edit scene instead
+  tail_ms: 0          # the last visible frame is held in the diff scene instead
 terminal:
   width: 1600
   height: 900
   font_size: 18
+  layout: editor
 requires:
-  tools: [tmux, yazi]
+  tools: [tmux, yazi, micro, git]
 workspace:
   source: project
 scenes:
-  - id: layout
-    hidden: true
-    actions:
-      # Explorer (yazi) on top, a terminal below; focus stays in the terminal.
-      - type_command: >-
-          tmux new-session -s ide yazi \;
-          split-window -v -l 30% "PS1='$ ' bash --norc" \;
-          select-pane -t 1 -T Explorer \; select-pane -t 2 -T Terminal
-      - enter
-      - wait: {screen: "Terminal"}
-
   - id: intro
     narration: >-
       This demo looks like an editor. Files and a preview on top, and a terminal
@@ -41,8 +32,7 @@ scenes:
       Switch to the explorer and open the source folder. The preview shows the
       selected file with syntax highlighting.
     actions:
-      - ctrl_sequence: C-b
-      - key: Up
+      - focus: explorer
       - hold: 600
       - key: Right
       - hold: 600
@@ -54,8 +44,7 @@ scenes:
   - id: run
     narration: Back in the terminal, run the program.
     actions:
-      - ctrl_sequence: C-b
-      - key: Down
+      - focus: terminal
       - type_command: PYTHONPATH=src python3 -m greet Ada Grace
       - enter
       - wait: {screen: "Hello, Grace!"}
@@ -73,10 +62,34 @@ scenes:
       - enter
       - wait: {screen: "Welcome, Ada!"}
       - hold: auto
-      - hold: 1500
 
-  - id: close
-    hidden: true
+  - id: tests
+    narration: >-
+      The test still expects the old greeting. Reveal jumps to the test file, and
+      Enter opens it in the micro editor.
     actions:
-      - type_command: tmux kill-server
+      - reveal: tests/test_greet.py
+      - focus: explorer
+      - hold: 800
       - enter
+      - hold: auto
+
+  - id: fix
+    narration: Fix the expected text, save, and close the editor.
+    actions:
+      - key: Down 4
+      - key: Right 36
+      - key: Backspace 5
+      - type_command: Welcome
+      - hold: 600
+      - ctrl_sequence: C-s
+      - hold: 600
+      - ctrl_sequence: C-q
+      - hold: auto
+
+  - id: diff
+    narration: Finally, the diff shows everything this demo changed.
+    actions:
+      - diff
+      - hold: auto
+      - hold: 1500

@@ -19,9 +19,12 @@ natively.
   repository. Native mode is available too.
 - **Scripting:** hidden setup scenes, waits for screen output, key presses and
   per-scene typing speed.
-- **[Demo toolkit](user-guide/toolkit.md):** bat, eza, fd, ripgrep, jq, yazi, tmux and
-  zsh as static binaries, for the narratty image and, with one `COPY` line, for any
-  dev container.
+- **[Editor layout](user-guide/toolkit.md#editor-layout):** a file explorer with
+  preview above the shell, `focus` and `reveal` actions, and a `diff` of what the demo
+  changed.
+- **[Demo toolkit](user-guide/toolkit.md):** bat, delta, eza, fd, ripgrep, jq, micro,
+  yazi, tmux and zsh as static binaries, for the narratty image and, with one `COPY`
+  line, for any dev container.
 - **Editor support:** a JSON Schema for completion and inline errors, `validate` with
   line numbers, and shell completion.
 

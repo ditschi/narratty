@@ -81,6 +81,7 @@ demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did 
 | `typing_speed_ms` | `40` | Time per typed key |
 | `shell` | `bash` | `bash`, `zsh`, `fish` or `sh` |
 | `prompt` | `"$ "` | Prompt shown in the recording |
+| `layout` | `plain` | `plain` or `editor`: an explorer with preview above the shell, see [Editor layout](toolkit.md#editor-layout) |
 
 ## `workspace`
 
@@ -154,5 +155,17 @@ whichever is longer.
 | `key` | `- key: Up` or `- key: Down 3` | Presses a named VHS key, optionally repeated |
 | `hold` | `- hold: 1500` or `- hold: auto` | Waits; `auto` waits until the narration is done |
 | `wait` | `- wait: {screen: "Done", timeout_ms: 15000}` | Waits until the screen matches a regex |
+| `diff` | `- diff` or `- diff: [src, README.md]` | Shows what changed since the recording started, optionally only for some paths |
+| `focus` | `- focus: explorer` | Moves the keyboard to `explorer` or `terminal` (editor layout) |
+| `reveal` | `- reveal: src/app.py` | Selects a path, relative to the workspace, in the explorer (editor layout) |
 
 A scene has at most one `hold: auto`, and only when it has narration.
+
+`diff`, `focus` and `reveal` take no time in the video: they run while recording is
+hidden, and the screen changes at once. Add a `hold` after them for a pause.
+
+`diff` compares against a copy of the workspace taken when the recording starts,
+kept outside the workspace (its own `.git` is not touched). It honours `.gitignore`
+and leaves out `__pycache__`. The output is coloured with `delta`, else `bat`, else
+git. In the plain layout the screen is cleared and the diff is printed; in the editor
+layout it opens in a popup that stays until the next key press of the scene or its end.

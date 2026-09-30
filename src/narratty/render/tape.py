@@ -21,6 +21,7 @@ from narratty.render.script import (
     prompt_setup,
     scene_steps,
     setup_steps,
+    teardown_steps,
 )
 from narratty.spec.model import Spec
 from narratty.timeline import Timeline
@@ -89,7 +90,8 @@ def _lines(steps: Iterable[Step]) -> list[str]:
 def generate_tape(spec: Spec, timeline: Timeline, output: Path, *, python: str | None = None) -> str:
     """The complete tape rendering ``spec`` into ``output``.
 
-    ``python`` is the interpreter that draws the end card (default: the running one).
+    ``python`` is the interpreter that runs narratty's helpers in the recorded shell
+    (default: the running one).
     """
     term = spec.terminal
     lines = [
@@ -104,15 +106,16 @@ def generate_tape(spec: Spec, timeline: Timeline, output: Path, *, python: str |
         f"Set TypingSpeed {term.typing_speed_ms}ms",
         f"Set Framerate {FRAMERATE}",
         "",
-        *_lines(setup_steps(spec)),
     ]
+    python = python or sys.executable
+    lines += _lines(setup_steps(spec, python))
     if timeline.lead_in_ms:
         lines.append(f"Sleep {timeline.lead_in_ms}ms")
     for scene in spec.scenes:
-        lines += ["", *_lines(scene_steps(spec, scene, timeline.scene(scene.id)))]
+        lines += ["", *_lines(scene_steps(spec, scene, timeline.scene(scene.id), python=python))]
     lines.append("")
     if timeline.tail_ms:
         lines.append(f"Sleep {timeline.tail_ms}ms")
     if timeline.end_card_ms:
-        lines += ["", *_lines(end_card_steps(spec, timeline, python or sys.executable))]
+        lines += ["", *_lines(teardown_steps(spec) + end_card_steps(spec, timeline, python))]
     return "\n".join(lines) + "\n"

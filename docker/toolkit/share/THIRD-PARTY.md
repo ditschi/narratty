@@ -8,6 +8,9 @@
 | ripgrep | MIT or Unlicense | https://github.com/BurntSushi/ripgrep |
 | jq | MIT | https://github.com/jqlang/jq |
 | yazi | MIT | https://github.com/sxyazi/yazi |
+| micro | MIT | https://github.com/zyedidia/micro |
+| delta | MIT | https://github.com/dandavison/delta |
+| libgit2, Oniguruma (linked into delta) | GPL-2.0 with linking exception, BSD-2-Clause | https://github.com/libgit2/libgit2, https://github.com/kkos/oniguruma |
 | zsh (zsh-bin build) | MIT-style (zsh licence) | https://github.com/romkatv/zsh-bin |
 | tmux | ISC | https://github.com/tmux/tmux |
 | libevent (linked into tmux) | BSD-3-Clause | https://github.com/libevent/libevent |

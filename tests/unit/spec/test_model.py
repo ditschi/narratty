@@ -7,7 +7,19 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from narratty.spec.model import CtrlSequence, Enter, Hold, Key, Sandbox, Spec, TypeCommand, Wait
+from narratty.spec.model import (
+    CtrlSequence,
+    Diff,
+    Enter,
+    Focus,
+    Hold,
+    Key,
+    Reveal,
+    Sandbox,
+    Spec,
+    TypeCommand,
+    Wait,
+)
 
 
 def _spec(**overrides: Any) -> dict[str, Any]:
@@ -41,10 +53,35 @@ def test_all_action_forms_parse() -> None:
         {"wait": {"screen": r"\$ $"}},
         {"key": "Down 3"},
         {"hold": "auto"},
+        {"focus": "explorer"},
+        {"reveal": "src/app.py"},
+        "diff",
+        {"diff": "src"},
     ]
-    spec = Spec.model_validate(_spec(scenes=[{"id": "a", "narration": "x", "actions": actions}]))
-    kinds = [type(a) for a in spec.scenes[0].actions]
-    assert kinds == [TypeCommand, Enter, Enter, CtrlSequence, Hold, Wait, Key, Hold]
+    spec = Spec.model_validate(
+        _spec(terminal={"layout": "editor"}, scenes=[{"id": "a", "narration": "x", "actions": actions}])
+    )
+    kinds = [type(a).__name__ for a in spec.scenes[0].actions]
+    expected = (TypeCommand, Enter, Enter, CtrlSequence, Hold, Wait, Key, Hold, Focus, Reveal, Diff, Diff)
+    assert kinds == [kind.__name__ for kind in expected]
+    assert spec.uses_diff
+
+
+@pytest.mark.parametrize(("value", "paths"), [(True, []), ("src", ["src"]), (["a", "b/c"], ["a", "b/c"])])
+def test_diff_paths(value: object, paths: list[str]) -> None:
+    assert Diff.model_validate({"diff": value}).paths == paths
+
+
+@pytest.mark.parametrize("action", [{"focus": "terminal"}, {"reveal": "README.md"}])
+def test_editor_actions_need_the_editor_layout(action: dict[str, str]) -> None:
+    with pytest.raises(ValidationError, match="needs 'terminal.layout: editor'"):
+        Spec.model_validate(_spec(scenes=[{"id": "a", "actions": [action]}]))
+
+
+def test_diff_works_in_the_plain_layout() -> None:
+    spec = Spec.model_validate(_spec(scenes=[{"id": "a", "actions": ["diff"]}]))
+    assert spec.terminal.layout == "plain" and spec.uses_diff
+    assert not Spec.model_validate(_spec()).uses_diff
 
 
 def test_narration_whitespace_is_collapsed() -> None:
@@ -64,6 +101,8 @@ def test_narration_whitespace_is_collapsed() -> None:
         ({"id": "a", "actions": [{"ctrl_sequence": "C-cc"}]}, "String should match pattern"),
         ({"id": "a", "actions": [{"wait": {"screen": "("}}]}, "regular expression"),
         ({"id": "a", "actions": [{"type_command": "ls", "enter": True}]}, "exactly one"),
+        ({"id": "a", "actions": [{"diff": []}]}, "at least 1 item"),
+        ({"id": "a", "actions": [{"diff": ""}]}, "at least 1 character"),
     ],
 )
 def test_invalid_scenes(scene: dict[str, Any], message: str) -> None:

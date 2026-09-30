@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -89,3 +90,25 @@ def test_screen_text_strips_escapes_and_follows_clears() -> None:
     assert screen.text == "green\n"
     screen.feed("ab\bc\r\nlast")
     assert screen.text == "ac\nlast", "backspace erases, only the last rows count"
+
+
+def test_diff_shows_what_the_demo_changed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NARRATTY_DIFF_BASE", str(tmp_path / "base"))
+    monkeypatch.setenv("PATH", f"{Path(shutil.which('git') or 'git').parent}:{os.defpath}")  # no delta or bat
+    (tmp_path / "app.txt").write_text("old\n", encoding="utf-8")
+    spec = """\
+timing: {lead_in_ms: 0, tail_ms: 100, narration_buffer_ms: 0}
+terminal: {typing_speed_ms: 5}
+end_card: false
+scenes:
+  - id: greet
+    narration: Change it.
+    actions:
+      - type_command: "echo new > app.txt"
+      - enter
+      - diff
+      - wait: {screen: "\\\\+new", timeout_ms: 5000}
+"""
+    events, _, _ = _record(spec, tmp_path)
+    output = "".join(str(e[2]) for e in events if e[1] == "o")
+    assert "-old" in output and "+new" in output

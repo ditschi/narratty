@@ -7,16 +7,18 @@ Alpine, UBI, even busybox), as any user, without a package manager.
 | Tool | Use in demos |
 |---|---|
 | `bat` | Show files with syntax highlighting |
+| `delta` | Show diffs with syntax highlighting (used by the `diff` action) |
 | `eza` | `ls` and `eza --tree` with colours and icons |
 | `fd`, `rg` | Find files and text |
 | `jq` | Pretty-print JSON |
+| `micro` | Editor with familiar keys (`Ctrl+s` saves, `Ctrl+q` quits) |
 | `yazi` | File explorer with a preview |
 | `tmux` | Split the terminal into panes |
 | `zsh` | Alternative shell (`terminal.shell: zsh`) |
 
 It also brings the Symbols Nerd Font (icons in `yazi` and `eza --icons`), a
-`tmux.conf` with a quiet status line and titled panes, and configs for `yazi` and
-`bat`. Licenses are in `/usr/local/share/narratty/licenses`.
+`tmux.conf` with a quiet status line and titled panes, and configs for `yazi`, `bat`
+and `micro`. Licenses are in `/usr/local/share/narratty/licenses`.
 
 ## In the narratty image
 
@@ -31,7 +33,8 @@ only these files. Add it to a Dockerfile with one line:
 ```dockerfile
 COPY --from=ghcr.io/ditschi/narratty-toolkit:latest / /usr/local/
 ENV YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
-    BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config
+    BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config \
+    MICRO_CONFIG_HOME=/usr/local/share/narratty/micro
 ```
 
 - The target must be `/usr/local`: `zsh` and `tmux` look for their files there.
@@ -57,7 +60,8 @@ FROM mcr.microsoft.com/devcontainers/python:3.12
 # ... your setup ...
 COPY --from=ghcr.io/ditschi/narratty-toolkit:latest / /usr/local/
 ENV YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
-    BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config
+    BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config \
+    MICRO_CONFIG_HOME=/usr/local/share/narratty/micro
 ```
 
 **`devcontainer.json` with only `image`.** Replace `image` with a build of a
@@ -75,7 +79,8 @@ two-line Dockerfile:
 FROM ghcr.io/acme/dev:2
 COPY --from=ghcr.io/ditschi/narratty-toolkit:latest / /usr/local/
 ENV YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
-    BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config
+    BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config \
+    MICRO_CONFIG_HOME=/usr/local/share/narratty/micro
 ```
 
 **Docker Compose, without touching the project.** An override file adds the toolkit
@@ -91,7 +96,8 @@ services:
         FROM ghcr.io/acme/dev:2
         COPY --from=ghcr.io/ditschi/narratty-toolkit:latest / /usr/local/
         ENV YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
-            BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config
+            BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config \
+            MICRO_CONFIG_HOME=/usr/local/share/narratty/micro
 ```
 
 ```bash
@@ -162,26 +168,48 @@ Things to watch:
 - Viewers who follow the video do not have that line. Use the toolkit to show the
   project, not for steps they are meant to repeat.
 
-## Example: an editor-like layout
+## Editor layout
 
-`examples/editor-layout` records a layout like an editor: `yazi` as explorer and
-preview on top, a shell below. A hidden first scene builds the layout:
+`terminal.layout: editor` records a layout like an editor: `yazi` as explorer and
+preview on top, the shell below, in a `tmux` window of its own. narratty builds it
+before the first scene and closes it before the end card; the spec only describes the
+demo:
 
 ```yaml
-- id: layout
-  hidden: true
-  actions:
-    - type_command: >-
-        tmux new-session -s ide yazi \;
-        split-window -v -l 30% "PS1='$ ' bash --norc" \;
-        select-pane -t 1 -T Explorer \; select-pane -t 2 -T Terminal
-    - enter
-    - wait: {screen: "Terminal"}
+terminal:
+  layout: editor
+scenes:
+  - id: explore
+    narration: Open the source folder in the explorer.
+    actions:
+      - focus: explorer        # keys now go to yazi
+      - key: Right
+      - hold: auto
+  - id: tests
+    narration: Reveal jumps to a file, and Enter opens it in micro.
+    actions:
+      - reveal: tests/test_greet.py
+      - enter
+      - hold: auto
+  - id: diff
+    narration: The diff shows what the demo changed.
+    actions:
+      - diff
+      - hold: auto
 ```
 
-The scenes after it press `Ctrl+b` and an arrow key to move between the panes
-(`ctrl_sequence: C-b`, `key: Up`) and use the arrow keys in the explorer. A hidden last
-scene runs `tmux kill-server`, so the end card gets the whole terminal.
+- The shell starts with focus. `focus: explorer` and `focus: terminal` switch.
+- In the explorer, the arrow keys move and Enter opens a file in `$EDITOR`; the layout
+  sets it to `micro` when that is installed and `EDITOR` is unset.
+- `reveal` selects a path relative to the workspace, whichever pane has focus.
+- `diff` opens a popup over the layout; the next key press of the scene, or its end,
+  closes it.
+- After a hidden scene the shell pane is cleared.
+- The layout needs `tmux` and `yazi`, `diff` needs `git`; the narratty image has all
+  three. It runs its own `tmux` server with its own settings, so a `~/.tmux.conf` does
+  not change the recording.
+
+`examples/editor-layout` shows all of it:
 
 <video controls width="100%" src="../../assets/editor-layout.mp4"></video>
 
