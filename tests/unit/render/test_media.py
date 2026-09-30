@@ -111,8 +111,18 @@ def test_mux_burns_subtitles_in(tmp_path: Path) -> None:
         Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", subtitles=srt, burn=True, fast=True, runner=runner
     )
     argv, kwargs = runner.calls[0]
-    assert argv[argv.index("-vf") + 1].startswith("subtitles=subtitles.srt:force_style=")
+    subtitles, scale = argv[argv.index("-vf") + 1].rsplit(",", 1)
+    assert subtitles.startswith("subtitles=subtitles.srt:force_style=")
+    assert scale == "scale=trunc(iw/4)*2:trunc(ih/4)*2", "drafts shrink after drawing the text"
     assert argv[argv.index("-c:v") + 1] == "libx264"
     assert argv[argv.index("-preset") + 1] == "ultrafast"
     assert "-c:s" not in argv
     assert kwargs["cwd"] == tmp_path
+
+
+def test_draft_mux_without_subtitles_still_shrinks(tmp_path: Path) -> None:
+    runner = FakeRunner()
+    media.mux(Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", fast=True, runner=runner)
+    argv = runner.calls[0][0]
+    assert argv[argv.index("-vf") + 1] == "scale=trunc(iw/4)*2:trunc(ih/4)*2"
+    assert argv[argv.index("-c:v") + 1] == "libx264"

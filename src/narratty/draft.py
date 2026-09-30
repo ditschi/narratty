@@ -1,8 +1,9 @@
-"""Draft builds: estimated narration lengths instead of TTS, half size, low frame rate.
+"""Draft builds: estimated narration lengths instead of TTS and a low frame rate.
 
 A draft shows where things happen in seconds instead of minutes: the timeline is
 computed from a length estimate, the video is silent and the narration is burned in
-as subtitles.
+as subtitles. The terminal keeps its size, so output wraps and scrolls as in the real
+build and ``wait`` sees the same screen; only the encoded video is scaled down.
 """
 
 from __future__ import annotations
@@ -33,16 +34,3 @@ def estimated_audio_ms(spec: Spec) -> dict[str, int]:
     """Estimated narration length of each narrated scene."""
     rate = speaking_rate(spec)
     return {scene.id: estimate_ms(scene.narration or "", rate) for scene in spec.narrated_scenes}
-
-
-def draft_spec(spec: Spec) -> Spec:
-    """``spec`` with the terminal at half size (same layout, a quarter of the pixels)."""
-    term = spec.terminal
-    smaller = term.model_copy(
-        update={
-            "width": max(100, term.width // 2),
-            "height": max(100, term.height // 2),
-            "font_size": max(6, term.font_size // 2),
-        }
-    )
-    return spec.model_copy(update={"terminal": smaller})

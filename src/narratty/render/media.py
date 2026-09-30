@@ -106,18 +106,24 @@ def mux(
     """Combine the silent video with the narration track (AAC).
 
     ``subtitles`` (an SRT) becomes a soft subtitle track, or with ``burn`` is drawn
-    into the picture, which re-encodes the video (``fast``: quicker, larger). Otherwise
-    the video stream is copied as is. ffmpeg runs in the SRT's directory so the filter
-    graph only sees its plain file name.
+    into the picture. ``fast`` (drafts) scales the picture to half size and encodes it
+    quickly. Either re-encodes the video; otherwise the video stream is copied as is.
+    ffmpeg runs in the SRT's directory so the filter graph only sees its plain file name.
     """
     out.parent.mkdir(parents=True, exist_ok=True)
     argv = [require("ffmpeg"), "-y", "-v", "error", "-i", str(video), "-i", str(audio)]
     maps = ["-map", "0:v:0", "-map", "1:a:0"]
     # -shortest would also stop at the last subtitle, so a soft track ends at the video instead.
     length = ["-shortest"]
+    filters = []
     if subtitles is not None and burn:
+        filters.append(f"subtitles={subtitles.name}:force_style='{BURN_STYLE}'")
+    if fast:
+        # After the subtitles, so they are drawn at full resolution.
+        filters.append("scale=trunc(iw/4)*2:trunc(ih/4)*2")
+    if filters:
         video_codec = [
-            "-vf", f"subtitles={subtitles.name}:force_style='{BURN_STYLE}'",
+            "-vf", ",".join(filters),
             "-c:v", "libx264", "-preset", "ultrafast" if fast else "medium",
             "-crf", "28" if fast else "18", "-pix_fmt", "yuv420p",
         ]  # fmt: skip

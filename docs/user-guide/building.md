@@ -57,8 +57,9 @@ A draft checks actions and timing without waiting for TTS:
 
 - narration lengths are estimated from the text (about 14 characters per second,
   scaled by the voice speed); no voice is loaded or downloaded;
-- the terminal is half the size with half the font, so the layout stays the same;
-- VHS captures 10 frames per second instead of 30;
+- VHS captures 10 frames per second instead of 30, and the video is encoded at half
+  size; the terminal itself keeps its size, so output and `wait` behave as in the
+  real build;
 - the video is silent and the narration is burned in as subtitles, so you see
   where each line would be spoken (`--subtitles` picks another mode).
 
