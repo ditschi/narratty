@@ -1013,11 +1013,19 @@
 <td>Synthesize all narration clips and print their lengths</td>
 </tr>
 <tr>
+<td><code>narratty lexicon show SPEC</code></td>
+<td>List the <a href="../voices/#pronunciation">pronunciation lexicon</a> entries and where each comes from</td>
+</tr>
+<tr>
+<td><code>narratty lexicon check SPEC</code></td>
+<td>List narration words that look hard to pronounce and have no entry</td>
+</tr>
+<tr>
 <td><code>narratty cache info</code> / <code>prune [--older-than 30d] [--all]</code></td>
 <td>Inspect or prune the audio cache</td>
 </tr>
 <tr>
-<td><code>narratty plan SPEC</code></td>
+<td><code>narratty plan SPEC [--draft]</code></td>
 <td>Print the timeline and total length</td>
 </tr>
 <tr>
@@ -1031,6 +1039,14 @@
 <tr>
 <td><code>narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]</code></td>
 <td>Build the narrated video</td>
+</tr>
+<tr>
+<td><code>narratty build SPEC --subtitles MODE</code></td>
+<td>Add <a href="../building/#subtitles">subtitles</a>: <code>none</code>, <code>files</code>, <code>track</code> or <code>burn</code></td>
+</tr>
+<tr>
+<td><code>narratty build SPEC --draft</code></td>
+<td>Build a fast <a href="../building/#draft">draft</a> (<code>demo.draft.mp4</code>)</td>
 </tr>
 <tr>
 <td><code>narratty build SPEC --format cast [-o PAGE]</code></td>

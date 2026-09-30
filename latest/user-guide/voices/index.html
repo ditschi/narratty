@@ -631,6 +631,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pronunciation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pronunciation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#audio-cache" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -999,6 +1010,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pronunciation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pronunciation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#audio-cache" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1097,13 +1119,70 @@ checked against pinned SHA-256 sums.</p>
 </code></pre></div>
 <p>prints one row per narrated scene with the clip's length and whether it came from the
 cache.</p>
+<h2 id="pronunciation">Pronunciation<a class="headerlink" href="#pronunciation" title="Permanent link">&para;</a></h2>
+<p>Write narration with the real spelling of technical terms (<code>.bazelrc</code>, <code>kubectl</code>,
+<code>bm_rat_b</code>), not a phonetic workaround such as "dot Basel R C". The text stays
+searchable and correct in the spec. The engines already say most terms well
+(<code>bazel</code>, <code>YAML</code>, <code>bm_rat_b</code>), and narratty speaks a leading dot as "dot". For the
+rest, the lexicon tells the engine how to say a term:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">tts</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">lexicon</span><span class="p">:</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">k8s</span><span class="p">:</span><span class="w"> </span><span class="s">"kubernetes"</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">kubectl</span><span class="p">:</span><span class="w"> </span><span class="s">"cube</span><span class="nv"> </span><span class="s">C</span><span class="nv"> </span><span class="s">T</span><span class="nv"> </span><span class="s">L"</span>
+</code></pre></div>
+<p>Entries come from four levels; a later level overrides an earlier one:</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Built-in</td>
+<td>shipped with narratty (<code>kubectl</code>, <code>stdout</code>, <code>CLI</code>, …); English voices only</td>
+</tr>
+<tr>
+<td>User</td>
+<td><code>~/.config/narratty/lexicon.toml</code></td>
+</tr>
+<tr>
+<td>Project</td>
+<td>nearest <code>narratty.lexicon.toml</code> from the spec's directory up to the git root</td>
+</tr>
+<tr>
+<td>Spec</td>
+<td><code>tts.lexicon</code></td>
+</tr>
+</tbody>
+</table>
+<p>The TOML files use the same pairs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">kubectl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"cube C T L"</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">[k8s]</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">say</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"kubernetes"</span>
+</code></pre></div>
+<ul>
+<li>Matching is whole-word. A term with a capital letter matches only that case
+  (<code>API</code>); an all-lowercase term matches any case (<code>k8s</code>, <code>K8s</code>).</li>
+<li>A leading dot is spoken as "dot", also before a term with an entry:
+  <code>.kubectl</code> becomes "dot cube C T L".</li>
+<li>Only the spoken text changes; the lexicon result is part of the audio cache key.</li>
+<li>Sandboxed runs get the user and project entries from the host.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>narratty<span class="w"> </span>lexicon<span class="w"> </span>show<span class="w"> </span>demo.narratty.yaml<span class="w">    </span><span class="c1"># merged entries and their source</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>narratty<span class="w"> </span>lexicon<span class="w"> </span>check<span class="w"> </span>demo.narratty.yaml<span class="w">   </span><span class="c1"># dotted, snake_case, camelCase, ALL-CAPS or digit words without an entry</span>
+</code></pre></div>
+<p>When an AI writes the scene list, tell it to spell terms as written in the code and to
+put pronunciations in <code>tts.lexicon</code>; then run <code>narratty lexicon check</code> and listen to
+<code>narratty tts</code>.</p>
 <h2 id="audio-cache">Audio cache<a class="headerlink" href="#audio-cache" title="Permanent link">&para;</a></h2>
-<p>Every clip is stored under a key made of the provider, voice, normalized text, model
+<p>Every clip is stored under a key made of the provider, voice, spoken text, model
 version and provider options, so only changed narration is synthesized again. The
 cache is in <code>~/.cache/narratty</code> on Linux (override with <code>NARRATTY_CACHE_DIR</code>).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>narratty<span class="w"> </span>cache<span class="w"> </span>info
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>narratty<span class="w"> </span>cache<span class="w"> </span>prune<span class="w"> </span>--older-than<span class="w"> </span>30d<span class="w">     </span><span class="c1"># clips not used for 30 days</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>narratty<span class="w"> </span>cache<span class="w"> </span>prune<span class="w"> </span>--all
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>narratty<span class="w"> </span>cache<span class="w"> </span>info
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>narratty<span class="w"> </span>cache<span class="w"> </span>prune<span class="w"> </span>--older-than<span class="w"> </span>30d<span class="w">     </span><span class="c1"># clips not used for 30 days</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>narratty<span class="w"> </span>cache<span class="w"> </span>prune<span class="w"> </span>--all
 </code></pre></div>
 <h2 id="licences">Licences<a class="headerlink" href="#licences" title="Permanent link">&para;</a></h2>
 <p>Piper (<code>piper-tts</code>) is GPL-3.0; narratty only runs it as a separate process, so

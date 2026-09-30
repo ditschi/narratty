@@ -1844,9 +1844,9 @@
 <h1 id="narratty-setup--implementation-plan-rev-23">narratty: setup &amp; implementation plan (rev 2.3)<a class="headerlink" href="#narratty-setup--implementation-plan-rev-23" title="Permanent link">&para;</a></h1>
 <div class="admonition note">
 <p class="admonition-title">Planning document</p>
-<p>This is the original plan. Some of it is not built yet: <code>--draft</code>, <code>watch</code>,
-subtitles and chapters, the pronunciation lexicon, <code>manifest.json</code>, the
-requirements image and golden-frame checks. The user guide describes what exists.</p>
+<p>This is the original plan. Some of it is not built yet: chapters, the
+pronunciation lexicon, <code>manifest.json</code>, the requirements image and golden-frame
+checks. The user guide describes what exists.</p>
 </div>
 <blockquote>
 <p>Renamed from <em>shellcast</em> on 2026-09-29: that name is taken on PyPI and npm and used
@@ -2655,10 +2655,6 @@ to install it).</p>
 <td>Full pipeline + verify; <code>--scene</code>, <code>--draft</code>, <code>--workspace-mode</code>, <code>--keep-workspace</code>, <code>--network</code>, <code>--var k=v</code></td>
 </tr>
 <tr>
-<td><code>narratty watch &lt;spec&gt;</code></td>
-<td>Re-render a draft on every spec change</td>
-</tr>
-<tr>
 <td><code>narratty doctor [&lt;spec&gt;]</code></td>
 <td>Preflight for the chosen runtime: tools and versions, voices, mounts, container runtime, image availability</td>
 </tr>
@@ -2710,7 +2706,6 @@ release; the rest are cheap to add later if the design leaves room now.</p>
   state still needs earlier scenes, so skipped scenes run <code>hidden</code>, not dropped.</li>
 <li><strong>v1 <code>narratty plan &lt;spec&gt;</code></strong>: prints the timeline table (scene, narration length,
   action length, total) and the total video length before anything renders.</li>
-<li><code>narratty watch &lt;spec&gt;</code>: re-render the draft whenever the spec changes.</li>
 <li><code>narratty preview</code>: play the result (or open the draft) when done.</li>
 </ul>
 <h3 id="output-quality-and-accessibility">Output quality and accessibility<a class="headerlink" href="#output-quality-and-accessibility" title="Permanent link">&para;</a></h3>
@@ -2726,6 +2721,8 @@ release; the rest are cheap to add later if the design leaves room now.</p>
 <li>Background music track with automatic ducking under narration.</li>
 </ul>
 <h3 id="pronunciation-lexicon">Pronunciation lexicon<a class="headerlink" href="#pronunciation-lexicon" title="Permanent link">&para;</a></h3>
+<p>Implemented without <code>ipa</code> and <code>--no-user-config</code>; the user guide's Pronunciation section
+describes the shipped behaviour.</p>
 <p>A mix of all levels, merged in this order (later wins):</p>
 <table>
 <thead>

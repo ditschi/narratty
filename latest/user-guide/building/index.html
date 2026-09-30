@@ -637,6 +637,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#subtitles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subtitles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#draft" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#asciicast-with-narration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -977,6 +999,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#subtitles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subtitles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#draft" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#asciicast-with-narration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1069,8 +1113,56 @@
 <a href="../spec/#end_card"><code>end_card</code></a>); <code>--no-end-card</code> leaves it out.</p>
 <p>With <code>--work-dir</code> the tape, the silent video and the narration track are kept for
 inspection.</p>
+<h2 id="subtitles">Subtitles<a class="headerlink" href="#subtitles" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--subtitles<span class="w"> </span>files<span class="w">   </span><span class="c1"># demo.mp4, demo.srt, demo.vtt</span>
+</code></pre></div>
+<p>Subtitles come from the narration: each clip becomes one cue per sentence, and long
+sentences are split so a cue fits in two lines. Cues show the text as written in the
+spec. Set the mode with <a href="../spec/#top-level"><code>subtitles</code></a> or <code>--subtitles</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>none</code></td>
+<td>No subtitles (default)</td>
+</tr>
+<tr>
+<td><code>files</code></td>
+<td><code>.srt</code> and <code>.vtt</code> beside the video</td>
+</tr>
+<tr>
+<td><code>track</code></td>
+<td>A soft subtitle track in the mp4; players can switch it on and off</td>
+</tr>
+<tr>
+<td><code>burn</code></td>
+<td>Drawn into the picture; re-encodes the video</td>
+</tr>
+</tbody>
+</table>
+<p>With <code>--format cast</code>, every mode except <code>none</code> writes the <code>.srt</code> and <code>.vtt</code> beside
+the page.</p>
+<h2 id="draft">Draft<a class="headerlink" href="#draft" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--draft<span class="w">      </span><span class="c1"># writes demo.draft.mp4</span>
+</code></pre></div>
+<p>A draft checks actions and timing without waiting for TTS:</p>
+<ul>
+<li>narration lengths are estimated from the text (about 14 characters per second,
+  scaled by the voice speed); no voice is loaded or downloaded;</li>
+<li>the terminal is half the size with half the font, so the layout stays the same;</li>
+<li>VHS captures 10 frames per second instead of 30;</li>
+<li>the video is silent and the narration is burned in as subtitles, so you see
+  where each line would be spoken (<code>--subtitles</code> picks another mode).</li>
+</ul>
+<p><code>narratty plan SPEC --draft</code> prints the estimated timeline. <code>--draft</code> only applies to
+mp4 output.</p>
 <h2 id="asciicast-with-narration">Asciicast with narration<a class="headerlink" href="#asciicast-with-narration" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--format<span class="w"> </span>cast<span class="w">   </span><span class="c1"># demo.cast, demo.mp3, demo.html</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--format<span class="w"> </span>cast<span class="w">   </span><span class="c1"># demo.cast, demo.mp3, demo.html</span>
 </code></pre></div>
 <p>Instead of a video, this writes an <a href="https://docs.asciinema.org/manual/asciicast/v2/">asciicast</a>
 (<code>.cast</code>), the narration as MP3, and an HTML page that plays both with
@@ -1091,7 +1183,7 @@ selectable, and the cast is a few kilobytes.</p>
   full-screen programs such as <code>vim</code> are not modelled.</li>
 </ul>
 <p>To embed the recording in your own page, use the <code>.cast</code> and <code>.mp3</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nx">AsciinemaPlayer</span><span class="p">.</span><span class="nx">create</span><span class="p">(</span><span class="s2">"demo.cast"</span><span class="p">,</span><span class="w"> </span><span class="nx">element</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">audioUrl</span><span class="o">:</span><span class="w"> </span><span class="s2">"demo.mp3"</span><span class="w"> </span><span class="p">});</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nx">AsciinemaPlayer</span><span class="p">.</span><span class="nx">create</span><span class="p">(</span><span class="s2">"demo.cast"</span><span class="p">,</span><span class="w"> </span><span class="nx">element</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">audioUrl</span><span class="o">:</span><span class="w"> </span><span class="s2">"demo.mp3"</span><span class="w"> </span><span class="p">});</span>
 </code></pre></div>
 <p>Seeking needs a server that supports range requests, as most static hosts do.</p>
 <h2 id="looking-before-rendering">Looking before rendering<a class="headerlink" href="#looking-before-rendering" title="Permanent link">&para;</a></h2>
@@ -1106,6 +1198,10 @@ selectable, and the cast is a few kilobytes.</p>
 <tr>
 <td><code>narratty plan SPEC</code></td>
 <td>Each scene's start, action time, narration length and the total</td>
+</tr>
+<tr>
+<td><code>narratty plan SPEC --draft</code></td>
+<td>The same with estimated narration lengths, without TTS</td>
 </tr>
 <tr>
 <td><code>narratty tape SPEC</code></td>
