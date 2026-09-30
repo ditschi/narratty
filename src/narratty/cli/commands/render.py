@@ -19,6 +19,7 @@ from narratty.cli.options import (
     NetworkOption,
     NoEnvOption,
     OfflineOption,
+    RebuildEnvOption,
     RuntimeOption,
     WorkspaceMode,
     WorkspaceModeOption,
@@ -39,6 +40,7 @@ def render_command(
     env_image: str | None = EnvImageOption,
     no_env: bool = NoEnvOption,
     keep_env: bool = KeepEnvOption,
+    rebuild_env: bool = RebuildEnvOption,
     yes: bool = YesOption,
     end_card: bool | None = EndCardOption,
     offline: bool = OfflineOption,
@@ -56,12 +58,12 @@ def render_command(
     )
     from narratty.container import delegate
     from narratty.end_card import container_flag
+    from narratty.environment import EnvironmentOptions
     from narratty.ui.console import err
 
     video = (output or default_output(spec, ".silent.mp4")).resolve()
-    request = sandbox_request(
-        workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env_image, no_env, keep_env
-    )
+    env = EnvironmentOptions(no_env, env_image, keep_env, rebuild_env)
+    request = sandbox_request(workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env)
     code = delegate(
         "render",
         spec,

@@ -19,11 +19,12 @@
 | `narratty build SPEC --draft` | Build a fast [draft](building.md#draft) (`demo.draft.mp4`) |
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
 | `narratty env shell SPEC` | Open a shell in the spec's [project environment](environments.md) |
+| `narratty env build SPEC [--rebuild-env]` | Build the environment's image and print its tag |
 
 `plan`, `tape`, `render` and `build` take `--end-card` / `--no-end-card` to override
 [`end_card`](spec.md#end_card). `build` and `render` also take `--workspace-mode`,
 `--keep-workspace`, `--allow-dirty`, `--network`, `--allow-host` and `--yes`; see
-[Sandboxed runs](container.md). They take `--env-image`, `--no-env` and `--keep-env` for
+[Sandboxed runs](container.md). They take `--env-image`, `--no-env`, `--keep-env` and `--rebuild-env` for
 [project environments](environments.md). Every command that runs the pipeline takes
 `--runtime` and `--image`.
 

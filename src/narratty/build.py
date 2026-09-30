@@ -185,6 +185,7 @@ def environment_bridge(
         narratty_image=image_ref(),
         with_agent=False,
         keep=request.environment.keep,
+        rebuild=request.environment.rebuild,
         log=log,
     ) as session:
         yield session.exec_bridge()

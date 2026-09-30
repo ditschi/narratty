@@ -17,6 +17,7 @@ See ``narratty.bridge`` for how the recorders use the bridge.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -32,7 +33,7 @@ from narratty.errors import MissingDependencyError, NarrattyError, UsageError
 from narratty.spec.model import ENV_SOURCES, Environment, Sandbox, Spec
 
 if TYPE_CHECKING:
-    from narratty.sandbox import ContainerAccess
+    from narratty.sandbox import ContainerAccess, Policy
     from narratty.workspace import PreparedWorkspace
 
 AGENT_DIR = "/.narratty/agent"
@@ -71,6 +72,7 @@ class EnvironmentOptions:
     disabled: bool = False
     image: str | None = None
     keep: bool = False
+    rebuild: bool = False
 
 
 def resolve(environment: Environment | None, options: EnvironmentOptions) -> Environment | None:
@@ -83,15 +85,22 @@ def resolve(environment: Environment | None, options: EnvironmentOptions) -> Env
     return Environment.model_validate({**base, "image": options.image})
 
 
-def check_policy(environment: Environment, allowed: Sequence[str] | None) -> None:
-    """Fail when the user's policy does not allow this kind of environment."""
-    if allowed is not None and environment.source not in allowed:
-        from narratty.config import config_dir
+def check_policy(environment: Environment, policy: Policy) -> None:
+    """Fail when the user's policy does not allow this environment."""
+    from narratty.config import config_dir
 
+    where = f"{config_dir() / 'config.toml'}"
+    allowed = policy.allow_environment
+    if allowed is not None and environment.source not in allowed:
         raise UsageError(
             f"the spec runs the demo in an environment from {environment.source!r}, "
             "which your policy does not allow",
-            hint=f"Pass --no-env, or extend allow_environment in {config_dir() / 'config.toml'}.",
+            hint=f"Pass --no-env, or extend allow_environment in {where}.",
+        )
+    if environment.layered and not policy.allow_packages:
+        raise UsageError(
+            "the spec adds packages or setup commands to its environment, which your policy does not allow",
+            hint=f"Pass --no-env, or set allow_packages = true in {where}.",
         )
 
 
@@ -103,7 +112,7 @@ class ImageInfo:
     """What narratty needs to know about the environment's image."""
 
     ref: str
-    id: str
+    id: str  # of the content, see inspect_image
     architecture: str
     user: str = ""
     env: dict[str, str] = field(default_factory=dict)
@@ -132,7 +141,49 @@ def inspect_image(engine: str, ref: str, *, run: Engine = _engine, log: Log | No
             f"{ref} is a {architecture or 'unknown'} image; environments need amd64 or arm64 Linux images"
         )
     env = dict(entry.partition("=")[::2] for entry in config.get("Env") or [])
-    return ImageInfo(ref, str(data["Id"]), ARCHITECTURES[architecture], str(config.get("User") or ""), env)
+    # The image's content (layers and config). The Id is no cache key: with the containerd
+    # image store it covers attestations, which change on every otherwise cached build.
+    content = json.dumps([data.get("RootFS"), config, architecture], sort_keys=True)
+    image_id = "sha256:" + hashlib.sha256(content.encode()).hexdigest()
+    return ImageInfo(ref, image_id, ARCHITECTURES[architecture], str(config.get("User") or ""), env)
+
+
+def prepare_image(
+    environment: Environment,
+    *,
+    spec_dir: Path,
+    engine: str,
+    rebuild: bool = False,
+    run: Engine = _engine,
+    log: Log | None = None,
+) -> ImageInfo:
+    """Pull or build the environment's image, and add its packages and setup."""
+    from narratty.env_image import build_layer, build_project_image
+    from narratty.paths import cache_dir
+
+    if environment.build is not None:
+        ref = build_project_image(
+            environment.build, spec_dir=spec_dir, engine=engine, run=run, rebuild=rebuild, log=log
+        )
+    elif environment.image is not None:
+        ref = environment.image
+    else:
+        raise AssertionError(environment)
+    image = inspect_image(engine, ref, run=run, log=log)
+    if not environment.layered:
+        return image
+    tag = build_layer(
+        environment,
+        ref,
+        image.id,
+        image.user,
+        engine=engine,
+        cache=cache_dir(),
+        run=run,
+        rebuild=rebuild,
+        log=log,
+    )
+    return inspect_image(engine, tag, run=run, log=log)
 
 
 def agent_dir(
@@ -348,6 +399,7 @@ def provide(
     narratty_image: str,
     with_agent: bool,
     keep: bool = False,
+    rebuild: bool = False,
     run: Engine = _engine,
     log: Log | None = None,
 ) -> Iterator[Session]:
@@ -358,9 +410,7 @@ def provide(
     from narratty.paths import cache_dir
     from narratty.sandbox import allowlist_network, container_access
 
-    if environment.image is None:
-        raise AssertionError(environment)
-    image = inspect_image(engine, environment.image, run=run, log=log)
+    image = prepare_image(environment, spec_dir=spec_dir, engine=engine, rebuild=rebuild, run=run, log=log)
     access = container_access(
         sandbox,
         spec_dir=spec_dir,

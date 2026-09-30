@@ -11,6 +11,7 @@ from narratty.runtime import Runtime
 
 if TYPE_CHECKING:
     from narratty.container import SandboxRequest
+    from narratty.environment import EnvironmentOptions
 
 RuntimeOption = typer.Option(
     Runtime.AUTO,
@@ -67,6 +68,9 @@ NoEnvOption = typer.Option(
     False, "--no-env", help="Ignore the spec's environment; run the demo in the narratty image."
 )
 KeepEnvOption = typer.Option(False, "--keep-env", help="Keep the environment's container afterwards.")
+RebuildEnvOption = typer.Option(
+    False, "--rebuild-env", help="Rebuild the environment's image (Dockerfile, packages, setup)."
+)
 YesOption = typer.Option(
     False, "--yes", "-y", envvar="NARRATTY_YES", help="Approve the spec's sandbox permissions without asking."
 )
@@ -92,9 +96,7 @@ def sandbox_request(  # noqa: PLR0913 - one parameter per shared option
     network: NetworkMode | None,
     allow_host: list[str] | None,
     yes: bool,
-    env_image: str | None = None,
-    no_env: bool = False,
-    keep_env: bool = False,
+    environment: EnvironmentOptions | None = None,
 ) -> SandboxRequest:
     """The workspace, sandbox and environment options of a command that runs the demo."""
     from narratty.build import WorkspaceOptions
@@ -106,7 +108,7 @@ def sandbox_request(  # noqa: PLR0913 - one parameter per shared option
         network.value if network else None,
         check_hosts(allow_host),
         yes,
-        EnvironmentOptions(no_env, env_image, keep_env),
+        environment or EnvironmentOptions(),
     )
 
 

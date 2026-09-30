@@ -115,10 +115,14 @@ Runs the demo shell in your project's image; see [Project environments](environm
 
 | Key | Default | Meaning |
 |---|---|---|
-| `image` | | Image to run the shell in (required) |
+| `image` | | Image to run the shell in |
+| `build` | | `{context, dockerfile, target, args}`: build the image instead (one of `image`, `build`) |
 | `workdir` | `/work` | Where the workspace is mounted and the shell starts |
 | `user` | `host` | `host` (your user id), `image` (the image's user) or `UID[:GID]` |
 | `read_only` | `false` | Mount the image's root filesystem read-only |
+| `packages` | `[]` | Packages added with the image's package manager |
+| `package_manager` | `auto` | `auto`, `apt`, `apk`, `dnf`, `microdnf`, `yum` or `zypper` |
+| `setup` | `[]` | Commands run as root when the image is built |
 
 ## `end_card`
 

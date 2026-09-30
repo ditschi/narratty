@@ -37,6 +37,7 @@ class Policy:
     allow_mounts: bool = True
     allow_ssh_agent: bool = True
     allow_environment: tuple[str, ...] | None = None  # None = any source
+    allow_packages: bool = True
 
 
 def load_policy(directory: Path | None = None) -> Policy:
@@ -54,6 +55,7 @@ def load_policy(directory: Path | None = None) -> Policy:
         allow_mounts=bool(raw.get("allow_mounts", True)),
         allow_ssh_agent=bool(raw.get("allow_ssh_agent", True)),
         allow_environment=tuple(allow_environment) if allow_environment is not None else None,
+        allow_packages=bool(raw.get("allow_packages", True)),
     )
 
 
@@ -113,9 +115,12 @@ def describe(sandbox: Sandbox) -> list[str]:
     return lines
 
 
-def approval_key(spec_path: Path, sandbox: Sandbox) -> str:
-    """Identifies one spec file with one exact sandbox block."""
-    blob = json.dumps([str(spec_path.resolve()), sandbox.model_dump(mode="json")], sort_keys=True)
+def approval_key(spec_path: Path, sandbox: Sandbox, extra: Sequence[str] = ()) -> str:
+    """Identifies one spec file with one exact sandbox block (and ``extra`` grants)."""
+    parts: list[object] = [str(spec_path.resolve()), sandbox.model_dump(mode="json")]
+    if extra:
+        parts.append(list(extra))
+    blob = json.dumps(parts, sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()
 
 
@@ -130,19 +135,23 @@ def ensure_consent(
     interactive: bool = True,
     confirm: Confirm | None = None,
     directory: Path | None = None,
+    extra: Sequence[str] = (),
 ) -> None:
-    """Ask once before granting more than the default; remember the answer."""
-    if not sandbox.elevated:
+    """Ask once before granting more than the default; remember the answer.
+
+    ``extra`` lists further grants to approve with the sandbox (e.g. from ``environment``).
+    """
+    if not sandbox.elevated and not extra:
         return
     store = (directory or config_dir()) / "approvals.json"
     try:
         approved: dict[str, str] = json.loads(store.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         approved = {}
-    key = approval_key(spec_path, sandbox)
+    key = approval_key(spec_path, sandbox, extra)
     if key in approved:
         return
-    grants = describe(sandbox)
+    grants = [*describe(sandbox), *extra]
     if not assume_yes:
         if not interactive or confirm is None:
             raise UsageError(

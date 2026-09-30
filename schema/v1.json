@@ -66,6 +66,55 @@
       "title": "Enter",
       "type": "object"
     },
+    "EnvBuild": {
+      "additionalProperties": false,
+      "description": "Build the environment's image from a Dockerfile (paths relative to the spec).",
+      "properties": {
+        "context": {
+          "default": ".",
+          "description": "Build context.",
+          "title": "Context",
+          "type": "string"
+        },
+        "dockerfile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dockerfile; defaults to <context>/Dockerfile.",
+          "title": "Dockerfile"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Build stage to stop at.",
+          "title": "Target"
+        },
+        "args": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Build arguments.",
+          "title": "Args",
+          "type": "object"
+        }
+      },
+      "title": "EnvBuild",
+      "type": "object"
+    },
     "Environment": {
       "additionalProperties": false,
       "description": "A project container the demo shell runs in; the rest of narratty stays outside it.",
@@ -83,6 +132,18 @@
           "default": null,
           "description": "Image to run the demo shell in.",
           "title": "Image"
+        },
+        "build": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EnvBuild"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Build the image from a Dockerfile instead."
         },
         "workdir": {
           "default": "/work",
@@ -103,6 +164,41 @@
           "description": "Mount the image's root filesystem read-only.",
           "title": "Read Only",
           "type": "boolean"
+        },
+        "packages": {
+          "default": [],
+          "description": "Packages to add for the demo, with the image's package manager.",
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9.+_:=~<>*-]*$",
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "package_manager": {
+          "default": "auto",
+          "description": "auto detects it in the image.",
+          "enum": [
+            "auto",
+            "apt",
+            "apk",
+            "dnf",
+            "microdnf",
+            "yum",
+            "zypper"
+          ],
+          "title": "Package Manager",
+          "type": "string"
+        },
+        "setup": {
+          "default": [],
+          "description": "Shell commands run as root when the image is built (after packages).",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Setup",
+          "type": "array"
         }
       },
       "title": "Environment",

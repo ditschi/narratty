@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 
@@ -15,6 +16,7 @@ from narratty.cli.options import (
     KeepWorkspaceOption,
     NetworkMode,
     NetworkOption,
+    RebuildEnvOption,
     RuntimeOption,
     WorkspaceMode,
     WorkspaceModeOption,
@@ -24,6 +26,54 @@ from narratty.cli.options import (
 from narratty.runtime import Runtime
 
 env_app = typer.Typer(help="Work with the spec's project environment.", no_args_is_help=True)
+
+if TYPE_CHECKING:
+    from narratty.container import SandboxRequest
+    from narratty.spec.model import Environment, Spec
+
+
+def _environment(spec: Path, request: SandboxRequest) -> tuple[Spec, Environment]:
+    from narratty.environment import resolve
+    from narratty.errors import UsageError
+    from narratty.spec import load_spec
+
+    loaded = load_spec(spec)
+    environment = resolve(loaded.environment, request.environment)
+    if environment is None:
+        raise UsageError(
+            f"{spec} has no environment", hint="Add an `environment` block, or pass --env-image."
+        )
+    return loaded, environment
+
+
+def log(message: str) -> None:
+    """Progress on stderr."""
+    from narratty.ui.console import err
+
+    err.print(f"[dim]{message}[/]", highlight=False, soft_wrap=True)
+
+
+@env_app.command("build")
+def build_command(
+    spec: Path = SpecArgument,
+    env_image: str | None = EnvImageOption,
+    rebuild_env: bool = RebuildEnvOption,
+    yes: bool = YesOption,
+) -> None:
+    """Build the environment's image (Dockerfile, packages, setup) ahead of a recording."""
+    from narratty.container import approved_sandbox
+    from narratty.environment import EnvironmentOptions, prepare_image
+    from narratty.runtime import container_engine
+    from narratty.ui.console import out
+
+    env = EnvironmentOptions(image=env_image, rebuild=rebuild_env)
+    request = sandbox_request(None, False, False, None, None, yes, env)
+    loaded, environment = _environment(spec, request)
+    approved_sandbox(spec, loaded, request)
+    image = prepare_image(
+        environment, spec_dir=spec.resolve().parent, engine=container_engine(), rebuild=rebuild_env, log=log
+    )
+    out.print(image.ref, highlight=False)
 
 
 @env_app.command("shell")
@@ -35,6 +85,7 @@ def shell_command(
     network: NetworkMode | None = NetworkOption,
     allow_host: list[str] | None = AllowHostOption,
     env_image: str | None = EnvImageOption,
+    rebuild_env: bool = RebuildEnvOption,
     yes: bool = YesOption,
     runtime: Runtime = RuntimeOption,
     image: str | None = ImageOption,
@@ -45,30 +96,18 @@ def shell_command(
 
     from narratty.build import Plan
     from narratty.container import ContainerSpec, approved_sandbox, image_ref, run_argv
-    from narratty.environment import RECORDER_AGENT, provide, resolve
-    from narratty.errors import UsageError
+    from narratty.environment import RECORDER_AGENT, EnvironmentOptions, provide
     from narratty.paths import cache_dir
     from narratty.runtime import container_engine, resolve_runtime
-    from narratty.spec import load_spec
-    from narratty.ui.console import err
     from narratty.workspace import prepare_workspace
 
-    loaded = load_spec(spec)
-    request = sandbox_request(
-        workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env_image
-    )
-    environment = resolve(loaded.environment, request.environment)
-    if environment is None:
-        raise UsageError(
-            f"{spec} has no environment", hint="Add an `environment` block, or pass --env-image."
-        )
+    env = EnvironmentOptions(image=env_image, rebuild=rebuild_env)
+    request = sandbox_request(workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env)
+    loaded, environment = _environment(spec, request)
     sandbox = approved_sandbox(spec, loaded, request)
     resolved = resolve_runtime(runtime)
     engine = resolved.runtime.value if resolved.sandboxed else container_engine()
     narratty_image = image_ref(override=image)
-
-    def log(message: str) -> None:
-        err.print(f"[dim]{message}[/]", highlight=False, soft_wrap=True)
 
     shell = loaded.terminal.shell
     with (
@@ -91,6 +130,7 @@ def shell_command(
             engine=engine,
             narratty_image=narratty_image,
             with_agent=resolved.sandboxed,
+            rebuild=rebuild_env,
             log=log,
         ) as session,
     ):

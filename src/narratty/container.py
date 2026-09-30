@@ -160,6 +160,7 @@ def approved_sandbox(spec_file: Path, spec: Spec, request: SandboxRequest) -> Sa
 
     import typer
 
+    from narratty.env_image import grants
     from narratty.environment import check_policy as check_environment_policy
     from narratty.environment import resolve
     from narratty.sandbox import apply_overrides, check_policy, ensure_consent, load_policy
@@ -169,13 +170,14 @@ def approved_sandbox(spec_file: Path, spec: Spec, request: SandboxRequest) -> Sa
     check_policy(sandbox, policy)
     environment = resolve(spec.environment, request.environment)
     if environment is not None:
-        check_environment_policy(environment, policy.allow_environment)
+        check_environment_policy(environment, policy)
     ensure_consent(
         spec_file,
         sandbox,
         assume_yes=request.assume_yes,
         interactive=sys.stdin.isatty(),
         confirm=lambda question: typer.confirm(question, default=False, err=True),
+        extra=grants(environment) if environment is not None else (),
     )
     return sandbox
 
@@ -332,6 +334,7 @@ def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runn
                 narratty_image=invocation.image,
                 with_agent=True,
                 keep=request.environment.keep,
+                rebuild=request.environment.rebuild,
                 log=log,
             ) as session:
                 invocation.volumes.append(session.recorder_volume())

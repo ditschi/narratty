@@ -295,13 +295,25 @@ class Sandbox(_Model):
         return bool(self.network != "none" or self.env_passthrough or self.extra_mounts or self.ssh_agent)
 
 
-ENV_SOURCES = ("image",)
+ENV_SOURCES = ("image", "build")
+PACKAGE_MANAGERS = ("apt", "apk", "dnf", "microdnf", "yum", "zypper")
+PACKAGE_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9.+_:=~<>*-]*$"
+
+
+class EnvBuild(_Model):
+    """Build the environment's image from a Dockerfile (paths relative to the spec)."""
+
+    context: str = Field(".", description="Build context.")
+    dockerfile: str | None = Field(None, description="Dockerfile; defaults to <context>/Dockerfile.")
+    target: str | None = Field(None, description="Build stage to stop at.")
+    args: dict[str, str] = Field({}, description="Build arguments.")
 
 
 class Environment(_Model):
     """A project container the demo shell runs in; the rest of narratty stays outside it."""
 
     image: str | None = Field(None, min_length=1, description="Image to run the demo shell in.")
+    build: EnvBuild | None = Field(None, description="Build the image from a Dockerfile instead.")
     workdir: str = Field(
         "/work", pattern=r"^/", description="Where the workspace is mounted and the shell starts."
     )
@@ -311,6 +323,15 @@ class Environment(_Model):
         description="host: your user id, so files stay yours; image: the image's user; or UID[:GID].",
     )
     read_only: bool = Field(False, description="Mount the image's root filesystem read-only.")
+    packages: list[Annotated[str, Field(pattern=PACKAGE_PATTERN)]] = Field(
+        [], description="Packages to add for the demo, with the image's package manager."
+    )
+    package_manager: Literal["auto", "apt", "apk", "dnf", "microdnf", "yum", "zypper"] = Field(
+        "auto", description="auto detects it in the image."
+    )
+    setup: list[Annotated[str, Field(min_length=1)]] = Field(
+        [], description="Shell commands run as root when the image is built (after packages)."
+    )
 
     @model_validator(mode="after")
     def _one_source(self) -> Environment:
@@ -318,6 +339,11 @@ class Environment(_Model):
         if len(given) != 1:
             raise ValueError(f"set exactly one of: {', '.join(ENV_SOURCES)}")
         return self
+
+    @property
+    def layered(self) -> bool:
+        """True when narratty adds packages or setup commands on top of the image."""
+        return bool(self.packages or self.setup)
 
     @property
     def source(self) -> str:

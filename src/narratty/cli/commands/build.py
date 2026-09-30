@@ -20,6 +20,7 @@ from narratty.cli.options import (
     NetworkOption,
     NoEnvOption,
     OfflineOption,
+    RebuildEnvOption,
     RuntimeOption,
     WorkspaceMode,
     WorkspaceModeOption,
@@ -90,6 +91,7 @@ def build_command(
     env_image: str | None = EnvImageOption,
     no_env: bool = NoEnvOption,
     keep_env: bool = KeepEnvOption,
+    rebuild_env: bool = RebuildEnvOption,
     yes: bool = YesOption,
     end_card: bool | None = EndCardOption,
     offline: bool = OfflineOption,
@@ -100,6 +102,7 @@ def build_command(
     from narratty.build import build, build_cast, default_output
     from narratty.container import delegate
     from narratty.end_card import container_flag
+    from narratty.environment import EnvironmentOptions
     from narratty.errors import UsageError
     from narratty.ui.console import err, out
 
@@ -107,9 +110,8 @@ def build_command(
     if draft and cast:
         raise UsageError("--draft only applies to --format mp4")
     suffix = ".html" if cast else ".draft.mp4" if draft else ".mp4"
-    request = sandbox_request(
-        workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env_image, no_env, keep_env
-    )
+    env = EnvironmentOptions(no_env, env_image, keep_env, rebuild_env)
+    request = sandbox_request(workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env)
     code = delegate(
         "build",
         spec,

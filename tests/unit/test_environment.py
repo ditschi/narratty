@@ -50,8 +50,12 @@ class FakeEngine:
 
 def test_spec_needs_exactly_one_source() -> None:
     assert Environment(image="acme/dev:1").source == "image"
-    with pytest.raises(ValueError, match="exactly one of: image"):
+    with pytest.raises(ValueError, match="exactly one of: image, build"):
         Environment()
+    with pytest.raises(ValueError, match="exactly one of"):
+        Environment(image="x", build={"context": "."})
+    with pytest.raises(ValueError, match="packages"):
+        Environment(image="x", packages=["jq; rm -rf /"])
     with pytest.raises(ValueError, match="user"):
         Environment(image="x", user="me")
     assert Environment(image="x", user="1000:1000").user == "1000:1000"
@@ -67,11 +71,16 @@ def test_resolve_applies_overrides() -> None:
     assert resolve(None, EnvironmentOptions(image="other:2")) == Environment(image="other:2")
 
 
-def test_policy_limits_sources() -> None:
-    check_policy(Environment(image="x"), None)
-    check_policy(Environment(image="x"), ["image"])
+def test_policy_limits_sources_and_packages() -> None:
+    from narratty.sandbox import Policy
+
+    check_policy(Environment(image="x"), Policy())
+    check_policy(Environment(image="x"), Policy(allow_environment=("image",)))
     with pytest.raises(UsageError, match="does not allow"):
-        check_policy(Environment(image="x"), ["compose"])
+        check_policy(Environment(image="x"), Policy(allow_environment=("compose",)))
+    check_policy(Environment(image="x"), Policy(allow_packages=False))
+    with pytest.raises(UsageError, match="adds packages"):
+        check_policy(Environment(image="x", packages=["jq"]), Policy(allow_packages=False))
 
 
 def test_inspect_pulls_missing_images() -> None:
@@ -84,9 +93,10 @@ def test_inspect_pulls_missing_images() -> None:
 
     info = inspect_image("docker", "acme/dev:1", run=run)
     assert engine.called("docker", "pull") == [["docker", "pull", "acme/dev:1"]]
-    assert info == ImageInfo(
-        "acme/dev:1", IMAGE["Id"], "arm64", "dev", {"PATH": "/usr/bin", "HOME": "/home/dev"}
-    )
+    assert info == ImageInfo("acme/dev:1", info.id, "arm64", "dev", {"PATH": "/usr/bin", "HOME": "/home/dev"})
+    assert info.id != IMAGE["Id"], "keyed by content, not by the (attestation-dependent) Id"
+    rebuilt = FakeEngine({("docker", "image", "inspect"): (0, json.dumps([{**IMAGE, "Id": "sha256:other"}]))})
+    assert inspect_image("docker", "acme/dev:1", run=rebuilt).id == info.id
     assert info.home == "/home/dev"
     assert ImageInfo("x", "i", "amd64").home == "/root"
     assert ImageInfo("x", "i", "amd64", user="1000").home == "/"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -69,3 +70,28 @@ def test_video_from_the_container(tmp_path: Path) -> None:
     info = media.probe(out)
     assert info.has_video and info.has_audio
     assert (tmp_path / "made-in-env").is_file()
+
+
+def test_packages_and_build(tmp_path: Path) -> None:
+    (tmp_path / "Dockerfile").write_text(f"FROM {IMAGE}\nRUN adduser -D -u 1500 dev\nUSER dev\n")
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(
+        "environment:\n  build: {context: .}\n  packages: [jq]\n  setup: ['echo made > /etc/demo']\n"
+        "scenes: [{id: a}]\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+    result = runner.invoke(app, ["env", "build", str(spec), "--yes"])
+    assert result.exit_code == 0, result.output
+    tag = result.stdout.strip().splitlines()[-1]
+    assert tag.startswith("narratty-env:")
+    check = subprocess.run(
+        ["docker", "run", "--rm", "--entrypoint", "sh", tag, "-c", "id -u; jq --version; cat /etc/demo"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert check.stdout.split()[0] == "1500", "back to the image's user"
+    assert "jq-" in check.stdout and "made" in check.stdout
+    again = runner.invoke(app, ["env", "build", str(spec)])
+    assert again.stdout.strip().splitlines()[-1] == tag, "cached"
