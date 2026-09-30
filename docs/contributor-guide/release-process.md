@@ -10,7 +10,8 @@ git push              # push main (not the tag); or open a PR with the bump comm
 When the bump commit reaches `main`, `.github/workflows/release.yml` tags it `vX.Y.Z`
 and releases it: build, publish to TestPyPI, verify the install, publish to PyPI,
 container images, GitHub release and versioned docs. Pushing a `v*` tag by hand
-triggers the same release.
+triggers the same release. If a release fails after tagging, the next push to `main` retries it
+until the GitHub release exists.
 
 The release calls `.github/workflows/docker.yml`, which pushes the container images to
 GHCR for linux/amd64 and linux/arm64:
