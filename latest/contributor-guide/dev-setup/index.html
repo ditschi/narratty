@@ -22,7 +22,7 @@
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../assets/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
@@ -100,8 +100,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="narratty" class="md-header__button md-logo" aria-label="narratty" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../assets/icon.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -327,8 +326,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="narratty" class="md-nav__button md-logo" aria-label="narratty" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../assets/icon.svg" alt="logo">
 
     </a>
     narratty
@@ -831,6 +829,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#logo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logo
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -978,6 +987,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#logo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logo
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1058,6 +1078,40 @@
 <h2 id="commits">Commits<a class="headerlink" href="#commits" title="Permanent link">&para;</a></h2>
 <p>Commits and PR titles follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a>
 (<code>feat: …</code>, <code>fix: …</code>, <code>docs: …</code>). PRs are squash-merged, so the PR title becomes the commit.</p>
+<h2 id="logo">Logo<a class="headerlink" href="#logo" title="Permanent link">&para;</a></h2>
+<p><code>docs/assets/</code> holds the logo files:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>logo-source.svg</code></td>
+<td>Editable source (text as <code>&lt;text&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>logo.svg</code>, <code>logo.png</code></td>
+<td>Full logo, text converted to paths (README, docs home)</td>
+</tr>
+<tr>
+<td><code>icon.svg</code>, <code>icon.png</code></td>
+<td>Square mark (docs header, avatars)</td>
+</tr>
+<tr>
+<td><code>favicon.ico</code></td>
+<td>Docs favicon (16, 32, 48 px)</td>
+</tr>
+<tr>
+<td><code>social-preview.png</code></td>
+<td>GitHub social preview (1280x640, set in the repository settings)</td>
+</tr>
+</tbody>
+</table>
+<p>After editing <code>logo-source.svg</code>, convert the text to paths (JetBrains Mono NL
+ExtraBold, Bold for the output line) and re-export the PNGs.</p>
 
 
 
