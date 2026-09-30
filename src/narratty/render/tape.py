@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
+from narratty.end_card import CREDIT
 from narratty.spec.model import Action, CtrlSequence, Enter, Hold, Key, Scene, Spec, TypeCommand, Wait
 from narratty.timeline import SceneTiming, Timeline, typing_speed
 
@@ -88,8 +90,27 @@ def _scene_lines(spec: Spec, scene: Scene, timing: SceneTiming) -> list[str]:
     return lines
 
 
-def generate_tape(spec: Spec, timeline: Timeline, output: Path) -> str:
-    """The complete tape rendering ``spec`` into ``output``."""
+def end_card_lines(spec: Spec, timeline: Timeline, python: str) -> list[str]:
+    """Draw the end card while hidden, then keep it on screen for its duration."""
+    command = f"{prompt_setup(spec.terminal.shell, '')}; {_shell_quote(python)} -m narratty.end_card"
+    if not spec.end_card.qr:
+        command += " --no-qr"
+    return [
+        "# end card",
+        "Hide",
+        *_type(command, 1),
+        "Enter@1ms",
+        f"Wait+Screen@30s /{CREDIT}/",
+        "Show",
+        f"Sleep {timeline.end_card_ms}ms",
+    ]
+
+
+def generate_tape(spec: Spec, timeline: Timeline, output: Path, *, python: str | None = None) -> str:
+    """The complete tape rendering ``spec`` into ``output``.
+
+    ``python`` is the interpreter that draws the end card (default: the running one).
+    """
     term = spec.terminal
     lines = [
         f"# narratty tape for {json.dumps(spec.meta.title)}",
@@ -116,4 +137,6 @@ def generate_tape(spec: Spec, timeline: Timeline, output: Path) -> str:
     lines.append("")
     if timeline.tail_ms:
         lines.append(f"Sleep {timeline.tail_ms}ms")
+    if timeline.end_card_ms:
+        lines += ["", *end_card_lines(spec, timeline, python or sys.executable)]
     return "\n".join(lines) + "\n"

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from narratty.cache import AudioCache
+from narratty.end_card import with_end_card
 from narratty.errors import RenderError, SyncError
 from narratty.paths import cache_dir, data_dir
 from narratty.render import media
@@ -57,9 +58,12 @@ class Plan:
         return (spec_path.resolve().parent / spec.workspace.source).resolve()
 
 
-def plan(spec_path: Path, *, offline: bool = False) -> Plan:
-    """Load ``spec_path``, synthesize (or reuse) its narration and compute the timeline."""
-    spec = load_spec(spec_path)
+def plan(spec_path: Path, *, offline: bool = False, end_card: bool | None = None) -> Plan:
+    """Load ``spec_path``, synthesize (or reuse) its narration and compute the timeline.
+
+    ``end_card`` overrides the spec and the user's config (see ``narratty.end_card``).
+    """
+    spec = with_end_card(load_spec(spec_path), end_card)
     provider = get_provider(spec.tts.provider, data_dir())
     clips = synthesize_spec(spec, provider, AudioCache(cache_dir()), download=not offline)
     timeline = build_timeline(spec, {clip.scene_id: clip.duration_ms for clip in clips})
@@ -160,13 +164,14 @@ def build(
     offline: bool = False,
     max_drift: float = DEFAULT_MAX_DRIFT,
     workspace: WorkspaceOptions | None = None,
+    end_card: bool | None = None,
     log: Log | None = None,
 ) -> BuildResult:
     """Run the full pipeline and verify the result."""
     say = log or (lambda _message: None)
     output = (output or default_output(spec_path)).resolve()
     say("synthesizing narration")
-    planned = plan(spec_path, offline=offline)
+    planned = plan(spec_path, offline=offline, end_card=end_card)
     warn_unenforced_sandbox(planned.spec, say)
     with (
         work_directory(work_dir) as work,

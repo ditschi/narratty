@@ -17,3 +17,4 @@ pytestmark = pytest.mark.integration
 def _fresh_audio_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("NARRATTY_RUNTIME", "native")
+    monkeypatch.setenv("NARRATTY_CONFIG_DIR", str(tmp_path / "config"))

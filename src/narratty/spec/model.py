@@ -270,6 +270,16 @@ class Sandbox(_Model):
         return bool(self.network != "none" or self.env_passthrough or self.extra_mounts or self.ssh_agent)
 
 
+class EndCard(_Model):
+    """The closing "Created with narratty" card with a link and QR code to the docs."""
+
+    enabled: bool | None = Field(
+        None, description="Show the card. Unset follows ~/.config/narratty/config.toml (on by default)."
+    )
+    duration_ms: int = Field(4000, ge=1000, description="How long the card stays on screen.")
+    qr: bool = Field(True, description="Show a QR code of the docs link when the terminal is large enough.")
+
+
 class Spec(_Model):
     """A complete ``.narratty.yaml`` document."""
 
@@ -281,7 +291,14 @@ class Spec(_Model):
     requires: Requires = Requires()
     workspace: Workspace = Workspace()
     sandbox: Sandbox = Sandbox()
+    end_card: EndCard = EndCard()
     scenes: list[Scene] = Field(min_length=1)
+
+    @field_validator("end_card", mode="before")
+    @classmethod
+    def _end_card_shorthand(cls, value: Any) -> Any:
+        """``end_card: false`` is short for ``end_card: {enabled: false}``."""
+        return {"enabled": value} if isinstance(value, bool) else value
 
     @model_validator(mode="after")
     def _unique_scene_ids(self) -> Spec:

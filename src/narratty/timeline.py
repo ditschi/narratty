@@ -4,8 +4,9 @@ Narration starts when its scene starts (or after the scene's actions with
 ``narration_start: after_actions``). A scene lasts
 ``max(action_ms, audio_ms + narration_buffer_ms)``; the difference is filled with a
 pause, at the scene's ``hold: auto`` if it has one, else after its actions. Hidden
-scenes are not recorded and take no time. Clip *n* is placed at its scene's start,
-so a timing error in one scene never shifts the narration of the next.
+scenes are not recorded and take no time. The end card, when enabled, follows the
+tail. Clip *n* is placed at its scene's start, so a timing error in one scene never
+shifts the narration of the next.
 """
 
 from __future__ import annotations
@@ -60,16 +61,17 @@ class SceneTiming:
 
 @dataclass(frozen=True)
 class Timeline:
-    """Scene timings plus the lead-in and tail around them."""
+    """Scene timings plus the lead-in, tail and end card around them."""
 
     scenes: tuple[SceneTiming, ...]
     lead_in_ms: int
     tail_ms: int
+    end_card_ms: int = 0
 
     @property
     def total_ms(self) -> int:
         """Expected length of the video."""
-        return self.lead_in_ms + sum(s.length_ms for s in self.scenes) + self.tail_ms
+        return self.lead_in_ms + sum(s.length_ms for s in self.scenes) + self.tail_ms + self.end_card_ms
 
     def scene(self, scene_id: str) -> SceneTiming:
         """Timing of the scene called ``scene_id``."""
@@ -95,4 +97,5 @@ def build_timeline(spec: Spec, audio_ms: Mapping[str, int]) -> Timeline:
         timing = SceneTiming(scene.id, False, cursor, actions, audio, fill, offset)
         timings.append(timing)
         cursor += timing.length_ms
-    return Timeline(tuple(timings), spec.timing.lead_in_ms, spec.timing.tail_ms)
+    end_card = spec.end_card.duration_ms if spec.end_card.enabled else 0
+    return Timeline(tuple(timings), spec.timing.lead_in_ms, spec.timing.tail_ms, end_card)

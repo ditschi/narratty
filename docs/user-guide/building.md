@@ -21,6 +21,9 @@ narratty build demo.narratty.yaml -o out/tour.mp4 --work-dir out/work
    within `--max-drift` of the plan (10% by default). Otherwise the build exits
    with code 6.
 
+After the last scene and the tail comes the end card (4 s by default; see
+[`end_card`](spec.md#end_card)); `--no-end-card` leaves it out.
+
 With `--work-dir` the tape, the silent video and the narration track are kept for
 inspection.
 

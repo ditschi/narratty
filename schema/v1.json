@@ -18,6 +18,40 @@
       "title": "CtrlSequence",
       "type": "object"
     },
+    "EndCard": {
+      "additionalProperties": false,
+      "description": "The closing \"Created with narratty\" card with a link and QR code to the docs.",
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Show the card. Unset follows ~/.config/narratty/config.toml (on by default).",
+          "title": "Enabled"
+        },
+        "duration_ms": {
+          "default": 4000,
+          "description": "How long the card stays on screen.",
+          "minimum": 1000,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "qr": {
+          "default": true,
+          "description": "Show a QR code of the docs link when the terminal is large enough.",
+          "title": "Qr",
+          "type": "boolean"
+        }
+      },
+      "title": "EndCard",
+      "type": "object"
+    },
     "Enter": {
       "additionalProperties": false,
       "description": "Press Enter. Written as the bare string ``enter`` in YAML.",
@@ -588,6 +622,14 @@
         "env": {},
         "extra_mounts": [],
         "ssh_agent": false
+      }
+    },
+    "end_card": {
+      "$ref": "#/$defs/EndCard",
+      "default": {
+        "enabled": null,
+        "duration_ms": 4000,
+        "qr": true
       }
     },
     "scenes": {

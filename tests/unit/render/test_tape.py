@@ -97,3 +97,26 @@ def test_fill_goes_last_without_hold_auto() -> None:
 
 def test_tape_is_byte_stable() -> None:
     assert _tape() == _tape()
+
+
+def _card_tape(end_card: str, python: str = "/opt/py 3/bin/python") -> str:
+    spec = parse_spec(SPEC + f"end_card: {end_card}\n", Path("t.narratty.yaml"))
+    return generate_tape(spec, build_timeline(spec, {"intro": 2000}), Path("/out/v.mp4"), python=python)
+
+
+def test_end_card_is_drawn_hidden_and_then_held() -> None:
+    tape = _card_tape("{enabled: true, duration_ms: 2500}")
+    card = tape.split("# end card\n", 1)[1].splitlines()
+    assert card[0] == "Hide"
+    assert card[1] == "Type@1ms \"PS1=''; clear; '/opt/py 3/bin/python' -m narratty.end_card\""
+    assert card[2:] == ["Enter@1ms", "Wait+Screen@30s /Created with narratty/", "Show", "Sleep 2500ms"]
+    assert tape.index("Sleep 1000ms\n\n# end card") > 0, "after the tail"
+
+
+def test_end_card_without_qr() -> None:
+    assert "-m narratty.end_card --no-qr" in _card_tape("{enabled: true, qr: false}")
+
+
+@pytest.mark.parametrize("end_card", ["false", "{duration_ms: 3000}"])
+def test_no_end_card_unless_enabled(end_card: str) -> None:
+    assert "end card" not in _card_tape(end_card)

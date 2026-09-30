@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -70,3 +71,31 @@ def test_build_command_leaves_the_workspace_alone(spec: Path) -> None:
     assert (spec.parent / "out.mp4").is_file()
     assert "planned" in plain(result.output)
     assert not (spec.parent / "demo").exists(), "the default snapshot mode keeps the source untouched"
+
+
+def _last_frame_white_share(video: Path) -> float:
+    frame = subprocess.run(
+        ["ffmpeg", "-v", "error", "-sseof", "-1", "-i", str(video), "-frames:v", "1"]
+        + ["-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        capture_output=True,
+        check=True,
+    ).stdout
+    return sum(1 for value in frame if value > 200) / len(frame)
+
+
+def test_end_card_shows_the_qr_code(tmp_path: Path) -> None:
+    spec = tmp_path / "card.narratty.yaml"
+    spec.write_text(
+        "terminal: {width: 1200, height: 700}\n"
+        "end_card: {duration_ms: 2000}\n"
+        "scenes:\n  - id: hi\n    actions: [{type_command: 'echo hi'}, enter, {hold: 500}]\n",
+        encoding="utf-8",
+    )
+    result = build(spec, end_card=True)
+    assert abs(result.drift) < 0.05
+    assert _last_frame_white_share(result.output) > 0.1, "the white QR code fills the last frame"
+    work = tmp_path / "plain"
+    plain_result = build(spec, tmp_path / "plain.mp4", work_dir=work, end_card=False)
+    assert result.expected_ms - plain_result.expected_ms == 2000
+    assert _last_frame_white_share(plain_result.output) < 0.01
+    assert "end card" not in (work / "scene.tape").read_text(encoding="utf-8")

@@ -72,3 +72,11 @@ def check_hosts(hosts: list[str] | None) -> tuple[str, ...]:
         if not re.match(HOST_PORT_PATTERN, host):
             raise UsageError(f"--allow-host {host!r} is not HOST:PORT")
     return tuple(hosts or ())
+
+
+EndCardOption = typer.Option(
+    None,
+    "--end-card/--no-end-card",
+    help='Show the closing "Created with narratty" card (default: the spec, then your config, then on).',
+    show_default=False,
+)

@@ -24,3 +24,6 @@ commitizen.
   and artifact export; sandbox network `none` / `allowlist` (forwarder sidecars) /
   `full`, env passthrough, extra mounts and SSH agent, with one-time consent and a
   user policy cap
+- end card: "Created with narratty" with a link and QR code to the docs, on by
+  default; off with `end_card: false`, `--no-end-card` or `[end_card] enabled = false`
+  in config.toml

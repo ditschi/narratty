@@ -10,6 +10,7 @@ from narratty.cli.arguments import SpecArgument
 from narratty.cli.options import (
     AllowDirtyOption,
     AllowHostOption,
+    EndCardOption,
     ImageOption,
     KeepWorkspaceOption,
     NetworkMode,
@@ -44,6 +45,7 @@ def build_command(
     network: NetworkMode | None = NetworkOption,
     allow_host: list[str] | None = AllowHostOption,
     yes: bool = YesOption,
+    end_card: bool | None = EndCardOption,
     offline: bool = OfflineOption,
     runtime: Runtime = RuntimeOption,
     image: str | None = ImageOption,
@@ -51,6 +53,7 @@ def build_command(
     """Build the narrated video."""
     from narratty.build import WorkspaceOptions, build, default_output
     from narratty.container import SandboxRequest, delegate
+    from narratty.end_card import container_flag
     from narratty.ui.console import err, out
 
     workspace = WorkspaceOptions(
@@ -64,7 +67,7 @@ def build_command(
         image=image,
         output=output or default_output(spec),
         work_dir=work_dir,
-        extra_args=["--max-drift", str(max_drift)],
+        extra_args=["--max-drift", str(max_drift), container_flag(spec, end_card)],
         sandbox=request,
     )
     if code is not None:
@@ -83,6 +86,7 @@ def build_command(
             offline=offline,
             max_drift=max_drift,
             workspace=workspace,
+            end_card=end_card,
             log=log,
         )
     err.print(
