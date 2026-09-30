@@ -1,4 +1,4 @@
-"""Demos in a project environment: a plain Alpine image, natively and from the container."""
+"""Demos in a project environment: a plain Debian image, natively and from the container."""
 
 from __future__ import annotations
 
@@ -21,20 +21,20 @@ pytestmark = [
     pytest.mark.skipif(not all(shutil.which(t) for t in ("ffmpeg", "ffprobe")), reason="needs ffmpeg"),
 ]
 
-IMAGE = os.environ.get("NARRATTY_TEST_ENV_IMAGE", "alpine:3.22")
+IMAGE = os.environ.get("NARRATTY_TEST_ENV_IMAGE", "debian:trixie-slim")
 
 SPEC = f"""\
 meta: {{title: Environment}}
-terminal: {{width: 800, height: 400, shell: sh}}
+terminal: {{width: 800, height: 400}}
 environment: {{image: "{IMAGE}"}}
 end_card: {{enabled: true, duration_ms: 1500}}
 scenes:
   - id: where
-    narration: This shell runs in Alpine.
+    narration: This shell runs in the project image.
     actions:
-      - type_command: "cat /etc/alpine-release && touch made-in-env"
+      - type_command: "echo in-$((6*7)) && touch made-in-env"
       - enter
-      - wait: {{screen: "[0-9]+[.][0-9]+[.][0-9]+"}}
+      - wait: {{screen: "in-42"}}
 """
 
 
