@@ -693,6 +693,9 @@ release; the rest are cheap to add later if the design leaves room now.
 
 ### Pronunciation lexicon
 
+Implemented without `ipa` and `--no-user-config`; the user guide's Pronunciation section
+describes the shipped behaviour.
+
 A mix of all levels, merged in this order (later wins):
 
 | Level | Where | Holds |

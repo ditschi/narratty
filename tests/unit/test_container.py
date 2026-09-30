@@ -117,6 +117,8 @@ def test_delegate_mounts_and_arguments(tmp_path: Path, monkeypatch: pytest.Monke
     assert tail[tail.index("--output") + 1] == "/out/demo.mp4"
     assert "--max-drift" in tail
     assert "NARRATTY_WORKSPACE=/work" in argv
+    lexicon = next(a for a in argv if a.startswith("NARRATTY_LEXICON="))
+    assert lexicon.startswith("NARRATTY_LEXICON=/cache/lexicons/"), "host lexicon levels travel via the cache"
 
 
 @pytest.fixture

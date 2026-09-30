@@ -200,6 +200,7 @@ class _Invocation:
         self, command: str, spec_file: Path, engine: Runtime, image: str, extra: Sequence[str]
     ) -> None:
         from narratty.paths import cache_dir, data_dir
+        from narratty.tts.lexicon import ENV_OVERRIDE, export_host_entries
 
         cache, data = cache_dir(), data_dir()
         for directory in (cache, data):
@@ -213,6 +214,9 @@ class _Invocation:
         self.volumes: list[str] = []
         self.args = [command, f"/spec/{spec_file.name}", "--runtime", "native", "--offline", *extra]
         self.env = {"NARRATTY_DATA_DIR": "/data", "NARRATTY_CACHE_DIR": "/cache"}
+        # The user's and the project's lexicon files are not mounted; hand over their merged entries.
+        lexicon = export_host_entries(spec_file, cache / "lexicons")
+        self.env[ENV_OVERRIDE] = f"/cache/lexicons/{lexicon.name}"
         self.network = "none"
 
     def add_output(self, output: Path) -> None:

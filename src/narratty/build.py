@@ -19,6 +19,7 @@ from narratty.render.tape import generate_tape
 from narratty.spec import load_spec
 from narratty.spec.model import Spec
 from narratty.timeline import Timeline, build_timeline
+from narratty.tts.lexicon import load_lexicon
 from narratty.tts.registry import get_provider
 from narratty.tts.synth import Clip, synthesize_spec
 from narratty.workspace import PreparedWorkspace, export_artifacts, prepare_workspace
@@ -65,7 +66,8 @@ def plan(spec_path: Path, *, offline: bool = False, end_card: bool | None = None
     """
     spec = with_end_card(load_spec(spec_path), end_card)
     provider = get_provider(spec.tts.provider, data_dir())
-    clips = synthesize_spec(spec, provider, AudioCache(cache_dir()), download=not offline)
+    lexicon = load_lexicon(spec_path, spec.tts)
+    clips = synthesize_spec(spec, provider, AudioCache(cache_dir()), download=not offline, lexicon=lexicon)
     timeline = build_timeline(spec, {clip.scene_id: clip.duration_ms for clip in clips})
     return Plan(spec_path, spec, tuple(clips), timeline)
 
