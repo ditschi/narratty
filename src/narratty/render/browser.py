@@ -18,6 +18,7 @@ import json
 import os
 import select
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
@@ -193,7 +194,8 @@ def capture(
     path.parent.mkdir(parents=True, exist_ok=True)
     to_chromium, chromium_in = os.pipe()
     chromium_out, from_chromium = os.pipe()
-    with tempfile.TemporaryDirectory(prefix="narratty-chromium-") as profile:
+    # Chromium's helper processes may still write to the profile while it is removed.
+    with tempfile.TemporaryDirectory(prefix="narratty-chromium-", ignore_cleanup_errors=True) as profile:
         argv = [
             chromium,
             "--headless",
@@ -213,6 +215,7 @@ def capture(
             stderr=subprocess.DEVNULL,  # chatty; an undrained pipe would block it
             pass_fds=(3, 4),
             preexec_fn=lambda: _pipe_fds(to_chromium, from_chromium),  # noqa: PLW1509
+            start_new_session=True,  # so its helper processes can be stopped with it
         )
         os.close(to_chromium)
         os.close(from_chromium)
@@ -261,8 +264,10 @@ def capture(
         finally:
             os.close(chromium_in)
             os.close(chromium_out)
-            if process.poll() is None:
-                process.kill()
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                process.wait(timeout=5)
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
             process.wait()
     return distance
 
