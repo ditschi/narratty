@@ -84,6 +84,41 @@ if (overlays.length) tick();
 """
 
 
+_BROWSER_CSS = """
+.browser {
+  position: absolute; inset: 0; z-index: 5; overflow: hidden; background: #fff;
+  pointer-events: none; opacity: 0; transition: opacity 0.2s;
+}
+.browser.on { opacity: 1; }
+.browser img { display: block; width: 100%; }
+.browser .view { overflow: hidden; }
+"""
+
+_BROWSER_JS = """
+const views = browsers.map((b) => {
+  const el = document.createElement("div");
+  el.className = "browser";
+  el.innerHTML = '<img class="bar" alt=""><div class="view"><img class="page" alt=""></div>';
+  el.querySelector(".bar").src = b.bar;
+  el.querySelector(".page").src = b.page;
+  el.querySelector(".view").style.height = b.view_height + "cqw";
+  stage.appendChild(el);
+  return el;
+});
+async function browse() {
+  const t = await player.getCurrentTime();
+  browsers.forEach((b, i) => {
+    views[i].classList.toggle("on", t >= b.start && t < b.end);
+    const [from, to] = b.scroll;
+    const p = Math.min(1, Math.max(0, (t - from) / Math.max(to - from, 0.001)));
+    views[i].querySelector(".page").style.translate = "0 " + (-p * b.scroll_by) + "cqw";
+  });
+  requestAnimationFrame(browse);
+}
+if (browsers.length) browse();
+"""
+
+
 def player_page(
     title: str,
     cast: str,
@@ -91,11 +126,13 @@ def player_page(
     *,
     theme: str | None = None,
     overlays: Sequence[Mapping[str, object]] = (),
+    browsers: Sequence[Mapping[str, object]] = (),
 ) -> str:
     """The page for ``cast`` with ``audio`` (MP3) embedded as a data URL.
 
     ``overlays`` (see ``narratty.render.overlays.page_overlays``) are drawn over the
-    player and follow its clock.
+    player and follow its clock, as do ``browsers`` (see
+    ``narratty.render.browser.page_views``), below the overlays.
     """
     audio_url = "data:audio/mpeg;base64," + base64.b64encode(audio.read_bytes()).decode("ascii")
     options: dict[str, object] = {"audioUrl": audio_url, "fit": "width", "preload": True}
@@ -110,7 +147,7 @@ def player_page(
 <link rel="stylesheet" href="{_CDN}/asciinema-player.css" integrity="{_CSS_SRI}" crossorigin="anonymous">
 <style>
 body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: #1e1e1e; }}
-{_OVERLAY_CSS}</style>
+{_OVERLAY_CSS}{_BROWSER_CSS}</style>
 </head>
 <body>
 <div id="stage"><div id="player"></div></div>
@@ -120,7 +157,8 @@ const player = AsciinemaPlayer.create(
   {{ data: {_script_json(cast)} }}, document.getElementById("player"), {_script_json(options)}
 );
 const overlays = {_script_json(list(overlays))};
-{_OVERLAY_JS}</script>
+const browsers = {_script_json(list(browsers))};
+{_OVERLAY_JS}{_BROWSER_JS}</script>
 </body>
 </html>
 """

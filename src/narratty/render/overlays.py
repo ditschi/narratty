@@ -177,6 +177,11 @@ class OverlayImage:
     y: str
     start_ms: int
     end_ms: int
+    # A tall image shows ``view_px`` rows at a time, scrolling down by ``scroll_px``
+    # between ``scroll_ms`` (start and end).
+    view_px: int = 0
+    scroll_px: int = 0
+    scroll_ms: tuple[int, int] = (0, 0)
 
 
 def margin_px(font_size: int) -> int:
@@ -284,8 +289,13 @@ def filter_graph(overlays: Sequence[OverlayImage], first_input: int, source: str
     for number, overlay in enumerate(overlays):
         start, end = overlay.start_ms / 1000, overlay.end_ms / 1000
         length = min(fade, (end - start) / 2)
+        crop = ""
+        if overlay.view_px:
+            begin, until = (ms / 1000 for ms in overlay.scroll_ms)
+            progress = f"clip((t-{begin:.3f})/{max(until - begin, 0.001):.3f},0,1)"
+            crop = f"crop=w=iw:h={overlay.view_px}:x=0:y='{overlay.scroll_px}*{progress}',"
         parts.append(
-            f"[{first_input + number}:v]format=rgba,"
+            f"[{first_input + number}:v]{crop}format=rgba,"
             f"fade=t=in:st={start:.3f}:d={length:.3f}:alpha=1,"
             f"fade=t=out:st={end - length:.3f}:d={length:.3f}:alpha=1[ov{number}]"
         )

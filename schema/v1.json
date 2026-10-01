@@ -2,6 +2,62 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json",
   "$defs": {
+    "Browser": {
+      "additionalProperties": false,
+      "description": "A web page or local HTML file. ``browser: URL`` is short for ``browser: {url: URL}``.",
+      "properties": {
+        "url": {
+          "description": "An http(s) URL, or an HTML file in the workspace.",
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "scroll": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "minimum": 0,
+              "type": "integer"
+            }
+          ],
+          "default": "none",
+          "description": "Scroll down while shown: auto (to the end of the page, at most 4 screens) or this many pixels.",
+          "title": "Scroll"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hide after this long; by default it stays until the scene ends.",
+          "title": "Duration Ms"
+        },
+        "load_ms": {
+          "default": 5000,
+          "description": "How long the page may load before it is captured.",
+          "exclusiveMinimum": 0,
+          "title": "Load Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "Browser",
+      "type": "object"
+    },
     "CtrlSequence": {
       "additionalProperties": false,
       "description": "Send a control chord such as ``C-c``.",
@@ -588,6 +644,9 @@
               },
               {
                 "$ref": "#/$defs/ShowOverlay"
+              },
+              {
+                "$ref": "#/$defs/ShowBrowser"
               }
             ]
           },
@@ -626,6 +685,29 @@
         "id"
       ],
       "title": "Scene",
+      "type": "object"
+    },
+    "ShowBrowser": {
+      "additionalProperties": false,
+      "description": "Show a web page over the terminal from this point, as Chromium renders it.",
+      "properties": {
+        "browser": {
+          "anyOf": [
+            {
+              "description": "The URL or file; short for {url: ...}.",
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Browser"
+            }
+          ]
+        }
+      },
+      "required": [
+        "browser"
+      ],
+      "title": "ShowBrowser",
       "type": "object"
     },
     "ShowOverlay": {
