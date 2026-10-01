@@ -114,6 +114,10 @@ def run_vhs(
                 if on_line is not None:
                     on_line(line, pid)
     except (subprocess.CalledProcessError, OSError):
+        from narratty.sh import error_in
+
+        if message := error_in("\n".join(line.text for line in log)):
+            raise RenderError(message) from None
         tail = "\n".join(line.text for line in log[-5:] if line.text) or "no output"
         raise RenderError(
             f"VHS failed:\n{tail}", hint=f"The tape is at {tape}; run `vhs {tape}` to debug."

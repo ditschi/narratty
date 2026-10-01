@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from narratty.editor import decode_path
+from narratty import diff, editor, sh
 from narratty.render.script import (
     Ctrl,
+    HelperPlacement,
     Hide,
     Mark,
     Press,
@@ -16,12 +17,12 @@ from narratty.render.script import (
     Type,
     WaitScreen,
     build_script,
-    encode_path,
 )
 from narratty.spec.loader import parse_spec
 from narratty.timeline import build_timeline
 
-PY = "/opt/py/bin/python"
+BASE = "/work/diff-base"
+HERE = HelperPlacement(diff_base=BASE)
 
 EDITOR = """\
 terminal: {layout: editor, prompt: "> "}
@@ -44,10 +45,12 @@ scenes:
 """
 
 
-def _script(text: str, audio: dict[str, int] | None = None) -> list[Step]:
+def _script(
+    text: str, audio: dict[str, int] | None = None, placement: HelperPlacement | None = None
+) -> list[Step]:
     spec = parse_spec(text, Path("t.narratty.yaml"))
     timeline = build_timeline(spec, audio or {"look": 1000, "after": 1000})
-    return build_script(spec, timeline, python=PY)
+    return build_script(spec, timeline, placement=placement or HERE)
 
 
 def _scene(steps: list[Step], scene_id: str) -> list[Step]:
@@ -65,22 +68,22 @@ def test_setup_records_the_baseline_and_builds_the_layout() -> None:
     setup = steps[: steps.index(Show())]
     assert setup[:4] == [
         Hide(),
-        Type(f"'{PY}' -m narratty.diff start", 1),
+        Type(diff.start_command(BASE), 1),
         Press("Enter", 1),
-        WaitScreen("diff baseline ready", 300_000),
+        WaitScreen("diff baseline ready", 300_000, fail=sh.ERROR),
     ]
     assert Type("PS1='> '; clear", 1) in setup
-    start = f"'{PY}' -m narratty.editor start --shell bash --prompt '> '"
-    assert setup[-4:-1] == [Type(start, 1), Press("Enter", 1), WaitScreen("Terminal", 15_000)]
+    start = next(s.text for s in setup if isinstance(s, Type) and "exec tmux" in s.text)
+    assert start.startswith(f"sh -c '{sh.need(editor.TOOLS, 'the editor layout', 'on this machine')}; ")
+    assert "bash --noprofile --norc +o history" in start and "PS1=" in start
+    assert setup[-3:-1] == [Press("Enter", 1), WaitScreen("Terminal", 15_000, fail=sh.ERROR)]
 
 
 def test_editor_actions_run_hidden_through_the_tmux_prompt() -> None:
     look = _scene(_script(EDITOR), "look")
-    reveal = f"run-shell \"'{PY}' -m narratty.editor reveal {encode_path('src/a b.py')}\""
-    popup = (
-        'display-popup -E -w 90% -h 85% -T " Diff " '
-        f"\"'{PY}' -m narratty.diff show --wait {encode_path('src')} {encode_path('README.md')}\""
-    )
+    reveal = f"run-shell {sh.tmux_arg(editor.reveal_script('src/a b.py'))}"
+    show = sh.tmux_arg(diff.show_script(BASE, ["src", "README.md"], wait=True))
+    popup = f'display-popup -E -w 90% -h 85% -T " Diff " {show}'
     assert look[:7] == [Hide(), *_tmux("select-pane -t :.1"), Sleep(100), Show()]
     assert look[7:14] == [Hide(), *_tmux(reveal), Sleep(600), Show()]
     assert look[14:21] == [Hide(), *_tmux(popup), Sleep(1000), Show()]
@@ -112,7 +115,7 @@ def test_plain_layout_prints_the_diff_in_the_shell() -> None:
     steps = _script("end_card: false\nscenes:\n  - id: after\n    narration: Hi.\n    actions: [diff]\n")
     assert _scene(steps, "after")[:4] == [
         Hide(),
-        Type(f"clear; '{PY}' -m narratty.diff show", 1),
+        Type(f"clear; {sh.command(diff.show_script(BASE))}", 1),
         Press("Enter", 1),
         Sleep(1000),
     ]
@@ -124,7 +127,14 @@ def test_no_baseline_without_diff() -> None:
     assert not any(isinstance(s, WaitScreen) for s in steps)
 
 
-def test_encoded_paths_survive_quoting() -> None:
-    path = 'it\'s "$x" #1/ä.py'
-    assert encode_path(path).isalnum()
-    assert decode_path(encode_path(path)) == path
+def test_the_terminal_pane_can_be_a_bridge_while_the_recorder_shell_stays_local() -> None:
+    bridged = HelperPlacement(diff_base=BASE, terminal="docker exec -it env bash")
+    setup = _script(EDITOR, placement=bridged)
+    start = next(s.text for s in setup if isinstance(s, Type) and "exec tmux" in s.text)
+    assert "docker exec -it env bash" in start
+    assert Type("PS1='> '; clear", 1) in setup, "the local shell's prompt, set before tmux starts"
+
+
+def test_a_helper_error_ends_the_waits() -> None:
+    waits = [s for s in _script(EDITOR) if isinstance(s, WaitScreen) and s.pattern != "Created with narratty"]
+    assert len(waits) == 2 and all(w.fail == sh.ERROR for w in waits)

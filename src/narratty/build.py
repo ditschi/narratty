@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from narratty.cache import AudioCache
-from narratty.diff import BASE_ENV as DIFF_BASE_ENV
 from narratty.end_card import with_end_card
 from narratty.errors import RenderError, SyncError
 from narratty.paths import cache_dir, data_dir
@@ -33,6 +32,7 @@ if TYPE_CHECKING:
     from narratty.container import SandboxRequest
     from narratty.render.overlays import OverlayImage
     from narratty.render.pauses import Insert, JobWatch
+    from narratty.render.script import HelperPlacement
     from narratty.render.tape import Tape
     from narratty.spec.model import Environment
 
@@ -153,10 +153,34 @@ def warn_unenforced_sandbox(spec: Spec, log: Log, request: SandboxRequest | None
         log("sandbox settings are only enforced in a container; running natively with your own access")
 
 
-def recording_env(spec: Spec, work: Path) -> dict[str, str]:
+def recording_env(spec: Spec) -> dict[str, str]:
     """Environment the recorded shell gets on top of the usual one."""
-    # The diff baseline lives in the work directory, so it is removed with it.
-    return {**spec.sandbox.env, DIFF_BASE_ENV: str(work / "diff-base")}
+    return dict(spec.sandbox.env)
+
+
+def placement_for(
+    planned: Plan, work: Path, bridge: Sequence[str] | None, request: SandboxRequest | None = None
+) -> HelperPlacement:
+    """Where the demo's shell and narratty's helpers (editor layout, diff) run.
+
+    Without a project environment, here. With one, the shell runs there, and so does
+    anything typed into it. The editor layout is the exception when narratty shares the
+    workspace with the environment (image, compose): tmux and yazi stay here, and only
+    the layout's terminal pane opens the shell there. The diff baseline then lives in
+    the work directory, which is removed with it; in the environment it is a temp dir.
+    """
+    from narratty.render.script import HelperPlacement
+    from narratty.render.shell_hooks import SHELL_ARGV
+
+    spec = planned.spec
+    if bridge is None:
+        return HelperPlacement(diff_base=str(work / "diff-base"))
+    environment = _environment(spec, request)
+    where = "in the project environment"
+    if spec.terminal.layout == "editor" and environment is not None and environment.source != "container":
+        terminal = shlex.join([*bridge, *SHELL_ARGV[spec.terminal.shell]])
+        return HelperPlacement(diff_base=str(work / "diff-base"), terminal=terminal, where="on this machine")
+    return HelperPlacement(diff_base=f"/tmp/narratty-diff-{uuid.uuid4().hex[:12]}", bridged=True, where=where)  # noqa: S108
 
 
 def _environment(spec: Spec, request: SandboxRequest | None) -> Environment | None:
@@ -291,6 +315,7 @@ def render_silent(
     *,
     fast: bool = False,
     log: Log | None = None,
+    request: SandboxRequest | None = None,
 ) -> timelapse.Layout | None:
     """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``.
 
@@ -324,7 +349,7 @@ def render_silent(
         framerate=framerate,
         marks=marks,
         exit_log=(exit_log := fresh_exit_log(work, bridge)),
-        remote=bridge is not None,
+        placement=(placement := placement_for(planned, work, bridge, request)),
         fast=fast,
     )
     tape_path.write_text(tape.text, encoding="utf-8")
@@ -333,9 +358,9 @@ def render_silent(
         from narratty.render.pauses import JobWatch
 
         jobs = JobWatch(tape.pauses)
-    extra_env = recording_env(planned.spec, work)
-    if bridge is not None:
-        extra_env["PATH"] = shim_env(work / "shims", bridge, os.environ)["PATH"]
+    extra_env = recording_env(planned.spec)
+    if placement.bridged:
+        extra_env["PATH"] = shim_env(work / "shims", bridge or [], os.environ)["PATH"]
     vhs_log = media.run_vhs(
         tape_path, workspace, extra_env=extra_env, on_line=_progress_watch(jobs) if jobs else None
     )
@@ -534,7 +559,9 @@ def build(
     ):
         say(f"recording {len(planned.timeline.scenes)} scenes with VHS")
         silent = work / "silent.mp4"
-        layout = render_silent(planned, silent, work, ws.path, bridge, fast=fast or draft, log=say)
+        layout = render_silent(
+            planned, silent, work, ws.path, bridge, fast=fast or draft, log=say, request=sandbox
+        )
         video_ms = media.probe(silent).duration_ms
         if layout is None or not layout.segments:
             expected_ms, placements = planned.timeline.total_ms, place_clips(planned, video_ms)
@@ -649,21 +676,23 @@ def build_cast(
         environment_bridge(planned, ws, sandbox, say) as bridge,
     ):
         say(f"recording {len(planned.timeline.scenes)} scenes as an asciicast")
-        env = {**os.environ, **recording_env(spec, work)}
-        if bridge is not None:
-            env = shim_env(work / "shims", bridge, env)
+        env = {**os.environ, **recording_env(spec)}
+        placement = placement_for(planned, work, bridge, sandbox)
+        if placement.bridged:
+            env = shim_env(work / "shims", bridge or [], env)
         recording = record(
             build_script(
                 spec,
                 planned.timeline,
                 exit_log=(exit_log := fresh_exit_log(work, bridge)),
-                remote=bridge is not None,
+                placement=placement,
             ),
             terminal=spec.terminal,
             cwd=ws.path,
             env=env,
             title=spec.meta.title,
             fast=fast,
+            shell=placement.shell(spec),
         )
         collect_exit_log(bridge, exit_log, work)
         outputs.page.parent.mkdir(parents=True, exist_ok=True)

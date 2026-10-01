@@ -161,6 +161,22 @@ the image. `toolkit: fallback` puts it last, so the image's own tools win;
 `toolkit: off` leaves it out. Without the toolkit image (offline, no access to GHCR)
 the demo runs without it.
 
+## Editor layout and diff
+
+Both are plain shell commands, so they need no narratty in the container.
+
+- `terminal.layout: editor` with `image` or `compose`: `tmux` and `yazi` run next to
+  narratty (they are in the narratty image and the native install's `PATH`); only the
+  terminal pane opens the shell in the environment. `reveal` and `diff` see the same
+  workspace on both sides.
+- With `container`, narratty shares no workspace with the container, so the whole
+  layout runs in it. It needs `tmux`, `yazi` and `ya` there. To use the
+  [toolkit](toolkit.md), start the container from a Compose file instead.
+- `diff` outside the editor layout runs in the environment's shell and needs `git`
+  there.
+
+A missing tool fails the build with a message that names it and where it is missing.
+
 ## Keep it running
 
 ```bash

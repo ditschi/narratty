@@ -87,6 +87,6 @@ def render_command(
         workspace_for(planned, request.workspace, request) as ws,
         environment_bridge(planned, ws, request) as bridge,
     ):
-        render_silent(planned, video, work, ws.path, bridge)
+        render_silent(planned, video, work, ws.path, bridge, request=request)
         check_exits(planned, work, video, ignore_exit=ignore_exit)
     err.print(f"[green]wrote[/] {video}", highlight=False, soft_wrap=True)

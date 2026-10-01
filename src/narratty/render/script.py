@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import re
 import sys
-from dataclasses import dataclass
+import tempfile
+from dataclasses import dataclass, field
 from pathlib import Path
 
-from narratty.diff import READY as DIFF_READY
+from narratty import diff, editor, sh
+from narratty.editor import TERMINAL_TITLE
 from narratty.end_card import CREDIT
 from narratty.render.shell_hooks import exit_hook
 from narratty.spec.model import (
@@ -67,11 +69,16 @@ class Sleep:
 
 @dataclass(frozen=True)
 class WaitScreen:
-    """Block until the screen (or with ``line``, the cursor's line) matches ``pattern``."""
+    """Block until the screen (or with ``line``, the cursor's line) matches ``pattern``.
+
+    With ``fail``, a screen matching it ends the wait at once and fails the build; its
+    first group is the message.
+    """
 
     pattern: str
     timeout_ms: int
     line: bool = False
+    fail: str | None = None
 
 
 @dataclass(frozen=True)
@@ -125,8 +132,6 @@ END_CUE = "end"
 END_CARD_TIMEOUT_MS = 30_000
 LAYOUT_TIMEOUT_MS = 15_000
 BASELINE_TIMEOUT_MS = 300_000
-# Pane titles of the editor layout; the setup waits for the terminal's.
-EXPLORER_TITLE, TERMINAL_TITLE = "Explorer", "Terminal"
 PANES = {"explorer": ":.1", "terminal": ":.2"}
 
 
@@ -152,15 +157,6 @@ def prompt_pattern(prompt: str) -> str:
     return f"^{escaped}\\s*$"
 
 
-def encode_path(path: str) -> str:
-    """``path`` as hex, so it passes tmux and shell quoting unchanged."""
-    return path.encode().hex()
-
-
-def _module(python: str, module: str, *args: str) -> str:
-    return " ".join([_shell_quote(python), "-m", f"narratty.{module}", *args])
-
-
 def hidden(steps: list[Step], settle_ms: int = 300) -> list[Step]:
     """``steps`` unrecorded, then ``settle_ms`` for the screen to catch up."""
     return [Hide(), *steps, Sleep(settle_ms), Show()]
@@ -171,29 +167,51 @@ def tmux_command(command: str) -> list[Step]:
     return [Ctrl("B"), Type(":", 1), Type(command, 1), Press("Enter", 1)]
 
 
-def _tmux_string(text: str) -> str:
-    """A double-quoted tmux argument (``text`` holds no ``"``, ``\\``, ``$`` or ``#``)."""
-    return f'"{text}"'
+def _default_diff_base() -> str:
+    return str(Path(tempfile.gettempdir()) / "narratty-diff")
+
+
+@dataclass(frozen=True)
+class HelperPlacement:
+    """Where the parts of the demo run, decided by ``narratty.build``.
+
+    ``diff_base`` is the diff baseline's directory, on the side that runs the diff
+    commands. ``terminal`` is the editor layout's terminal pane command (default: the
+    shell); with a project environment whose workspace narratty shares, it is the
+    bridge, so tmux and yazi run here and only the shell runs there. ``bridged``: the
+    recorder's own shell is the project environment's. ``where`` names that side in
+    the message about a missing tool.
+    """
+
+    diff_base: str = field(default_factory=_default_diff_base)
+    terminal: str | None = None
+    bridged: bool = False
+    where: str = "on this machine"
+
+    def shell(self, spec: Spec) -> str:
+        """The recorder's own shell: ``sh`` when the terminal pane is a bridge (the
+        spec's shell may only exist in the environment), else the spec's."""
+        return "sh" if self.terminal else spec.terminal.shell
 
 
 @dataclass(frozen=True)
 class Context:
-    """What action steps depend on beyond the action: the layout, the helper interpreter
+    """What action steps depend on beyond the action: the layout, where its helpers run
     and the prompt (``wait: {prompt: true}`` waits for it)."""
 
     editor: bool
-    python: str
+    placement: HelperPlacement = field(default_factory=HelperPlacement)
     prompt: str = "$ "
 
 
 def diff_steps(action: Diff, context: Context) -> list[Step]:
     """Show the diff: a popup in the editor layout, else printed in the shell."""
-    paths = [encode_path(path) for path in action.paths]
+    base = context.placement.diff_base
     if context.editor:
-        show = _module(context.python, "diff", "show", "--wait", *paths)
-        popup = f'display-popup -E -w 90% -h 85% -T " Diff " {_tmux_string(show)}'
+        show = sh.tmux_arg(diff.show_script(base, action.paths, wait=True))
+        popup = f'display-popup -E -w 90% -h 85% -T " Diff " {show}'
         return hidden(tmux_command(popup), 1000)
-    show = _module(context.python, "diff", "show", *paths)
+    show = sh.command(diff.show_script(base, action.paths))
     return hidden([Type(f"clear; {show}", 1), Press("Enter", 1)], 1000)
 
 
@@ -206,8 +224,8 @@ def editor_steps(action: Focus | Reveal, context: Context) -> list[Step]:
     """Steps for the editor layout's own actions."""
     if isinstance(action, Focus):
         return hidden(tmux_command(f"select-pane -t {PANES[action.focus]}"), 100)
-    reveal = _module(context.python, "editor", "reveal", encode_path(action.reveal))
-    return hidden(tmux_command(f"run-shell {_tmux_string(reveal)}"), 600)
+    reveal = sh.tmux_arg(editor.reveal_script(action.reveal))
+    return hidden(tmux_command(f"run-shell {reveal}"), 600)
 
 
 def _then_sleep(steps: list[Step], ms: int) -> list[Step]:
@@ -225,7 +243,7 @@ def _key_steps(action: Enter | Key | CtrlSequence, speed: int) -> list[Step]:
 
 def action_steps(action: Action, pace: Pacing, context: Context | None = None) -> list[Step]:
     """Steps for one action (``hold: auto`` is placed by the caller)."""
-    context = context or Context(editor=False, python=sys.executable)
+    context = context or Context(editor=False)
     if isinstance(action, Diff):
         return diff_steps(action, context)
     if isinstance(action, Focus | Reveal):
@@ -286,14 +304,16 @@ def _timelapse_steps(scene: Scene, timing: SceneTiming, pace: Pacing, context: C
     return [Mark(scene.id, timelapse=timing.timelapse), *actions, end]
 
 
-def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | None = None) -> list[Step]:
+def scene_steps(
+    spec: Spec, scene: Scene, timing: SceneTiming, *, placement: HelperPlacement | None = None
+) -> list[Step]:
     """Steps for one scene, with its fill pause at ``hold: auto`` or at the end.
 
     In the editor layout a diff popup stays open until the next action that sends
     keys, or the end of the scene.
     """
     pace = pacing(spec, scene)
-    context = Context(spec.terminal.layout == "editor", python or sys.executable, spec.terminal.prompt)
+    context = Context(spec.terminal.layout == "editor", placement or HelperPlacement(), spec.terminal.prompt)
     if timing.timelapse:
         return _timelapse_steps(scene, timing, pace, context)
     fill_at_hold = scene.narration_start == "with_actions"
@@ -322,13 +342,16 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | 
     return _end_hidden(steps, context) if scene.hidden else steps
 
 
-def end_card_steps(spec: Spec, timeline: Timeline, python: str, *, remote: bool = False) -> list[Step]:
+def end_card_steps(
+    spec: Spec, timeline: Timeline, python: str, *, remote: bool = False, local_shell: str | None = None
+) -> list[Step]:
     """Draw the end card while hidden, then keep it on screen for its duration.
 
     ``remote``: the shell runs in a project environment without narratty. Leaving it
     drops to a local ``sh`` (see ``narratty.bridge``), which draws the card.
+    ``local_shell``: the recorder's shell, when it is not the spec's.
     """
-    shell = "sh" if remote else spec.terminal.shell
+    shell = "sh" if remote else spec.terminal.shell if local_shell is None else local_shell
     command = f"{prompt_setup(shell, '')}; {_shell_quote(python)} -m narratty.end_card"
     if not spec.end_card.qr:
         command += " --no-qr"
@@ -345,35 +368,39 @@ def end_card_steps(spec: Spec, timeline: Timeline, python: str, *, remote: bool 
     ]
 
 
-def setup_steps(spec: Spec, python: str | None = None, exit_log: Path | None = None) -> list[Step]:
+def setup_steps(
+    spec: Spec, placement: HelperPlacement | None = None, exit_log: Path | None = None
+) -> list[Step]:
     """Unrecorded: record the diff baseline, set the prompt, clear, build the layout.
 
     With ``exit_log``, the demo's shell also logs its commands' exit codes there (in the
     editor layout, the shell in the terminal pane).
     """
     term = spec.terminal
-    python = python or sys.executable
+    placement = placement or HelperPlacement()
     steps: list[Step] = [Hide()]
     if spec.uses_diff:
-        steps += [Type(_module(python, "diff", "start"), 1), Press("Enter", 1)]
-        steps.append(WaitScreen(DIFF_READY, BASELINE_TIMEOUT_MS))
+        steps += [Type(diff.start_command(placement.diff_base, placement.where), 1), Press("Enter", 1)]
+        steps += _wait_or_fail(diff.READY, BASELINE_TIMEOUT_MS)
     # The pause is hidden, so it costs no time; it lets `clear` finish.
-    editor = term.layout == "editor"
-    setup = prompt_setup(term.shell, term.prompt, None if editor else exit_log)
+    in_editor = term.layout == "editor"
+    setup = prompt_setup(placement.shell(spec), term.prompt, None if in_editor else exit_log)
     steps += [Type(setup, 1), Press("Enter", 1), Sleep(500)]
-    if editor:
-        start = _module(
-            python, "editor", "start", "--shell", term.shell, "--prompt", _shell_quote(term.prompt)
+    if in_editor:
+        start = editor.start_command(
+            term.shell,
+            prompt_setup(term.shell, term.prompt, exit_log),
+            terminal=placement.terminal,
+            where=placement.where,
         )
-        if exit_log:
-            start += f" --exit-log {_shell_quote(str(exit_log))}"
-        steps += [
-            Type(start, 1),
-            Press("Enter", 1),
-            WaitScreen(TERMINAL_TITLE, LAYOUT_TIMEOUT_MS),
-            Sleep(1500),
-        ]
+        steps += [Type(start, 1), Press("Enter", 1), *_wait_or_fail(TERMINAL_TITLE, LAYOUT_TIMEOUT_MS)]
+        steps.append(Sleep(1500))
     return [*steps, Show()]
+
+
+def _wait_or_fail(pattern: str, timeout_ms: int) -> list[Step]:
+    """Wait for ``pattern``; a helper's ``narratty error:`` fails the build at once."""
+    return [WaitScreen(pattern, timeout_ms, fail=sh.ERROR)]
 
 
 def teardown_steps(spec: Spec) -> list[Step]:
@@ -389,23 +416,26 @@ def build_script(
     *,
     python: str | None = None,
     exit_log: Path | None = None,
-    remote: bool = False,
+    placement: HelperPlacement | None = None,
 ) -> list[Step]:
     """Every step of the recording, from prompt setup to the end card.
 
     ``python`` is the interpreter that draws the end card (default: the running one);
     ``exit_log`` receives the commands' exit codes (see ``narratty.render.exits``);
-    ``remote`` says the shell runs in a project environment.
+    ``placement`` says where the shell and the helpers run.
     """
     python = python or sys.executable
-    steps = setup_steps(spec, python, exit_log)
+    placement = placement or HelperPlacement()
+    steps = setup_steps(spec, placement, exit_log)
     if timeline.lead_in_ms:
         steps.append(Sleep(timeline.lead_in_ms))
     for scene in spec.scenes:
-        steps += scene_steps(spec, scene, timeline.scene(scene.id), python=python)
+        steps += scene_steps(spec, scene, timeline.scene(scene.id), placement=placement)
     steps.append(Cue(END_CUE))
     if timeline.tail_ms:
         steps.append(Sleep(timeline.tail_ms))
     if timeline.end_card_ms:
-        steps += teardown_steps(spec) + end_card_steps(spec, timeline, python, remote=remote)
+        steps += teardown_steps(spec) + end_card_steps(
+            spec, timeline, python, remote=placement.bridged, local_shell=placement.shell(spec)
+        )
     return steps

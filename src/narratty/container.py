@@ -158,18 +158,10 @@ def _check_environment_fits(spec: Spec, sandbox: Sandbox) -> None:
     """Fail on what does not work yet when the demo shell runs in a project environment."""
     from narratty.errors import UsageError
 
-    unsupported = []
     if sandbox.docker:
-        unsupported.append("sandbox.docker")
-    if spec.terminal.layout == "editor":
-        unsupported.append("terminal.layout: editor")
-    if spec.uses_diff:
-        unsupported.append("the diff action")
-    if unsupported:
         raise UsageError(
-            f"{', '.join(unsupported)} cannot be combined with an environment yet",
-            hint="They need narratty's helpers or your engine in the demo shell, and the "
-            "project environment has neither.",
+            "sandbox.docker cannot be combined with an environment yet",
+            hint="It needs your engine in the demo shell, and the project environment has none.",
         )
 
 
