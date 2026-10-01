@@ -98,6 +98,7 @@ def test_narration_whitespace_is_collapsed() -> None:
         ({"id": "Bad Id"}, "String should match pattern"),
         ({"id": "a", "actions": [{"hold": 0}]}, "positive number"),
         ({"id": "a", "actions": [{"key": "F13"}]}, "unknown key"),
+        ({"id": "a", "actions": [{"key": "End"}]}, "unknown key"),
         ({"id": "a", "actions": [{"ctrl_sequence": "C-cc"}]}, "String should match pattern"),
         ({"id": "a", "actions": [{"wait": {"screen": "("}}]}, "regular expression"),
         ({"id": "a", "actions": [{"type_command": "ls", "enter": True}]}, "exactly one"),

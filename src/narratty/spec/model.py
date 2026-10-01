@@ -25,14 +25,13 @@ SCENE_ID_PATTERN = r"^[a-z0-9][a-z0-9_-]*$"
 HOST_PORT_PATTERN = r"^[A-Za-z0-9.-]+:[0-9]{1,5}$"
 
 # Special keys VHS understands (optionally followed by a repeat count, e.g. "Down 3").
+# VHS has no Home or End.
 VHS_KEYS = (
     "Backspace",
     "Delete",
     "Down",
-    "End",
     "Enter",
     "Escape",
-    "Home",
     "Insert",
     "Left",
     "PageDown",
