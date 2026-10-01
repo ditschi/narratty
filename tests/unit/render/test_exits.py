@@ -10,8 +10,9 @@ import pytest
 
 from narratty.errors import CommandError, ExitCode
 from narratty.render.cast import record
-from narratty.render.exits import Exit, assign, check, exit_hook, parse_log, problems, typed_commands
+from narratty.render.exits import Exit, assign, check, parse_log, problems, typed_commands
 from narratty.render.script import build_script, prompt_setup
+from narratty.render.shell_hooks import exit_hook
 from narratty.spec.loader import parse_spec
 from narratty.spec.model import Spec
 from narratty.timeline import build_timeline
@@ -26,7 +27,7 @@ scenes:
     actions:
       - type_command: "make "
       - type_command: "all"
-      - enter
+      - key: Enter
       - enter
   - id: broken
     expect_exit: failure

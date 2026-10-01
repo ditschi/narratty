@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from narratty.end_card import CREDIT
-from narratty.render.exits import exit_hook
+from narratty.render.shell_hooks import exit_hook
 from narratty.spec.model import Action, CtrlSequence, Enter, Hold, Key, Scene, Spec, TypeCommand, Wait
 from narratty.timeline import SceneTiming, Timeline, typing_speed
 

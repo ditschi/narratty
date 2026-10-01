@@ -11,60 +11,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from narratty.errors import CommandError
-from narratty.spec.model import CtrlSequence, Enter, Key, Scene, Spec, TypeCommand
+from narratty.render.script import Ctrl, Press, Type, action_steps
+from narratty.spec.model import Scene, Spec
 
 # 128 + SIGINT / SIGTSTP: the scene stopped the command itself (C-c, C-z).
 INTERRUPTED = frozenset({130, 148})
 UNCHECKED_SHELLS = frozenset({"sh"})
-
-
-def _sh_quote(value: str) -> str:
-    return "'" + value.replace("'", "'\\''") + "'"
-
-
-def _fish_quote(value: str) -> str:
-    return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
-
-
-def exit_hook(shell: str, log: Path) -> str | None:
-    """Shell code that logs the exit code of every command line, or None for ``sh``."""
-    if shell == "bash":
-        # bash has no preexec. From 4.0, Enter first copies the line; bash 3.2 (macOS)
-        # lacks READLINE_LINE, so it turns history on (VHS turns it off) and reads it.
-        return (
-            "_narratty_line=; _narratty_last=; "
-            "if ((BASH_VERSINFO[0] >= 4)); then "
-            "bind -x '\"\\C-x\\C-n\": _narratty_line=$READLINE_LINE'; "
-            'bind \'"\\C-m": "\\C-x\\C-n\\C-j"\'; '
-            "else set -o history; fi; "
-            "_narratty_exit() { local s=$? h re='^ *[0-9]+[*]? +(.*)$'; "
-            "if ((BASH_VERSINFO[0] < 4)); then h=$(HISTTIMEFORMAT= builtin history 1); "
-            '[[ $h != "$_narratty_last" && $h =~ $re ]] && _narratty_line=${BASH_REMATCH[1]}; '
-            "_narratty_last=$h; fi; "
-            "[[ $_narratty_line = *[![:space:]]* ]] && "
-            f'printf \'%s\\t%s\\n\' "$s" "$_narratty_line" >>{_sh_quote(str(log))}; '
-            "_narratty_line=; return $s; }; "
-            "PROMPT_COMMAND=_narratty_exit"
-        )
-    if shell == "zsh":
-        return (
-            "_narratty_line=; "
-            "_narratty_pre() { _narratty_line=$1; }; "
-            "_narratty_exit() { local s=$?; "
-            "[[ $_narratty_line = *[^[:space:]]* ]] && "
-            f"print -r -- \"$s\"$'\\t'\"${{_narratty_line//$'\\n'/ }}\" >>{_sh_quote(str(log))}; "
-            "_narratty_line=; }; "
-            "preexec_functions+=(_narratty_pre); precmd_functions+=(_narratty_exit)"
-        )
-    if shell == "fish":
-        return (
-            "function _narratty_exit --on-event fish_postexec; set -l s $status; "
-            "string match -qr '\\S' -- $argv[1]; "
-            "and printf '%s\\t%s\\n' $s (string join ' ' -- (string split \\n -- $argv[1])) "
-            f">>{_fish_quote(str(log))}; "
-            "end"
-        )
-    return None
 
 
 @dataclass(frozen=True)
@@ -90,14 +42,14 @@ def typed_commands(spec: Spec) -> list[tuple[str, str]]:
     commands = []
     for scene in spec.scenes:
         line = ""
-        for action in scene.actions:
-            if isinstance(action, TypeCommand):
-                line += action.type_command
-            elif isinstance(action, Enter) or (isinstance(action, Key) and action.key.split()[0] == "Enter"):
+        for step in (step for action in scene.actions for step in action_steps(action, 1)):
+            if isinstance(step, Type):
+                line += step.text
+            elif isinstance(step, Press) and step.key == "Enter":
                 if line.strip():
                     commands.append((scene.id, line.strip()))
                 line = ""
-            elif isinstance(action, CtrlSequence):
+            elif isinstance(step, Ctrl):
                 line = ""
     return commands
 

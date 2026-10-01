@@ -175,7 +175,7 @@ it against the scene's `expect_exit` after recording:
 - id: typo
   narration: A typo gives a helpful error.
   expect_exit: failure
-  actions: [{type_command: "git stauts"}, enter]
+  actions: [{type_command: "git stauts"}, {key: Enter}]
 ```
 
 The build exits with code 7 and names each offending command; the video is still
