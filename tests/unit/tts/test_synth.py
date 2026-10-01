@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -34,6 +36,7 @@ class ToneProvider:
     """A provider whose 'speech' is a tone lasting 100 ms per word."""
 
     name = "tone"
+    concurrency = 1
 
     def __init__(self, *, available: bool = True, installed: bool = True) -> None:
         self.available = available
@@ -132,3 +135,49 @@ def test_lexicon_changes_only_what_is_spoken(tmp_path: Path) -> None:
         spec, again, AudioCache(tmp_path), lexicon=Lexicon([Entry(".bazelrc", "dot bazel", "spec")])
     )
     assert [c.cached for c in clips] == [False, True], "a changed respelling re-synthesizes that clip"
+
+
+class SlowToneProvider(ToneProvider):
+    """Records how many clips it synthesizes at once."""
+
+    concurrency = 4
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.running = 0
+        self.peak = 0
+        self.lock = threading.Lock()
+
+    def synthesize(self, text: str, voice: str, out: Path, options: Mapping[str, Any]) -> None:
+        with self.lock:
+            self.running += 1
+            self.peak = max(self.peak, self.running)
+        time.sleep(0.05)
+        super().synthesize(text, voice, out, options)
+        with self.lock:
+            self.running -= 1
+
+
+def test_missing_clips_are_synthesized_concurrently_in_scene_order(tmp_path: Path) -> None:
+    provider = SlowToneProvider()
+    seen: list[str] = []
+    logged: list[str] = []
+    clips = synthesize_spec(
+        parse_spec(SPEC, Path("t.narratty.yaml")),
+        provider,
+        AudioCache(tmp_path),
+        on_clip=lambda c: seen.append(c.scene_id),
+        log=logged.append,
+    )
+    assert provider.peak == 2
+    assert [c.scene_id for c in clips] == seen == ["intro", "outro"]
+    assert [c.duration_ms for c in clips] == [200, 500]
+    assert logged == ["2 of 2 narration clips not cached, synthesizing with tone"]
+
+
+def test_nothing_is_logged_when_every_clip_is_cached(tmp_path: Path) -> None:
+    cache = AudioCache(tmp_path)
+    synthesize_spec(parse_spec(SPEC, Path("t.narratty.yaml")), ToneProvider(), cache)
+    logged: list[str] = []
+    synthesize_spec(parse_spec(SPEC, Path("t.narratty.yaml")), ToneProvider(), cache, log=logged.append)
+    assert logged == []

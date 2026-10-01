@@ -81,10 +81,13 @@ def test_scenes() -> None:
     assert intro == [
         'Type@40ms "make build"',
         "Enter@40ms",
-        "Sleep 1980ms",  # 2000 audio + 500 buffer - (10 chars + Enter + Down × 2) × 40 ms
+        "Sleep 100ms",  # timing.pause_ms after each key
+        "Sleep 1680ms",  # 2000 audio + 500 buffer - (10 chars + Enter + Down × 2) × 40 ms - 3 pauses
         "Wait+Screen@2000ms /built a\\/b/",
         "Down@40ms 2",
+        "Sleep 100ms",
         "Ctrl+L",
+        "Sleep 100ms",
     ]
 
 
@@ -93,8 +96,21 @@ def test_fill_goes_last_without_hold_auto() -> None:
         "scenes:\n  - id: a\n    narration: Hi.\n    actions: [{type_command: ls}, enter]\n", {"a": 1000}
     )
     scene = tape.split("# scene: a\n", 1)[1].split("\n\n", 1)[0].splitlines()
-    assert scene == ['Type@40ms "ls"', "Enter@40ms", "Sleep 1380ms"]
+    assert scene == ['Type@40ms "ls"', "Enter@40ms", "Sleep 100ms", "Sleep 1280ms"]
     assert tape.endswith("Sleep 1000ms\n")
+
+
+def test_run_types_presses_enter_and_holds() -> None:
+    tape = _tape("timing: {run_hold_ms: 700}\nscenes:\n  - id: a\n    actions: [{run: ls}, {run: pwd}]\n")
+    scene = tape.split("# scene: a\n", 1)[1].split("\n\n", 1)[0].splitlines()
+    assert scene == [
+        'Type@40ms "ls"',
+        "Enter@40ms",
+        "Sleep 700ms",
+        'Type@40ms "pwd"',
+        "Enter@40ms",
+        "Sleep 700ms",
+    ]
 
 
 def test_tape_is_byte_stable() -> None:
@@ -143,4 +159,55 @@ scenes:
     assert 'Screenshot "/w/marks/scene-pull.png"' in tape
     assert 'Screenshot "/w/marks/end-pull.png"' in tape
     assert "scene-setup" not in tape, "hidden scenes are not recorded, so get no marker"
+    assert 'Screenshot "/w/marks/cue-end.png"' in tape, "cues are located like scene starts"
     assert "Screenshot" not in generate_tape(spec, timeline, Path("/out/v.mp4"))
+
+
+def test_wait_for_the_prompt() -> None:
+    tape = _tape(
+        SPEC.replace('{screen: "built a/b", timeout_ms: 2000}', "{prompt: true, timeout_ms: 600000}")
+    )
+    assert "Wait+Line@600000ms /^demo>\\s*$/" in tape.splitlines()
+
+
+def test_wait_needs_one_condition() -> None:
+    from narratty.spec.model import WaitSpec
+
+    with pytest.raises(ValueError, match="either screen or prompt"):
+        WaitSpec()
+    with pytest.raises(ValueError, match="either screen or prompt"):
+        WaitSpec(screen="x", prompt=True)
+
+
+FAST_SCENES = """\
+timing: {{lead_in_ms: 0, tail_ms: 0, narration_buffer_ms: 0}}
+end_card: false
+scenes:
+  - id: slow
+    {slow}
+    narration: Hello.
+    actions: [{{run: ls}}]
+  - id: quick
+    {quick}
+    narration: Hello.
+    actions: [{{run: ls}}]
+"""
+
+
+@pytest.mark.parametrize(
+    ("fast", "slow", "quick", "shortened"),
+    [
+        (True, "", "", ["slow", "quick"]),
+        (True, "fast: false", "", ["quick"]),
+        (False, "", "fast: true", ["quick"]),
+        (False, "", "", []),
+    ],
+)
+def test_a_scene_overrides_fast(fast: bool, slow: str, quick: str, shortened: list[str]) -> None:
+    from narratty.render.tape import build_tape
+
+    spec = parse_spec(FAST_SCENES.format(slow=slow, quick=quick), Path("t.narratty.yaml"))
+    timeline = build_timeline(spec, {"slow": 3000, "quick": 3000})
+    tape = build_tape(spec, timeline, Path("/out/v.mp4"), fast=fast)
+    assert [pause.scene_id for pause in tape.pauses] == shortened
+    assert ("Set CursorBlink false" in tape.text) == bool(shortened)

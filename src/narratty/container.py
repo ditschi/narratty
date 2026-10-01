@@ -14,24 +14,23 @@ and runs hardened: no network, all capabilities dropped, read-only root filesyst
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from narratty import __version__
-from narratty.runtime import Runtime
+from narratty.runtime import Runtime, release_tag
 
 if TYPE_CHECKING:
     from narratty.build import WorkspaceOptions
-    from narratty.spec.model import Spec
+    from narratty.environment import EnvironmentOptions, Session
+    from narratty.spec.model import Sandbox, Spec
 
 IMAGE_REPOSITORY = "ghcr.io/ditschi/narratty"
-_RELEASE = re.compile(r"^\d+\.\d+\.\d+$")
-
 Runner = Callable[[Sequence[str]], int]
 
 
@@ -43,8 +42,7 @@ def image_ref(*, version: str = __version__, override: str | None = None) -> str
     override = override or os.environ.get("NARRATTY_IMAGE")
     if override:
         return override
-    tag = version if _RELEASE.match(version) else "edge"
-    return f"{IMAGE_REPOSITORY}:{tag}"
+    return f"{IMAGE_REPOSITORY}:{release_tag(version)}"
 
 
 @dataclass(frozen=True)
@@ -73,6 +71,8 @@ class ContainerSpec:
     tty: bool = False
     volumes: Sequence[str] = ()
     groups: Sequence[str] = ()
+    entrypoint: str | None = None
+    interactive: bool = False
 
 
 def _user_flags(engine: Runtime) -> list[str]:
@@ -101,6 +101,10 @@ def run_argv(spec: ContainerSpec) -> list[str]:
         argv += ["--tty"]
     for group in spec.groups:
         argv += ["--group-add", group]
+    if spec.interactive:
+        argv += ["--interactive"]
+    if spec.entrypoint:
+        argv += ["--entrypoint", spec.entrypoint]
     for mount in spec.mounts:
         argv += ["--volume", mount.flag()]
     for volume in spec.volumes:
@@ -135,12 +139,67 @@ class SandboxRequest:
     network: str | None = None
     allow_hosts: tuple[str, ...] = ()
     assume_yes: bool = False
+    environment: EnvironmentOptions = field(default_factory=lambda: _default_environment_options())
 
 
 def _default_workspace_options() -> WorkspaceOptions:
     from narratty.build import WorkspaceOptions
 
     return WorkspaceOptions()
+
+
+def _default_environment_options() -> EnvironmentOptions:
+    from narratty.environment import EnvironmentOptions
+
+    return EnvironmentOptions()
+
+
+def _check_environment_fits(spec: Spec, sandbox: Sandbox) -> None:
+    """Fail on what does not work yet when the demo shell runs in a project environment."""
+    from narratty.errors import UsageError
+
+    unsupported = []
+    if sandbox.docker:
+        unsupported.append("sandbox.docker")
+    if spec.terminal.layout == "editor":
+        unsupported.append("terminal.layout: editor")
+    if spec.uses_diff:
+        unsupported.append("the diff action")
+    if unsupported:
+        raise UsageError(
+            f"{', '.join(unsupported)} cannot be combined with an environment yet",
+            hint="They need narratty's helpers or your engine in the demo shell, and the "
+            "project environment has neither.",
+        )
+
+
+def approved_sandbox(spec_file: Path, spec: Spec, request: SandboxRequest) -> Sandbox:
+    """The spec's sandbox with overrides applied, checked against the policy and approved."""
+    import sys
+
+    import typer
+
+    from narratty.env_provide import grants
+    from narratty.environment import check_policy as check_environment_policy
+    from narratty.environment import resolve
+    from narratty.sandbox import apply_overrides, check_policy, ensure_consent, load_policy
+
+    sandbox = apply_overrides(spec.sandbox, network=request.network, allow_hosts=request.allow_hosts)
+    policy = load_policy()
+    check_policy(sandbox, policy)
+    environment = resolve(spec.environment, request.environment)
+    if environment is not None:
+        _check_environment_fits(spec, sandbox)
+        check_environment_policy(environment, policy)
+    ensure_consent(
+        spec_file,
+        sandbox,
+        assume_yes=request.assume_yes,
+        interactive=sys.stdin.isatty(),
+        confirm=lambda question: typer.confirm(question, default=False, err=True),
+        extra=grants(environment) if environment is not None else (),
+    )
+    return sandbox
 
 
 def delegate(
@@ -153,13 +212,15 @@ def delegate(
     work_dir: Path | None = None,
     extra_args: Sequence[str] = (),
     sandbox: SandboxRequest | None = None,
+    ignore_exit: bool = False,
     runner: Runner | None = None,
 ) -> int | None:
     """Run ``narratty <command>`` in a container when ``runtime`` resolves to one.
 
     ``sandbox`` is given for commands that run the demo; they get the prepared
-    workspace and the spec's sandbox permissions. Returns the container's exit code,
-    or None when the command should run natively.
+    workspace and the spec's sandbox permissions. In a project environment the host
+    checks the exit codes afterwards (``ignore_exit`` as for ``build``). Returns the
+    container's exit code, or None when the command should run natively.
     """
     from narratty.doctor import CONTAINER_TOOLS
     from narratty.errors import MissingDependencyError
@@ -185,7 +246,7 @@ def delegate(
         base.add_work_dir(work_dir)
     if sandbox is None:
         return run(base.container(), runner=runner)
-    return _run_demo(base, spec, sandbox, runner)
+    return _run_demo(base, spec, sandbox, runner, _ExitCheck(output, ignore_exit))
 
 
 def _ensure_voice(provider_name: str, voice: str) -> None:
@@ -249,46 +310,78 @@ class _Invocation:
         )
 
 
-def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runner: Runner | None) -> int:
-    import sys
+@dataclass(frozen=True)
+class _ExitCheck:
+    """How the host checks exit codes logged in a project environment."""
 
-    import typer
+    output: Path | None = None
+    ignore_exit: bool = False
 
-    from narratty.build import Plan
+    def run(self, spec: Spec, session: Session, remote: str) -> None:
+        from narratty.build import read_remote_exit_log
+        from narratty.render.exits import check
+
+        text = read_remote_exit_log(session.exec_bridge(), remote)
+        if text is None:
+            return
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "exits.log"
+            log.write_text(text, encoding="utf-8")
+            check(spec, log, default="any" if self.ignore_exit else "success", output=self.output)
+
+
+def _run_demo(
+    invocation: _Invocation,
+    spec: Spec,
+    request: SandboxRequest,
+    runner: Runner | None,
+    exits: _ExitCheck | None = None,
+) -> int:
+    from narratty.bridge import BRIDGE_ENV, encode
+    from narratty.build import REMOTE_EXIT_LOG_ENV, Plan, remote_exit_log
+    from narratty.env_provide import provide
+    from narratty.environment import resolve, running
     from narratty.paths import cache_dir
-    from narratty.sandbox import (
-        allowlist_network,
-        apply_overrides,
-        check_policy,
-        container_access,
-        ensure_consent,
-        load_policy,
-    )
+    from narratty.sandbox import allowlist_network, container_access
     from narratty.ui.console import err
     from narratty.workspace import prepare_workspace
 
     spec_file = invocation.mounts[0].host
-    sandbox = apply_overrides(spec.sandbox, network=request.network, allow_hosts=request.allow_hosts)
-    check_policy(sandbox, load_policy())
-    ensure_consent(
-        spec_file,
-        sandbox,
-        assume_yes=request.assume_yes,
-        interactive=sys.stdin.isatty(),
-        confirm=lambda question: typer.confirm(question, default=False, err=True),
-    )
-    access = container_access(
-        sandbox, spec_dir=spec_file.parent, caches=spec.workspace.caches, cache_root=cache_dir()
-    )
-    invocation.env.update(access.env)
-    invocation.volumes += access.volumes
-    invocation.network = access.network
-    if sandbox.docker:
-        _add_engine(invocation)
+    sandbox = approved_sandbox(spec_file, spec, request)
+    environment = resolve(spec.environment, request.environment)
+    if environment is None:
+        access = container_access(
+            sandbox, spec_dir=spec_file.parent, caches=spec.workspace.caches, cache_root=cache_dir()
+        )
+        invocation.env.update(access.env)
+        invocation.volumes += access.volumes
+        invocation.network = access.network
+        if sandbox.docker:
+            _add_engine(invocation)
+    invocation.env["NARRATTY_WORKSPACE"] = CONTAINER_WORKSPACE
 
     def log(message: str) -> None:
         err.print(f"[dim]{message}[/]", highlight=False, soft_wrap=True)
 
+    def record(session: Session) -> int:
+        # The demo runs in the environment; the recorder only reaches its agent.
+        volumes, network = session.recorder_flags()
+        invocation.volumes += volumes
+        if network is not None:
+            invocation.network = network
+        invocation.env[BRIDGE_ENV] = encode(session.agent_bridge())
+        # The agent cannot read files; the host reads the exit log once the recording is done.
+        invocation.env[REMOTE_EXIT_LOG_ENV] = remote = remote_exit_log()
+        code = run(invocation.container(), runner=runner)
+        if code == 0:
+            (exits or _ExitCheck()).run(spec, session, remote)
+        return code
+
+    if environment is not None and (kept := running(invocation.engine.value, spec_file)) is not None:
+        session, path = kept
+        log(f"using the environment {session.container} from `narratty env up`")
+        invocation.mounts.append(Mount(path, CONTAINER_WORKSPACE))
+        return record(session)
     source = Plan.source_of(spec_file, spec)
     with prepare_workspace(
         source,
@@ -305,6 +398,21 @@ def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runn
         target = str(workspace.path) if sandbox.docker else CONTAINER_WORKSPACE
         invocation.env["NARRATTY_WORKSPACE"] = target
         invocation.mounts.append(Mount(workspace.path, target, read_only=workspace.read_only))
+        if environment is not None:
+            with provide(
+                environment,
+                spec,
+                spec_dir=spec_file.parent,
+                sandbox=sandbox,
+                workspace=workspace,
+                engine=invocation.engine.value,
+                narratty_image=invocation.image,
+                with_agent=True,
+                keep=request.environment.keep,
+                rebuild=request.environment.rebuild,
+                log=log,
+            ) as session:
+                return record(session)
         if sandbox.network != "allowlist":
             return run(invocation.container(), runner=runner)
         with allowlist_network(invocation.engine.value, invocation.image, sandbox.allow_hosts) as network:

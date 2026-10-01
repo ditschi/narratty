@@ -61,6 +61,20 @@ jobs:
         run: nox -s duplicates
       - name: Cyclic imports
         run: nox -s cyclic_imports
+  # ── Agent: narratty-agent (Go) ───────────────────────────────────────────────
+  agent:
+    name: Agent (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: agent/go.mod
+      - uses: astral-sh/setup-uv@v7
+      - name: Install nox
+        run: uv tool install nox
+      - name: Vet and test
+        run: nox -s agent
   # ── 3. Tests: multi-Python matrix, macOS best effort ────────────────────────
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})

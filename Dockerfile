@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 # narratty image: the CLI plus everything a native render needs (VHS, ttyd, Chromium,
-# ffmpeg, fonts, the Docker CLI, Kokoro and Piper with a default voice each) and the demo toolkit. ttyd is not
-# packaged in Debian trixie, so its static release binary is used. Targets:
+# ffmpeg, fonts, the Docker CLI, Kokoro and Piper with a default voice each), the demo
+# toolkit and narratty-agent for project environments. ttyd is not packaged in Debian
+# trixie, so its static release binary is used. Targets:
 #   toolkit ghcr.io/ditschi/narratty-toolkit:<version>  (static demo tools, see below)
 #   base    ghcr.io/ditschi/narratty:<version>
 
@@ -9,12 +10,27 @@ ARG PYTHON_IMAGE=docker.io/library/python:3.12-slim-trixie
 ARG RUST_IMAGE=docker.io/library/rust:1-trixie
 # Docker CLI with the Compose and Buildx plugins, for demos with `sandbox.docker: true`.
 ARG DOCKER_CLI_IMAGE=docker.io/library/docker:28-cli
+ARG GO_IMAGE=docker.io/library/golang:1.24-trixie
+
+# ── agent ─────────────────────────────────────────────────────────────────────
+# narratty-agent serves the demo shell inside project environments. Static, for
+# amd64 and arm64 whatever the image's own platform: an environment's image may
+# differ from it.
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS agent
+ARG NARRATTY_VERSION=0.0.0.dev0
+WORKDIR /src
+COPY agent/ ./
+RUN for arch in amd64 arm64; do \
+      CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
+        -ldflags "-s -w -X main.version=${NARRATTY_VERSION}" -o /agent/$arch/narratty-agent . ; \
+    done
 
 # ── toolkit ───────────────────────────────────────────────────────────────────
-# Statically linked demo tools (bat, eza, fd, ripgrep, jq, yazi, zsh, tmux), a Nerd
-# Font for icons and recording defaults, for any Linux image:
+# Statically linked demo tools (bat, delta, eza, fd, ripgrep, jq, micro, yazi, file, zsh,
+# tmux), a Nerd Font for icons and recording defaults, for any Linux image:
 #   COPY --from=ghcr.io/ditschi/narratty-toolkit:<version> / /usr/local/
-# Built on the build platform; tmux and eza are cross-compiled, nothing is emulated.
+# Built on the build platform; tmux, file, eza and delta are cross-compiled, nothing is
+# emulated.
 FROM --platform=$BUILDPLATFORM ${RUST_IMAGE} AS toolkit-build
 ARG TARGETARCH
 RUN apt-get update \
@@ -67,6 +83,9 @@ COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/
 RUN if command -v fc-cache >/dev/null; then fc-cache -f; fi
 
+COPY --from=agent /agent/ /opt/narratty/agent/
+RUN ln -s "/opt/narratty/agent/${TARGETARCH:-amd64}/narratty-agent" /usr/local/bin/narratty-agent
+
 COPY --from=wheel /dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/narratty-*.whl && rm /tmp/narratty-*.whl
 
@@ -76,6 +95,7 @@ ENV NARRATTY_IN_CONTAINER=1 \
     VHS_NO_SANDBOX=true \
     YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
     BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config \
+    MICRO_CONFIG_HOME=/usr/local/share/narratty/micro \
     HOME=/home/narratty \
     PYTHONDONTWRITEBYTECODE=1
 

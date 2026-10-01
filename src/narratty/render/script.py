@@ -6,12 +6,32 @@ pseudo-terminal. Generating it once keeps the two in step.
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
+from narratty.diff import READY as DIFF_READY
 from narratty.end_card import CREDIT
-from narratty.spec.model import Action, CtrlSequence, Enter, Hold, Key, Scene, Spec, TypeCommand, Wait
-from narratty.timeline import SceneTiming, Timeline, typing_speed
+from narratty.render.shell_hooks import exit_hook
+from narratty.spec.model import (
+    Action,
+    CtrlSequence,
+    Diff,
+    Enter,
+    Focus,
+    Hold,
+    Key,
+    Reveal,
+    Run,
+    Scene,
+    ShowBrowser,
+    ShowOverlay,
+    Spec,
+    TypeCommand,
+    Wait,
+)
+from narratty.timeline import Pacing, SceneTiming, Timeline, pacing
 
 
 @dataclass(frozen=True)
@@ -47,10 +67,11 @@ class Sleep:
 
 @dataclass(frozen=True)
 class WaitScreen:
-    """Block until the screen matches ``pattern``."""
+    """Block until the screen (or with ``line``, the cursor's line) matches ``pattern``."""
 
     pattern: str
     timeout_ms: int
+    line: bool = False
 
 
 @dataclass(frozen=True)
@@ -68,12 +89,14 @@ class Mark:
     """Start of a section: a scene (``scene_id``) or the end card (``None``).
 
     With ``timelapse``, the scene is shown that many times faster until its
-    :class:`TimelapseEnd`.
+    :class:`TimelapseEnd`. ``fast`` is the scene's own choice about fast pauses
+    (None: the build's).
     """
 
     scene_id: str | None
     hidden: bool = False
     timelapse: float | None = None
+    fast: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -88,75 +111,232 @@ class TimelapseEnd:
     narration_after: bool = False
 
 
-Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark | TimelapseEnd
+@dataclass(frozen=True)
+class Cue:
+    """A point in time to remember (where an overlay starts, where the last scene ends)."""
+
+    label: str
+
+
+Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark | TimelapseEnd | Cue
+
+END_CUE = "end"
 
 END_CARD_TIMEOUT_MS = 30_000
+LAYOUT_TIMEOUT_MS = 15_000
+BASELINE_TIMEOUT_MS = 300_000
+# Pane titles of the editor layout; the setup waits for the terminal's.
+EXPLORER_TITLE, TERMINAL_TITLE = "Explorer", "Terminal"
+PANES = {"explorer": ":.1", "terminal": ":.2"}
 
 
 def _shell_quote(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"
 
 
-def prompt_setup(shell: str, prompt: str) -> str:
-    """Shell command that sets a fixed prompt and clears the screen."""
+def prompt_setup(shell: str, prompt: str, exit_log: Path | None = None) -> str:
+    """Shell command that sets a fixed prompt and clears the screen.
+
+    With ``exit_log``, it also installs the hook that logs exit codes there.
+    """
+    hook = exit_hook(shell, exit_log) if exit_log else None
+    prefix = f"{hook}; " if hook else ""
     if shell == "fish":
-        return f"function fish_prompt; printf '%s' {_shell_quote(prompt)}; end; clear"
-    return f"PS1={_shell_quote(prompt)}; clear"
+        return f"{prefix}function fish_prompt; printf '%s' {_shell_quote(prompt)}; end; clear"
+    return f"{prefix}PS1={_shell_quote(prompt)}; clear"
 
 
-def action_steps(action: Action, speed: int) -> list[Step]:
-    """Steps for one action (``hold: auto`` is placed by the caller)."""
-    if isinstance(action, TypeCommand):
-        return [Type(action.type_command, speed)]
+def prompt_pattern(prompt: str) -> str:
+    """A line holding only ``prompt`` (RE2 and Python syntax): the last command has finished."""
+    escaped = re.sub(r"([\\.^$|?*+()\[\]{}])", r"\\\1", prompt.rstrip())
+    return f"^{escaped}\\s*$"
+
+
+def encode_path(path: str) -> str:
+    """``path`` as hex, so it passes tmux and shell quoting unchanged."""
+    return path.encode().hex()
+
+
+def _module(python: str, module: str, *args: str) -> str:
+    return " ".join([_shell_quote(python), "-m", f"narratty.{module}", *args])
+
+
+def hidden(steps: list[Step], settle_ms: int = 300) -> list[Step]:
+    """``steps`` unrecorded, then ``settle_ms`` for the screen to catch up."""
+    return [Hide(), *steps, Sleep(settle_ms), Show()]
+
+
+def tmux_command(command: str) -> list[Step]:
+    """Run a tmux command through its prompt (``Ctrl+b :``), whatever pane has focus."""
+    return [Ctrl("B"), Type(":", 1), Type(command, 1), Press("Enter", 1)]
+
+
+def _tmux_string(text: str) -> str:
+    """A double-quoted tmux argument (``text`` holds no ``"``, ``\\``, ``$`` or ``#``)."""
+    return f'"{text}"'
+
+
+@dataclass(frozen=True)
+class Context:
+    """What action steps depend on beyond the action: the layout, the helper interpreter
+    and the prompt (``wait: {prompt: true}`` waits for it)."""
+
+    editor: bool
+    python: str
+    prompt: str = "$ "
+
+
+def diff_steps(action: Diff, context: Context) -> list[Step]:
+    """Show the diff: a popup in the editor layout, else printed in the shell."""
+    paths = [encode_path(path) for path in action.paths]
+    if context.editor:
+        show = _module(context.python, "diff", "show", "--wait", *paths)
+        popup = f'display-popup -E -w 90% -h 85% -T " Diff " {_tmux_string(show)}'
+        return hidden(tmux_command(popup), 1000)
+    show = _module(context.python, "diff", "show", *paths)
+    return hidden([Type(f"clear; {show}", 1), Press("Enter", 1)], 1000)
+
+
+def close_popup() -> list[Step]:
+    """Close the diff popup (it waits for Enter)."""
+    return hidden([Press("Enter", 1)])
+
+
+def editor_steps(action: Focus | Reveal, context: Context) -> list[Step]:
+    """Steps for the editor layout's own actions."""
+    if isinstance(action, Focus):
+        return hidden(tmux_command(f"select-pane -t {PANES[action.focus]}"), 100)
+    reveal = _module(context.python, "editor", "reveal", encode_path(action.reveal))
+    return hidden(tmux_command(f"run-shell {_tmux_string(reveal)}"), 600)
+
+
+def _then_sleep(steps: list[Step], ms: int) -> list[Step]:
+    return [*steps, Sleep(ms)] if ms else steps
+
+
+def _key_steps(action: Enter | Key | CtrlSequence, speed: int) -> list[Step]:
     if isinstance(action, Enter):
         return [Press("Enter", speed)]
     if isinstance(action, Key):
         name, _, count = action.key.partition(" ")
         return [Press(name, speed, int(count) if count else None)]
-    if isinstance(action, CtrlSequence):
-        return [Ctrl(action.ctrl_sequence.removeprefix("C-").upper())]
+    return [Ctrl(action.ctrl_sequence.removeprefix("C-").upper())]
+
+
+def action_steps(action: Action, pace: Pacing, context: Context | None = None) -> list[Step]:
+    """Steps for one action (``hold: auto`` is placed by the caller)."""
+    context = context or Context(editor=False, python=sys.executable)
+    if isinstance(action, Diff):
+        return diff_steps(action, context)
+    if isinstance(action, Focus | Reveal):
+        return editor_steps(action, context)
+    speed = pace.speed
+    if isinstance(action, Run):
+        return _then_sleep([Type(action.run, speed), Press("Enter", speed)], pace.run_hold_ms)
+    if isinstance(action, TypeCommand):
+        return [Type(action.type_command, speed)]
+    if isinstance(action, Enter | Key | CtrlSequence):
+        return _then_sleep(_key_steps(action, speed), pace.pause_ms)
     if isinstance(action, Wait):
+        if action.wait.screen is None:
+            return [WaitScreen(prompt_pattern(context.prompt), action.wait.timeout_ms, line=True)]
         return [WaitScreen(action.wait.screen, action.wait.timeout_ms)]
     if isinstance(action, Hold) and action.hold != "auto":
         return [Sleep(action.hold)]
     return []
 
 
-def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming) -> list[Step]:
-    """Steps for one scene, with its fill pause at ``hold: auto`` or at the end."""
-    speed = typing_speed(spec, scene)
+def overlay_cue(scene_id: str, index: int) -> str:
+    """Label of the cue where the overlay or browser at ``actions[index]`` of a scene starts."""
+    return f"overlay:{scene_id}:{index}"
+
+
+def _sends_keys(action: Action) -> bool:
+    return not isinstance(action, Hold | Wait | ShowOverlay | ShowBrowser)
+
+
+def _unhide(steps: list[Step]) -> list[Step]:
+    """Inside a hidden scene, the steps without their own Hide/Show."""
+    return [step for step in steps if not isinstance(step, Hide | Show)]
+
+
+def _end_hidden(steps: list[Step], context: Context) -> list[Step]:
+    """A hidden scene's steps (Mark, Hide, ...): one Hide, then clear and Show."""
+    steps = [steps[0], steps[1], *_unhide(steps[2:])]
+    # Clear what the hidden commands printed; hidden time is not recorded.
+    if context.editor:
+        return [*steps, *tmux_command("send-keys -t :.2 clear Enter"), Sleep(300), Show()]
+    return [*steps, Type("clear", 1), Press("Enter", 1), Sleep(300), Show()]
+
+
+def _timelapse_steps(scene: Scene, timing: SceneTiming, pace: Pacing, context: Context) -> list[Step]:
+    """A timelapse scene: its actions between markers, the end holds for the narration."""
+    actions = [
+        step
+        for index, action in enumerate(scene.actions)
+        for step in (
+            [Cue(overlay_cue(scene.id, index))]
+            if isinstance(action, ShowOverlay | ShowBrowser)
+            else action_steps(action, pace, context)
+        )
+    ]
+    if context.editor and any(isinstance(action, Diff) for action in scene.actions):
+        actions += close_popup()
+    end = TimelapseEnd(scene.id, timing.hold_ms, timing.narration_after)
+    return [Mark(scene.id, timelapse=timing.timelapse), *actions, end]
+
+
+def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | None = None) -> list[Step]:
+    """Steps for one scene, with its fill pause at ``hold: auto`` or at the end.
+
+    In the editor layout a diff popup stays open until the next action that sends
+    keys, or the end of the scene.
+    """
+    pace = pacing(spec, scene)
+    context = Context(spec.terminal.layout == "editor", python or sys.executable, spec.terminal.prompt)
     if timing.timelapse:
-        actions = [step for action in scene.actions for step in action_steps(action, speed)]
-        end = TimelapseEnd(scene.id, timing.hold_ms, timing.narration_after)
-        return [Mark(scene.id, timelapse=timing.timelapse), *actions, end]
+        return _timelapse_steps(scene, timing, pace, context)
     fill_at_hold = scene.narration_start == "with_actions"
-    steps: list[Step] = [Mark(scene.id, scene.hidden)]
+    steps: list[Step] = [Mark(scene.id, scene.hidden, fast=scene.fast)]
     if scene.hidden:
         steps.append(Hide())
-    filled = False
-    for action in scene.actions:
+    filled = popup = False
+    for index, action in enumerate(scene.actions):
+        if isinstance(action, ShowOverlay | ShowBrowser):
+            steps.append(Cue(overlay_cue(scene.id, index)))
+            continue
         if isinstance(action, Hold) and action.hold == "auto" and fill_at_hold:
             if timing.fill_ms:
                 steps.append(Sleep(timing.fill_ms))
             filled = True
             continue
-        steps += action_steps(action, speed)
+        if popup and _sends_keys(action):
+            steps += close_popup()
+            popup = False
+        steps += action_steps(action, pace, context)
+        popup = popup or (context.editor and isinstance(action, Diff))
     if not filled and timing.fill_ms:
         steps.append(Sleep(timing.fill_ms))
-    if scene.hidden:
-        # Clear what the hidden commands printed; hidden time is not recorded.
-        steps += [Type("clear", 1), Press("Enter", 1), Sleep(300), Show()]
-    return steps
+    if popup:
+        steps += close_popup()
+    return _end_hidden(steps, context) if scene.hidden else steps
 
 
-def end_card_steps(spec: Spec, timeline: Timeline, python: str) -> list[Step]:
-    """Draw the end card while hidden, then keep it on screen for its duration."""
-    command = f"{prompt_setup(spec.terminal.shell, '')}; {_shell_quote(python)} -m narratty.end_card"
+def end_card_steps(spec: Spec, timeline: Timeline, python: str, *, remote: bool = False) -> list[Step]:
+    """Draw the end card while hidden, then keep it on screen for its duration.
+
+    ``remote``: the shell runs in a project environment without narratty. Leaving it
+    drops to a local ``sh`` (see ``narratty.bridge``), which draws the card.
+    """
+    shell = "sh" if remote else spec.terminal.shell
+    command = f"{prompt_setup(shell, '')}; {_shell_quote(python)} -m narratty.end_card"
     if not spec.end_card.qr:
         command += " --no-qr"
+    leave: list[Step] = [Type("exit", 1), Press("Enter", 1), Sleep(500)] if remote else []
     return [
         Mark(None),
         Hide(),
+        *leave,
         Type(command, 1),
         Press("Enter", 1),
         WaitScreen(CREDIT, END_CARD_TIMEOUT_MS),
@@ -165,25 +345,67 @@ def end_card_steps(spec: Spec, timeline: Timeline, python: str) -> list[Step]:
     ]
 
 
-def setup_steps(spec: Spec) -> list[Step]:
-    """Set the prompt and clear the screen, unrecorded."""
+def setup_steps(spec: Spec, python: str | None = None, exit_log: Path | None = None) -> list[Step]:
+    """Unrecorded: record the diff baseline, set the prompt, clear, build the layout.
+
+    With ``exit_log``, the demo's shell also logs its commands' exit codes there (in the
+    editor layout, the shell in the terminal pane).
+    """
     term = spec.terminal
+    python = python or sys.executable
+    steps: list[Step] = [Hide()]
+    if spec.uses_diff:
+        steps += [Type(_module(python, "diff", "start"), 1), Press("Enter", 1)]
+        steps.append(WaitScreen(DIFF_READY, BASELINE_TIMEOUT_MS))
     # The pause is hidden, so it costs no time; it lets `clear` finish.
-    return [Hide(), Type(prompt_setup(term.shell, term.prompt), 1), Press("Enter", 1), Sleep(500), Show()]
+    editor = term.layout == "editor"
+    setup = prompt_setup(term.shell, term.prompt, None if editor else exit_log)
+    steps += [Type(setup, 1), Press("Enter", 1), Sleep(500)]
+    if editor:
+        start = _module(
+            python, "editor", "start", "--shell", term.shell, "--prompt", _shell_quote(term.prompt)
+        )
+        if exit_log:
+            start += f" --exit-log {_shell_quote(str(exit_log))}"
+        steps += [
+            Type(start, 1),
+            Press("Enter", 1),
+            WaitScreen(TERMINAL_TITLE, LAYOUT_TIMEOUT_MS),
+            Sleep(1500),
+        ]
+    return [*steps, Show()]
 
 
-def build_script(spec: Spec, timeline: Timeline, *, python: str | None = None) -> list[Step]:
+def teardown_steps(spec: Spec) -> list[Step]:
+    """Unrecorded: leave the editor layout, so the end card gets the whole terminal."""
+    if spec.terminal.layout != "editor":
+        return []
+    return hidden(tmux_command("kill-server"), 500)
+
+
+def build_script(
+    spec: Spec,
+    timeline: Timeline,
+    *,
+    python: str | None = None,
+    exit_log: Path | None = None,
+    remote: bool = False,
+) -> list[Step]:
     """Every step of the recording, from prompt setup to the end card.
 
-    ``python`` is the interpreter that draws the end card (default: the running one).
+    ``python`` is the interpreter that draws the end card (default: the running one);
+    ``exit_log`` receives the commands' exit codes (see ``narratty.render.exits``);
+    ``remote`` says the shell runs in a project environment.
     """
-    steps = setup_steps(spec)
+    python = python or sys.executable
+    steps = setup_steps(spec, python, exit_log)
     if timeline.lead_in_ms:
         steps.append(Sleep(timeline.lead_in_ms))
     for scene in spec.scenes:
-        steps += scene_steps(spec, scene, timeline.scene(scene.id))
+        steps += scene_steps(spec, scene, timeline.scene(scene.id), python=python)
+    steps.append(Cue(END_CUE))
     if timeline.tail_ms:
         steps.append(Sleep(timeline.tail_ms))
     if timeline.end_card_ms:
-        steps += end_card_steps(spec, timeline, python or sys.executable)
+        steps += teardown_steps(spec) + end_card_steps(spec, timeline, python, remote=remote)
     return steps

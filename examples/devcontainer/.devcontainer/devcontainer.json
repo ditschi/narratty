@@ -1,0 +1,7 @@
+// The project's dev container, as VS Code and the Dev Container CLI use it.
+{
+  "name": "greeter",
+  "dockerComposeFile": "compose.yaml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+}

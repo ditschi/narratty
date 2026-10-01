@@ -46,6 +46,11 @@ narratty tts demo.narratty.yaml
 prints one row per narrated scene with the clip's length and whether it came from the
 cache.
 
+Speed on 4 CPU cores: Kokoro needs about 0.2 s per second of speech, Piper less but
+loads the voice for every clip, so Piper synthesizes up to 4 clips at once. Kokoro's
+`int8` model is about five times slower on CPU than the default `fp16`. While editing,
+[`build --draft`](building.md#draft) skips TTS completely.
+
 ## Pronunciation
 
 Write narration with the real spelling of technical terms (`.bazelrc`, `kubectl`,

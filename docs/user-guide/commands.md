@@ -3,7 +3,7 @@
 | Command | Does |
 |---|---|
 | `narratty init [FILE] [--force]` | Write a commented starter spec (default `demo.narratty.yaml`) |
-| `narratty validate SPEC` | Check a spec and report every problem with line and column |
+| `narratty validate SPEC` | Check a spec; report every problem, and hints for redundant lines, with line and column |
 | `narratty schema` | Print the spec's JSON Schema |
 | `narratty voices [--provider P] [--installed]` | List curated and installed voices |
 | `narratty voices pull VOICE` | Download a voice (and the Kokoro model) |
@@ -17,13 +17,20 @@
 | `narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]` | Build the narrated video |
 | `narratty build SPEC --subtitles MODE` | Add [subtitles](building.md#subtitles): `none`, `files`, `track` or `burn` |
 | `narratty build SPEC --draft` | Build a fast [draft](building.md#draft) (`demo.draft.mp4`) |
+| `narratty build SPEC --fast` | Fill long pauses with still frames instead of recording them ([fast pauses](building.md#fast-pauses)) |
+| `narratty build SPEC --ignore-exit` | Don't check exit codes, except where the spec sets `expect_exit` ([exit codes](spec.md#exit-codes)) |
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
+| `narratty env shell SPEC` | Open a shell in the spec's [project environment](environments.md) |
+| `narratty env build SPEC [--rebuild-env]` | Build the environment's image and print its tag |
+| `narratty env up SPEC` | Start the environment and keep it; `build`, `render` and `env shell` reuse it |
+| `narratty env down SPEC` | Remove what `env up` started |
 
 `plan`, `tape`, `render` and `build` take `--end-card` / `--no-end-card` to override
 [`end_card`](spec.md#end_card). `build` and `render` also take `--workspace-mode`,
 `--keep-workspace`, `--allow-dirty`, `--network`, `--allow-host` and `--yes`; see
-[Sandboxed runs](container.md). Every command that runs the pipeline takes `--runtime`
-and `--image`.
+[Sandboxed runs](container.md). They take `--env-image`, `--no-env`, `--keep-env` and `--rebuild-env` for
+[project environments](environments.md). Every command that runs the pipeline takes
+`--runtime` and `--image`.
 
 | Command | Does |
 |---|---|
@@ -42,3 +49,4 @@ and `--image`.
 | 4 | missing dependency (tool, voice or container runtime) |
 | 5 | render or mux failure |
 | 6 | sync verification failure |
+| 7 | a recorded command exited contrary to its `expect_exit` |

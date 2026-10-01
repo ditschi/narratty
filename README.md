@@ -18,8 +18,7 @@ scenes:
   - id: intro
     narration: This is a quick tour of the repository layout.
     actions:
-      - type_command: "eza --tree --level=1 ."
-      - enter
+      - run: eza --tree --level=1 .
 ```
 
 ```bash
@@ -46,10 +45,18 @@ tools native mode needs.
   repository. Native mode is available too.
 - **Subtitles and drafts:** SRT/VTT files, a soft track or burned-in text from the
   narration; `--draft` previews timing in seconds, without TTS.
+- **Overlays:** chapter titles, file names and notes in a rounded box over the video,
+  with reusable styles.
+- **Browser views:** a web page or local HTML file as Chromium renders it, scrolling
+  while the narration talks about it.
 - **Scripting:** hidden setup scenes, waits for screen output, key presses and
   per-scene typing speed.
-- **Demo toolkit:** bat, eza, fd, ripgrep, jq, yazi, tmux and zsh as static binaries,
-  for the narratty image and, with one `COPY` line, for any dev container.
+- **Editor layout:** a file explorer with preview above the shell
+  (`terminal.layout: editor`), `focus` and `reveal` actions, and a `diff` of what the
+  demo changed.
+- **Demo toolkit:** bat, delta, eza, fd, ripgrep, jq, micro, yazi, file, tmux and zsh
+  as static binaries, for the narratty image and, with one `COPY` line, for any dev
+  container.
 - **Editor support:** a JSON Schema for completion and inline errors, `validate` with
   line numbers, and shell completion.
 

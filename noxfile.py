@@ -67,6 +67,14 @@ def integration(session: nox.Session) -> None:
     session.run("pytest", "-m", "integration", "tests/integration/", *session.posargs)
 
 
+@nox.session(python=False, tags=["agent"])
+def agent(session: nox.Session) -> None:
+    """Vet and test narratty-agent, the Go helper for project environments (needs Go)."""
+    with session.chdir("agent"):
+        session.run("go", "vet", "./...", external=True)
+        session.run("go", "test", "./...", external=True)
+
+
 @nox.session(python=DEFAULT_PYTHON, tags=["performance"])
 def performance(session: nox.Session) -> None:
     """Check CLI cold-start latency budgets (help and shell completion)."""
@@ -147,6 +155,7 @@ def necessary_imports(session: nox.Session) -> None:
         "pytest",
         "pytest-cov",
         "pytest-xdist",
+        "jsonschema",
         "ruff",
         "vulture",
     )

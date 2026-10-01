@@ -19,12 +19,19 @@ def check_voice(provider_name: str, voice: str) -> None:
 
 
 def validate_command(spec: Path = SpecArgument) -> None:
-    """Parse and validate a spec; report every problem with its line number."""
-    from narratty.spec import load_spec
-    from narratty.ui.console import out
+    """Parse and validate a spec; report every problem with its line number.
 
-    loaded = load_spec(spec)
+    Valid but redundant lines (defaults, a trailing `hold: auto`, ...) are reported as hints.
+    """
+    from rich.markup import escape
+
+    from narratty.spec.hints import load_spec_with_hints
+    from narratty.ui.console import err, out
+
+    loaded, hints = load_spec_with_hints(spec)
     check_voice(loaded.tts.provider, loaded.tts.voice)
+    for hint in hints:
+        err.print(f"[yellow]hint:[/] {escape(hint.render(spec))}", highlight=False, soft_wrap=True)
     narrated = len(loaded.narrated_scenes)
     out.print(
         f"[green]ok[/] {spec}: {len(loaded.scenes)} scenes, {narrated} narrated, "

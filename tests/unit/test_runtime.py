@@ -38,3 +38,13 @@ def test_auto_falls_back_to_native_without_container_runtime() -> None:
 def test_auto_is_native_inside_the_container() -> None:
     resolved = resolve_runtime(Runtime.AUTO, which=_which("docker"), env={IN_CONTAINER_ENV: "1"})
     assert resolved.runtime is Runtime.NATIVE
+
+
+def test_container_engine() -> None:
+    from narratty.errors import MissingDependencyError
+    from narratty.runtime import container_engine
+
+    assert container_engine(which=lambda name: f"/bin/{name}") == "docker"
+    assert container_engine(which=lambda name: "/bin/podman" if name == "podman" else None) == "podman"
+    with pytest.raises(MissingDependencyError, match="Docker or Podman"):
+        container_engine(which=lambda name: None)

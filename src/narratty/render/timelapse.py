@@ -1,5 +1,7 @@
 """Timelapse scenes: find them in the VHS recording and speed them up with ffmpeg.
 
+The same markers also place overlays where their cue was actually recorded.
+
 VHS records in real time and has no markers of its own. The tape takes a
 ``Screenshot`` at each visible scene start and each timelapse end, and VHS prints
 every command as it starts it, so the time a screenshot line appears is when that
@@ -15,7 +17,7 @@ from __future__ import annotations
 
 import itertools
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from narratty.errors import RenderError
@@ -92,6 +94,7 @@ class Layout:
     segments: tuple[Segment, ...]
     scene_starts_ms: dict[str, int]
     narration_offsets_ms: dict[str, int]
+    cues_ms: dict[str, int] = field(default_factory=dict)  # overlay starts, the end cue
 
     def expected_ms(self, timeline: Timeline) -> int:
         """The planned length, with each timelapse scene's measured length."""
@@ -134,7 +137,12 @@ def layout(timeline: Timeline, positions: dict[str, int]) -> Layout:
         for timing in timeline.scenes
         if not timing.hidden
     }
-    return Layout(tuple(segments), starts, offsets)
+    cues = {
+        label.removeprefix("cue-"): remap(position, segments)
+        for label, position in positions.items()
+        if label.startswith("cue-")
+    }
+    return Layout(tuple(segments), starts, offsets, cues)
 
 
 def _position(positions: dict[str, int], label: str) -> int:

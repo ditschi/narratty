@@ -418,22 +418,18 @@ scenes:
   - id: setup
     hidden: true                  # runs but is not recorded (VHS Hide/Show)
     actions:
-      - type_command: "cd /work && clear"
-      - enter
+      - run: "cd /work && clear"
 
   - id: intro
     narration: >
       This is a quick tour of the repository layout.
     actions:
-      - type_command: "eza --tree --level=1 ."
-      - enter
+      - run: "eza --tree --level=1 ."
       - wait: { screen: '\$ $', timeout_ms: 5000 }   # wait for the prompt to return
 
   - id: wrap
     narration: >
       That is the high level map.
-    actions:
-      - hold: auto
 ```
 
 Changes vs. draft: top-level `version`, a `timing` block, `hidden` scenes, `wait`
@@ -446,12 +442,13 @@ Modelled as a Pydantic discriminated union; unknown keys are errors.
 
 | Action | Meaning | VHS emission |
 |---|---|---|
+| `run: "…"` | type a command, press Enter, pause `timing.run_hold_ms` | `Type "…"`, `Enter`, `Sleep` |
 | `type_command: "…"` | type text at the scene's typing speed | `Type "…"` |
-| `enter` | press Enter | `Enter` |
+| `enter` | press Enter (legacy; write `key: Enter`) | `Enter` |
 | `ctrl_sequence: "C-c"` | control chord | `Ctrl+C` |
 | `hold: auto \| <ms>` | pause; `auto` = fill to the end of the narration | `Sleep <n>ms` |
-| `wait: { screen: <regex>, timeout_ms }` | block until the regex matches the last line | `Wait+Screen@<t> /<regex>/` |
-| `key: "<VHS key>"` | raw VHS key (escape hatch) | `<key>` |
+| `wait: <regex>` or `wait: { screen: <regex>, timeout_ms }` | block until the regex matches the last line | `Wait+Screen@<t> /<regex>/` |
+| `key: "<VHS key>"` | VHS key, case-insensitive, optional repeat count | `<key>` |
 
 `narration` is scene-level (one voiceover per scene).
 
@@ -631,7 +628,8 @@ Global options: `--runtime`, `--image`, `--cache-dir`, `--jobs`, `-v/-q`, `--jso
 | `narratty cache {info,prune}` | Inspect or prune the audio cache, snapshots and build-cache volumes |
 
 Exit codes: 0 ok, 1 unexpected error, 2 usage error, 3 validation error, 4 missing
-dependency (doctor), 5 render/mux failure, 6 sync verification failure.
+dependency (doctor), 5 render/mux failure, 6 sync verification failure, 7 a recorded
+command exited contrary to its `expect_exit`.
 
 ---
 

@@ -24,6 +24,8 @@ allow_env = ["LM_LICENSE_FILE"]    # env_passthrough names a spec may use
 allow_mounts = true
 allow_ssh_agent = false
 allow_docker = false               # no spec gets your Docker/Podman engine
+allow_environment = ["image", "compose", "container"]
+allow_packages = true              # environment.packages and setup
 ```
 
 Every key is optional. A command-line flag beats the spec, and the spec beats this
@@ -41,4 +43,5 @@ file. `[sandbox]` is a cap: a spec asking for more fails. See
 | `NARRATTY_CONFIG_DIR` | Directory of `config.toml` and `approvals.json` |
 | `NARRATTY_DATA_DIR` | Directory for voices and models |
 | `NARRATTY_CACHE_DIR` | Directory for caches |
+| `NARRATTY_AGENT_DIR` | Local `narratty-agent` builds (`<dir>/<arch>/narratty-agent`) instead of the image's |
 | `NO_COLOR` | Plain output |

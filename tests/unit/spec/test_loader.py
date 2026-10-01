@@ -61,6 +61,14 @@ def test_yaml_syntax_error() -> None:
     assert issue.startswith("demo.narratty.yaml:2:1: invalid YAML")
 
 
+def test_markdown_bullet_gets_a_hint() -> None:
+    (issue,) = _issues("scenes:\n  - id: a\n    actions:\n      - run: ls\n      * enter\n")
+    assert issue == (
+        "demo.narratty.yaml:5:8: invalid YAML: "
+        "list items start with '- ', not '* ' ('*' starts an alias in YAML)"
+    )
+
+
 def test_not_a_mapping() -> None:
     assert _issues("- a\n") == [
         "demo.narratty.yaml:1:1: the spec must be a YAML mapping with a 'scenes' list"

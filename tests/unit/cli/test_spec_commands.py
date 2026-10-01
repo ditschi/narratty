@@ -23,6 +23,14 @@ def test_init_then_validate(tmp_path: Path) -> None:
     assert "2 scenes, 2 narrated" in plain(result.output)
 
 
+def test_validate_prints_hints(tmp_path: Path) -> None:
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text("terminal: {width: 1200}\nscenes:\n  - id: a\n", encoding="utf-8")
+    result = runner.invoke(app, ["validate", str(spec)])
+    assert result.exit_code == 0, result.output
+    assert "terminal.width: same as the default; leave it out" in plain(result.output)
+
+
 def test_init_refuses_to_overwrite(tmp_path: Path) -> None:
     spec = tmp_path / "demo.narratty.yaml"
     spec.write_text("keep", encoding="utf-8")

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -79,18 +82,81 @@ def test_verify_needs_both_streams(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         verify(_result(tmp_path, 10000), max_drift=0.1)
 
 
+def _env_plan(tmp_path: Path) -> Plan:
+    spec_path = tmp_path / "s.narratty.yaml"
+    spec = parse_spec("environment: {image: acme/dev:1}\nscenes: [{id: a}]\n", spec_path)
+    return Plan(spec_path, spec, (), build_timeline(spec, {}))
+
+
+def test_environment_bridge_natively(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from contextlib import contextmanager
+
+    from narratty.build import environment_bridge
+    from narratty.environment import Session
+    from narratty.workspace import PreparedWorkspace
+
+    started: list[dict[str, object]] = []
+
+    @contextmanager
+    def fake_provide(environment: object, spec: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        started.append(kwargs)
+        yield Session("podman", "env-1", "/work")
+
+    monkeypatch.setattr("narratty.env_provide.provide", fake_provide)
+    monkeypatch.setattr("narratty.runtime.container_engine", lambda: "podman")
+    monkeypatch.setattr("narratty.environment.running", lambda engine, spec_path: None)
+    workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge is not None
+        assert bridge[:2] == ["podman", "exec"] and bridge[-1] == "env-1"
+    assert started[0]["with_agent"] is False and started[0]["engine"] == "podman"
+
+
+def test_environment_bridge_reuses_a_kept_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.build import environment_bridge
+    from narratty.environment import Session
+    from narratty.workspace import PreparedWorkspace
+
+    kept = Session("docker", "narratty-env-abc", "/work")
+    monkeypatch.setattr("narratty.runtime.container_engine", lambda: "docker")
+    monkeypatch.setattr("narratty.environment.running", lambda engine, spec_path: (kept, tmp_path))
+    monkeypatch.setattr("narratty.env_provide.provide", lambda *a, **k: pytest.fail("started another"))
+    workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge == kept.exec_bridge()
+
+
+def test_environment_bridge_in_the_container(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from narratty.bridge import BRIDGE_ENV, encode
+    from narratty.build import environment_bridge
+    from narratty.workspace import PreparedWorkspace
+
+    workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
+    monkeypatch.setenv("NARRATTY_IN_CONTAINER", "1")
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge is None, "the host ran it with --no-env"
+    monkeypatch.setenv(BRIDGE_ENV, encode(["narratty-agent", "connect"]))
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge == ["narratty-agent", "connect"]
+
+
 class FakeMedia:
     """VHS, ffprobe and ffmpeg replaced; records what mux was asked to do."""
 
     def __init__(self, monkeypatch: pytest.MonkeyPatch, video_ms: int) -> None:
         self.mux_kwargs: dict[str, object] = {}
+        self.render_kwargs: dict[str, object] = {}
         self.srt = ""
         monkeypatch.setattr("narratty.build.render_silent", self._render)
         monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(video_ms, True, True))
         monkeypatch.setattr(media, "mux", self._mux)
 
-    @staticmethod
-    def _render(planned: Plan, video: Path, work: Path, workspace: Path) -> None:
+    def _render(
+        self, planned: Plan, video: Path, work: Path, workspace: Path, bridge: object = None, **kwargs: object
+    ) -> None:
+        self.render_kwargs = kwargs
         video.write_bytes(b"mp4")
 
     def _mux(self, video: Path, audio: Path, out: Path, **kwargs: object) -> None:
@@ -116,7 +182,13 @@ def test_draft_build_burns_in_the_narration(tmp_path: Path, monkeypatch: pytest.
     fake = FakeMedia(monkeypatch, planned_ms)
     result = build(spec, draft=True, workspace=WorkspaceOptions("rw", allow_dirty=True))
     assert result.output == tmp_path / "demo.draft.mp4"
-    assert fake.mux_kwargs == {"subtitles": fake.mux_kwargs["subtitles"], "burn": True, "fast": True}
+    assert fake.mux_kwargs == {
+        "subtitles": fake.mux_kwargs["subtitles"],
+        "burn": True,
+        "overlays": [],
+        "fast": True,
+    }
+    assert fake.render_kwargs["fast"] is True  # a draft fills its pauses with still frames
     assert "Hello there." in fake.srt
 
 
@@ -162,3 +234,164 @@ def test_narrations_use_the_clip_lengths(tmp_path: Path) -> None:
         Narrated("One.", 0, 1500),
         Narrated("Two.", 2100, 500),
     ]
+
+
+class FakeVhs:
+    """VHS that prints each tape command a second apart, plus ffprobe/ffmpeg for the stills."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch, freezes: list[tuple[int, int | None]]) -> None:
+        self.repeated: list[tuple[int, int]] = []
+        self.recorded_ms = 0
+        monkeypatch.setattr(media, "run_vhs", self._run)
+        monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(self.recorded_ms, True, False, 25.0))
+        monkeypatch.setattr(media, "freezes", lambda path: freezes)
+        monkeypatch.setattr(media, "repeat_frames", self._repeat)
+
+    def _run(self, tape: Path, cwd: Path, **kwargs: Any) -> list[media.LogLine]:
+        lines = [line for line in tape.read_text(encoding="utf-8").splitlines() if line and line[0] != "#"]
+        output = Path(json.loads(lines[0].removeprefix("Output ")))
+        output.write_bytes(b"mp4")
+        printed = [
+            media.LogLine(float(i), line.replace("@", " ").replace("+", " ").replace('"', ""))
+            for i, line in enumerate(lines)
+        ]
+        self.recorded_ms = 1000 * (len(lines) - 2)  # the settings print at once
+        log = [media.LogLine(0.0, "File: t.tape"), media.LogLine(0.0, ""), *printed]
+        log.append(media.LogLine(float(len(lines)), "Creating ..."))
+        for line in log:
+            if kwargs.get("on_line"):
+                kwargs["on_line"](line, 0)
+        return log
+
+    def _repeat(self, video: Path, inserts: list[tuple[int, int]], out: Path, **kwargs: Any) -> None:
+        self.repeated = inserts
+        out.write_bytes(b"mp4")
+
+
+FAST_SPEC = (
+    "end_card: false\ntiming: {lead_in_ms: 0, tail_ms: 0, narration_buffer_ms: 0}\n"
+    "scenes: [{id: a, narration: Hello there and welcome to this rather long narration.,\n"
+    "  actions: [{type_command: ls}, enter]}]\n"
+)
+
+
+def _fast_render(
+    tmp_path: Path, *, draft: bool, logs: list[str] | None = None, text: str = FAST_SPEC
+) -> Path:
+    """Render with ``--fast``; returns the video."""
+    import dataclasses
+
+    from narratty.build import plan, render_silent
+
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(text, encoding="utf-8")
+    planned = dataclasses.replace(plan(spec, draft=True), draft=draft)
+    work = tmp_path / "work"
+    work.mkdir()
+    video = tmp_path / "v.mp4"
+    render_silent(planned, video, work, tmp_path, fast=True, log=None if logs is None else logs.append)
+    return video
+
+
+def test_fast_render_repeats_frames_of_still_pauses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeVhs(monkeypatch, [(0, None)])
+    video = _fast_render(tmp_path, draft=False)
+    assert video.read_bytes() == b"mp4"
+    assert "Sleep 1000ms" in (tmp_path / "work" / "scene.tape").read_text(encoding="utf-8")
+    [(frame, count)] = fake.repeated
+    assert count > 0 and frame >= 0
+
+
+def test_fast_render_fails_when_a_pause_kept_changing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    FakeVhs(monkeypatch, [])
+    with pytest.raises(RenderError, match="not still at the end of a pause in: a"):
+        _fast_render(tmp_path, draft=False)
+
+
+def test_fast_draft_only_logs_a_changing_pause(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeVhs(monkeypatch, [])
+    logs: list[str] = []
+    _fast_render(tmp_path, draft=True, logs=logs)
+    assert any("pause in: a" in line for line in logs)
+    assert len(fake.repeated) == 1, "the draft keeps its timing"
+
+
+def test_fast_render_places_cues_after_the_filled_pauses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import dataclasses
+
+    from narratty.build import plan, render_silent
+    from narratty.render import pauses
+
+    fake = FakeVhs(monkeypatch, [(0, None)])
+    monkeypatch.setattr(Path, "replace", lambda self, target: target)
+    recorded: dict[str, dict[str, int]] = {}
+    shift = pauses.shift_positions
+
+    def spy(positions: dict[str, int], *args: Any) -> dict[str, int]:
+        recorded["positions"] = dict(positions)
+        return shift(positions, *args)
+
+    monkeypatch.setattr(pauses, "shift_positions", spy)
+    spec = tmp_path / "demo.narratty.yaml"
+    actions = "enter, {overlay: Before}, {hold: auto}, {overlay: After}]}]"
+    spec.write_text(FAST_SPEC.replace("enter]}]", actions), encoding="utf-8")
+    planned = dataclasses.replace(plan(spec, draft=True), draft=False)
+    work = tmp_path / "work"
+    work.mkdir()
+    layout = render_silent(planned, tmp_path / "v.mp4", work, tmp_path, fast=True)
+    assert layout is not None and not layout.segments
+    [(_, count)] = fake.repeated
+    filled_ms = count * 40  # 25 fps
+    before, after = layout.cues_ms["overlay:a:2"], layout.cues_ms["overlay:a:4"]
+    raw = recorded["positions"]
+    assert before == raw["cue-overlay:a:2"], "before the pause: unchanged"
+    assert after == raw["cue-overlay:a:4"] + filled_ms, "after the pause: later by the filled frames"
+
+
+def test_exit_log_in_the_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from narratty.build import REMOTE_EXIT_LOG_ENV, collect_exit_log, fresh_exit_log
+
+    (tmp_path / "exits.log").write_text("stale", encoding="utf-8")
+    remote = fresh_exit_log(tmp_path, ["docker", "exec", "-it", "dev"])
+    assert str(remote).startswith("/tmp/narratty-exits-") and not (tmp_path / "exits.log").exists()
+    monkeypatch.setenv(REMOTE_EXIT_LOG_ENV, "/tmp/given.log")
+    assert fresh_exit_log(tmp_path, ["narratty-agent", "connect"]) == Path("/tmp/given.log")
+
+    calls: list[list[str]] = []
+
+    def fake_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, "0\tls\n", "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    collect_exit_log(["narratty-agent", "connect", "--"], remote, tmp_path)
+    assert calls == [], "the agent cannot read files; the host does"
+    collect_exit_log(["docker", "exec", "--interactive", "--tty", "--workdir", "/w", "dev"], remote, tmp_path)
+    [argv] = calls
+    assert argv[:5] == ["docker", "exec", "--workdir", "/w", "dev"], "no terminal for reading a file"
+    assert argv[5:7] == ["sh", "-c"] and str(remote) in argv[7]
+    assert (tmp_path / "exits.log").read_text(encoding="utf-8") == "0\tls\n"
+
+
+def test_a_scene_can_opt_out_of_fast(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeVhs(monkeypatch, [(0, None)])
+    _fast_render(tmp_path, draft=False, text=FAST_SPEC.replace("{id: a,", "{id: a, fast: false,"))
+    assert fake.repeated == [], "the scene's pause was recorded in full"
+
+
+def test_a_scene_can_opt_in_to_fast(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import dataclasses
+
+    from narratty.build import plan, render_silent
+
+    fake = FakeVhs(monkeypatch, [(0, None)])
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(FAST_SPEC.replace("{id: a,", "{id: a, fast: true,"), encoding="utf-8")
+    planned = dataclasses.replace(plan(spec, draft=True), draft=False)
+    (tmp_path / "work").mkdir()
+    render_silent(planned, tmp_path / "v.mp4", tmp_path / "work", tmp_path)
+    assert fake.repeated, "filled without --fast"

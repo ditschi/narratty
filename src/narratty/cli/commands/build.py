@@ -12,16 +12,21 @@ from narratty.cli.options import (
     AllowDirtyOption,
     AllowHostOption,
     EndCardOption,
+    EnvImageOption,
+    IgnoreExitOption,
     ImageOption,
+    KeepEnvOption,
     KeepWorkspaceOption,
     NetworkMode,
     NetworkOption,
+    NoEnvOption,
     OfflineOption,
+    RebuildEnvOption,
     RuntimeOption,
     WorkspaceMode,
     WorkspaceModeOption,
     YesOption,
-    check_hosts,
+    sandbox_request,
 )
 from narratty.runtime import Runtime
 
@@ -77,13 +82,24 @@ def build_command(
         False,
         "--draft",
         help="Fast preview: no TTS (estimated narration lengths), 10 fps, half-size video, silent, "
-        "narration burned in as subtitles. Writes <spec>.draft.mp4 by default.",
+        "narration burned in as subtitles, --fast. Writes <spec>.draft.mp4 by default.",
     ),
+    fast: bool = typer.Option(
+        False,
+        "--fast",
+        help="Don't wait out long pauses: once the screen is still, fill the rest with the "
+        "last frame. Fails if a pause ends while the screen is still changing.",
+    ),
+    ignore_exit: bool = IgnoreExitOption,
     workspace_mode: WorkspaceMode | None = WorkspaceModeOption,
     keep_workspace: bool = KeepWorkspaceOption,
     allow_dirty: bool = AllowDirtyOption,
     network: NetworkMode | None = NetworkOption,
     allow_host: list[str] | None = AllowHostOption,
+    env_image: str | None = EnvImageOption,
+    no_env: bool = NoEnvOption,
+    keep_env: bool = KeepEnvOption,
+    rebuild_env: bool = RebuildEnvOption,
     yes: bool = YesOption,
     end_card: bool | None = EndCardOption,
     offline: bool = OfflineOption,
@@ -91,9 +107,10 @@ def build_command(
     image: str | None = ImageOption,
 ) -> None:
     """Build the narrated video (or asciicast)."""
-    from narratty.build import WorkspaceOptions, build, build_cast, default_output
-    from narratty.container import SandboxRequest, delegate
+    from narratty.build import build, build_cast, default_output
+    from narratty.container import delegate
     from narratty.end_card import container_flag
+    from narratty.environment import EnvironmentOptions
     from narratty.errors import UsageError
     from narratty.ui.console import err, out
 
@@ -101,10 +118,8 @@ def build_command(
     if draft and cast:
         raise UsageError("--draft only applies to --format mp4")
     suffix = ".html" if cast else ".draft.mp4" if draft else ".mp4"
-    workspace = WorkspaceOptions(
-        workspace_mode.value if workspace_mode else None, allow_dirty, keep_workspace
-    )
-    request = SandboxRequest(workspace, network.value if network else None, check_hosts(allow_host), yes)
+    env = EnvironmentOptions(no_env, env_image, keep_env, rebuild_env)
+    request = sandbox_request(workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env)
     code = delegate(
         "build",
         spec,
@@ -120,8 +135,11 @@ def build_command(
             container_flag(spec, end_card),
             *(["--subtitles", subtitles.value] if subtitles else []),
             *(["--draft"] if draft else []),
+            *(["--fast"] if fast else []),
+            *(["--ignore-exit"] if ignore_exit else []),
         ],
         sandbox=request,
+        ignore_exit=ignore_exit,
     )
     if code is not None:
         raise typer.Exit(code)
@@ -138,9 +156,12 @@ def build_command(
                 output,
                 work_dir=work_dir,
                 offline=offline,
-                workspace=workspace,
+                workspace=request.workspace,
                 end_card=end_card,
                 subtitles=subtitles.value if subtitles else None,
+                fast=fast,
+                ignore_exit=ignore_exit,
+                sandbox=request,
                 log=log,
             )
         else:
@@ -150,10 +171,13 @@ def build_command(
                 work_dir=work_dir,
                 offline=offline,
                 max_drift=max_drift,
-                workspace=workspace,
+                workspace=request.workspace,
                 end_card=end_card,
                 subtitles=subtitles.value if subtitles else None,
                 draft=draft,
+                fast=fast,
+                ignore_exit=ignore_exit,
+                sandbox=request,
                 log=log,
             )
     err.print(

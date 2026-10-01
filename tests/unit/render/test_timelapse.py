@@ -91,6 +91,15 @@ def test_layout_places_scenes_in_the_final_video() -> None:
     assert result.expected_ms(timeline) == planned_without_b + 3000
 
 
+def test_layout_places_cues_where_they_were_recorded() -> None:
+    spec = parse_spec(SPEC, Path("t.narratty.yaml"))
+    timeline = build_timeline(spec, {"a": 1000, "b": 3000, "c": 500})
+    positions = {"scene-a": 0, "scene-b": 1000, "end-b": 17000, "scene-c": 17000}
+    cues = {"cue-overlay:a:0": 500, "cue-overlay:b:0": 9000, "cue-end": 18000}
+    result = layout(timeline, positions | cues)
+    assert result.cues_ms == {"overlay:a:0": 500, "overlay:b:0": 2000, "end": 5000}
+
+
 def test_layout_needs_every_marker() -> None:
     spec = parse_spec(SPEC, Path("t.narratty.yaml"))
     with pytest.raises(RenderError, match="end-b"):

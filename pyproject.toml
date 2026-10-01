@@ -33,6 +33,7 @@ dependencies = [
     "kokoro-onnx>=0.6",
     # GPL-3.0; only ever run as a subprocess (`python -m piper`), never imported.
     "piper-tts>=1.8",
+    "pillow>=10.1",
 ]
 
 [project.urls]
@@ -50,6 +51,7 @@ test = [
     "pytest>=8.2",
     "pytest-cov>=5.0",
     "pytest-xdist>=3.6",
+    "jsonschema>=4.22",
 ]
 lint = [
     "ruff>=0.6",

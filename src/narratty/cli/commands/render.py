@@ -11,16 +11,21 @@ from narratty.cli.options import (
     AllowDirtyOption,
     AllowHostOption,
     EndCardOption,
+    EnvImageOption,
+    IgnoreExitOption,
     ImageOption,
+    KeepEnvOption,
     KeepWorkspaceOption,
     NetworkMode,
     NetworkOption,
+    NoEnvOption,
     OfflineOption,
+    RebuildEnvOption,
     RuntimeOption,
     WorkspaceMode,
     WorkspaceModeOption,
     YesOption,
-    check_hosts,
+    sandbox_request,
 )
 from narratty.runtime import Runtime
 
@@ -33,6 +38,11 @@ def render_command(
     allow_dirty: bool = AllowDirtyOption,
     network: NetworkMode | None = NetworkOption,
     allow_host: list[str] | None = AllowHostOption,
+    env_image: str | None = EnvImageOption,
+    no_env: bool = NoEnvOption,
+    keep_env: bool = KeepEnvOption,
+    rebuild_env: bool = RebuildEnvOption,
+    ignore_exit: bool = IgnoreExitOption,
     yes: bool = YesOption,
     end_card: bool | None = EndCardOption,
     offline: bool = OfflineOption,
@@ -41,30 +51,31 @@ def render_command(
 ) -> None:
     """Synthesize the narration (for timing) and record the silent video with VHS."""
     from narratty.build import (
-        WorkspaceOptions,
+        check_exits,
         default_output,
+        environment_bridge,
         plan,
         render_silent,
         work_directory,
         workspace_for,
     )
-    from narratty.container import SandboxRequest, delegate
+    from narratty.container import delegate
     from narratty.end_card import container_flag
+    from narratty.environment import EnvironmentOptions
     from narratty.ui.console import err
 
     video = (output or default_output(spec, ".silent.mp4")).resolve()
-    workspace = WorkspaceOptions(
-        workspace_mode.value if workspace_mode else None, allow_dirty, keep_workspace
-    )
-    request = SandboxRequest(workspace, network.value if network else None, check_hosts(allow_host), yes)
+    env = EnvironmentOptions(no_env, env_image, keep_env, rebuild_env)
+    request = sandbox_request(workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env)
     code = delegate(
         "render",
         spec,
         runtime=runtime,
         image=image,
         output=video,
-        extra_args=[container_flag(spec, end_card)],
+        extra_args=[container_flag(spec, end_card), *(["--ignore-exit"] if ignore_exit else [])],
         sandbox=request,
+        ignore_exit=ignore_exit,
     )
     if code is not None:
         raise typer.Exit(code)
@@ -73,7 +84,9 @@ def render_command(
     with (
         err.status("recording with VHS"),
         work_directory(None) as work,
-        workspace_for(planned, workspace) as ws,
+        workspace_for(planned, request.workspace, request) as ws,
+        environment_bridge(planned, ws, request) as bridge,
     ):
-        render_silent(planned, video, work, ws.path)
+        render_silent(planned, video, work, ws.path, bridge)
+        check_exits(planned, work, video, ignore_exit=ignore_exit)
     err.print(f"[green]wrote[/] {video}", highlight=False, soft_wrap=True)

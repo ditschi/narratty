@@ -2,6 +2,78 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json",
   "$defs": {
+    "Browser": {
+      "additionalProperties": false,
+      "description": "A web page or local HTML file. ``browser: URL`` is short for ``browser: {url: URL}``.",
+      "properties": {
+        "url": {
+          "description": "An http(s) URL, or an HTML file in the workspace.",
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "scroll": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "minimum": 0,
+              "type": "integer"
+            }
+          ],
+          "default": "none",
+          "description": "Scroll down while shown: auto (to the end of the page, at most 4 screens) or this many pixels.",
+          "title": "Scroll"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hide after this long; by default it stays until the scene ends.",
+          "title": "Duration Ms"
+        },
+        "load_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
+          "default": 5000,
+          "description": "How long the page may load before it is captured.",
+          "title": "Load Ms"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "Browser",
+      "type": "object"
+    },
     "CtrlSequence": {
       "additionalProperties": false,
       "description": "Send a control chord such as ``C-c``.",
@@ -16,6 +88,36 @@
         "ctrl_sequence"
       ],
       "title": "CtrlSequence",
+      "type": "object"
+    },
+    "Diff": {
+      "additionalProperties": false,
+      "description": "Show what changed in the workspace since the recording started.\n\nWritten as the bare string ``diff`` in YAML, or with paths to limit it to.",
+      "properties": {
+        "diff": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          ],
+          "default": true,
+          "title": "Diff"
+        }
+      },
+      "title": "Diff",
       "type": "object"
     },
     "EndCard": {
@@ -36,11 +138,21 @@
           "title": "Enabled"
         },
         "duration_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 4000,
           "description": "How long the card stays on screen.",
-          "minimum": 1000,
-          "title": "Duration Ms",
-          "type": "integer"
+          "title": "Duration Ms"
         },
         "qr": {
           "default": true,
@@ -54,7 +166,7 @@
     },
     "Enter": {
       "additionalProperties": false,
-      "description": "Press Enter. Written as the bare string ``enter`` in YAML.",
+      "description": "Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``.",
       "properties": {
         "enter": {
           "const": true,
@@ -64,11 +176,195 @@
         }
       },
       "title": "Enter",
+      "type": "object",
+      "deprecated": true,
+      "deprecationMessage": "Write `key: Enter` instead."
+    },
+    "EnvCompose": {
+      "additionalProperties": false,
+      "description": "A service of the project's Compose file (path relative to the spec).",
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": "compose.yaml",
+          "description": "Compose file, or several merged in order.",
+          "title": "File"
+        },
+        "service": {
+          "description": "Service the demo shell runs in.",
+          "minLength": 1,
+          "title": "Service",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service"
+      ],
+      "title": "EnvCompose",
+      "type": "object"
+    },
+    "Environment": {
+      "additionalProperties": false,
+      "description": "A project container the demo shell runs in; the rest of narratty stays outside it.",
+      "properties": {
+        "image": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Image to run the demo shell in.",
+          "title": "Image"
+        },
+        "compose": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EnvCompose"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run in a service of a Compose file."
+        },
+        "container": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run in this running container.",
+          "title": "Container"
+        },
+        "workdir": {
+          "anyOf": [
+            {
+              "pattern": "^/",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where the shell starts; for image also where the workspace is mounted (default /work). compose and container default to the container's working directory.",
+          "title": "Workdir"
+        },
+        "user": {
+          "default": "host",
+          "description": "host: your user id, so files stay yours; image: the image's user; a user name; or UID[:GID].",
+          "pattern": "^(host|image|[0-9]+(:[0-9]+)?|[a-z_][a-z0-9_-]*)$",
+          "title": "User",
+          "type": "string"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Variables set in the environment's container.",
+          "title": "Env",
+          "type": "object"
+        },
+        "read_only": {
+          "default": false,
+          "description": "Mount the image's root filesystem read-only.",
+          "title": "Read Only",
+          "type": "boolean"
+        },
+        "packages": {
+          "default": [],
+          "description": "Packages to add for the demo, with the image's package manager.",
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9.+_:=~<>*-]*$",
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "package_manager": {
+          "default": "auto",
+          "description": "auto detects it in the image.",
+          "enum": [
+            "auto",
+            "apt",
+            "apk",
+            "dnf",
+            "microdnf",
+            "yum",
+            "zypper"
+          ],
+          "title": "Package Manager",
+          "type": "string"
+        },
+        "setup": {
+          "default": [],
+          "description": "Shell commands run as root when the image is built (after packages).",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Setup",
+          "type": "array"
+        },
+        "toolkit": {
+          "default": "prefer",
+          "description": "Mount narratty's demo toolkit: first on PATH (prefer), last (fallback) or not (off).",
+          "enum": [
+            "prefer",
+            "fallback",
+            "off"
+          ],
+          "title": "Toolkit",
+          "type": "string"
+        }
+      },
+      "title": "Environment",
+      "type": "object"
+    },
+    "Focus": {
+      "additionalProperties": false,
+      "description": "Move the keyboard to a pane of the editor layout.",
+      "properties": {
+        "focus": {
+          "enum": [
+            "explorer",
+            "terminal"
+          ],
+          "title": "Focus",
+          "type": "string"
+        }
+      },
+      "required": [
+        "focus"
+      ],
+      "title": "Focus",
       "type": "object"
     },
     "Hold": {
       "additionalProperties": false,
-      "description": "Pause. ``auto`` fills the scene until its narration has finished.",
+      "description": "Pause. ``auto`` waits here until the narration has finished.\n\nOnly needed mid-scene: after the last action, a scene always waits for its narration.",
       "properties": {
         "hold": {
           "anyOf": [
@@ -77,8 +373,14 @@
               "type": "string"
             },
             {
-              "exclusiveMinimum": 0,
+              "description": "Milliseconds",
+              "minimum": 0,
               "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
             }
           ],
           "title": "Hold"
@@ -92,7 +394,7 @@
     },
     "Key": {
       "additionalProperties": false,
-      "description": "Press a raw VHS key, optionally repeated (``Down 3``).",
+      "description": "Press a key, optionally repeated (``Down 3``). Names are case-insensitive.",
       "properties": {
         "key": {
           "title": "Key",
@@ -171,6 +473,300 @@
       "title": "Mount",
       "type": "object"
     },
+    "Overlay": {
+      "additionalProperties": false,
+      "description": "Text shown over the video. ``overlay: \"text\"`` is short for ``overlay: {text: \"text\"}``.",
+      "properties": {
+        "position": {
+          "anyOf": [
+            {
+              "enum": [
+                "top-left",
+                "top",
+                "top-right",
+                "left",
+                "center",
+                "right",
+                "bottom-left",
+                "bottom",
+                "bottom-right"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where in the picture (default bottom-right).",
+          "title": "Position"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "enum": [
+                "small",
+                "medium",
+                "large"
+              ],
+              "type": "string"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text size: small, medium, large, or a factor of terminal.font_size (default medium).",
+          "title": "Size"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text colour, #rrggbb (default #ffffff).",
+          "title": "Color"
+        },
+        "background": {
+          "anyOf": [
+            {
+              "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Box colour, #rrggbb or #rrggbbaa with alpha (default #000000b3).",
+          "title": "Background"
+        },
+        "box": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Draw the rounded box; false shows outlined text only.",
+          "title": "Box"
+        },
+        "bold": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bold"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hide after this long; by default it stays until the scene ends.",
+          "title": "Duration Ms"
+        },
+        "keep": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Stay past the scene's end until another overlay takes its position.",
+          "title": "Keep"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "style": {
+          "default": "default",
+          "description": "Named style from overlay_styles (built in: default, chapter).",
+          "title": "Style",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "Overlay",
+      "type": "object"
+    },
+    "OverlayStyle": {
+      "additionalProperties": false,
+      "description": "How an overlay looks and how long it stays. Unset keys come from its style.",
+      "properties": {
+        "position": {
+          "anyOf": [
+            {
+              "enum": [
+                "top-left",
+                "top",
+                "top-right",
+                "left",
+                "center",
+                "right",
+                "bottom-left",
+                "bottom",
+                "bottom-right"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where in the picture (default bottom-right).",
+          "title": "Position"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "enum": [
+                "small",
+                "medium",
+                "large"
+              ],
+              "type": "string"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text size: small, medium, large, or a factor of terminal.font_size (default medium).",
+          "title": "Size"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text colour, #rrggbb (default #ffffff).",
+          "title": "Color"
+        },
+        "background": {
+          "anyOf": [
+            {
+              "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Box colour, #rrggbb or #rrggbbaa with alpha (default #000000b3).",
+          "title": "Background"
+        },
+        "box": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Draw the rounded box; false shows outlined text only.",
+          "title": "Box"
+        },
+        "bold": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bold"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hide after this long; by default it stays until the scene ends.",
+          "title": "Duration Ms"
+        },
+        "keep": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Stay past the scene's end until another overlay takes its position.",
+          "title": "Keep"
+        }
+      },
+      "title": "OverlayStyle",
+      "type": "object"
+    },
     "PiperOptions": {
       "additionalProperties": false,
       "properties": {
@@ -203,6 +799,57 @@
         }
       },
       "title": "Requires",
+      "type": "object"
+    },
+    "Reveal": {
+      "additionalProperties": false,
+      "description": "Select a file or directory in the editor layout's explorer.",
+      "properties": {
+        "reveal": {
+          "description": "Path relative to the workspace.",
+          "minLength": 1,
+          "title": "Reveal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reveal"
+      ],
+      "title": "Reveal",
+      "type": "object"
+    },
+    "Run": {
+      "additionalProperties": false,
+      "description": "Type a command, press Enter, then pause for ``timing.run_hold_ms``.",
+      "properties": {
+        "run": {
+          "minLength": 1,
+          "title": "Run",
+          "type": "string"
+        },
+        "expect_exit": {
+          "anyOf": [
+            {
+              "enum": [
+                "success",
+                "failure",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Exit code of this command: success, failure or any; overrides the scene's.",
+          "title": "Expect Exit"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "Run",
       "type": "object"
     },
     "Sandbox": {
@@ -293,6 +940,9 @@
           "items": {
             "oneOf": [
               {
+                "$ref": "#/$defs/Run"
+              },
+              {
                 "$ref": "#/$defs/TypeCommand"
               },
               {
@@ -309,6 +959,31 @@
               },
               {
                 "$ref": "#/$defs/Key"
+              },
+              {
+                "$ref": "#/$defs/Focus"
+              },
+              {
+                "$ref": "#/$defs/Reveal"
+              },
+              {
+                "$ref": "#/$defs/Diff"
+              },
+              {
+                "$ref": "#/$defs/ShowOverlay"
+              },
+              {
+                "$ref": "#/$defs/ShowBrowser"
+              },
+              {
+                "const": "enter",
+                "description": "Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``.",
+                "deprecated": true,
+                "deprecationMessage": "Write `key: Enter` instead."
+              },
+              {
+                "const": "diff",
+                "description": "Show the whole diff; short for {diff: true}."
               }
             ]
           },
@@ -323,8 +998,14 @@
         "typing_speed_ms": {
           "anyOf": [
             {
-              "exclusiveMinimum": 0,
+              "description": "Milliseconds",
+              "minimum": 0,
               "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
             },
             {
               "type": "null"
@@ -332,6 +1013,26 @@
           ],
           "default": null,
           "title": "Typing Speed Ms"
+        },
+        "pause_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pause after each `key` and `ctrl_sequence` in this scene; defaults to timing.pause_ms.",
+          "title": "Pause Ms"
         },
         "narration_start": {
           "default": "with_actions",
@@ -356,12 +1057,89 @@
           "default": null,
           "description": "Show the scene this many times faster (e.g. a long download).",
           "title": "Timelapse"
+        },
+        "expect_exit": {
+          "anyOf": [
+            {
+              "enum": [
+                "success",
+                "failure",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Exit codes of the scene's commands: success (all exit 0, the default), failure (at least one fails) or any (not checked).",
+          "title": "Expect Exit"
+        },
+        "fast": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fill long pauses with still frames (true) or record them in full (false); overrides --fast.",
+          "title": "Fast"
         }
       },
       "required": [
         "id"
       ],
       "title": "Scene",
+      "type": "object"
+    },
+    "ShowBrowser": {
+      "additionalProperties": false,
+      "description": "Show a web page over the terminal from this point, as Chromium renders it.",
+      "properties": {
+        "browser": {
+          "anyOf": [
+            {
+              "description": "The URL or file; short for {url: ...}.",
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Browser"
+            }
+          ]
+        }
+      },
+      "required": [
+        "browser"
+      ],
+      "title": "ShowBrowser",
+      "type": "object"
+    },
+    "ShowOverlay": {
+      "additionalProperties": false,
+      "description": "Show text over the video from this point (a chapter title, a file name).",
+      "properties": {
+        "overlay": {
+          "anyOf": [
+            {
+              "description": "The text; short for {text: ...}.",
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Overlay"
+            }
+          ]
+        }
+      },
+      "required": [
+        "overlay"
+      ],
+      "title": "ShowOverlay",
       "type": "object"
     },
     "Terminal": {
@@ -391,10 +1169,20 @@
           "type": "integer"
         },
         "typing_speed_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 40,
-          "exclusiveMinimum": 0,
-          "title": "Typing Speed Ms",
-          "type": "integer"
+          "title": "Typing Speed Ms"
         },
         "shell": {
           "default": "bash",
@@ -411,6 +1199,16 @@
           "default": "$ ",
           "title": "Prompt",
           "type": "string"
+        },
+        "layout": {
+          "default": "plain",
+          "description": "`editor`: a file explorer with preview on top, the shell below (tmux + yazi).",
+          "enum": [
+            "plain",
+            "editor"
+          ],
+          "title": "Layout",
+          "type": "string"
         }
       },
       "title": "Terminal",
@@ -420,22 +1218,86 @@
       "additionalProperties": false,
       "properties": {
         "narration_buffer_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 500,
-          "minimum": 0,
-          "title": "Narration Buffer Ms",
-          "type": "integer"
+          "title": "Narration Buffer Ms"
         },
         "lead_in_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 300,
-          "minimum": 0,
-          "title": "Lead In Ms",
-          "type": "integer"
+          "title": "Lead In Ms"
         },
         "tail_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 1000,
-          "minimum": 0,
-          "title": "Tail Ms",
-          "type": "integer"
+          "title": "Tail Ms"
+        },
+        "run_hold_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
+          "default": 500,
+          "description": "Pause after each `run` action.",
+          "title": "Run Hold Ms"
+        },
+        "pause_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
+          "default": 100,
+          "description": "Pause after each `key` and `ctrl_sequence`.",
+          "title": "Pause Ms"
         }
       },
       "title": "Timing",
@@ -488,7 +1350,7 @@
     },
     "TypeCommand": {
       "additionalProperties": false,
-      "description": "Type text at the scene's typing speed (does not press Enter).",
+      "description": "Type text at the scene's typing speed without pressing Enter (use ``run`` for commands).",
       "properties": {
         "type_command": {
           "minLength": 1,
@@ -504,10 +1366,18 @@
     },
     "Wait": {
       "additionalProperties": false,
-      "description": "Block until ``wait.screen`` matches the terminal content.",
+      "description": "Block until ``wait.screen`` matches the terminal content, or the prompt is back.\n\n``wait: \"pattern\"`` is short for ``wait: {screen: \"pattern\"}``.",
       "properties": {
         "wait": {
-          "$ref": "#/$defs/WaitSpec"
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Regular expression; short for {screen: ...}."
+            },
+            {
+              "$ref": "#/$defs/WaitSpec"
+            }
+          ]
         }
       },
       "required": [
@@ -518,23 +1388,45 @@
     },
     "WaitSpec": {
       "additionalProperties": false,
-      "description": "Wait until the screen matches a regular expression.",
+      "description": "Wait until the screen matches a regular expression, or until the prompt is back.",
       "properties": {
         "screen": {
-          "minLength": 1,
-          "title": "Screen",
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Regular expression to wait for.",
+          "title": "Screen"
+        },
+        "prompt": {
+          "default": false,
+          "description": "Wait until the command has finished and the prompt is back.",
+          "title": "Prompt",
+          "type": "boolean"
         },
         "timeout_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 15000,
-          "exclusiveMinimum": 0,
-          "title": "Timeout Ms",
-          "type": "integer"
+          "title": "Timeout Ms"
         }
       },
-      "required": [
-        "screen"
-      ],
       "title": "WaitSpec",
       "type": "object"
     },
@@ -618,7 +1510,9 @@
       "default": {
         "narration_buffer_ms": 500,
         "lead_in_ms": 300,
-        "tail_ms": 1000
+        "tail_ms": 1000,
+        "run_hold_ms": 500,
+        "pause_ms": 100
       }
     },
     "terminal": {
@@ -630,7 +1524,8 @@
         "font_size": 22,
         "typing_speed_ms": 40,
         "shell": "bash",
-        "prompt": "$ "
+        "prompt": "$ ",
+        "layout": "plain"
       }
     },
     "requires": {
@@ -661,8 +1556,27 @@
         "docker": false
       }
     },
+    "environment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Environment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "end_card": {
-      "$ref": "#/$defs/EndCard",
+      "anyOf": [
+        {
+          "type": "boolean",
+          "description": "Short for {enabled: ...}."
+        },
+        {
+          "$ref": "#/$defs/EndCard"
+        }
+      ],
       "default": {
         "enabled": null,
         "duration_ms": 4000,
@@ -680,6 +1594,17 @@
       ],
       "title": "Subtitles",
       "type": "string"
+    },
+    "overlay_styles": {
+      "default": {},
+      "description": "Named overlay styles, used as `overlay: {text: ..., style: <name>}`. `default` and `chapter` are built in and can be changed here.",
+      "patternProperties": {
+        "^[a-z0-9][a-z0-9_-]*$": {
+          "$ref": "#/$defs/OverlayStyle"
+        }
+      },
+      "title": "Overlay Styles",
+      "type": "object"
     },
     "scenes": {
       "items": {

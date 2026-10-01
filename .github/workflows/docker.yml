@@ -116,4 +116,4 @@ jobs:
           NARRATTY_IMAGE: narratty:test
         run: |
           uv tool install nox
-          nox -s integration -- -k "container or sandbox_network"
+          nox -s integration -- -k "container or sandbox_network or environment"

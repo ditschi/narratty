@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+tts:
+  provider: kokoro
+  voice: bf_emma
+terminal: {width: 960, height: 540, font_size: 20}
+scenes:
+  - id: voice
+    narration: This is Kokoro with the voice bf_emma. British English, female.
+    actions:
+      - run: "grep -m1 -A2 tts: kokoro-bf_emma.narratty.yaml"

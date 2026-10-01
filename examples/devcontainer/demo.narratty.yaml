@@ -1,0 +1,24 @@
+meta: {title: Build in the dev container}
+terminal: {height: 600}
+environment:
+  compose:                      # the Compose file the dev container uses
+    file: .devcontainer/compose.yaml
+    service: dev
+scenes:
+  - id: intro
+    narration: This shell runs in the project's dev container, started from its Compose file.
+    actions:
+      - run: python --version && echo "APP_ENV=$APP_ENV"
+  - id: tree
+    narration: The project is mounted where the dev container expects it.
+    actions:
+      - run: pwd && eza --tree --level 2
+  - id: build
+    narration: Now the real build runs. The recording waits until it has finished.
+    actions:
+      - run: python build.py
+      - wait: {prompt: true, timeout_ms: 600000}
+  - id: result
+    narration: The build wrote into a copy of the project, so your checkout stays clean.
+    actions:
+      - run: cat dist/report.txt
