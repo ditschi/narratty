@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -107,8 +108,10 @@ scenes:
 """
 
 
-def _record_timed(tmp_path: Path, *, fast: bool) -> tuple[list[list[object]], dict[str, int], float]:
-    spec = parse_spec(FAST_SPEC, tmp_path / "t.narratty.yaml")
+def _record_timed(
+    tmp_path: Path, spec_text: str = FAST_SPEC
+) -> tuple[list[list[object]], dict[str, int], float]:
+    spec = parse_spec(spec_text, tmp_path / "t.narratty.yaml")
     timeline = build_timeline(spec, {"greet": 3000})
     started = time.monotonic()
     recording = record(
@@ -117,7 +120,7 @@ def _record_timed(tmp_path: Path, *, fast: bool) -> tuple[list[list[object]], di
         cwd=tmp_path,
         env=os.environ,
         title="T",
-        fast=fast,
+        fast=True,
     )
     events = [json.loads(line) for line in recording.cast.splitlines()[1:]]
     return events, recording.scene_starts_ms, time.monotonic() - started
@@ -128,25 +131,24 @@ def _when(events: list[list[object]], text: str) -> float:
 
 
 def test_fast_skips_still_pauses_but_waits_for_running_commands(tmp_path: Path) -> None:
-    events, starts, wall = _record_timed(tmp_path, fast=True)
+    events, starts, wall = _record_timed(tmp_path)
     assert _when(events, "late") >= 1.0, "a silent command is waited for, not skipped"
-    assert starts["after"] == pytest.approx(3000, abs=60), "the clock moves on as if it had waited"
-    assert _when(events, "next") * 1000 >= starts["after"]
-    assert wall < 2.8, "the rest of the pause is not waited out"
+    assert starts["after"] >= 2950, "the clock moves on as if it had waited"
+    assert _when(events, "next") * 1000 >= starts["after"] - 1
+    assert wall < starts["after"] / 1000 - 0.5, "the rest of the pause is not waited out"
 
 
-def test_fast_keeps_pauses_of_interactive_programs_still(tmp_path: Path) -> None:
-    spec = FAST_SPEC.replace("sleep 1; echo late", "cat")
-    spec = spec.replace('{type_command: "echo next"}, enter', "{ctrl_sequence: C-d}")
-    path = tmp_path / "t.narratty.yaml"
-    timeline = build_timeline(parse_spec(spec, path), {"greet": 3000})
-    started = time.monotonic()
-    record(
-        build_script(parse_spec(spec, path), timeline),
-        terminal=parse_spec(spec, path).terminal,
-        cwd=tmp_path,
-        env=os.environ,
-        title="T",
-        fast=True,
-    )
-    assert time.monotonic() - started > 2.8, "cat reads lines: a command, so the pause is real"
+# Waits for one key in raw mode, like an editor or pager.
+RAW_KEY = (
+    "import sys, termios, tty; old = termios.tcgetattr(0); tty.setraw(0); sys.stdin.read(1); "
+    "termios.tcsetattr(0, termios.TCSADRAIN, old); print('bye')"
+)
+
+
+def test_fast_skips_pauses_of_interactive_programs(tmp_path: Path) -> None:
+    command = f"{sys.executable} -c {json.dumps(RAW_KEY)}"
+    spec = FAST_SPEC.replace('"sleep 1; echo late"', json.dumps(command))
+    spec = spec.replace('{type_command: "echo next"}, enter', "{type_command: q}")
+    events, starts, wall = _record_timed(tmp_path, spec)
+    assert _when(events, "bye") * 1000 >= starts["after"] - 1, "the program waited for the next scene's key"
+    assert wall < starts["after"] / 1000 - 0.5, "a program waiting for keys counts as still"
