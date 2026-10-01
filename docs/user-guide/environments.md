@@ -238,8 +238,8 @@ allow_packages = false                   # no packages or setup commands
 ## Builds with a warm cache
 
 Keep the checkout clean and the build fast: the default `snapshot` workspace gives
-the build a writable copy, and `workspace.caches` keeps caches across runs in named
-volumes.
+the build a writable copy, and `workspace.caches` keeps caches across runs in
+directories under narratty's cache directory.
 
 ```yaml
 workspace:

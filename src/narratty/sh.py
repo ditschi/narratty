@@ -48,9 +48,18 @@ def hidden_word(text: str) -> str:
     return _printf(text, frozenset())
 
 
+CLEAR = 'printf "\\033[H\\033[2J\\033[3J" >&2'
+"""Clear the screen and the scrollback before a message the recorder waits for.
+
+VHS's ``Wait+Screen`` reads the first rows of the terminal's buffer, not the visible
+ones, so once a long typed command has scrolled the screen it would never see the
+message. Without scrollback both are the same again.
+"""
+
+
 def fail(message: str) -> str:
-    """Print ``narratty error: <message>`` to stderr and exit 1."""
-    return f'{{ printf "narratty %s: %s\\n" error {word(message)} >&2; exit 1; }}'
+    """Print ``narratty error: <message>`` to stderr (on a cleared screen) and exit 1."""
+    return f'{{ {CLEAR}; printf "narratty %s: %s\\n" error {word(message)} >&2; exit 1; }}'
 
 
 def need(tools: list[str], purpose: str, where: str) -> str:
@@ -81,6 +90,12 @@ def tmux_arg(script: str) -> str:
 
 
 def error_in(text: str) -> str | None:
-    """The message of the first ``narratty error:`` line in ``text``."""
-    match = re.search(ERROR, text)
-    return match.group(1).strip() if match else None
+    """The message of the first ``narratty error:`` line in ``text``.
+
+    A recorder's log may echo the pattern itself (VHS prints its ``Wait`` commands);
+    that is not a message.
+    """
+    for match in re.finditer(ERROR, text):
+        if not match.group(1).startswith("(.+)"):
+            return match.group(1).strip()
+    return None

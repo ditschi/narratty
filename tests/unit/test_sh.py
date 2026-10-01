@@ -57,3 +57,18 @@ def test_need_names_the_missing_tool_and_where() -> None:
 def test_the_typed_command_itself_never_looks_like_an_error() -> None:
     typed = sh.command(sh.need(["x"], "the diff action", "here"))
     assert sh.error_in(typed) is None
+
+
+def test_the_recorders_echo_of_the_wait_pattern_is_not_an_error() -> None:
+    log = (
+        f"Wait+Screen@1000ms /(diff baseline ready)|({sh.ERROR})/\n"
+        f'failed to execute command: timeout waiting for "{sh.ERROR}"'
+    )
+    assert sh.error_in(log) is None
+    assert sh.error_in(log + "\nnarratty error: no git") == "no git"
+
+
+def test_messages_the_recorder_waits_for_start_on_a_cleared_screen() -> None:
+    script = sh.need(["no-such-tool"], "x", "here")
+    result = subprocess.run(["sh", "-c", script], capture_output=True, text=True, check=False)
+    assert result.stderr.startswith("\033[H\033[2J\033[3J")

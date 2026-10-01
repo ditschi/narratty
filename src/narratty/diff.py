@@ -47,6 +47,7 @@ def start_command(base: str, where: str = "on this machine") -> str:
             _git('"$PWD"'),
             "g add -A",
             "g commit -q --allow-empty --no-verify -m baseline",
+            sh.CLEAR,
             f'printf "narratty: {ready} %s\\n" {rest} >&2',
         ]
     )
