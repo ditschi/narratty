@@ -28,6 +28,8 @@ class TtsProvider(Protocol):
     """What the pipeline needs from a text-to-speech engine."""
 
     name: str
+    concurrency: int
+    """How many clips may be synthesized at the same time."""
 
     def unavailable_reason(self) -> str | None:
         """Why the engine cannot run here (missing package), or None when it can."""

@@ -40,6 +40,8 @@ class KokoroProvider:
     """Synthesizes in-process with kokoro-onnx."""
 
     name = "kokoro"
+    # One engine, already multi-threaded; its espeak phonemizer is not thread-safe.
+    concurrency = 1
 
     def __init__(self, model_dir: Path, *, engine_factory: EngineFactory | None = None) -> None:
         self.model_dir = model_dir
