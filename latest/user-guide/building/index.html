@@ -1154,8 +1154,9 @@ the page.</p>
 <ul>
 <li>narration lengths are estimated from the text (about 14 characters per second,
   scaled by the voice speed); no voice is loaded or downloaded;</li>
-<li>the terminal is half the size with half the font, so the layout stays the same;</li>
-<li>VHS captures 10 frames per second instead of 30;</li>
+<li>VHS captures 10 frames per second instead of 30, and the video is encoded at half
+  size; the terminal itself keeps its size, so output and <code>wait</code> behave as in the
+  real build;</li>
 <li>the video is silent and the narration is burned in as subtitles, so you see
   where each line would be spoken (<code>--subtitles</code> picks another mode).</li>
 </ul>
