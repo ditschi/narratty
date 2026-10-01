@@ -60,15 +60,23 @@ the viewer sees the output before the next command is typed.
 ```yaml
 # long form
 - type_command: git status
-- enter
-- hold: 500
+- key: Enter
+- hold: 500ms
 
 # same thing
 - run: git status
 ```
 
 Use `type_command` for input that is not a finished command: text in an editor, a
-prompt that is answered later, or a command that is edited before Enter.
+prompt that is answered later, or a command that is edited before Enter:
+
+```yaml
+- type_command: git commit -m "wip"
+- hold: 1s                   # let the viewer read it
+- key: Backspace 4           # remove wip"
+- type_command: fix"
+- key: Enter
+```
 
 Change the pause for every `run` in the spec with `timing.run_hold_ms`. For a single
 longer pause, add a `hold` after that `run`.
@@ -87,7 +95,7 @@ video then continues as soon as the output is there:
 for a different timeout:
 
 ```yaml
-- wait: {screen: "Successfully built", timeout_ms: 300000}
+- wait: {screen: "Successfully built", timeout_ms: 5m}
 ```
 
 Slow setup (installs, builds, downloads) belongs in a `hidden: true` scene, which is
@@ -117,10 +125,19 @@ scenes:
 - `>-` folds a long command over several lines; a line break becomes a space.
 - Comments (`#`) inside a `>` or `|` block are part of the text.
 
+## Let `validate` find redundant lines
+
 `narratty validate` reports every problem with its line and column. With the schema
-line at the top, editors show the same problems while you type.
+line at the top, editors show the same problems while you type. Lines that are valid
+but redundant are reported as hints:
+
+- values equal to their default
+- `hold: auto` at the end of a scene, or with `narration_start: after_actions`
+- `type_command` directly followed by Enter (write `run`)
+- `wait: {screen: ...}` without a timeout (write `wait: "..."`)
+- the bare `- enter` (write `key: Enter`)
 
 ## Specs written by an AI agent
 
-Point the agent at this page and let it run `narratty validate` after each change.
-Ask it to keep the spec to the non-default values.
+Point the agent at this page and let it run `narratty validate` after each change
+until it reports no problems and no hints.

@@ -25,6 +25,10 @@ def schema_url(version: str) -> str:
     return f"{SCHEMA_BASE}/{ref}/{SCHEMA_PATH}"
 
 
+# Still accepted; editors that understand deprecationMessage (yaml-language-server) nudge to `key: Enter`.
+_LEGACY_ENTER = {"deprecated": True, "deprecationMessage": "Write `key: Enter` instead."}
+
+
 def _add_shorthands(schema: dict[str, Any]) -> dict[str, Any]:
     """Allow the short forms the models accept in ``mode="before"`` validators.
 
@@ -33,7 +37,8 @@ def _add_shorthands(schema: dict[str, Any]) -> dict[str, Any]:
     """
     defs = schema["$defs"]
     actions = defs["Scene"]["properties"]["actions"]["items"]["oneOf"]
-    actions.append({"const": "enter", "description": defs["Enter"]["description"]})
+    actions.append({"const": "enter", "description": defs["Enter"]["description"], **_LEGACY_ENTER})
+    defs["Enter"].update(_LEGACY_ENTER)
     wait = defs["Wait"]["properties"]["wait"]
     defs["Wait"]["properties"]["wait"] = {
         "anyOf": [{"type": "string", "description": "Regular expression; short for {screen: ...}."}, wait]

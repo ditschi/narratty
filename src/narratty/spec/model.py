@@ -11,11 +11,12 @@ from typing import Annotated, Any, Literal
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Discriminator,
     Field,
-    PositiveInt,
     Tag,
+    WithJsonSchema,
     field_validator,
     model_validator,
 )
@@ -41,7 +42,35 @@ VHS_KEYS = (
     "Tab",
     "Up",
 )
-_KEY_PATTERN = re.compile(rf"^({'|'.join(VHS_KEYS)})( [1-9][0-9]*)?$")
+_KEY_PATTERN = re.compile(rf"^({'|'.join(VHS_KEYS)})( [1-9][0-9]*)?$", re.IGNORECASE)
+_KEY_NAMES = {name.lower(): name for name in VHS_KEYS}
+
+DURATION_PATTERN = r"^[0-9]+(\.[0-9]+)?(ms|s|m)$"
+_DURATION = re.compile(DURATION_PATTERN)
+_UNIT_MS = {"ms": 1, "s": 1000, "m": 60_000}
+
+
+def to_ms(value: Any) -> Any:
+    """``"1.5s"``, ``"800ms"`` or ``"2m"`` as milliseconds; anything else is passed on."""
+    if isinstance(value, str) and (match := _DURATION.match(value.strip())):
+        number = value.strip()[: match.start(2)]
+        return round(float(number) * _UNIT_MS[match.group(2)])
+    return value
+
+
+# Milliseconds, written as a number or as a duration string ("1.5s", "800ms", "2m").
+Duration = Annotated[
+    int,
+    BeforeValidator(to_ms),
+    WithJsonSchema(
+        {
+            "anyOf": [
+                {"type": "integer", "minimum": 0, "description": "Milliseconds"},
+                {"type": "string", "pattern": DURATION_PATTERN, "description": "e.g. 1.5s, 800ms, 2m"},
+            ]
+        }
+    ),
+]
 
 
 class _Model(BaseModel):
@@ -64,7 +93,7 @@ class Run(_Model):
 
 
 class Enter(_Model):
-    """Press Enter. Written as the bare string ``enter`` in YAML."""
+    """Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``."""
 
     enter: Literal[True] = True
 
@@ -81,21 +110,24 @@ class Hold(_Model):
     Only needed mid-scene: after the last action, a scene always waits for its narration.
     """
 
-    hold: Literal["auto"] | PositiveInt
+    hold: Literal["auto"] | Duration
 
     @field_validator("hold", mode="before")
     @classmethod
     def _auto_or_ms(cls, value: Any) -> Any:
-        if value == "auto" or (isinstance(value, int) and not isinstance(value, bool) and value > 0):
+        if value == "auto":
             return value
-        raise ValueError(f"expected 'auto' or a positive number of milliseconds, got {value!r}")
+        ms = to_ms(value)
+        if isinstance(ms, int) and not isinstance(ms, bool) and ms > 0:
+            return ms
+        raise ValueError(f"expected 'auto' or a positive duration (1500, 1.5s), got {value!r}")
 
 
 class WaitSpec(_Model):
     """Wait until the screen matches a regular expression."""
 
     screen: str = Field(min_length=1)
-    timeout_ms: PositiveInt = 15000
+    timeout_ms: Duration = Field(15000, gt=0)
 
     @field_validator("screen")
     @classmethod
@@ -122,7 +154,7 @@ class Wait(_Model):
 
 
 class Key(_Model):
-    """Press a raw VHS key, optionally repeated (``Down 3``)."""
+    """Press a key, optionally repeated (``Down 3``). Names are case-insensitive."""
 
     key: str
 
@@ -131,7 +163,8 @@ class Key(_Model):
     def _known_key(cls, value: str) -> str:
         if not _KEY_PATTERN.match(value):
             raise ValueError(f"unknown key {value!r}; expected one of {', '.join(VHS_KEYS)}")
-        return value
+        name, _, count = value.partition(" ")
+        return f"{_KEY_NAMES[name.lower()]} {count}" if count else _KEY_NAMES[name.lower()]
 
 
 ACTION_KEYS = ("run", "type_command", "enter", "ctrl_sequence", "hold", "wait", "key")
@@ -175,7 +208,7 @@ class Scene(_Model):
     narration: str | None = None
     actions: list[Action] = []
     hidden: bool = False
-    typing_speed_ms: PositiveInt | None = None
+    typing_speed_ms: Annotated[Duration, Field(gt=0)] | None = None
     narration_start: Literal["with_actions", "after_actions"] = "with_actions"
 
     @field_validator("actions", mode="before")
@@ -258,10 +291,10 @@ class TtsConfig(_Model):
 
 
 class Timing(_Model):
-    narration_buffer_ms: int = Field(500, ge=0)
-    lead_in_ms: int = Field(300, ge=0)
-    tail_ms: int = Field(1000, ge=0)
-    run_hold_ms: int = Field(500, ge=0, description="Pause after each `run` action.")
+    narration_buffer_ms: Duration = Field(500, ge=0)
+    lead_in_ms: Duration = Field(300, ge=0)
+    tail_ms: Duration = Field(1000, ge=0)
+    run_hold_ms: Duration = Field(500, ge=0, description="Pause after each `run` action.")
 
 
 class Terminal(_Model):
@@ -269,7 +302,7 @@ class Terminal(_Model):
     height: int = Field(700, ge=100)
     theme: str = "Dracula"
     font_size: int = Field(22, ge=6)
-    typing_speed_ms: PositiveInt = 40
+    typing_speed_ms: Duration = Field(40, gt=0)
     shell: Literal["bash", "zsh", "fish", "sh"] = "bash"
     prompt: str = "$ "
 
@@ -320,7 +353,7 @@ class EndCard(_Model):
     enabled: bool | None = Field(
         None, description="Show the card. Unset follows ~/.config/narratty/config.toml (on by default)."
     )
-    duration_ms: int = Field(4000, ge=1000, description="How long the card stays on screen.")
+    duration_ms: Duration = Field(4000, ge=1000, description="How long the card stays on screen.")
     qr: bool = Field(True, description="Show a QR code of the docs link when the terminal is large enough.")
 
 

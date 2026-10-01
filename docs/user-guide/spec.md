@@ -37,6 +37,21 @@ $ narratty validate demo.narratty.yaml
 demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did you mean 'type_command'?)
 ```
 
+Valid lines that can be left out or written shorter are reported as hints; they do not
+fail validation:
+
+```text
+$ narratty validate demo.narratty.yaml
+hint: demo.narratty.yaml:3:3: tts.voice: same as the default; leave it out
+hint: demo.narratty.yaml:12:9: scenes[0].actions[2]: 'hold: auto' has no effect at the end of a scene; leave it out
+ok demo.narratty.yaml: 2 scenes, 2 narrated, voice kokoro/af_heart
+```
+
+## Durations
+
+Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit:
+`800ms`, `1.5s`, `2m`.
+
 ## Top level
 
 | Key | Default | Meaning |
@@ -153,11 +168,14 @@ whichever is longer.
 |---|---|---|
 | `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms` |
 | `type_command` | `- type_command: "ls -la"` | Types the text, without Enter |
-| `enter` | `- enter` | Presses Enter |
 | `ctrl_sequence` | `- ctrl_sequence: C-c` | Presses Ctrl plus a key |
-| `key` | `- key: Up` or `- key: Down 3` | Presses a named VHS key, optionally repeated |
-| `hold` | `- hold: 1500` or `- hold: auto` | Waits; `auto` waits until the narration is done |
-| `wait` | `- wait: "Done"` or `- wait: {screen: "Done", timeout_ms: 60000}` | Waits until the screen matches a regex (default timeout 15 s) |
+| `key` | `- key: Enter` or `- key: Down 3` | Presses a key, optionally repeated |
+| `hold` | `- hold: 1.5s` or `- hold: auto` | Waits; `auto` waits until the narration is done |
+| `wait` | `- wait: "Done"` or `- wait: {screen: "Done", timeout_ms: 1m}` | Waits until the screen matches a regex (default timeout 15 s) |
+
+Keys: `Enter`, `Tab`, `Space`, `Backspace`, `Delete`, `Escape`, `Up`, `Down`, `Left`,
+`Right`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`. Names are case-insensitive.
+Older specs write Enter as `- enter`; it still works, `key: Enter` is the current form.
 
 Every list item starts with `- `. A scene always waits for its narration after its
 last action, so `hold: auto` is only needed in the middle of a scene; a scene has at

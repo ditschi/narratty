@@ -3,7 +3,7 @@
 | Command | Does |
 |---|---|
 | `narratty init [FILE] [--force]` | Write a commented starter spec (default `demo.narratty.yaml`) |
-| `narratty validate SPEC` | Check a spec and report every problem with line and column |
+| `narratty validate SPEC` | Check a spec; report every problem, and hints for redundant lines, with line and column |
 | `narratty schema` | Print the spec's JSON Schema |
 | `narratty voices [--provider P] [--installed]` | List curated and installed voices |
 | `narratty voices pull VOICE` | Download a voice (and the Kokoro model) |

@@ -78,14 +78,14 @@ def _nested_models(annotation: Any) -> list[type[BaseModel]]:
 _KNOWN_KEYS = sorted(_field_names(Spec))
 
 
-def _format_path(loc: tuple[int | str, ...]) -> str:
+def format_path(loc: tuple[int | str, ...]) -> str:
     out = ""
     for part in loc:
         out += f"[{part}]" if isinstance(part, int) else (f".{part}" if out else str(part))
     return out
 
 
-def _position(data: Any, loc: tuple[int | str, ...]) -> tuple[int | None, int | None]:
+def position(data: Any, loc: tuple[int | str, ...]) -> tuple[int | None, int | None]:
     """Best-effort 1-based (line, column) of ``loc`` inside ruamel round-trip data."""
     line: int | None = None
     column: int | None = None
@@ -154,6 +154,11 @@ def _bullet(line: str) -> bool:
 
 def parse_spec(text: str, file: Path) -> Spec:
     """Parse YAML ``text`` (from ``file``) into a validated :class:`Spec`."""
+    return parse_document(text, file)[0]
+
+
+def parse_document(text: str, file: Path) -> tuple[Spec, dict[Any, Any]]:
+    """Like :func:`parse_spec`, plus the YAML as written (with line numbers)."""
     yaml = YAML(typ="rt")
     try:
         data = yaml.load(text)
@@ -169,20 +174,24 @@ def parse_spec(text: str, file: Path) -> Spec:
     if not isinstance(data, dict):
         raise SpecError(file, [Issue("", "the spec must be a YAML mapping with a 'scenes' list", 1, 1)])
     try:
-        return Spec.model_validate(_to_plain(data))
+        return Spec.model_validate(_to_plain(data)), data
     except ValidationError as error:
         issues = []
         for item in error.errors():
             loc = _strip_union_tags(tuple(item["loc"]))
-            line, column = _position(data, loc)
-            issues.append(Issue(_format_path(loc), _message(item), line, column))
+            line, column = position(data, loc)
+            issues.append(Issue(format_path(loc), _message(item), line, column))
         raise SpecError(file, issues) from error
+
+
+def read_spec_text(path: Path) -> str:
+    """The text of the spec at ``path``."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise SpecError(path, [Issue("", f"cannot read file: {error.strerror or error}")]) from error
 
 
 def load_spec(path: Path) -> Spec:
     """Read and validate the spec at ``path``."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as error:
-        raise SpecError(path, [Issue("", f"cannot read file: {error.strerror or error}")]) from error
-    return parse_spec(text, path)
+    return parse_spec(read_spec_text(path), path)

@@ -36,11 +36,21 @@
           "title": "Enabled"
         },
         "duration_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 4000,
           "description": "How long the card stays on screen.",
-          "minimum": 1000,
-          "title": "Duration Ms",
-          "type": "integer"
+          "title": "Duration Ms"
         },
         "qr": {
           "default": true,
@@ -54,7 +64,7 @@
     },
     "Enter": {
       "additionalProperties": false,
-      "description": "Press Enter. Written as the bare string ``enter`` in YAML.",
+      "description": "Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``.",
       "properties": {
         "enter": {
           "const": true,
@@ -64,7 +74,9 @@
         }
       },
       "title": "Enter",
-      "type": "object"
+      "type": "object",
+      "deprecated": true,
+      "deprecationMessage": "Write `key: Enter` instead."
     },
     "Hold": {
       "additionalProperties": false,
@@ -77,8 +89,14 @@
               "type": "string"
             },
             {
-              "exclusiveMinimum": 0,
+              "description": "Milliseconds",
+              "minimum": 0,
               "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
             }
           ],
           "title": "Hold"
@@ -92,7 +110,7 @@
     },
     "Key": {
       "additionalProperties": false,
-      "description": "Press a raw VHS key, optionally repeated (``Down 3``).",
+      "description": "Press a key, optionally repeated (``Down 3``). Names are case-insensitive.",
       "properties": {
         "key": {
           "title": "Key",
@@ -325,7 +343,9 @@
               },
               {
                 "const": "enter",
-                "description": "Press Enter. Written as the bare string ``enter`` in YAML."
+                "description": "Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``.",
+                "deprecated": true,
+                "deprecationMessage": "Write `key: Enter` instead."
               }
             ]
           },
@@ -340,8 +360,14 @@
         "typing_speed_ms": {
           "anyOf": [
             {
-              "exclusiveMinimum": 0,
+              "description": "Milliseconds",
+              "minimum": 0,
               "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
             },
             {
               "type": "null"
@@ -393,10 +419,20 @@
           "type": "integer"
         },
         "typing_speed_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 40,
-          "exclusiveMinimum": 0,
-          "title": "Typing Speed Ms",
-          "type": "integer"
+          "title": "Typing Speed Ms"
         },
         "shell": {
           "default": "bash",
@@ -422,29 +458,69 @@
       "additionalProperties": false,
       "properties": {
         "narration_buffer_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 500,
-          "minimum": 0,
-          "title": "Narration Buffer Ms",
-          "type": "integer"
+          "title": "Narration Buffer Ms"
         },
         "lead_in_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 300,
-          "minimum": 0,
-          "title": "Lead In Ms",
-          "type": "integer"
+          "title": "Lead In Ms"
         },
         "tail_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 1000,
-          "minimum": 0,
-          "title": "Tail Ms",
-          "type": "integer"
+          "title": "Tail Ms"
         },
         "run_hold_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 500,
           "description": "Pause after each `run` action.",
-          "minimum": 0,
-          "title": "Run Hold Ms",
-          "type": "integer"
+          "title": "Run Hold Ms"
         }
       },
       "title": "Timing",
@@ -543,10 +619,20 @@
           "type": "string"
         },
         "timeout_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 15000,
-          "exclusiveMinimum": 0,
-          "title": "Timeout Ms",
-          "type": "integer"
+          "title": "Timeout Ms"
         }
       },
       "required": [
