@@ -100,6 +100,7 @@ nav:
       - Editor layout: examples/editor-layout.md
       - Subtitles and drafts: examples/subtitles.md
       - Asciicast player: examples/cast.md
+      - Web pages: examples/browser.md
       - End card: examples/end-card.md
   - Contributor Guide:
       - Development setup: contributor-guide/dev-setup.md

@@ -163,7 +163,8 @@ def _record_timed(
     tmp_path: Path, spec_text: str = FAST_SPEC
 ) -> tuple[list[list[object]], dict[str, int], float]:
     spec = parse_spec(spec_text, tmp_path / "t.narratty.yaml")
-    timeline = build_timeline(spec, {"greet": 3000})
+    # A long pause, so a slow shell start-up (macOS runners) stays well inside what is skipped.
+    timeline = build_timeline(spec, {"greet": 6000})
     started = time.monotonic()
     recording = record(
         build_script(spec, timeline),
@@ -184,7 +185,7 @@ def _when(events: list[list[object]], text: str) -> float:
 def test_fast_skips_still_pauses_but_waits_for_running_commands(tmp_path: Path) -> None:
     events, starts, wall = _record_timed(tmp_path)
     assert _when(events, "late") >= 1.0, "a silent command is waited for, not skipped"
-    assert starts["after"] >= 2950, "the clock moves on as if it had waited"
+    assert starts["after"] >= 5950, "the clock moves on as if it had waited"
     assert _when(events, "next") * 1000 >= starts["after"] - 1
     assert wall < starts["after"] / 1000 - 0.5, "the rest of the pause is not waited out"
 
