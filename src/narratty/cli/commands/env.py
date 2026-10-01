@@ -183,11 +183,11 @@ def shell_command(
 
     env = EnvironmentOptions(image=env_image, rebuild=rebuild_env)
     request = sandbox_request(workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env)
+    loaded, _ = _environment(spec, request)
     resolved = resolve_runtime(runtime)
     narratty_image = image_ref(override=image)
     engine = resolved.runtime.value if resolved.sandboxed else container_engine()
     if (kept := running(engine, spec)) is not None:
-        loaded, _environment_ = _environment(spec, request)
         argv = _shell_argv(kept[0], resolved, narratty_image, loaded.terminal.shell)
         raise typer.Exit(subprocess.run(argv, check=False).returncode)  # noqa: S603
     with _started(spec, request, resolved, narratty_image) as (loaded, session):
