@@ -8,7 +8,7 @@ from pathlib import Path
 
 from narratty import bridge
 from narratty.render.cast import record
-from narratty.render.script import build_script
+from narratty.render.script import HelperPlacement, build_script
 from narratty.render.tape import generate_tape
 from narratty.spec.loader import parse_spec
 from narratty.timeline import build_timeline
@@ -47,7 +47,7 @@ def test_remote_shell_and_local_end_card(tmp_path: Path) -> None:
     stand_in = ["env", "WHERE=remote", f"PATH={os.environ['PATH']}"]  # finds the real shell
     env = bridge.shim_env(tmp_path / "shims", stand_in, os.environ)
     recording = record(
-        build_script(spec, build_timeline(spec, {}), remote=True),
+        build_script(spec, build_timeline(spec, {}), placement=HelperPlacement(bridged=True)),
         terminal=spec.terminal,
         cwd=tmp_path,
         env=env,
@@ -60,7 +60,13 @@ def test_remote_shell_and_local_end_card(tmp_path: Path) -> None:
 
 def test_remote_tape_leaves_the_environment_for_the_card() -> None:
     spec = parse_spec(SPEC, Path("t.narratty.yaml"))
-    tape = generate_tape(spec, build_timeline(spec, {}), Path("/out/v.mp4"), python="py", remote=True)
+    tape = generate_tape(
+        spec,
+        build_timeline(spec, {}),
+        Path("/out/v.mp4"),
+        python="py",
+        placement=HelperPlacement(bridged=True),
+    )
     card = tape.split("# end card\n", 1)[1].splitlines()
     assert card[:5] == [
         "Hide",

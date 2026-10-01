@@ -7,6 +7,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+# How narratty starts each shell: no user configuration, no history.
+SHELL_ARGV = {
+    "bash": ["bash", "--noprofile", "--norc", "+o", "history"],
+    "zsh": ["zsh", "--no-rcs", "--no-globalrcs"],
+    "fish": ["fish", "--no-config", "--private"],
+    "sh": ["sh"],
+}
+
 
 def _sh_quote(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"

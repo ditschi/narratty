@@ -218,5 +218,6 @@ scenes:
 - The layout needs `tmux` and `yazi`, `diff` needs `git`; the narratty image has all
   three. It runs its own `tmux` server with its own settings, so a `~/.tmux.conf` does
   not change the recording.
+- Both also work with an [`environment`](environments.md#editor-layout-and-diff).
 
 The [editor layout example](../examples/editor-layout.md) shows all of it.

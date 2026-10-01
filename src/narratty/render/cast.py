@@ -39,6 +39,7 @@ from narratty.render.script import (
     Type,
     WaitScreen,
 )
+from narratty.render.shell_hooks import SHELL_ARGV
 from narratty.spec.model import Terminal
 from narratty.timeline import timelapse_layout
 
@@ -46,12 +47,6 @@ from narratty.timeline import timelapse_layout
 _PADDING_PX = 60
 CELL_WIDTH, _CELL_HEIGHT = 0.6, 1.2
 
-SHELL_ARGV = {
-    "bash": ["bash", "--noprofile", "--norc", "+o", "history"],
-    "zsh": ["zsh", "--no-rcs", "--no-globalrcs"],
-    "fish": ["fish", "--no-config", "--private"],
-    "sh": ["sh"],
-}
 
 KEYS = {
     "Backspace": "\x7f",
@@ -286,8 +281,8 @@ class Recorder:
                 self._pause(ms / 1000)
             case Sleep(ms):
                 self.pump(ms / 1000)
-            case WaitScreen(pattern, timeout_ms, line):
-                self._wait(pattern, timeout_ms, line=line)
+            case WaitScreen(pattern, timeout_ms, line, fail):
+                self._wait(pattern, timeout_ms, line=line, fail=fail)
             case Hide():
                 self.hide()
             case Show():
@@ -363,13 +358,17 @@ class Recorder:
             self.send(key)
             self.pump(speed_ms / 1000)
 
-    def _wait(self, pattern: str, timeout_ms: int, *, line: bool = False) -> None:
-        regex = re.compile(pattern)
+    def _wait(self, pattern: str, timeout_ms: int, *, line: bool = False, fail: str | None = None) -> None:
+        regex, failed = re.compile(pattern), re.compile(fail) if fail else None
 
         def matches() -> bool:
-            return bool(regex.search(self.screen.lines[-1] if line else self.screen.text))
+            text = self.screen.lines[-1] if line else self.screen.text
+            return bool(regex.search(text) or (failed and failed.search(text)))
 
-        if not self.pump(timeout_ms / 1000, matches):
+        found = self.pump(timeout_ms / 1000, matches)
+        if failed and (error := failed.search(self.screen.text)) and not regex.search(self.screen.text):
+            raise RenderError(error.group(1).strip())
+        if not found:
             what = "the prompt to come back" if line else f"the screen to match /{pattern}/"
             raise RenderError(
                 f"timed out after {timeout_ms} ms waiting for {what}",
@@ -401,15 +400,18 @@ def record(
     env: Mapping[str, str],
     title: str,
     fast: bool = False,
+    shell: str | None = None,
 ) -> Recording:
-    """Run ``steps`` in ``terminal.shell`` inside ``cwd`` and return the asciicast.
+    """Run ``steps`` in ``shell`` (default: ``terminal.shell``) inside ``cwd``; returns the asciicast.
 
     ``fast`` skips the rest of a pause longer than ``SETTLE_MS`` once the output has been
     quiet for ``STILL_MS``; the recording's clock moves on as if it had waited.
     """
     cols, rows = terminal_size(terminal)
     shell_env = {**env, "TERM": "xterm-256color", "COLUMNS": str(cols), "LINES": str(rows)}
-    recorder = Recorder(SHELL_ARGV[terminal.shell], cols=cols, rows=rows, cwd=cwd, env=shell_env, fast=fast)
+    recorder = Recorder(
+        SHELL_ARGV[shell or terminal.shell], cols=cols, rows=rows, cwd=cwd, env=shell_env, fast=fast
+    )
     try:
         for step in steps:
             recorder.run(step)

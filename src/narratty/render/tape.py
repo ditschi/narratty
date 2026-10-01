@@ -13,6 +13,7 @@ from narratty.render.script import (
     END_CUE,
     Ctrl,
     Cue,
+    HelperPlacement,
     Hide,
     Mark,
     Press,
@@ -34,6 +35,7 @@ from narratty.timeline import Timeline
 __all__ = ["FRAMERATE", "Tape", "build_tape", "generate_tape", "prompt_setup", "quote_chunks", "uses_fast"]
 
 FRAMERATE = 30
+FAIL_CHECK_MS = 1000
 # VHS's default font list plus a Nerd Font fallback, so icons (yazi, eza --icons) render
 # when the toolkit's Symbols Nerd Font is installed. Chromium does not fall back to it
 # on its own.
@@ -42,6 +44,21 @@ FONT_FAMILY = (
     "Roboto Mono,Hack,Consolas,ui-monospace,Symbols Nerd Font Mono,monospace"
 )
 _DELIMITERS = ('"', "'", "`")
+
+
+def _regex(pattern: str) -> str:
+    return pattern.replace("/", "\\/")
+
+
+def _wait_lines(step: WaitScreen) -> list[str]:
+    scope = "Line" if step.line else "Screen"
+    if step.fail is None:
+        return [f"Wait+{scope}@{step.timeout_ms}ms /{_regex(step.pattern)}/"]
+    # Stop at either; then only the pattern passes (a failure ends the build there).
+    return [
+        f"Wait+{scope}@{step.timeout_ms}ms /({_regex(step.pattern)})|({_regex(step.fail)})/",
+        f"Wait+{scope}@{FAIL_CHECK_MS}ms /{_regex(step.pattern)}/",
+    ]
 
 
 def quote_chunks(text: str) -> list[str]:
@@ -88,9 +105,8 @@ def step_lines(step: Step, marks: Path | None = None) -> list[str]:
             return [f"Ctrl+{char}"]
         case Sleep(ms):
             return [f"Sleep {ms}ms"]
-        case WaitScreen(pattern, timeout_ms, line):
-            scope = "Line" if line else "Screen"
-            return [f"Wait+{scope}@{timeout_ms}ms /{pattern.replace('/', '\\/')}/"]
+        case WaitScreen():
+            return _wait_lines(step)
         case Hide():
             return ["Hide"]
         case Show():
@@ -184,14 +200,14 @@ def generate_tape(
     framerate: int = FRAMERATE,
     marks: Path | None = None,
     exit_log: Path | None = None,
-    remote: bool = False,
+    placement: HelperPlacement | None = None,
 ) -> str:
     """The complete tape rendering ``spec`` into ``output``.
 
-    ``python`` is the interpreter that runs narratty's helpers in the recorded shell
-    (default: the running one). ``marks`` is where scene markers go (needed to speed
-    up timelapse scenes). ``exit_log`` receives the commands' exit codes (see
-    ``narratty.render.exits``). ``remote`` says the shell runs in a project environment.
+    ``python`` is the interpreter that draws the end card (default: the running one).
+    ``marks`` is where scene markers go (needed to speed up timelapse scenes).
+    ``exit_log`` receives the commands' exit codes (see ``narratty.render.exits``).
+    ``placement`` says where the shell and narratty's helpers run.
     """
     tape = build_tape(
         spec,
@@ -201,7 +217,7 @@ def generate_tape(
         framerate=framerate,
         marks=marks,
         exit_log=exit_log,
-        remote=remote,
+        placement=placement,
     )
     return tape.text
 
@@ -215,7 +231,7 @@ def build_tape(
     framerate: int = FRAMERATE,
     marks: Path | None = None,
     exit_log: Path | None = None,
-    remote: bool = False,
+    placement: HelperPlacement | None = None,
     fast: bool = False,
 ) -> Tape:
     """The tape rendering ``spec`` into ``output`` (see :func:`generate_tape`).
@@ -228,7 +244,7 @@ def build_tape(
     tape.raw(
         f"# narratty tape for {json.dumps(spec.meta.title)}",
         f"Output {json.dumps(str(output))}",
-        f"Set Shell {term.shell}",
+        f"Set Shell {(placement or HelperPlacement()).shell(spec)}",
         f"Set Width {term.width}",
         f"Set Height {term.height}",
         f"Set FontSize {term.font_size}",
@@ -241,17 +257,21 @@ def build_tape(
         tape.raw("Set CursorBlink false")  # a repeated frame would stop the blinking
     tape.raw("")
     python = python or sys.executable
-    tape.steps(setup_steps(spec, python, exit_log))
+    placement = placement or HelperPlacement()
+    tape.steps(setup_steps(spec, placement, exit_log))
     if timeline.lead_in_ms:
         tape.steps([Sleep(timeline.lead_in_ms)])
     for scene in spec.scenes:
         tape.raw("")
-        tape.steps(scene_steps(spec, scene, timeline.scene(scene.id), python=python))
+        tape.steps(scene_steps(spec, scene, timeline.scene(scene.id), placement=placement))
     tape.raw("")
     tape.steps([Cue(END_CUE)])
     if timeline.tail_ms:
         tape.steps([Sleep(timeline.tail_ms)])
     if timeline.end_card_ms:
         tape.raw("")
-        tape.steps(teardown_steps(spec) + end_card_steps(spec, timeline, python, remote=remote))
+        card = end_card_steps(
+            spec, timeline, python, remote=placement.bridged, local_shell=placement.shell(spec)
+        )
+        tape.steps(teardown_steps(spec) + card)
     return Tape("\n".join(tape.lines) + "\n", tuple(tape.commands), tuple(tape.pauses))

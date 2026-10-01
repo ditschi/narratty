@@ -186,3 +186,67 @@ def test_devcontainer_example(tmp_path: Path) -> None:
     assert "APP_ENV=demo" in output and "/workspace" in output
     assert "build finished" in output and "all green" in output, "waited for the build"
     assert not (project / "dist").exists(), "the build wrote into the snapshot"
+
+
+EDITOR_SPEC = f"""\
+meta: {{title: Editor in an environment}}
+terminal: {{layout: editor, width: 1000, height: 500, typing_speed_ms: 5}}
+environment: {{image: "{IMAGE}"}}
+end_card: {{enabled: true, duration_ms: 1500}}
+scenes:
+  - id: look
+    narration: The explorer runs here, the shell in the image.
+    actions:
+      - type_command: "test -e /.dockerenv && echo in-$((6*7)) > made-in-env"
+      - enter
+      - reveal: made-in-env
+      - focus: explorer
+      - diff
+      - wait: {{screen: "made-in-env", timeout_ms: 20000}}
+"""
+
+
+@pytest.mark.skipif(
+    not all(shutil.which(t) for t in ("tmux", "yazi", "ya", "git")), reason="needs tmux, yazi, git"
+)
+def test_editor_layout_runs_here_with_the_shell_in_the_image(tmp_path: Path) -> None:
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(EDITOR_SPEC, encoding="utf-8")
+    output = _cast_output(spec)
+    assert (tmp_path / "made-in-env").read_text() == "in-42\n", "the pane's shell ran in the container"
+    assert "Explorer" in output and "Terminal" in output
+    assert "+in-42" in output, "the diff popup shows the change made in the container"
+    assert "Created with narratty" in output
+
+
+def test_diff_without_git_in_the_image_says_so(tmp_path: Path) -> None:
+    from narratty.errors import RenderError
+
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(SPEC.replace("      - wait", "      - diff\n      - wait"), encoding="utf-8")
+    with pytest.raises(RenderError, match="the diff action needs git in the project environment"):
+        build_cast(spec, workspace=WorkspaceOptions(mode="rw"), sandbox=SandboxRequest())
+
+
+def test_editor_layout_in_a_running_container_needs_its_tools_there(tmp_path: Path) -> None:
+    from narratty.errors import RenderError
+
+    name = f"narratty-test-editor-{os.getpid()}"
+    subprocess.run(
+        ["docker", "run", "--detach", "--name", name, "--volume", f"{tmp_path}:/src", "--workdir", "/src",
+         IMAGE, "sleep", "infinity"],
+        check=True, capture_output=True,
+    )  # fmt: skip
+    try:
+        spec = tmp_path / "demo.narratty.yaml"
+        spec.write_text(
+            "workspace: {mode: rw}\n"
+            + EDITOR_SPEC.replace("      - diff\n", "").replace(
+                f'{{image: "{IMAGE}"}}', f"{{container: {name}, user: image}}"
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(RenderError, match="the editor layout needs tmux in the project environment"):
+            build_cast(spec, workspace=WorkspaceOptions(mode="rw"), sandbox=SandboxRequest(assume_yes=True))
+    finally:
+        subprocess.run(["docker", "rm", "--force", name], check=False, capture_output=True)
