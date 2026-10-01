@@ -1,7 +1,7 @@
 # End card
 
-Every video ends with a 4 s card: "Created with narratty", a link to these docs and a
-QR code of the link.
+Every video ends with a 4 s card: the logo, "Created with narratty", a link to these
+docs and a QR code of the link.
 
 <video controls width="100%" src="../../assets/examples/end-card.mp4"></video>
 
