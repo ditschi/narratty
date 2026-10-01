@@ -1,9 +1,7 @@
 meta: {title: Build in the dev container}
-terminal: {width: 1200, height: 600}
-workspace: {source: ., mode: snapshot}
+terminal: {height: 600}
 environment:
   devcontainer: .devcontainer   # the project's own devcontainer.json
-  user: host                    # files the build writes belong to you
 scenes:
   - id: intro
     narration: This shell runs in the project's dev container, started from its devcontainer file.
