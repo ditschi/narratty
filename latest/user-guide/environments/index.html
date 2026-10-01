@@ -1948,8 +1948,8 @@ may use:</p>
 </code></pre></div>
 <h2 id="builds-with-a-warm-cache">Builds with a warm cache<a class="headerlink" href="#builds-with-a-warm-cache" title="Permanent link">&para;</a></h2>
 <p>Keep the checkout clean and the build fast: the default <code>snapshot</code> workspace gives
-the build a writable copy, and <code>workspace.caches</code> keeps caches across runs in named
-volumes.</p>
+the build a writable copy, and <code>workspace.caches</code> keeps caches across runs in
+directories under narratty's cache directory.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">workspace</span><span class="p">:</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">snapshot</span><span class="w">                      </span><span class="c1"># default; writes never reach your checkout</span>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">caches</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">bazel</span><span class="p">:</span><span class="w"> </span><span class="nv">~/.cache/bazel</span><span class="p p-Indicator">}</span><span class="w">     </span><span class="c1"># persists between runs</span>
