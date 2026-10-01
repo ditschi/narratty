@@ -41,18 +41,24 @@ if TYPE_CHECKING:
     from narratty.workspace import PreparedWorkspace
 
 
-def compose_file(environment: Environment, spec_dir: Path, workspace: PreparedWorkspace) -> Path:
-    """The Compose file inside the workspace."""
+def compose_files(environment: Environment, spec_dir: Path, workspace: PreparedWorkspace) -> list[Path]:
+    """The Compose files inside the workspace."""
     assert environment.compose is not None  # noqa: S101
-    original = (spec_dir / environment.compose.file).resolve()
-    try:
-        relative = original.relative_to(workspace.source.resolve())
-    except ValueError:
-        raise UsageError(f"the Compose file {original} is outside the workspace {workspace.source}") from None
-    path = workspace.path / relative
-    if not path.is_file():
-        raise UsageError(f"no Compose file at {original}")
-    return path
+    files = environment.compose.file
+    paths = []
+    for name in [files] if isinstance(files, str) else files:
+        original = (spec_dir / name).resolve()
+        try:
+            relative = original.relative_to(workspace.source.resolve())
+        except ValueError:
+            raise UsageError(
+                f"the Compose file {original} is outside the workspace {workspace.source}"
+            ) from None
+        path = workspace.path / relative
+        if not path.is_file():
+            raise UsageError(f"no Compose file at {original}")
+        paths.append(path)
+    return paths
 
 
 def grants(environment: Environment) -> list[str]:
@@ -60,7 +66,7 @@ def grants(environment: Environment) -> list[str]:
     if environment.compose is None:
         return []
     return [
-        f"starting the Compose service {environment.compose.service} ({environment.compose.file}) "
+        f"starting the Compose service {environment.compose.service} "
         "with the networks, mounts and privileges of the Compose file (the sandbox rules do not apply to it)"
     ]
 
@@ -142,10 +148,12 @@ def start_compose(
 
     assert environment.compose is not None  # noqa: S101
     service = environment.compose.service
-    file = compose_file(environment, spec_dir, workspace)
+    files = compose_files(environment, spec_dir, workspace)
     project = name or f"narratty-{uuid.uuid4().hex[:12]}"
     base = [engine, "compose", "--project-name", project]
-    base += ["--project-directory", str(file.parent), "--file", str(file)]
+    base += ["--project-directory", str(files[0].parent)]
+    for file in files:
+        base += ["--file", str(file)]
     config = json.loads(_check(run([*base, "config", "--format", "json"]), "reading the Compose file").stdout)
     if service not in (config.get("services") or {}):
         raise UsageError(f"the Compose file {environment.compose.file} has no service {service!r}")

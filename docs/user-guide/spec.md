@@ -118,17 +118,19 @@ Runs the demo shell in your project's image, Compose service or container; see
 |---|---|---|
 | `image` | | Image to run the shell in |
 | `build` | | `{context, dockerfile, target, args}`: build the image instead |
-| `compose` | | `{file, service}`: run in a Compose service (`file` defaults to `compose.yaml`) |
+| `compose` | | `{file, service}`: run in a Compose service (`file`: one file or a list, default `compose.yaml`) |
 | `container` | | Run in this running container (needs `workspace.mode: rw`) |
+| `devcontainer` | | Run what this `devcontainer.json` (or its folder) describes |
 | `workdir` | `/work` | Where the workspace is mounted and the shell starts; for `compose` and `container` the container's working directory |
-| `user` | `host` | `host` (your user id), `image` (the image's user) or `UID[:GID]` |
+| `user` | `host` | `host` (your user id), `image` (the image's user), a user name or `UID[:GID]` |
+| `env` | `{}` | Variables set in the environment's container |
 | `read_only` | `false` | Mount the image's root filesystem read-only |
 | `packages` | `[]` | Packages added with the image's package manager |
 | `package_manager` | `auto` | `auto`, `apt`, `apk`, `dnf`, `microdnf`, `yum` or `zypper` |
 | `setup` | `[]` | Commands run as root when the image is built |
 | `toolkit` | `prefer` | Mount the demo toolkit first (`prefer`) or last (`fallback`) on `PATH`, or not (`off`) |
 
-Set exactly one of `image`, `build`, `compose` and `container`.
+Set exactly one of `image`, `build`, `compose`, `container` and `devcontainer`.
 
 ## `end_card`
 
@@ -178,5 +180,6 @@ whichever is longer.
 | `key` | `- key: Up` or `- key: Down 3` | Presses a named VHS key, optionally repeated |
 | `hold` | `- hold: 1500` or `- hold: auto` | Waits; `auto` waits until the narration is done |
 | `wait` | `- wait: {screen: "Done", timeout_ms: 15000}` | Waits until the screen matches a regex |
+| `wait` | `- wait: {prompt: true, timeout_ms: 600000}` | Waits until the command has finished and the prompt is back |
 
 A scene has at most one `hold: auto`, and only when it has narration.

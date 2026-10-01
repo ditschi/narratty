@@ -6,6 +6,7 @@ pseudo-terminal. Generating it once keeps the two in step.
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
 
@@ -47,10 +48,11 @@ class Sleep:
 
 @dataclass(frozen=True)
 class WaitScreen:
-    """Block until the screen matches ``pattern``."""
+    """Block until the screen (or with ``line``, the cursor's line) matches ``pattern``."""
 
     pattern: str
     timeout_ms: int
+    line: bool = False
 
 
 @dataclass(frozen=True)
@@ -87,7 +89,13 @@ def prompt_setup(shell: str, prompt: str) -> str:
     return f"PS1={_shell_quote(prompt)}; clear"
 
 
-def action_steps(action: Action, speed: int) -> list[Step]:
+def prompt_pattern(prompt: str) -> str:
+    """A line holding only ``prompt`` (RE2 and Python syntax): the last command has finished."""
+    escaped = re.sub(r"([\\.^$|?*+()\[\]{}])", r"\\\1", prompt.rstrip())
+    return f"^{escaped}\\s*$"
+
+
+def action_steps(action: Action, speed: int, prompt: str = "$ ") -> list[Step]:
     """Steps for one action (``hold: auto`` is placed by the caller)."""
     if isinstance(action, TypeCommand):
         return [Type(action.type_command, speed)]
@@ -99,6 +107,8 @@ def action_steps(action: Action, speed: int) -> list[Step]:
     if isinstance(action, CtrlSequence):
         return [Ctrl(action.ctrl_sequence.removeprefix("C-").upper())]
     if isinstance(action, Wait):
+        if action.wait.screen is None:
+            return [WaitScreen(prompt_pattern(prompt), action.wait.timeout_ms, line=True)]
         return [WaitScreen(action.wait.screen, action.wait.timeout_ms)]
     if isinstance(action, Hold) and action.hold != "auto":
         return [Sleep(action.hold)]
@@ -119,7 +129,7 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming) -> list[Step]:
                 steps.append(Sleep(timing.fill_ms))
             filled = True
             continue
-        steps += action_steps(action, speed)
+        steps += action_steps(action, speed, spec.terminal.prompt)
     if not filled and timing.fill_ms:
         steps.append(Sleep(timing.fill_ms))
     if scene.hidden:

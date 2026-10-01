@@ -156,6 +156,7 @@ def approved_sandbox(spec_file: Path, spec: Spec, request: SandboxRequest) -> Sa
 
     import typer
 
+    from narratty.env_devcontainer import expand
     from narratty.env_provide import grants
     from narratty.environment import check_policy as check_environment_policy
     from narratty.environment import resolve
@@ -167,6 +168,7 @@ def approved_sandbox(spec_file: Path, spec: Spec, request: SandboxRequest) -> Sa
     environment = resolve(spec.environment, request.environment)
     if environment is not None:
         check_environment_policy(environment, policy)
+        environment = expand(environment, spec_file.resolve().parent)
     ensure_consent(
         spec_file,
         sandbox,

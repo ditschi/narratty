@@ -122,3 +122,19 @@ def test_end_card_without_qr() -> None:
 @pytest.mark.parametrize("end_card", ["false", "{duration_ms: 3000}"])
 def test_no_end_card_unless_enabled(end_card: str) -> None:
     assert "end card" not in _card_tape(end_card)
+
+
+def test_wait_for_the_prompt() -> None:
+    tape = _tape(
+        SPEC.replace('{screen: "built a/b", timeout_ms: 2000}', "{prompt: true, timeout_ms: 600000}")
+    )
+    assert "Wait+Line@600000ms /^demo>\\s*$/" in tape.splitlines()
+
+
+def test_wait_needs_one_condition() -> None:
+    from narratty.spec.model import WaitSpec
+
+    with pytest.raises(ValueError, match="either screen or prompt"):
+        WaitSpec()
+    with pytest.raises(ValueError, match="either screen or prompt"):
+        WaitSpec(screen="x", prompt=True)

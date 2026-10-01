@@ -14,7 +14,7 @@ environment:
 
 The image needs Linux (amd64 or arm64) and the [`terminal.shell`](spec.md#terminal).
 Without `environment`, nothing changes. Set exactly one source: `image`, `build`,
-`compose` or `container`.
+`compose`, `container` or `devcontainer`.
 
 ## Build from a Dockerfile
 
@@ -46,8 +46,81 @@ and removes the project with its volumes afterwards. The shell starts in the ser
 `working_dir` unless `workdir` is set. Networks, mounts and privileges come from the
 Compose file, including `network_mode: host`; the sandbox rules do not apply to them.
 
-A devcontainer that uses Compose works the same way: point `file` and `service` at the
-`dockerComposeFile` and `service` of `devcontainer.json`.
+`file` also takes a list (`[compose.yaml, compose.dev.yaml]`), merged in order like
+repeated `docker compose -f`.
+
+## Use your dev container
+
+`devcontainer` reads the project's `devcontainer.json` and runs what it describes:
+its `image`, its Dockerfile (`build`) or its Compose service (`dockerComposeFile` and
+`service`). VHS, the voices and ffmpeg stay in narratty; the dev container needs no
+change.
+
+```yaml
+environment:
+  devcontainer: .devcontainer   # the folder or the devcontainer.json, relative to the spec
+```
+
+| From `devcontainer.json` | Becomes |
+|---|---|
+| `image`, `build` (`dockerfile`, `context`, `args`, `target`), `dockerComposeFile` + `service` | the source |
+| `workspaceFolder` | `workdir` (default `/workspaces/<folder>`) |
+| `remoteUser`, `containerUser` | `user` |
+| `containerEnv`, `remoteEnv` | `env` |
+| `${localEnv:NAME}`, `${localWorkspaceFolder}`, `${containerWorkspaceFolder}` | their values |
+
+Keys set in the spec win, so `user: host` keeps files the demo writes yours. JSON
+with comments and trailing commas is fine.
+
+Dev container `features`, lifecycle commands (`postCreateCommand`, ...), `runArgs`
+and `mounts` need the [Dev Container CLI](https://github.com/devcontainers/cli);
+narratty skips them with a note. When the container depends on them, build it once
+with the CLI and record that image:
+
+```bash
+devcontainer build --workspace-folder . --image-name acme/dev:recording
+```
+
+```yaml
+environment:
+  image: acme/dev:recording
+  workdir: /workspaces/app
+```
+
+### Example: record a build in the dev container
+
+`examples/devcontainer` is a small project whose dev container is a Compose
+service. The video runs its real build inside that container:
+
+=== "devcontainer.json"
+
+    ```jsonc
+    --8<-- "examples/devcontainer/.devcontainer/devcontainer.json"
+    ```
+
+=== "compose.yaml"
+
+    ```yaml
+    --8<-- "examples/devcontainer/.devcontainer/compose.yaml"
+    ```
+
+=== "demo.narratty.yaml"
+
+    ```yaml
+    --8<-- "examples/devcontainer/demo.narratty.yaml"
+    ```
+
+1. Check what the demo will see: `narratty env shell demo.narratty.yaml` opens the
+   shell the recording gets. Try the commands there.
+2. Iterate quickly: `narratty env up demo.narratty.yaml` keeps the container running,
+   so `narratty build demo.narratty.yaml --draft` skips the start-up each time.
+3. Record: `narratty build demo.narratty.yaml`, then `narratty env down
+   demo.narratty.yaml`.
+
+`wait: {prompt: true}` waits until the build has finished, however long it takes (up
+to `timeout_ms`). With the default `snapshot` workspace the build writes into a copy,
+so the checkout stays clean. `eza` comes from the [demo toolkit](#demo-toolkit), not
+from the dev container.
 
 ## Run in a running container
 
@@ -135,8 +208,9 @@ in native runs too: `network`, `allow_hosts`, `env`, `env_passthrough`, `extra_m
 |---|---|---|
 | `host` | your user id; files the demo writes belong to you | `/home/narratty` (a tmpfs, also `$HOME`) |
 | `image` | the image's `USER` | the image's `$HOME` |
-| `UID[:GID]` | that id | the image's `$HOME` |
+| `UID[:GID]` or a name | that user | the image's `$HOME` |
 
+`env` sets variables in the environment's container (not for `container`).
 `read_only: true` also mounts the image's root filesystem read-only (off by default,
 since project images often write outside the workspace).
 
@@ -148,7 +222,7 @@ may use:
 
 ```toml
 [sandbox]
-allow_environment = ["image", "build"]   # also "compose", "container"; [] forbids environments
+allow_environment = ["image", "build"]   # also "compose", "container", "devcontainer"; [] forbids all
 allow_packages = false                   # no packages or setup commands
 ```
 
@@ -166,8 +240,8 @@ environment:
   image: ghcr.io/acme/toolchain:2.3
 ```
 
-To wait for a long build, end the command with a marker and wait for it, for example
-`bazel build //... && echo BUILD-OK` with `wait: {screen: "BUILD-OK", timeout_ms: 900000}`.
+For a long build, `wait: {prompt: true, timeout_ms: 900000}` waits until the command
+has finished and the prompt is back.
 
 ## Command line
 

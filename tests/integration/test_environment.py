@@ -164,3 +164,13 @@ def test_env_up_is_reused_until_down(tmp_path: Path) -> None:
         ["docker", "ps", "--all", "--quiet", "--filter", f"id={container}"], capture_output=True, text=True
     )
     assert left.stdout.strip() == ""
+
+
+def test_devcontainer_example(tmp_path: Path) -> None:
+    example = Path(__file__).parents[2] / "examples" / "devcontainer"
+    project = tmp_path / "project"
+    shutil.copytree(example, project)
+    output = _cast_output(project / "demo.narratty.yaml", mode="snapshot")
+    assert "APP_ENV=demo" in output and "/workspace" in output
+    assert "build finished" in output and "all green" in output, "waited for the build"
+    assert not (project / "dist").exists(), "the build wrote into the snapshot"

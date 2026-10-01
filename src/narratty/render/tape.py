@@ -69,8 +69,9 @@ def step_lines(step: Step) -> list[str]:
             return [f"Ctrl+{char}"]
         case Sleep(ms):
             return [f"Sleep {ms}ms"]
-        case WaitScreen(pattern, timeout_ms):
-            return [f"Wait+Screen@{timeout_ms}ms /{pattern.replace('/', '\\/')}/"]
+        case WaitScreen(pattern, timeout_ms, line):
+            scope = "Line" if line else "Screen"
+            return [f"Wait+{scope}@{timeout_ms}ms /{pattern.replace('/', '\\/')}/"]
         case Hide():
             return ["Hide"]
         case Show():

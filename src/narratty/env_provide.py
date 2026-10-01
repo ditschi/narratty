@@ -61,8 +61,11 @@ def provide(
     ``narratty_image`` supplies the agent (``with_agent``) and the allowlist forwarders.
     ``labels`` and ``name`` mark an environment kept for later runs (``env up``).
     """
+    from narratty.env_devcontainer import expand
     from narratty.paths import cache_dir
     from narratty.sandbox import ContainerAccess, allowlist_network, container_access
+
+    environment = expand(environment, spec_dir, log=log)
 
     def agent_for(architecture: str) -> Path | None:
         if not with_agent:
@@ -74,7 +77,8 @@ def provide(
             yield session
         return
     if environment.compose is not None:
-        mounts = Mounts(ContainerAccess(env=dict(sandbox.env)), labels=dict(labels or {}))
+        env = {**sandbox.env, **environment.env}
+        mounts = Mounts(ContainerAccess(env=env), labels=dict(labels or {}))
         with start_compose(
             environment, spec_dir=spec_dir, workspace=workspace, engine=engine, mounts=mounts,
             agent_for=agent_for, name=name, keep=keep, rebuild=rebuild, run=run, log=log,
@@ -89,6 +93,7 @@ def provide(
         cache_root=cache_dir(),
         home=home_for(environment, image),
     )
+    access.env.update(environment.env)
     mounts = Mounts(access, agent=agent_for(image.architecture), labels=dict(labels or {}))
     add_toolkit(environment, image, mounts, engine=engine, run=run, log=log)
     launch = partial(

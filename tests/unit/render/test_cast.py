@@ -89,3 +89,14 @@ def test_screen_text_strips_escapes_and_follows_clears() -> None:
     assert screen.text == "green\n"
     screen.feed("ab\bc\r\nlast")
     assert screen.text == "ac\nlast", "backspace erases, only the last rows count"
+
+
+def test_wait_for_the_prompt(tmp_path: Path) -> None:
+    spec = SPEC.split("  - id: greet")[0] + (
+        "  - id: greet\n    narration: Hello.\n    actions:\n"
+        "      - type_command: 'sleep 0.5; printf \"do%se\\\\n\" n'\n      - enter\n"
+        "      - wait: {prompt: true, timeout_ms: 3000}\n"
+    )
+    events, _, _ = _record(spec, tmp_path, audio_ms=10)
+    output = "".join(str(e[2]) for e in events if e[1] == "o")
+    assert "done" in output, "recorded until the command had finished"

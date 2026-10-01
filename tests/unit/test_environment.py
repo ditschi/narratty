@@ -59,7 +59,8 @@ def test_spec_needs_exactly_one_source() -> None:
     with pytest.raises(ValueError, match="packages"):
         Environment(image="x", packages=["jq; rm -rf /"])
     with pytest.raises(ValueError, match="user"):
-        Environment(image="x", user="me")
+        Environment(image="x", user="Me Myself")
+    assert Environment(image="x", user="vscode").user == "vscode"
     assert Environment(image="x", user="1000:1000").user == "1000:1000"
 
 
@@ -424,12 +425,12 @@ def test_compose_layered_image_is_used(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 def test_compose_errors(tmp_path: Path) -> None:
-    from narratty.env_compose import compose_file
+    from narratty.env_compose import compose_files
 
     spec, workspace = _compose_spec(tmp_path)
     assert spec.environment is not None
     with pytest.raises(UsageError, match="outside the workspace"):
-        compose_file(spec.environment, tmp_path, workspace)
+        compose_files(spec.environment, tmp_path, workspace)
     run, _ = _compose_run(_compose_engine(), {"services": {"db": {"image": "postgres"}}})
     with pytest.raises(UsageError, match="no service 'dev'"), provide(
         spec.environment, spec, spec_dir=tmp_path / "src", sandbox=spec.sandbox, workspace=workspace,

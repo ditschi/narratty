@@ -83,23 +83,32 @@ class Hold(_Model):
 
 
 class WaitSpec(_Model):
-    """Wait until the screen matches a regular expression."""
+    """Wait until the screen matches a regular expression, or until the prompt is back."""
 
-    screen: str = Field(min_length=1)
+    screen: str | None = Field(None, min_length=1, description="Regular expression to wait for.")
+    prompt: bool = Field(False, description="Wait until the command has finished and the prompt is back.")
     timeout_ms: PositiveInt = 15000
 
     @field_validator("screen")
     @classmethod
-    def _compiles(cls, value: str) -> str:
+    def _compiles(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
         try:
             re.compile(value)
         except re.error as error:
             raise ValueError(f"not a valid regular expression: {error}") from error
         return value
 
+    @model_validator(mode="after")
+    def _one_condition(self) -> WaitSpec:
+        if (self.screen is None) == (not self.prompt):
+            raise ValueError("set either screen or prompt: true")
+        return self
+
 
 class Wait(_Model):
-    """Block until ``wait.screen`` matches the terminal content."""
+    """Block until ``wait.screen`` matches the terminal content, or the prompt is back."""
 
     wait: WaitSpec
 
@@ -295,7 +304,7 @@ class Sandbox(_Model):
         return bool(self.network != "none" or self.env_passthrough or self.extra_mounts or self.ssh_agent)
 
 
-ENV_SOURCES = ("image", "build", "compose", "container")
+ENV_SOURCES = ("image", "build", "compose", "container", "devcontainer")
 PACKAGE_MANAGERS = ("apt", "apk", "dnf", "microdnf", "yum", "zypper")
 PACKAGE_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9.+_:=~<>*-]*$"
 
@@ -303,7 +312,7 @@ PACKAGE_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9.+_:=~<>*-]*$"
 class EnvCompose(_Model):
     """A service of the project's Compose file (path relative to the spec)."""
 
-    file: str = Field("compose.yaml", description="Compose file.")
+    file: str | list[str] = Field("compose.yaml", description="Compose file, or several merged in order.")
     service: str = Field(min_length=1, description="Service the demo shell runs in.")
 
 
@@ -323,6 +332,11 @@ class Environment(_Model):
     build: EnvBuild | None = Field(None, description="Build the image from a Dockerfile instead.")
     compose: EnvCompose | None = Field(None, description="Run in a service of a Compose file.")
     container: str | None = Field(None, min_length=1, description="Run in this running container.")
+    devcontainer: str | None = Field(
+        None,
+        min_length=1,
+        description="Run as this devcontainer.json describes (image, Dockerfile or Compose service).",
+    )
     workdir: str | None = Field(
         None,
         pattern=r"^/",
@@ -331,9 +345,11 @@ class Environment(_Model):
     )
     user: str = Field(
         "host",
-        pattern=r"^(host|image|[0-9]+(:[0-9]+)?)$",
-        description="host: your user id, so files stay yours; image: the image's user; or UID[:GID].",
+        pattern=r"^(host|image|[0-9]+(:[0-9]+)?|[a-z_][a-z0-9_-]*)$",
+        description="host: your user id, so files stay yours; image: the image's user; a user name; "
+        "or UID[:GID].",
     )
+    env: dict[str, str] = Field({}, description="Variables set in the environment's container.")
     read_only: bool = Field(False, description="Mount the image's root filesystem read-only.")
     packages: list[Annotated[str, Field(pattern=PACKAGE_PATTERN)]] = Field(
         [], description="Packages to add for the demo, with the image's package manager."
@@ -356,6 +372,8 @@ class Environment(_Model):
             raise ValueError(f"set exactly one of: {', '.join(ENV_SOURCES)}")
         if self.container is not None and self.layered:
             raise ValueError("packages and setup cannot be added to a running container")
+        if self.container is not None and self.env:
+            raise ValueError("env cannot be set for a running container")
         return self
 
     @property

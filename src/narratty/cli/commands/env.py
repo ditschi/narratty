@@ -36,6 +36,8 @@ if TYPE_CHECKING:
 
 
 def _environment(spec: Path, request: SandboxRequest) -> tuple[Spec, Environment]:
+    """The spec and its environment (a devcontainer.json read into what it describes)."""
+    from narratty.env_devcontainer import expand
     from narratty.environment import resolve
     from narratty.errors import UsageError
     from narratty.spec import load_spec
@@ -46,7 +48,7 @@ def _environment(spec: Path, request: SandboxRequest) -> tuple[Spec, Environment
         raise UsageError(
             f"{spec} has no environment", hint="Add an `environment` block, or pass --env-image."
         )
-    return loaded, environment
+    return loaded, expand(environment, spec.resolve().parent, log=log)
 
 
 def log(message: str) -> None:

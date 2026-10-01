@@ -1,0 +1,32 @@
+meta: {title: Build in the dev container}
+terminal: {width: 1200, height: 600}
+workspace: {source: ., mode: snapshot}
+environment:
+  devcontainer: .devcontainer   # the project's own devcontainer.json
+  user: host                    # files the build writes belong to you
+scenes:
+  - id: intro
+    narration: This shell runs in the project's dev container, started from its devcontainer file.
+    actions:
+      - type_command: python --version && echo "APP_ENV=$APP_ENV"
+      - enter
+      - hold: auto
+  - id: tree
+    narration: The project is mounted where the dev container expects it.
+    actions:
+      - type_command: pwd && eza --tree --level 2
+      - enter
+      - hold: auto
+  - id: build
+    narration: Now the real build runs. The recording waits until it has finished.
+    actions:
+      - type_command: python build.py
+      - enter
+      - wait: {prompt: true, timeout_ms: 600000}
+      - hold: auto
+  - id: result
+    narration: The build wrote into a copy of the project, so your checkout stays clean.
+    actions:
+      - type_command: cat dist/report.txt
+      - enter
+      - hold: auto
