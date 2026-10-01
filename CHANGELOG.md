@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Conventional Commits](https://www.conventionalcommits.org/) and is maintained by
 commitizen.
 
+## v0.4.0 (2026-10-01)
+
+### Feat
+
+- **environment**: editor layout and diff in project environments
+- **end-card**: show the logo above the text
+
 ## v0.3.0 (2026-10-01)
 
 ### Feat
