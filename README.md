@@ -50,8 +50,8 @@ tools native mode needs.
 - **Editor layout:** a file explorer with preview above the shell
   (`terminal.layout: editor`), `focus` and `reveal` actions, and a `diff` of what the
   demo changed.
-- **Demo toolkit:** bat, delta, eza, fd, ripgrep, jq, micro, yazi, tmux and zsh as
-  static binaries, for the narratty image and, with one `COPY` line, for any dev
+- **Demo toolkit:** bat, delta, eza, fd, ripgrep, jq, micro, yazi, file, tmux and zsh
+  as static binaries, for the narratty image and, with one `COPY` line, for any dev
   container.
 - **Editor support:** a JSON Schema for completion and inline errors, `validate` with
   line numbers, and shell completion.

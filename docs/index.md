@@ -25,8 +25,8 @@ natively.
   preview above the shell, `focus` and `reveal` actions, and a `diff` of what the demo
   changed.
 - **[Demo toolkit](user-guide/toolkit.md):** bat, delta, eza, fd, ripgrep, jq, micro,
-  yazi, tmux and zsh as static binaries, for the narratty image and, with one `COPY`
-  line, for any dev container.
+  yazi, file, tmux and zsh as static binaries, for the narratty image and, with one
+  `COPY` line, for any dev container.
 - **Editor support:** a JSON Schema for completion and inline errors, `validate` with
   line numbers, and shell completion.
 

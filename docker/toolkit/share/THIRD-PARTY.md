@@ -12,6 +12,7 @@
 | delta | MIT | https://github.com/dandavison/delta |
 | libgit2, Oniguruma (linked into delta) | GPL-2.0 with linking exception, BSD-2-Clause | https://github.com/libgit2/libgit2, https://github.com/kkos/oniguruma |
 | zsh (zsh-bin build) | MIT-style (zsh licence) | https://github.com/romkatv/zsh-bin |
+| file (with libmagic) | BSD-2-Clause | https://github.com/file/file |
 | tmux | ISC | https://github.com/tmux/tmux |
 | libevent (linked into tmux) | BSD-3-Clause | https://github.com/libevent/libevent |
 | ncurses (linked into tmux) | MIT-style (X11) | https://invisible-island.net/ncurses/ |

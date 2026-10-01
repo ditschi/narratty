@@ -2,3 +2,7 @@
 --paging=never
 --style=numbers,header,grid
 --theme=Dracula
+# Bazel files bat does not map itself (.bazel and .bzl are Python already)
+--map-syntax=BUILD:Python
+--map-syntax=WORKSPACE:Python
+--map-syntax=*.bazelrc:bash

@@ -11,10 +11,11 @@ ARG RUST_IMAGE=docker.io/library/rust:1-trixie
 ARG DOCKER_CLI_IMAGE=docker.io/library/docker:28-cli
 
 # ── toolkit ───────────────────────────────────────────────────────────────────
-# Statically linked demo tools (bat, delta, eza, fd, ripgrep, jq, micro, yazi, zsh,
+# Statically linked demo tools (bat, delta, eza, fd, ripgrep, jq, micro, yazi, file, zsh,
 # tmux), a Nerd Font for icons and recording defaults, for any Linux image:
 #   COPY --from=ghcr.io/ditschi/narratty-toolkit:<version> / /usr/local/
-# Built on the build platform; tmux, eza and delta are cross-compiled, nothing is emulated.
+# Built on the build platform; tmux, file, eza and delta are cross-compiled, nothing is
+# emulated.
 FROM --platform=$BUILDPLATFORM ${RUST_IMAGE} AS toolkit-build
 ARG TARGETARCH
 RUN apt-get update \
