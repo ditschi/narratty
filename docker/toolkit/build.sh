@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Assemble the narratty toolkit: statically linked demo tools for any Linux image.
-# Prebuilt musl binaries are downloaded; tmux and eza (no static arm64 release) are
-# cross-compiled with zig, so no emulation is needed. Every download is pinned by
-# sha256. Output: /toolkit, laid out to be copied to /usr/local (zsh and tmux expect
-# that prefix).
+# Prebuilt musl binaries are downloaded; tmux, eza and delta (no static arm64
+# release) are cross-compiled with zig, so no emulation is needed. Every download is
+# pinned by sha256. Output: /toolkit, laid out to be copied to /usr/local (zsh and tmux
+# expect that prefix).
 #
 #   build.sh <amd64|arm64> [share-dir]
 set -euo pipefail
@@ -37,7 +37,7 @@ fetch() {
 pick() { if [ "$arch" = amd64 ]; then echo "$1"; else echo "$2"; fi; }
 
 # ── prebuilt static binaries ──────────────────────────────────────────────────
-BAT=0.26.1 FD=10.5.0 RG=15.2.0 YAZI=26.9.1 JQ=1.8.2 ZSH_BIN=6.1.1 NERD_FONTS=3.5.1
+BAT=0.26.1 FD=10.5.0 RG=15.2.0 YAZI=26.9.1 JQ=1.8.2 ZSH_BIN=6.1.1 NERD_FONTS=3.5.1 MICRO=2.0.15
 
 fetch "$GH/sharkdp/bat/releases/download/v$BAT/bat-v$BAT-$triple-unknown-linux-musl.tar.gz" \
   "$(pick 0dcd8ac79732c0d5b136f11f4ee00e581440e16a44eab5b3105b611bbf2cf191 6369242c584065f195fb20cb36fbd7cb63ae690605bbe89868a7596b596c2c23)" bat.tar.gz
@@ -51,6 +51,8 @@ fetch "$GH/jqlang/jq/releases/download/jq-$JQ/jq-linux-$arch" \
   "$(pick b1c22172dd303f3be49e935aa56aa48a8b7a46e0bc838b4997d3bb451495870f 8b85c817833814ddca00a144c33705546355afccf0cf39b188f3cdb48b852309)" jq
 fetch "$GH/romkatv/zsh-bin/releases/download/v$ZSH_BIN/zsh-5.8-linux-$triple.tar.gz" \
   "$(pick 6df668fb6e9a12874e0d80518d582f2e99e512d4a4532fa73d938360aaddc838 5caca77bcdaa218ec12e79f2e65c53c39058e0ed4f4f299991d18a800ca7c06d)" zsh.tar.gz
+fetch "$GH/zyedidia/micro/releases/download/v$MICRO/micro-$MICRO-$(pick linux64-static linux-arm64).tar.gz" \
+  "$(pick 267d238eac1e26ed053d13d4d48bd421b87f9eb538b604f0b2f74a85598b6cc2 5ca127857bf5500be3879f1a70b27556e737a49da04a1be5334de9e8e8781ad9)" micro.tar.gz
 fetch "$GH/ryanoasis/nerd-fonts/releases/download/v$NERD_FONTS/NerdFontsSymbolsOnly.tar.xz" \
   01172f37db8543edb102e5cb5c64101c9f4686630804d49b419aa07b23a69996 nerd-fonts.tar.xz
 
@@ -62,6 +64,9 @@ done
 unzip -q yazi.zip && install -m 0755 yazi-*/yazi yazi-*/ya "$out/bin/"
 mkdir "$licenses/yazi" && cp yazi-*/LICENSE "$licenses/yazi/"
 install -m 0755 jq "$out/bin/jq"
+mkdir micro && tar -xzf micro.tar.gz -C micro --strip-components=1
+install -m 0755 micro/micro "$out/bin/micro"
+mkdir "$licenses/micro" && cp micro/LICENSE micro/LICENSE-THIRD-PARTY "$licenses/micro/"
 # Icons for yazi and eza: Chromium falls back to this font for Nerd Font glyphs.
 mkdir -p "$out/share/fonts/nerd-fonts" "$licenses/nerd-fonts"
 tar -xJf nerd-fonts.tar.xz -C "$out/share/fonts/nerd-fonts" SymbolsNerdFontMono-Regular.ttf
@@ -74,7 +79,7 @@ mkdir -p "$out/share" && cp -a zsh/share/zsh zsh/share/terminfo "$out/share/"
 
 # ── cross-compiled with zig ───────────────────────────────────────────────────
 UV=0.9.5 ZIG=0.15.2 CARGO_ZIGBUILD=0.23.4
-TMUX=3.7c LIBEVENT=2.1.12 EZA=0.23.5
+TMUX=3.7c LIBEVENT=2.1.12 EZA=0.23.5 DELTA=0.19.2
 NCURSES=${NCURSES:-6.5}
 NCURSES_URL=${NCURSES_URL:-https://ftp.gnu.org/gnu/ncurses/ncurses-$NCURSES.tar.gz}
 NCURSES_SHA256=${NCURSES_SHA256:-136d91bc269a9a5785e5f9e980bc76ab57428f604ce3e5a5a90cebc767971cc6}
@@ -136,10 +141,18 @@ mkdir eza && tar -xzf eza.tar.gz -C eza --strip-components=1
 install -m 0755 "eza/target/$rust_target/release/eza" "$out/bin/eza"
 mkdir "$licenses/eza" && cp -r eza/LICENSE* "$licenses/eza/"
 
+# delta has no static arm64 release; build both the same way.
+fetch "https://static.crates.io/crates/git-delta/git-delta-$DELTA.crate" \
+  7ff64457ae0530c322df9b6fc1d7fbc017870006cf4bbba334cd93c2f145ad3c delta.tar.gz
+mkdir delta && tar -xzf delta.tar.gz -C delta --strip-components=1
+(cd delta && cargo zigbuild -q --release --locked --target "$rust_target")
+install -m 0755 "delta/target/$rust_target/release/delta" "$out/bin/delta"
+mkdir "$licenses/delta" && cp delta/LICENSE "$licenses/delta/"
+
 # ── recording defaults ────────────────────────────────────────────────────────
-# tmux reads /usr/local/etc/tmux.conf before ~/.tmux.conf; yazi and bat are pointed
+# tmux reads /usr/local/etc/tmux.conf before ~/.tmux.conf; yazi, bat and micro are pointed
 # at their config by env.sh (or ENV lines in the image).
 mkdir -p "$out/etc"
 cp "$share/tmux.conf" "$out/etc/tmux.conf"
-cp -r "$share/env.sh" "$share/yazi" "$share/bat" "$out/share/narratty/"
+cp -r "$share/env.sh" "$share/yazi" "$share/bat" "$share/micro" "$out/share/narratty/"
 cp "$share/THIRD-PARTY.md" "$licenses/"

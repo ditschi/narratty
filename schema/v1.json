@@ -18,6 +18,36 @@
       "title": "CtrlSequence",
       "type": "object"
     },
+    "Diff": {
+      "additionalProperties": false,
+      "description": "Show what changed in the workspace since the recording started.\n\nWritten as the bare string ``diff`` in YAML, or with paths to limit it to.",
+      "properties": {
+        "diff": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          ],
+          "default": true,
+          "title": "Diff"
+        }
+      },
+      "title": "Diff",
+      "type": "object"
+    },
     "EndCard": {
       "additionalProperties": false,
       "description": "The closing \"Created with narratty\" card with a link and QR code to the docs.",
@@ -64,6 +94,25 @@
         }
       },
       "title": "Enter",
+      "type": "object"
+    },
+    "Focus": {
+      "additionalProperties": false,
+      "description": "Move the keyboard to a pane of the editor layout.",
+      "properties": {
+        "focus": {
+          "enum": [
+            "explorer",
+            "terminal"
+          ],
+          "title": "Focus",
+          "type": "string"
+        }
+      },
+      "required": [
+        "focus"
+      ],
+      "title": "Focus",
       "type": "object"
     },
     "Hold": {
@@ -205,6 +254,23 @@
       "title": "Requires",
       "type": "object"
     },
+    "Reveal": {
+      "additionalProperties": false,
+      "description": "Select a file or directory in the editor layout's explorer.",
+      "properties": {
+        "reveal": {
+          "description": "Path relative to the workspace.",
+          "minLength": 1,
+          "title": "Reveal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reveal"
+      ],
+      "title": "Reveal",
+      "type": "object"
+    },
     "Sandbox": {
       "additionalProperties": false,
       "properties": {
@@ -309,6 +375,15 @@
               },
               {
                 "$ref": "#/$defs/Key"
+              },
+              {
+                "$ref": "#/$defs/Focus"
+              },
+              {
+                "$ref": "#/$defs/Reveal"
+              },
+              {
+                "$ref": "#/$defs/Diff"
               }
             ]
           },
@@ -410,6 +485,16 @@
         "prompt": {
           "default": "$ ",
           "title": "Prompt",
+          "type": "string"
+        },
+        "layout": {
+          "default": "plain",
+          "description": "`editor`: a file explorer with preview on top, the shell below (tmux + yazi).",
+          "enum": [
+            "plain",
+            "editor"
+          ],
+          "title": "Layout",
           "type": "string"
         }
       },
@@ -630,7 +715,8 @@
         "font_size": 22,
         "typing_speed_ms": 40,
         "shell": "bash",
-        "prompt": "$ "
+        "prompt": "$ ",
+        "layout": "plain"
       }
     },
     "requires": {

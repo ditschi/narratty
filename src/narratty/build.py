@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from narratty.cache import AudioCache
+from narratty.diff import BASE_ENV as DIFF_BASE_ENV
 from narratty.end_card import with_end_card
 from narratty.errors import RenderError, SyncError
 from narratty.paths import cache_dir, data_dir
@@ -128,6 +129,12 @@ def warn_unenforced_sandbox(spec: Spec, log: Log) -> None:
         log("sandbox settings are only enforced in a container; running natively with your own access")
 
 
+def recording_env(spec: Spec, work: Path) -> dict[str, str]:
+    """Environment the recorded shell gets on top of the usual one."""
+    # The diff baseline lives in the work directory, so it is removed with it.
+    return {**spec.sandbox.env, DIFF_BASE_ENV: str(work / "diff-base")}
+
+
 def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> timelapse.Layout | None:
     """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``.
 
@@ -147,7 +154,7 @@ def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> ti
         generate_tape(planned.spec, planned.timeline, recording.resolve(), framerate=framerate, marks=marks),
         encoding="utf-8",
     )
-    log = media.run_vhs(tape, workspace, extra_env=planned.spec.sandbox.env)
+    log = media.run_vhs(tape, workspace, extra_env=recording_env(planned.spec, work))
     if not recording.is_file():
         raise RenderError(f"VHS finished but wrote no video to {recording}")
     if marks is None:
@@ -338,7 +345,7 @@ def build_cast(
             build_script(spec, planned.timeline),
             terminal=spec.terminal,
             cwd=ws.path,
-            env={**os.environ, **spec.sandbox.env},
+            env={**os.environ, **recording_env(spec, work)},
             title=spec.meta.title,
         )
         outputs.page.parent.mkdir(parents=True, exist_ok=True)
