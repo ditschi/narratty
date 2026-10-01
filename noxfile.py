@@ -147,6 +147,7 @@ def necessary_imports(session: nox.Session) -> None:
         "pytest",
         "pytest-cov",
         "pytest-xdist",
+        "jsonschema",
         "ruff",
         "vulture",
     )

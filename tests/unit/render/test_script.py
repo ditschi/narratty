@@ -96,7 +96,7 @@ def test_popup_closes_at_the_end_of_the_scene() -> None:
 
 def test_hidden_scene_clears_the_terminal_pane() -> None:
     quiet = _scene(_script(EDITOR), "quiet")
-    assert quiet[:4] == [Hide(), Type("make", 40), Press("Enter", 40), Ctrl("B")]
+    assert quiet[:5] == [Hide(), Type("make", 40), Press("Enter", 40), Sleep(100), Ctrl("B")]
     clear = quiet.index(Type("send-keys -t :.2 clear Enter", 1))
     assert quiet[clear + 1 : clear + 4] == [Press("Enter", 1), Sleep(300), Show()]
     assert quiet.count(Show()) == 1 + 1, "one for the scene, one for the teardown after it"

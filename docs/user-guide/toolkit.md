@@ -131,21 +131,18 @@ scenes:
   - id: clone
     narration: Clone the repository.
     actions:
-      - type_command: git clone https://github.com/acme/app && cd app
-      - enter
+      - run: git clone https://github.com/acme/app && cd app
       - wait: {screen: "done\\.", timeout_ms: 120000}
   - id: toolkit                  # add the toolkit, unrecorded
     hidden: true
     actions:
-      - type_command: >-
+      - run: >-
           echo 'COPY --from=ghcr.io/ditschi/narratty-toolkit:latest / /usr/local/'
           >> .devcontainer/Dockerfile
-      - enter
   - id: build
     narration: Build and start the dev container. This is sped up.
     actions:
-      - type_command: docker compose up -d --build && echo rea""dy
-      - enter
+      - run: docker compose up -d --build && echo rea""dy
   - id: build-runs               # the build output, ten times faster
     timelapse: 10
     actions:
@@ -153,20 +150,15 @@ scenes:
   - id: enter
     narration: Open a shell in the dev container.
     actions:
-      - type_command: docker compose exec dev bash
-      - enter
-      - hold: auto
+      - run: docker compose exec dev bash
   - id: settings
     hidden: true
     actions:
-      - type_command: . /usr/local/share/narratty/env.sh
-      - enter
+      - run: . /usr/local/share/narratty/env.sh
   - id: explore
     narration: This is the project inside the container.
     actions:
-      - type_command: eza --tree --level 2
-      - enter
-      - hold: auto
+      - run: eza --tree --level 2
 ```
 
 Things to watch:
@@ -200,18 +192,15 @@ scenes:
     actions:
       - focus: explorer        # keys now go to yazi
       - key: Right
-      - hold: auto
   - id: tests
     narration: Reveal jumps to a file, and Enter opens it in micro.
     actions:
       - reveal: tests/test_greet.py
-      - enter
-      - hold: auto
+      - key: Enter
   - id: diff
     narration: The diff shows what the demo changed.
     actions:
       - diff
-      - hold: auto
 ```
 
 - The shell starts with focus. `focus: explorer` and `focus: terminal` switch.

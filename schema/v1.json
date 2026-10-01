@@ -66,11 +66,21 @@
           "title": "Enabled"
         },
         "duration_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 4000,
           "description": "How long the card stays on screen.",
-          "minimum": 1000,
-          "title": "Duration Ms",
-          "type": "integer"
+          "title": "Duration Ms"
         },
         "qr": {
           "default": true,
@@ -84,7 +94,7 @@
     },
     "Enter": {
       "additionalProperties": false,
-      "description": "Press Enter. Written as the bare string ``enter`` in YAML.",
+      "description": "Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``.",
       "properties": {
         "enter": {
           "const": true,
@@ -94,7 +104,9 @@
         }
       },
       "title": "Enter",
-      "type": "object"
+      "type": "object",
+      "deprecated": true,
+      "deprecationMessage": "Write `key: Enter` instead."
     },
     "Focus": {
       "additionalProperties": false,
@@ -117,7 +129,7 @@
     },
     "Hold": {
       "additionalProperties": false,
-      "description": "Pause. ``auto`` fills the scene until its narration has finished.",
+      "description": "Pause. ``auto`` waits here until the narration has finished.\n\nOnly needed mid-scene: after the last action, a scene always waits for its narration.",
       "properties": {
         "hold": {
           "anyOf": [
@@ -126,8 +138,14 @@
               "type": "string"
             },
             {
-              "exclusiveMinimum": 0,
+              "description": "Milliseconds",
+              "minimum": 0,
               "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
             }
           ],
           "title": "Hold"
@@ -141,7 +159,7 @@
     },
     "Key": {
       "additionalProperties": false,
-      "description": "Press a raw VHS key, optionally repeated (``Down 3``).",
+      "description": "Press a key, optionally repeated (``Down 3``). Names are case-insensitive.",
       "properties": {
         "key": {
           "title": "Key",
@@ -271,6 +289,22 @@
       "title": "Reveal",
       "type": "object"
     },
+    "Run": {
+      "additionalProperties": false,
+      "description": "Type a command, press Enter, then pause for ``timing.run_hold_ms``.",
+      "properties": {
+        "run": {
+          "minLength": 1,
+          "title": "Run",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "Run",
+      "type": "object"
+    },
     "Sandbox": {
       "additionalProperties": false,
       "properties": {
@@ -359,6 +393,9 @@
           "items": {
             "oneOf": [
               {
+                "$ref": "#/$defs/Run"
+              },
+              {
                 "$ref": "#/$defs/TypeCommand"
               },
               {
@@ -384,6 +421,16 @@
               },
               {
                 "$ref": "#/$defs/Diff"
+              },
+              {
+                "const": "enter",
+                "description": "Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``.",
+                "deprecated": true,
+                "deprecationMessage": "Write `key: Enter` instead."
+              },
+              {
+                "const": "diff",
+                "description": "Show the whole diff; short for {diff: true}."
               }
             ]
           },
@@ -398,8 +445,14 @@
         "typing_speed_ms": {
           "anyOf": [
             {
-              "exclusiveMinimum": 0,
+              "description": "Milliseconds",
+              "minimum": 0,
               "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
             },
             {
               "type": "null"
@@ -407,6 +460,26 @@
           ],
           "default": null,
           "title": "Typing Speed Ms"
+        },
+        "pause_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pause after each `key` and `ctrl_sequence` in this scene; defaults to timing.pause_ms.",
+          "title": "Pause Ms"
         },
         "narration_start": {
           "default": "with_actions",
@@ -466,10 +539,20 @@
           "type": "integer"
         },
         "typing_speed_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 40,
-          "exclusiveMinimum": 0,
-          "title": "Typing Speed Ms",
-          "type": "integer"
+          "title": "Typing Speed Ms"
         },
         "shell": {
           "default": "bash",
@@ -505,22 +588,86 @@
       "additionalProperties": false,
       "properties": {
         "narration_buffer_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 500,
-          "minimum": 0,
-          "title": "Narration Buffer Ms",
-          "type": "integer"
+          "title": "Narration Buffer Ms"
         },
         "lead_in_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 300,
-          "minimum": 0,
-          "title": "Lead In Ms",
-          "type": "integer"
+          "title": "Lead In Ms"
         },
         "tail_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 1000,
-          "minimum": 0,
-          "title": "Tail Ms",
-          "type": "integer"
+          "title": "Tail Ms"
+        },
+        "run_hold_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
+          "default": 500,
+          "description": "Pause after each `run` action.",
+          "title": "Run Hold Ms"
+        },
+        "pause_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
+          "default": 100,
+          "description": "Pause after each `key` and `ctrl_sequence`.",
+          "title": "Pause Ms"
         }
       },
       "title": "Timing",
@@ -573,7 +720,7 @@
     },
     "TypeCommand": {
       "additionalProperties": false,
-      "description": "Type text at the scene's typing speed (does not press Enter).",
+      "description": "Type text at the scene's typing speed without pressing Enter (use ``run`` for commands).",
       "properties": {
         "type_command": {
           "minLength": 1,
@@ -589,10 +736,18 @@
     },
     "Wait": {
       "additionalProperties": false,
-      "description": "Block until ``wait.screen`` matches the terminal content.",
+      "description": "Block until ``wait.screen`` matches the terminal content.\n\n``wait: \"pattern\"`` is short for ``wait: {screen: \"pattern\"}``.",
       "properties": {
         "wait": {
-          "$ref": "#/$defs/WaitSpec"
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Regular expression; short for {screen: ...}."
+            },
+            {
+              "$ref": "#/$defs/WaitSpec"
+            }
+          ]
         }
       },
       "required": [
@@ -611,10 +766,20 @@
           "type": "string"
         },
         "timeout_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
           "default": 15000,
-          "exclusiveMinimum": 0,
-          "title": "Timeout Ms",
-          "type": "integer"
+          "title": "Timeout Ms"
         }
       },
       "required": [
@@ -703,7 +868,9 @@
       "default": {
         "narration_buffer_ms": 500,
         "lead_in_ms": 300,
-        "tail_ms": 1000
+        "tail_ms": 1000,
+        "run_hold_ms": 500,
+        "pause_ms": 100
       }
     },
     "terminal": {
@@ -748,7 +915,15 @@
       }
     },
     "end_card": {
-      "$ref": "#/$defs/EndCard",
+      "anyOf": [
+        {
+          "type": "boolean",
+          "description": "Short for {enabled: ...}."
+        },
+        {
+          "$ref": "#/$defs/EndCard"
+        }
+      ],
       "default": {
         "enabled": null,
         "duration_ms": 4000,

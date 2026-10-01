@@ -20,12 +20,13 @@ from narratty.spec.model import (
     Hold,
     Key,
     Reveal,
+    Run,
     Scene,
     Spec,
     TypeCommand,
     Wait,
 )
-from narratty.timeline import SceneTiming, Timeline, typing_speed
+from narratty.timeline import Pacing, SceneTiming, Timeline, pacing
 
 
 @dataclass(frozen=True)
@@ -179,22 +180,29 @@ def editor_steps(action: Focus | Reveal, context: Context) -> list[Step]:
     return hidden(tmux_command(f"run-shell {_tmux_string(reveal)}"), 600)
 
 
-def action_steps(action: Action, speed: int, context: Context | None = None) -> list[Step]:
+def _then_sleep(steps: list[Step], ms: int) -> list[Step]:
+    return [*steps, Sleep(ms)] if ms else steps
+
+
+def action_steps(action: Action, pace: Pacing, context: Context | None = None) -> list[Step]:
     """Steps for one action (``hold: auto`` is placed by the caller)."""
     context = context or Context(editor=False, python=sys.executable)
     if isinstance(action, Diff):
         return diff_steps(action, context)
     if isinstance(action, Focus | Reveal):
         return editor_steps(action, context)
+    speed = pace.speed
+    if isinstance(action, Run):
+        return _then_sleep([Type(action.run, speed), Press("Enter", speed)], pace.run_hold_ms)
     if isinstance(action, TypeCommand):
         return [Type(action.type_command, speed)]
     if isinstance(action, Enter):
-        return [Press("Enter", speed)]
+        return _then_sleep([Press("Enter", speed)], pace.pause_ms)
     if isinstance(action, Key):
         name, _, count = action.key.partition(" ")
-        return [Press(name, speed, int(count) if count else None)]
+        return _then_sleep([Press(name, speed, int(count) if count else None)], pace.pause_ms)
     if isinstance(action, CtrlSequence):
-        return [Ctrl(action.ctrl_sequence.removeprefix("C-").upper())]
+        return _then_sleep([Ctrl(action.ctrl_sequence.removeprefix("C-").upper())], pace.pause_ms)
     if isinstance(action, Wait):
         return [WaitScreen(action.wait.screen, action.wait.timeout_ms)]
     if isinstance(action, Hold) and action.hold != "auto":
@@ -220,9 +228,9 @@ def _end_hidden(steps: list[Step], context: Context) -> list[Step]:
     return [*steps, Type("clear", 1), Press("Enter", 1), Sleep(300), Show()]
 
 
-def _timelapse_steps(scene: Scene, timing: SceneTiming, speed: int, context: Context) -> list[Step]:
+def _timelapse_steps(scene: Scene, timing: SceneTiming, pace: Pacing, context: Context) -> list[Step]:
     """A timelapse scene: its actions between markers, the end holds for the narration."""
-    actions = [step for action in scene.actions for step in action_steps(action, speed, context)]
+    actions = [step for action in scene.actions for step in action_steps(action, pace, context)]
     if context.editor and any(isinstance(action, Diff) for action in scene.actions):
         actions += close_popup()
     end = TimelapseEnd(scene.id, timing.hold_ms, timing.narration_after)
@@ -235,10 +243,10 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | 
     In the editor layout a diff popup stays open until the next action that sends
     keys, or the end of the scene.
     """
-    speed = typing_speed(spec, scene)
+    pace = pacing(spec, scene)
     context = Context(spec.terminal.layout == "editor", python or sys.executable)
     if timing.timelapse:
-        return _timelapse_steps(scene, timing, speed, context)
+        return _timelapse_steps(scene, timing, pace, context)
     fill_at_hold = scene.narration_start == "with_actions"
     steps: list[Step] = [Mark(scene.id, scene.hidden)]
     if scene.hidden:
@@ -253,7 +261,7 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | 
         if popup and _sends_keys(action):
             steps += close_popup()
             popup = False
-        steps += action_steps(action, speed, context)
+        steps += action_steps(action, pace, context)
         popup = popup or (context.editor and isinstance(action, Diff))
     if not filled and timing.fill_ms:
         steps.append(Sleep(timing.fill_ms))

@@ -37,6 +37,21 @@ $ narratty validate demo.narratty.yaml
 demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did you mean 'type_command'?)
 ```
 
+Valid lines that can be left out or written shorter are reported as hints; they do not
+fail validation:
+
+```text
+$ narratty validate demo.narratty.yaml
+hint: demo.narratty.yaml:3:3: tts.voice: same as the default; leave it out
+hint: demo.narratty.yaml:12:9: scenes[0].actions[2]: 'hold: auto' has no effect at the end of a scene; leave it out
+ok demo.narratty.yaml: 2 scenes, 2 narrated, voice kokoro/af_heart
+```
+
+## Durations
+
+Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit:
+`800ms`, `1.5s`, `2m`.
+
 ## Top level
 
 | Key | Default | Meaning |
@@ -72,6 +87,8 @@ demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did 
 | `narration_buffer_ms` | `500` | Pause after each narration before the next scene |
 | `lead_in_ms` | `300` | Silence before the first scene |
 | `tail_ms` | `1000` | Time the last frame stays on screen |
+| `run_hold_ms` | `500` | Pause after each `run` action |
+| `pause_ms` | `100` | Pause after each `key` and `ctrl_sequence` |
 
 ## `terminal`
 
@@ -143,6 +160,7 @@ wins over the config.
 | `actions` | `[]` | What happens in the terminal |
 | `hidden` | `false` | Run without recording (setup); cannot have narration |
 | `typing_speed_ms` | terminal's | Per-scene typing speed |
+| `pause_ms` | `timing.pause_ms` | Per-scene pause after each `key` and `ctrl_sequence` |
 | `narration_start` | `with_actions` | Or `after_actions` |
 | `timelapse` | none | Show the scene this many times faster (greater than 1) |
 
@@ -157,8 +175,7 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 - id: install
   narration: Installing the dependencies takes a while; here it is eight times faster.
   actions:
-    - type_command: npm ci
-    - enter
+    - run: npm ci
 - id: install-runs
   timelapse: 8
   actions:
@@ -180,17 +197,23 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 
 | Action | Example | Does |
 |---|---|---|
-| `type_command` | `- type_command: "ls -la"` | Types the text |
-| `enter` | `- enter` | Presses Enter |
+| `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms` |
+| `type_command` | `- type_command: "ls -la"` | Types the text, without Enter |
 | `ctrl_sequence` | `- ctrl_sequence: C-c` | Presses Ctrl plus a key |
-| `key` | `- key: Up` or `- key: Down 3` | Presses a named VHS key, optionally repeated |
-| `hold` | `- hold: 1500` or `- hold: auto` | Waits; `auto` waits until the narration is done |
-| `wait` | `- wait: {screen: "Done", timeout_ms: 15000}` | Waits until the screen matches a regex |
+| `key` | `- key: Enter` or `- key: Down 3` | Presses a key, optionally repeated |
+| `hold` | `- hold: 1.5s` or `- hold: auto` | Waits; `auto` waits until the narration is done |
+| `wait` | `- wait: "Done"` or `- wait: {screen: "Done", timeout_ms: 1m}` | Waits until the screen matches a regex (default timeout 15 s) |
 | `diff` | `- diff` or `- diff: [src, README.md]` | Shows what changed since the recording started, optionally only for some paths |
 | `focus` | `- focus: explorer` | Moves the keyboard to `explorer` or `terminal` (editor layout) |
 | `reveal` | `- reveal: src/app.py` | Selects a path, relative to the workspace, in the explorer (editor layout) |
 
-A scene has at most one `hold: auto`, and only when it has narration.
+Keys: `Enter`, `Tab`, `Space`, `Backspace`, `Delete`, `Escape`, `Up`, `Down`, `Left`,
+`Right`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`. Names are case-insensitive.
+Older specs write Enter as `- enter`; it still works, `key: Enter` is the current form.
+
+Every list item starts with `- `. A scene always waits for its narration after its
+last action, so `hold: auto` is only needed in the middle of a scene; a scene has at
+most one. See [Writing specs](writing-specs.md) for when to use which action.
 
 `diff`, `focus` and `reveal` take no time in the video: they run while recording is
 hidden, and the screen changes at once. Add a `hold` after them for a pause.

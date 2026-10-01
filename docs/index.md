@@ -46,8 +46,7 @@ scenes:
   - id: intro
     narration: This is a quick tour of the repository layout.
     actions:
-      - type_command: "ls -la"
-      - enter
+      - run: ls -la
 ```
 
 Each scene lasts as long as its actions or its narration, whichever is longer. See

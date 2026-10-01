@@ -37,6 +37,8 @@ scenes:
     narration: Afterwards.
     narration_start: after_actions
     actions: [{type_command: "pwd"}, enter]
+  - id: run
+    actions: [{run: "pwd"}]
 """
 )
 AUDIO = {"short-actions": 3000, "long-actions": 1000, "after": 1500}
@@ -48,9 +50,10 @@ def test_scene_lengths() -> None:
     assert lengths == {
         "setup": 0,
         "short-actions": 3500,  # narration + buffer beats 3 keys × 40 ms
-        "long-actions": 3100,  # 11 keys × 100 ms + 2000 ms hold beats 1000 + 500
-        "keys": 120,  # Down ×3 at 40 ms; ctrl and wait count as 0
-        "after": 160 + 1500 + 500,
+        "long-actions": 3200,  # 11 keys × 100 ms + 100 ms pause + 2000 ms hold beats 1000 + 500
+        "keys": 320,  # Down ×3 at 40 ms, a 100 ms pause after Down and after Ctrl; wait counts as 0
+        "after": 260 + 1500 + 500,
+        "run": 160 + 500,  # like type_command + enter, plus timing.run_hold_ms
     }
 
 
@@ -67,7 +70,7 @@ def test_narration_offsets() -> None:
     timeline = build_timeline(SPEC, AUDIO)
     assert timeline.scene("short-actions").audio_start_ms == timeline.scene("short-actions").start_ms
     after = timeline.scene("after")
-    assert after.audio_start_ms == after.start_ms + 160
+    assert after.audio_start_ms == after.start_ms + 260
 
 
 @pytest.mark.parametrize(("actions_ms", "audio_ms"), list(itertools.product([0, 400, 5000], [0, 100, 4000])))
@@ -79,6 +82,16 @@ def test_no_scene_is_shorter_than_its_narration(actions_ms: int, audio_ms: int) 
     assert scene.length_ms >= actions_ms
     if audio_ms:
         assert scene.length_ms >= audio_ms + spec.timing.narration_buffer_ms
+
+
+def test_pause_ms_per_scene_overrides_the_spec() -> None:
+    spec = _spec(
+        "timing: {pause_ms: 1s}\nscenes:\n"
+        "  - id: a\n    actions: [{key: Up}, {ctrl_sequence: C-c}]\n"
+        "  - id: b\n    pause_ms: 0\n    actions: [{key: Up}, {ctrl_sequence: C-c}]\n"
+    )
+    lengths = {s.scene_id: s.length_ms for s in build_timeline(spec, {}).scenes}
+    assert lengths == {"a": 40 + 1000 + 1000, "b": 40}
 
 
 def test_end_card_adds_to_the_total() -> None:

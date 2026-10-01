@@ -50,6 +50,7 @@ test = [
     "pytest>=8.2",
     "pytest-cov>=5.0",
     "pytest-xdist>=3.6",
+    "jsonschema>=4.22",
 ]
 lint = [
     "ruff>=0.6",

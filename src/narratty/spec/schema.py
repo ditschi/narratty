@@ -25,9 +25,39 @@ def schema_url(version: str) -> str:
     return f"{SCHEMA_BASE}/{ref}/{SCHEMA_PATH}"
 
 
+# Still accepted; editors that understand deprecationMessage (yaml-language-server) nudge to `key: Enter`.
+_LEGACY_ENTER = {"deprecated": True, "deprecationMessage": "Write `key: Enter` instead."}
+
+
+def _add_shorthands(schema: dict[str, Any]) -> dict[str, Any]:
+    """Allow the short forms the models accept in ``mode="before"`` validators.
+
+    Pydantic only describes the long forms, so without this editors flag valid specs
+    (``- enter``, ``- diff``, ``wait: "done"``, ``end_card: false``).
+    """
+    defs = schema["$defs"]
+    actions = defs["Scene"]["properties"]["actions"]["items"]["oneOf"]
+    actions.append({"const": "enter", "description": defs["Enter"]["description"], **_LEGACY_ENTER})
+    defs["Enter"].update(_LEGACY_ENTER)
+    actions.append({"const": "diff", "description": "Show the whole diff; short for {diff: true}."})
+    wait = defs["Wait"]["properties"]["wait"]
+    defs["Wait"]["properties"]["wait"] = {
+        "anyOf": [{"type": "string", "description": "Regular expression; short for {screen: ...}."}, wait]
+    }
+    end_card = schema["properties"]["end_card"]
+    schema["properties"]["end_card"] = {
+        "anyOf": [
+            {"type": "boolean", "description": "Short for {enabled: ...}."},
+            {"$ref": end_card.pop("$ref")},
+        ],
+        **end_card,
+    }
+    return schema
+
+
 def spec_schema() -> dict[str, Any]:
     """The spec's JSON Schema with ``$schema`` and ``$id`` set."""
-    schema = Spec.model_json_schema()
+    schema = _add_shorthands(Spec.model_json_schema())
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": SCHEMA_ID,

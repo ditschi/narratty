@@ -18,8 +18,7 @@ scenes:
   - id: intro
     narration: This is a quick tour of the repository layout.
     actions:
-      - type_command: "eza --tree --level=1 ."
-      - enter
+      - run: eza --tree --level=1 .
 ```
 
 ```bash

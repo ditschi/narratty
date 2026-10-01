@@ -81,10 +81,13 @@ def test_scenes() -> None:
     assert intro == [
         'Type@40ms "make build"',
         "Enter@40ms",
-        "Sleep 1980ms",  # 2000 audio + 500 buffer - (10 chars + Enter + Down × 2) × 40 ms
+        "Sleep 100ms",  # timing.pause_ms after each key
+        "Sleep 1680ms",  # 2000 audio + 500 buffer - (10 chars + Enter + Down × 2) × 40 ms - 3 pauses
         "Wait+Screen@2000ms /built a\\/b/",
         "Down@40ms 2",
+        "Sleep 100ms",
         "Ctrl+L",
+        "Sleep 100ms",
     ]
 
 
@@ -93,8 +96,21 @@ def test_fill_goes_last_without_hold_auto() -> None:
         "scenes:\n  - id: a\n    narration: Hi.\n    actions: [{type_command: ls}, enter]\n", {"a": 1000}
     )
     scene = tape.split("# scene: a\n", 1)[1].split("\n\n", 1)[0].splitlines()
-    assert scene == ['Type@40ms "ls"', "Enter@40ms", "Sleep 1380ms"]
+    assert scene == ['Type@40ms "ls"', "Enter@40ms", "Sleep 100ms", "Sleep 1280ms"]
     assert tape.endswith("Sleep 1000ms\n")
+
+
+def test_run_types_presses_enter_and_holds() -> None:
+    tape = _tape("timing: {run_hold_ms: 700}\nscenes:\n  - id: a\n    actions: [{run: ls}, {run: pwd}]\n")
+    scene = tape.split("# scene: a\n", 1)[1].split("\n\n", 1)[0].splitlines()
+    assert scene == [
+        'Type@40ms "ls"',
+        "Enter@40ms",
+        "Sleep 700ms",
+        'Type@40ms "pwd"',
+        "Enter@40ms",
+        "Sleep 700ms",
+    ]
 
 
 def test_tape_is_byte_stable() -> None:

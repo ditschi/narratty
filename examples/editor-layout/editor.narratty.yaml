@@ -5,9 +5,6 @@
 version: 1
 meta:
   title: Editor layout with tmux and yazi
-tts:
-  provider: kokoro
-  voice: af_heart
 timing:
   tail_ms: 0          # the last visible frame is held in the diff scene instead
 terminal:
@@ -24,44 +21,33 @@ scenes:
     narration: >-
       This demo looks like an editor. Files and a preview on top, and a terminal
       below, all in one tmux window.
-    actions:
-      - hold: auto
 
   - id: explore
     narration: >-
       Switch to the explorer and open the source folder. The preview shows the
       selected file with syntax highlighting.
+    pause_ms: 600ms     # give the preview time after each key
     actions:
       - focus: explorer
-      - hold: 600
       - key: Right
-      - hold: 600
       - key: Right
-      - hold: 600
       - key: Down
-      - hold: auto
 
   - id: run
     narration: Back in the terminal, run the program.
     actions:
       - focus: terminal
-      - type_command: PYTHONPATH=src python3 -m greet Ada Grace
-      - enter
-      - wait: {screen: "Hello, Grace!"}
-      - hold: auto
+      - run: PYTHONPATH=src python3 -m greet Ada Grace
+      - wait: "Hello, Grace!"
 
   - id: edit
     narration: >-
       Change the greeting from the terminal. The preview picks up the change, and
       the next run uses it.
     actions:
-      - type_command: sed -i 's/Hello/Welcome/' src/greet/__main__.py
-      - enter
-      - hold: 800
-      - type_command: PYTHONPATH=src python3 -m greet Ada
-      - enter
-      - wait: {screen: "Welcome, Ada!"}
-      - hold: auto
+      - run: sed -i 's/Hello/Welcome/' src/greet/__main__.py
+      - run: PYTHONPATH=src python3 -m greet Ada
+      - wait: "Welcome, Ada!"
 
   - id: tests
     narration: >-
@@ -70,9 +56,8 @@ scenes:
     actions:
       - reveal: tests/test_greet.py
       - focus: explorer
-      - hold: 800
-      - enter
-      - hold: auto
+      - hold: 800ms
+      - key: Enter
 
   - id: fix
     narration: Fix the expected text, save, and close the editor.
@@ -81,15 +66,14 @@ scenes:
       - key: Right 36
       - key: Backspace 5
       - type_command: Welcome
-      - hold: 600
+      - hold: 600ms
       - ctrl_sequence: C-s
-      - hold: 600
+      - hold: 600ms
       - ctrl_sequence: C-q
-      - hold: auto
 
   - id: diff
     narration: Finally, the diff shows everything this demo changed.
     actions:
       - diff
-      - hold: auto
-      - hold: 1500
+      - hold: auto        # wait for the narration, then keep the diff on screen
+      - hold: 1.5s
