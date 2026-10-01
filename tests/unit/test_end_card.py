@@ -16,6 +16,7 @@ from narratty.end_card import (
     container_flag,
     default_enabled,
     is_enabled,
+    logo_lines,
     main,
     qr_lines,
     qr_size,
@@ -117,25 +118,52 @@ def _screen(text: str) -> list[str]:
     return _ANSI.sub("", text).split("\n")
 
 
-def test_qr_beside_the_text_on_a_wide_terminal() -> None:
-    lines = _screen(compose(100, 24))
-    credit = next(line for line in lines if CREDIT in line)
-    assert "▀" in credit, "the text sits on the QR code's rows"
+_QR = "48;2;255;255;255m"  # the QR code's light modules; the logo has none
+
+
+def _logo_rows(lines: list[str]) -> list[int]:
+    return [index for index, line in enumerate(lines) if "▄" in line or "137;180;250" in line]
+
+
+def test_logo_lines_are_the_pixel_art() -> None:
+    lines = logo_lines()
+    assert len(lines) == 10
+    assert all(len(_ANSI.sub("", line)) == 20 for line in lines)
+
+
+def test_qr_beside_the_logo_and_text_on_a_wide_terminal() -> None:
+    card = compose(100, 24)
+    raw = card.split("\n")
+    lines = _screen(card)
+    credit = next(index for index, line in enumerate(lines) if CREDIT in line)
+    assert _QR in raw[credit], "the text sits on the QR code's rows"
+    logo = _logo_rows(raw)
+    assert logo and max(logo) < credit, "the logo sits above the text"
+    assert all(_QR in raw[row] for row in logo), "beside the QR code"
     assert any(DOCS_URL in line for line in lines)
     assert len(lines) <= 24 and all(len(line) <= 100 for line in lines)
 
 
 def test_qr_above_the_text_on_a_narrow_terminal() -> None:
-    lines = _screen(compose(40, 30))
+    card = compose(40, 30)
+    raw, lines = card.split("\n"), _screen(card)
     credit = lines.index(next(line for line in lines if CREDIT in line))
-    assert "▀" in lines[credit - 2] and "▀" not in lines[credit]
+    assert _QR in raw[credit - 2] and _QR not in raw[credit]
+    assert not _logo_rows(raw), "no room for the logo as well"
     assert len(lines) <= 30 and all(len(line) <= 40 for line in lines)
 
 
-@pytest.mark.parametrize(("cols", "rows", "qr"), [(40, 10, True), (100, 24, False)])
+def test_logo_above_the_text_without_qr() -> None:
+    raw = compose(100, 24, qr=False).split("\n")
+    credit = next(index for index, line in enumerate(raw) if CREDIT in line)
+    assert _QR not in "".join(raw)
+    assert max(_logo_rows(raw)) == credit - 2
+
+
+@pytest.mark.parametrize(("cols", "rows", "qr"), [(40, 10, True), (100, 12, False)])
 def test_text_only_when_the_qr_does_not_fit_or_is_off(cols: int, rows: int, qr: bool) -> None:
     text = compose(cols, rows, qr=qr)
-    assert "▀" not in text
+    assert _QR not in text
     lines = _screen(text)
     assert any(line.strip() == CREDIT for line in lines)
     assert len(lines) <= rows

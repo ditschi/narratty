@@ -152,10 +152,11 @@ Set exactly one of `image`, `compose` and `container`.
 
 ## `end_card`
 
-The video ends with a short card that says "Created with narratty", with a link to
-this documentation and a QR code of the link. The QR code sits beside the text, or
-above it on a narrow terminal; it is left out when the terminal is too small for it.
-The card is drawn in black and white so it scans on any theme.
+The video ends with a short card that shows the narratty logo above "Created with
+narratty", a link to this documentation and a QR code of the link. The QR code sits
+beside the logo and text, or above the text on a narrow terminal. When space runs out,
+the logo goes first, then the QR code. The QR code is drawn in black and white so it
+scans on any theme.
 
 | Key | Default | Meaning |
 |---|---|---|
