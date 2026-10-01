@@ -151,6 +151,16 @@ but redundant are reported as hints:
 - `wait: {screen: ...}` without a timeout (write `wait: "..."`)
 - the bare `- enter` (write `key: Enter`)
 
+## Say which narratty a spec needs
+
+A spec shared with others should name the oldest narratty it works with. Keys added
+in a release are marked "(since X.Y)" in the [spec reference](spec.md):
+
+```yaml
+requires:
+  narratty: ">=0.3"
+```
+
 ## Specs written by an AI agent
 
 Point the agent at this page and let it run `narratty validate` after each change

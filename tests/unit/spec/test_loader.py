@@ -5,10 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from ruamel.yaml import YAML
 
 from narratty.errors import ExitCode
 from narratty.spec import SpecError, load_spec
-from narratty.spec.loader import parse_spec
+from narratty.spec.loader import check_required_version, parse_spec
 from narratty.spec.template import render_template
 
 FILE = Path("demo.narratty.yaml")
@@ -97,3 +98,27 @@ EXAMPLES = sorted((Path(__file__).parents[3] / "examples").glob("**/*.narratty.y
 @pytest.mark.parametrize("path", EXAMPLES, ids=lambda path: path.parent.name)
 def test_examples_are_valid(path: Path) -> None:
     assert load_spec(path).scenes
+
+
+def test_required_narratty_version_is_checked_before_the_rest() -> None:
+    data = YAML(typ="rt").load('requires:\n  narratty: ">=9"\nscenes:\n  - {id: a, fancy: 1}\n')
+    with pytest.raises(SpecError) as info:
+        check_required_version(data, FILE, installed="0.5.0")
+    assert [issue.render(FILE) for issue in info.value.issues] == [
+        "demo.narratty.yaml:2:3: requires.narratty: "
+        "this spec needs narratty >=9, but 0.5.0 is installed; upgrade narratty"
+    ]
+
+
+@pytest.mark.parametrize("installed", ["0.5.0", "0.5.1.dev3+g1234", "0.0.0+unknown"])
+def test_required_narratty_version_met_or_unknown(installed: str) -> None:
+    data = YAML(typ="rt").load('requires:\n  narratty: ">=0.5"\nscenes: [{id: a}]\n')
+    check_required_version(data, FILE, installed=installed)
+
+
+def test_invalid_version_requirement() -> None:
+    (issue,) = _issues('requires: {narratty: "latest"}\nscenes: [{id: a}]\n')
+    assert (
+        issue
+        == "demo.narratty.yaml:1:12: requires.narratty: not a version requirement like '>=0.3': 'latest'"
+    )

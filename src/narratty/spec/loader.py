@@ -7,13 +7,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from packaging.version import Version
 from pydantic import BaseModel, ValidationError
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
 
+from narratty import __version__
 from narratty.errors import ExitCode, NarrattyError
-from narratty.spec.model import ACTION_KEYS, Spec
+from narratty.spec.model import ACTION_KEYS, Spec, parse_requirement
 
 SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml")
 
@@ -157,6 +159,27 @@ def parse_spec(text: str, file: Path) -> Spec:
     return parse_document(text, file)[0]
 
 
+def check_required_version(data: dict[Any, Any], file: Path, installed: str | None = None) -> None:
+    """Fail early when ``requires.narratty`` excludes this narratty.
+
+    Runs before validation, so a spec for a newer narratty reports the version it needs
+    instead of its unknown keys. Untagged source builds (``0.0.0+unknown``) are not checked.
+    """
+    requires = data.get("requires")
+    wanted = requires.get("narratty") if isinstance(requires, dict) else None
+    current = installed or __version__
+    if not isinstance(wanted, str) or current.startswith("0.0.0"):
+        return
+    try:
+        specifier = parse_requirement(wanted)
+    except ValueError:
+        return  # reported with its position by model validation
+    if not specifier.contains(Version(current), prereleases=True):
+        line, column = position(data, ("requires", "narratty"))
+        message = f"this spec needs narratty {wanted}, but {current} is installed; upgrade narratty"
+        raise SpecError(file, [Issue("requires.narratty", message, line, column)])
+
+
 def parse_document(text: str, file: Path) -> tuple[Spec, dict[Any, Any]]:
     """Like :func:`parse_spec`, plus the YAML as written (with line numbers)."""
     yaml = YAML(typ="rt")
@@ -173,6 +196,7 @@ def parse_document(text: str, file: Path) -> tuple[Spec, dict[Any, Any]]:
         raise SpecError(file, [Issue("", message, line, column)]) from error
     if not isinstance(data, dict):
         raise SpecError(file, [Issue("", "the spec must be a YAML mapping with a 'scenes' list", 1, 1)])
+    check_required_version(data, file)
     try:
         return Spec.model_validate(_to_plain(data)), data
     except ValidationError as error:

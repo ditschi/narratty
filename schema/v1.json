@@ -796,6 +796,19 @@
           },
           "title": "Tools",
           "type": "array"
+        },
+        "narratty": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "narratty versions this spec needs, e.g. '>=0.3' (checked before the rest of the spec).",
+          "title": "Narratty"
         }
       },
       "title": "Requires",
@@ -1531,7 +1544,8 @@
     "requires": {
       "$ref": "#/$defs/Requires",
       "default": {
-        "tools": []
+        "tools": [],
+        "narratty": null
       }
     },
     "workspace": {

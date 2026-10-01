@@ -1153,6 +1153,7 @@ name = "narratty"
 source = { editable = "." }
 dependencies = [
     { name = "kokoro-onnx" },
+    { name = "packaging" },
     { name = "pillow" },
     { name = "piper-tts" },
     { name = "platformdirs" },
@@ -1225,6 +1226,7 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
     { name = "mypy", marker = "extra == 'type-check'", specifier = ">=1.10" },
     { name = "nox", marker = "extra == 'dev'", specifier = ">=2024.4" },
+    { name = "packaging", specifier = ">=23.0" },
     { name = "pillow", specifier = ">=10.1" },
     { name = "piper-tts", specifier = ">=1.8" },
     { name = "platformdirs", specifier = ">=4.2" },

@@ -62,12 +62,13 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `timing` | | Sync settings, see below |
 | `terminal` | | Look of the recorded terminal |
 | `requires.tools` | `[]` | Extra commands the demo needs (checked by `doctor`) |
+| `requires.narratty` | unset | narratty versions the spec needs, e.g. `">=0.3"`; see [Spec versions](#spec-versions) (since 0.5) |
 | `workspace` | | What directory the demo runs in |
 | `sandbox` | | Permissions of the container |
-| `environment` | | Run the demo shell in a project image, Compose service or container |
+| `environment` | | Run the demo shell in a project image, Compose service or container (since 0.3) |
 | `end_card` | on | Closing card, see below |
-| `subtitles` | `none` | `none`, `files`, `track` or `burn`; see [Subtitles](building.md#subtitles) |
-| `overlay_styles` | `{}` | Named overlay styles; see [Overlays](#overlays) |
+| `subtitles` | `none` | `none`, `files`, `track` or `burn`; see [Subtitles](building.md#subtitles) (since 0.3) |
+| `overlay_styles` | `{}` | Named overlay styles; see [Overlays](#overlays) (since 0.3) |
 | `scenes` | required | At least one scene |
 
 ## `tts`
@@ -80,7 +81,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `piper.sentence_silence` | `0.2` | Seconds of silence between sentences |
 | `kokoro.speed` | `1.0` | Speech speed |
 | `kokoro.lang` | voice's language | Language code, e.g. `en-gb` |
-| `lexicon` | `{}` | How to say terms, e.g. `{k8s: kubernetes}`; see [Pronunciation](voices.md#pronunciation) |
+| `lexicon` | `{}` | How to say terms, e.g. `{k8s: kubernetes}`; see [Pronunciation](voices.md#pronunciation) (since 0.3) |
 
 ## `timing`
 
@@ -89,8 +90,8 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `narration_buffer_ms` | `500` | Pause after each narration before the next scene |
 | `lead_in_ms` | `300` | Silence before the first scene |
 | `tail_ms` | `1000` | Time the last frame stays on screen |
-| `run_hold_ms` | `500` | Pause after each `run` action |
-| `pause_ms` | `100` | Pause after each `key` and `ctrl_sequence` |
+| `run_hold_ms` | `500` | Pause after each `run` action (since 0.3) |
+| `pause_ms` | `100` | Pause after each `key` and `ctrl_sequence` (since 0.3) |
 
 ## `terminal`
 
@@ -102,7 +103,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `typing_speed_ms` | `40` | Time per typed key |
 | `shell` | `bash` | `bash`, `zsh`, `fish` or `sh` |
 | `prompt` | `"$ "` | Prompt shown in the recording |
-| `layout` | `plain` | `plain` or `editor`: an explorer with preview above the shell, see [Editor layout](toolkit.md#editor-layout) |
+| `layout` | `plain` | `plain` or `editor`: an explorer with preview above the shell, see [Editor layout](toolkit.md#editor-layout) (since 0.3) |
 
 ## `workspace`
 
@@ -127,9 +128,11 @@ you for approval before the first run.
 | `env` | `{}` | Fixed environment variables |
 | `extra_mounts` | `[]` | `{host, container, mode: ro\|rw}` |
 | `ssh_agent` | `false` | Forward the host SSH agent |
-| `docker` | `false` | Give the demo your Docker or Podman engine; [full host access](container.md#docker-in-the-demo) |
+| `docker` | `false` | Give the demo your Docker or Podman engine; [full host access](container.md#docker-in-the-demo) (since 0.3) |
 
 ## `environment`
+
+Since narratty 0.3.
 
 Runs the demo shell in your project's image, Compose service or container; see
 [Project environments](environments.md).
@@ -184,11 +187,11 @@ wins over the config.
 | `actions` | `[]` | What happens in the terminal |
 | `hidden` | `false` | Run without recording (setup); cannot have narration |
 | `typing_speed_ms` | terminal's | Per-scene typing speed |
-| `pause_ms` | `timing.pause_ms` | Per-scene pause after each `key` and `ctrl_sequence` |
+| `pause_ms` | `timing.pause_ms` | Per-scene pause after each `key` and `ctrl_sequence` (since 0.3) |
 | `narration_start` | `with_actions` | Or `after_actions` |
-| `timelapse` | none | Show the scene this many times faster (greater than 1) |
-| `expect_exit` | `success` | Exit codes of the scene's commands: `success`, `failure` or `any`; see [Exit codes](#exit-codes) |
-| `fast` | `--fast` | `true`/`false`: fill long pauses with still frames or not; see [Fast pauses](building.md#fast-pauses) |
+| `timelapse` | none | Show the scene this many times faster (greater than 1) (since 0.3) |
+| `expect_exit` | `success` | Exit codes of the scene's commands: `success`, `failure` or `any`; see [Exit codes](#exit-codes) (since 0.3) |
+| `fast` | `--fast` | `true`/`false`: fill long pauses with still frames or not; see [Fast pauses](building.md#fast-pauses) (since 0.3) |
 
 A scene lasts as long as its actions or its narration plus `narration_buffer_ms`,
 whichever is longer.
@@ -223,18 +226,18 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 
 | Action | Example | Does |
 |---|---|---|
-| `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms`; may set its own `expect_exit` |
+| `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms`; may set its own `expect_exit` (since 0.3) |
 | `type_command` | `- type_command: "ls -la"` | Types the text, without Enter |
 | `ctrl_sequence` | `- ctrl_sequence: C-c` | Presses Ctrl plus a key |
 | `key` | `- key: Enter` or `- key: Down 3` | Presses a key, optionally repeated |
 | `hold` | `- hold: 1.5s` or `- hold: auto` | Waits; `auto` waits until the narration is done |
 | `wait` | `- wait: "Done"` or `- wait: {screen: "Done", timeout_ms: 1m}` | Waits until the screen matches a regex (default timeout 15 s) |
-| `wait` | `- wait: {prompt: true, timeout_ms: 10m}` | Waits until the command has finished and the prompt is back |
-| `diff` | `- diff` or `- diff: [src, README.md]` | Shows what changed since the recording started, optionally only for some paths |
-| `focus` | `- focus: explorer` | Moves the keyboard to `explorer` or `terminal` (editor layout) |
-| `reveal` | `- reveal: src/app.py` | Selects a path, relative to the workspace, in the explorer (editor layout) |
-| `overlay` | `- overlay: "Open src/main.py"` | Shows text over the video; see [Overlays](#overlays) |
-| `browser` | `- browser: docs/site/index.html` | Shows a web page over the terminal; see [Browser views](#browser-views) |
+| `wait` | `- wait: {prompt: true, timeout_ms: 10m}` | Waits until the command has finished and the prompt is back (since 0.3) |
+| `diff` | `- diff` or `- diff: [src, README.md]` | Shows what changed since the recording started, optionally only for some paths (since 0.3) |
+| `focus` | `- focus: explorer` | Moves the keyboard to `explorer` or `terminal` (editor layout) (since 0.3) |
+| `reveal` | `- reveal: src/app.py` | Selects a path, relative to the workspace, in the explorer (editor layout) (since 0.3) |
+| `overlay` | `- overlay: "Open src/main.py"` | Shows text over the video; see [Overlays](#overlays) (since 0.3) |
+| `browser` | `- browser: docs/site/index.html` | Shows a web page over the terminal; see [Browser views](#browser-views) (since 0.3) |
 
 Keys: `Enter`, `Tab`, `Space`, `Backspace`, `Delete`, `Escape`, `Up`, `Down`, `Left`,
 `Right`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`. Names are case-insensitive.
@@ -291,6 +294,8 @@ command lines, so `key: Up` recalls earlier commands there.
 
 ### Overlays
 
+Since narratty 0.3.
+
 An overlay shows text over the video, in a rounded, semi-transparent box: a chapter
 title, the file the narration talks about. It stays readable while the terminal
 scrolls.
@@ -340,6 +345,8 @@ they are drawn over the player and follow its clock.
 
 ### Browser views
 
+Since narratty 0.3.
+
 A browser view shows a web page or a local HTML file as a browser renders it, for
 example the rendered documentation next to its Markdown source. Chromium (which VHS
 records with) captures the page at the video's width; the view covers the terminal
@@ -375,3 +382,26 @@ earlier one, and overlays are drawn on top. Web pages need network access: in th
 container that is `sandbox: {network: full}`. Prefer local files for pages behind a
 login; narratty never signs in. The whole example is in
 [`examples/browser`](https://github.com/ditschi/narratty/tree/main/examples/browser).
+
+## Spec versions
+
+`version` changes only when a spec that worked before would break: a key is removed,
+renamed or changes its meaning. New keys, actions and short forms keep the version,
+so every `version: 1` spec keeps working with newer narratty releases.
+
+A spec that uses newer keys needs a newer narratty, which `version` does not tell.
+`requires.narratty` does:
+
+```yaml
+requires:
+  narratty: ">=0.3"   # uses run, key: Enter and durations
+```
+
+narratty checks it before anything else in the spec, so an older narratty that knows
+the key reports the version to install instead of the keys it does not know. Releases
+before 0.5 do not know `requires.narratty` and reject it as an unknown key.
+
+| Release | Added to `version: 1` |
+|---|---|
+| 0.3 | `run` action, `key: Enter` (the bare `- enter` still works), durations like `1.5s`, `wait: "pattern"`, `wait: {prompt: true}`, `timing.run_hold_ms`, `timing.pause_ms` and scene `pause_ms`, `tts.lexicon`, `subtitles`, `environment`, `sandbox.docker`, `terminal.layout`, overlays (`overlay`, `overlay_styles`), `browser`, `diff`, `focus`, `reveal`, scene `timelapse`, `expect_exit` and `fast` |
+| 0.5 | `requires.narratty` |
