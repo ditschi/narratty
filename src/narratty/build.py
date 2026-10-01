@@ -8,6 +8,7 @@ from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from narratty.cache import AudioCache
 from narratty.end_card import with_end_card
@@ -16,7 +17,6 @@ from narratty.paths import cache_dir, data_dir
 from narratty.render import media
 from narratty.render.narration import Placement, build_track
 from narratty.render.subtitles import Narrated, SubtitleFiles, cues_for, to_srt
-from narratty.render.tape import generate_tape
 from narratty.spec import load_spec
 from narratty.spec.model import Spec
 from narratty.timeline import Timeline, build_timeline
@@ -24,6 +24,10 @@ from narratty.tts.lexicon import load_lexicon
 from narratty.tts.registry import get_provider
 from narratty.tts.synth import Clip, synthesize_spec
 from narratty.workspace import PreparedWorkspace, export_artifacts, prepare_workspace
+
+if TYPE_CHECKING:
+    from narratty.render.pauses import JobWatch
+    from narratty.render.tape import Tape
 
 SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml", ".yaml", ".yml")
 DEFAULT_MAX_DRIFT = 0.10
@@ -129,20 +133,68 @@ def warn_unenforced_sandbox(spec: Spec, log: Log) -> None:
         log("sandbox settings are only enforced in a container; running natively with your own access")
 
 
-def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> Path:
-    """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``."""
-    from narratty.draft import FRAMERATE as DRAFT_FRAMERATE
-    from narratty.render.tape import FRAMERATE
+def render_silent(
+    planned: Plan, video: Path, work: Path, workspace: Path, *, fast: bool = False, log: Log | None = None
+) -> Path:
+    """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``.
 
-    tape = work / "scene.tape"
+    ``fast`` records long pauses briefly and fills them with still frames (see
+    ``narratty.render.pauses``); a pause whose screen was not still fails the build,
+    except in a draft, which only logs it.
+    """
+    from narratty.draft import FRAMERATE as DRAFT_FRAMERATE
+    from narratty.render.tape import FRAMERATE, build_tape
+
+    tape_path = work / "scene.tape"
     framerate = DRAFT_FRAMERATE if planned.draft else FRAMERATE
-    tape.write_text(
-        generate_tape(planned.spec, planned.timeline, video.resolve(), framerate=framerate), encoding="utf-8"
-    )
-    media.run_vhs(tape, workspace, extra_env=planned.spec.sandbox.env)
-    if not video.is_file():
-        raise RenderError(f"VHS finished but wrote no video to {video}")
+    recorded = work / "recorded.mp4" if fast else video
+    tape = build_tape(planned.spec, planned.timeline, recorded.resolve(), framerate=framerate, fast=fast)
+    tape_path.write_text(tape.text, encoding="utf-8")
+    if not fast:
+        media.run_vhs(tape_path, workspace, extra_env=planned.spec.sandbox.env)
+    else:
+        from narratty.render.pauses import JobWatch
+
+        jobs = JobWatch(tape.pauses)
+        printed = media.run_vhs_timed(tape_path, workspace, extra_env=planned.spec.sandbox.env, on_line=jobs)
+    if not recorded.is_file():
+        raise RenderError(f"VHS finished but wrote no video to {recorded}")
+    if fast:
+        _fill_pauses(planned, tape, printed, jobs, recorded, video, log or (lambda _message: None))
     return video
+
+
+def _fill_pauses(
+    planned: Plan,
+    tape: Tape,
+    printed: list[tuple[float, str]],
+    jobs: JobWatch,
+    recorded: Path,
+    video: Path,
+    say: Log,
+) -> None:
+    from narratty.render.pauses import pause_ends_ms, plan_stills
+
+    info = media.probe(recorded)
+    ends = pause_ends_ms(tape.commands, tape.pauses, printed, info.duration_ms)
+    inserts, moving = plan_stills(tape.pauses, ends, media.freezes(recorded), info.frame_rate)
+    moving += [pause for pause in tape.pauses if jobs.busy(pause) and pause not in moving]
+    if moving:
+        scenes = ", ".join(sorted({pause.scene_id or "end card" for pause in moving}))
+        message = f"the screen was not still at the end of a pause in: {scenes}"
+        if not planned.draft:
+            raise RenderError(
+                message,
+                hint="Let the scene `wait` for the command's last output before the pause, "
+                "or build without --fast.",
+            )
+        say(f"{message}; the draft freezes the picture there anyway")
+    media.repeat_frames(
+        recorded,
+        [(insert.frame, insert.count) for insert in inserts],
+        video,
+        fast=planned.draft,
+    )
 
 
 @dataclass(frozen=True)
@@ -203,11 +255,14 @@ def build(
     end_card: bool | None = None,
     subtitles: str | None = None,
     draft: bool = False,
+    fast: bool = False,
     log: Log | None = None,
 ) -> BuildResult:
     """Run the full pipeline and verify the result.
 
     ``subtitles`` overrides the spec's ``subtitles`` (a draft burns them in by default).
+    ``fast`` fills long pauses with still frames instead of recording them (a draft
+    always does).
     """
     say = log or (lambda _message: None)
     output = (output or default_output(spec_path, ".draft.mp4" if draft else ".mp4")).resolve()
@@ -220,7 +275,7 @@ def build(
         workspace_for(planned, workspace or WorkspaceOptions(), log=say) as ws,
     ):
         say(f"recording {len(planned.timeline.scenes)} scenes with VHS")
-        silent = render_silent(planned, work / "silent.mp4", work, ws.path)
+        silent = render_silent(planned, work / "silent.mp4", work, ws.path, fast=fast or draft, log=say)
         video_ms = media.probe(silent).duration_ms
         placements = place_clips(planned, video_ms)
         say("mixing narration")
@@ -286,6 +341,7 @@ def build_cast(
     workspace: WorkspaceOptions | None = None,
     end_card: bool | None = None,
     subtitles: str | None = None,
+    fast: bool = False,
     log: Log | None = None,
 ) -> BuildResult:
     """Record an asciicast with a narration track and a page that plays both.
@@ -293,6 +349,7 @@ def build_cast(
     ``output`` is the HTML page; the ``.cast`` and ``.mp3`` are written beside it, and
     with any ``subtitles`` mode but ``none`` also the ``.srt`` and ``.vtt``.
     Clips are placed at the recorded start of their scene, so there is no drift to check.
+    ``fast`` skips the rest of a long pause once the output has been quiet for a moment.
     """
     from narratty.render.cast import record
     from narratty.render.player import player_page, player_theme
@@ -315,6 +372,7 @@ def build_cast(
             cwd=ws.path,
             env={**os.environ, **spec.sandbox.env},
             title=spec.meta.title,
+            fast=fast,
         )
         outputs.page.parent.mkdir(parents=True, exist_ok=True)
         outputs.cast.write_text(recording.cast, encoding="utf-8")

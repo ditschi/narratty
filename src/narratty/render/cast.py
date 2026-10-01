@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from narratty.errors import RenderError
+from narratty.render.pauses import SETTLE_MS, STILL_MS
 from narratty.render.script import Ctrl, Hide, Mark, Press, Show, Sleep, Step, Type, WaitScreen
 from narratty.spec.model import Terminal
 
@@ -69,6 +70,9 @@ def ctrl_char(char: str) -> str:
     """The control character Ctrl+``char`` sends (``C`` → ``\\x03``)."""
     return chr(ord(char.upper()) & 0x1F)
 
+
+# How often a pause checks whether a running command has finished.
+_POLL = 0.1
 
 _CLEAR = re.compile(r"\x1b\[2J|\x1bc")
 _ESCAPE = re.compile(
@@ -122,8 +126,10 @@ class Recorder:
         cwd: Path,
         env: Mapping[str, str],
         clock: Callable[[], float] = time.monotonic,
+        fast: bool = False,
     ) -> None:
         self.cols, self.rows = cols, rows
+        self.fast = fast
         self.events: list[tuple[float, str, str]] = []
         self.marks: dict[str, float] = {}
         self.screen = ScreenText(rows)
@@ -131,6 +137,8 @@ class Recorder:
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self._hidden_total = 0.0
         self._hidden_since: float | None = None
+        self._skipped = 0.0
+        self._last_output = 0.0
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
         try:
@@ -157,7 +165,7 @@ class Recorder:
     def now(self) -> float:
         """Seconds of recorded time so far (hidden time does not count)."""
         current = self._hidden_since if self._hidden_since is not None else self._clock()
-        return current - self._start - self._hidden_total
+        return current - self._start - self._hidden_total + self._skipped
 
     def hide(self) -> None:
         """Stop the recording clock; output keeps being recorded, at this moment."""
@@ -197,6 +205,7 @@ class Recorder:
             data = b""
         if not data:
             return False
+        self._last_output = self._clock()
         text = self._decoder.decode(data)
         if text:
             self._output(text)
@@ -239,6 +248,8 @@ class Recorder:
                 self._keys([KEYS[key]] * (count or 1), speed)
             case Ctrl(char):
                 self._keys([ctrl_char(char)], 0)
+            case Sleep(ms) if self.fast and self._hidden_since is None and ms > SETTLE_MS:
+                self._pause(ms / 1000)
             case Sleep(ms):
                 self.pump(ms / 1000)
             case WaitScreen(pattern, timeout_ms):
@@ -249,6 +260,40 @@ class Recorder:
                 self.show()
             case Mark(scene_id, hidden) if scene_id is not None and not hidden:
                 self.mark(scene_id)
+
+    def _pause(self, seconds: float) -> None:
+        """Pause, but skip the rest once the screen is still.
+
+        Still means: no output for ``STILL_MS`` and no command running (see
+        :meth:`running_command`).
+        """
+        start = self._clock()
+        end, still = start + seconds, STILL_MS / 1000
+        while True:
+            now = self._clock()
+            ready = max(self._last_output, start) + still
+            if ready <= now and not self.running_command():
+                self._skipped += end - now
+                return
+            wake = max(ready, now + _POLL)
+            if wake >= end:
+                self.pump(end - now)
+                return
+            self.pump(wake - now)
+
+    def running_command(self) -> bool:
+        """Whether a command runs in the foreground that does not read keys.
+
+        Such a command leaves the terminal in canonical (line) mode, as the shell
+        does; interactive programs (editors, pagers, tmux) switch that off and count
+        as idle.
+        """
+        try:
+            group = os.tcgetpgrp(self._fd)
+            canonical = termios.tcgetattr(self._fd)[3] & termios.ICANON
+        except (OSError, termios.error):
+            return False
+        return group != self._proc.pid and bool(canonical)
 
     def _keys(self, keys: Sequence[str], speed_ms: int) -> None:
         for key in keys:
@@ -285,11 +330,16 @@ def record(
     cwd: Path,
     env: Mapping[str, str],
     title: str,
+    fast: bool = False,
 ) -> Recording:
-    """Run ``steps`` in ``terminal.shell`` inside ``cwd`` and return the asciicast."""
+    """Run ``steps`` in ``terminal.shell`` inside ``cwd`` and return the asciicast.
+
+    ``fast`` skips the rest of a pause longer than ``SETTLE_MS`` once the output has been
+    quiet for ``STILL_MS``; the recording's clock moves on as if it had waited.
+    """
     cols, rows = terminal_size(terminal)
     shell_env = {**env, "TERM": "xterm-256color", "COLUMNS": str(cols), "LINES": str(rows)}
-    recorder = Recorder(SHELL_ARGV[terminal.shell], cols=cols, rows=rows, cwd=cwd, env=shell_env)
+    recorder = Recorder(SHELL_ARGV[terminal.shell], cols=cols, rows=rows, cwd=cwd, env=shell_env, fast=fast)
     try:
         for step in steps:
             recorder.run(step)
