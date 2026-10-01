@@ -67,14 +67,13 @@ def plan(
     """Load ``spec_path``, synthesize (or reuse) its narration and compute the timeline.
 
     ``end_card`` overrides the spec and the user's config (see ``narratty.end_card``).
-    A ``draft`` skips TTS: it has no clips, estimated narration lengths and a
-    half-size terminal (see ``narratty.draft``).
+    A ``draft`` skips TTS: it has no clips and estimated narration lengths (see
+    ``narratty.draft``).
     """
     spec = with_end_card(load_spec(spec_path), end_card)
     if draft:
-        from narratty.draft import draft_spec, estimated_audio_ms
+        from narratty.draft import estimated_audio_ms
 
-        spec = draft_spec(spec)
         return Plan(spec_path, spec, (), build_timeline(spec, estimated_audio_ms(spec)), draft=True)
     provider = get_provider(spec.tts.provider, data_dir())
     lexicon = load_lexicon(spec_path, spec.tts)

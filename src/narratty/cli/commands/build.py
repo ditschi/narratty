@@ -76,7 +76,7 @@ def build_command(
     draft: bool = typer.Option(
         False,
         "--draft",
-        help="Fast preview: no TTS (estimated narration lengths), half size, 10 fps, silent, "
+        help="Fast preview: no TTS (estimated narration lengths), 10 fps, half-size video, silent, "
         "narration burned in as subtitles. Writes <spec>.draft.mp4 by default.",
     ),
     workspace_mode: WorkspaceMode | None = WorkspaceModeOption,
