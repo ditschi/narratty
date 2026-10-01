@@ -243,7 +243,8 @@ def test_packages_setup_and_diff(tmp_path: Path, source: str) -> None:
         layered = environment[:-1] + ", packages: [git], setup: ['echo made > /etc/demo']}"
         spec = _write(tmp_path, _spec_text(layered, head=head))
         _inject(spec, "cat /etc/demo > setup-ran")
-        shows = '      - wait: {screen: "\\\\+container", timeout_ms: 20000}\n'
+        # git prints `diff --git a/setup-ran`, delta (from the toolkit) `Added: setup-ran`.
+        shows = '      - wait: {screen: "setup-ran", timeout_ms: 20000}\n'
         spec.write_text(spec.read_text() + "      - diff\n" + shows, encoding="utf-8")
         _cast(spec)
     assert (tmp_path / "setup-ran").read_text().strip() == "made"
