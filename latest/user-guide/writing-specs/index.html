@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://ditschi.github.io/narratty/latest/user-guide/building/">
+        <link rel="canonical" href="https://ditschi.github.io/narratty/latest/user-guide/writing-specs/">
       
       
-        <link rel="prev" href="../voices/">
+        <link rel="prev" href="../spec/">
       
       
-        <link rel="next" href="../container/">
+        <link rel="next" href="../voices/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Building a video - narratty</title>
+        <title>Writing specs - narratty</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#building-a-video" class="md-skip">
+        <a href="#writing-specs" class="md-skip">
           Skip to content
         </a>
       
@@ -117,7 +117,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Building a video
+              Writing specs
             
           </span>
         </div>
@@ -596,10 +596,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../writing-specs/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing specs
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -615,6 +642,114 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#leave-out-the-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Leave out the defaults
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scenes-wait-for-their-narration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenes wait for their narration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-for-commands-type_command-for-typing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        run for commands, type_command for typing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wait-for-output-instead-of-guessing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wait for output instead of guessing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#only-divergent-values-per-scene" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Only divergent values per scene
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#yaml-pitfalls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        YAML pitfalls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#let-validate-find-redundant-lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Let validate find redundant lines
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#specs-written-by-an-ai-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Specs written by an AI agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -652,37 +787,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Building a video
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../building/" class="md-nav__link">
         
   
   
@@ -698,103 +806,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#subtitles" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Subtitles
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#draft" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Draft
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#fast-pauses" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Fast pauses
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#asciicast-with-narration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Asciicast with narration
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#looking-before-rendering" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Looking before rendering
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-sync-works" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How sync works
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#things-to-know" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Things to know
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1438,10 +1449,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#subtitles" class="md-nav__link">
+  <a href="#leave-out-the-defaults" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Subtitles
+        Leave out the defaults
       
     </span>
   </a>
@@ -1449,10 +1460,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#draft" class="md-nav__link">
+  <a href="#scenes-wait-for-their-narration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Draft
+        Scenes wait for their narration
       
     </span>
   </a>
@@ -1460,10 +1471,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#fast-pauses" class="md-nav__link">
+  <a href="#run-for-commands-type_command-for-typing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Fast pauses
+        run for commands, type_command for typing
       
     </span>
   </a>
@@ -1471,10 +1482,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#asciicast-with-narration" class="md-nav__link">
+  <a href="#wait-for-output-instead-of-guessing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Asciicast with narration
+        Wait for output instead of guessing
       
     </span>
   </a>
@@ -1482,10 +1493,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#looking-before-rendering" class="md-nav__link">
+  <a href="#only-divergent-values-per-scene" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Looking before rendering
+        Only divergent values per scene
       
     </span>
   </a>
@@ -1493,10 +1504,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-sync-works" class="md-nav__link">
+  <a href="#yaml-pitfalls" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How sync works
+        YAML pitfalls
       
     </span>
   </a>
@@ -1504,10 +1515,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#things-to-know" class="md-nav__link">
+  <a href="#let-validate-find-redundant-lines" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Things to know
+        Let validate find redundant lines
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#specs-written-by-an-ai-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Specs written by an AI agent
       
     </span>
   </a>
@@ -1531,7 +1553,7 @@
 
 
   
-    <a href="https://github.com/ditschi/narratty/edit/main/docs/user-guide/building.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/ditschi/narratty/edit/main/docs/user-guide/writing-specs.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1539,187 +1561,126 @@
   
 
 
-<h1 id="building-a-video">Building a video<a class="headerlink" href="#building-a-video" title="Permanent link">&para;</a></h1>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w">            </span><span class="c1"># writes demo.mp4 next to the spec</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>-o<span class="w"> </span>out/tour.mp4<span class="w"> </span>--work-dir<span class="w"> </span>out/work
+<h1 id="writing-specs">Writing specs<a class="headerlink" href="#writing-specs" title="Permanent link">&para;</a></h1>
+<p>A good spec reads like a script: narration and the commands, nothing else. The
+defaults cover the common case, so write only what differs from them.</p>
+<h2 id="leave-out-the-defaults">Leave out the defaults<a class="headerlink" href="#leave-out-the-defaults" title="Permanent link">&para;</a></h2>
+<p>Every key has a default (see the <a href="../spec/">spec reference</a>). This is a complete spec:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">intro</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is a quick tour of the repository layout.</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ls -la</span>
 </code></pre></div>
-<p><code>build</code> runs the whole pipeline:</p>
-<ol>
-<li><strong>Narration.</strong> Each narrated scene's text is synthesized, or taken from the
-   <a href="../voices/#audio-cache">audio cache</a>.</li>
-<li><strong>Timeline.</strong> Each scene lasts as long as its actions, or as long as its
-   narration plus <code>timing.narration_buffer_ms</code>, whichever is longer.</li>
-<li><strong>Tape.</strong> A <a href="https://github.com/charmbracelet/vhs">VHS</a> tape types your commands
-   and pauses to fill each scene.</li>
-<li><strong>Recording.</strong> VHS records a silent video, running the shell in
-   <code>workspace.source</code>.</li>
-<li><strong>Mix.</strong> Every clip is placed at the start of its scene in one narration track,
-   which is muxed onto the video as AAC.</li>
-<li><strong>Check.</strong> The result must contain video and audio, and its length must be
-   within <code>--max-drift</code> of the plan (10% by default). Otherwise the build exits
-   with code 6.</li>
-</ol>
-<p>After the last scene and the tail comes the end card (4 s by default; see
-<a href="../spec/#end_card"><code>end_card</code></a>); <code>--no-end-card</code> leaves it out.</p>
-<p>With <code>--work-dir</code> the tape, the silent video and the narration track are kept for
-inspection.</p>
-<h2 id="subtitles">Subtitles<a class="headerlink" href="#subtitles" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--subtitles<span class="w"> </span>files<span class="w">   </span><span class="c1"># demo.mp4, demo.srt, demo.vtt</span>
-</code></pre></div>
-<p>Subtitles come from the narration: each clip becomes one cue per sentence, and long
-sentences are split so a cue fits in two lines. Cues show the text as written in the
-spec. Set the mode with <a href="../spec/#top-level"><code>subtitles</code></a> or <code>--subtitles</code>:</p>
-<table>
-<thead>
-<tr>
-<th>Mode</th>
-<th>Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>none</code></td>
-<td>No subtitles (default)</td>
-</tr>
-<tr>
-<td><code>files</code></td>
-<td><code>.srt</code> and <code>.vtt</code> beside the video</td>
-</tr>
-<tr>
-<td><code>track</code></td>
-<td>A soft subtitle track in the mp4; players can switch it on and off</td>
-</tr>
-<tr>
-<td><code>burn</code></td>
-<td>Drawn into the picture; re-encodes the video</td>
-</tr>
-</tbody>
-</table>
-<p>With <code>--format cast</code>, every mode except <code>none</code> writes the <code>.srt</code> and <code>.vtt</code> beside
-the page.</p>
-<h2 id="draft">Draft<a class="headerlink" href="#draft" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--draft<span class="w">      </span><span class="c1"># writes demo.draft.mp4</span>
-</code></pre></div>
-<p>A draft checks actions and timing without waiting for TTS:</p>
+<p>Repeating defaults such as <code>tts: {provider: kokoro, voice: af_heart}</code> or the terminal
+size only makes the spec longer and hides the settings that matter.</p>
+<h2 id="scenes-wait-for-their-narration">Scenes wait for their narration<a class="headerlink" href="#scenes-wait-for-their-narration" title="Permanent link">&para;</a></h2>
+<p>A scene lasts until its actions are done and its narration has finished, plus
+<code>timing.narration_buffer_ms</code>. The pause that fills the gap goes after the last
+action. So:</p>
 <ul>
-<li>narration lengths are estimated from the text (about 14 characters per second,
-  scaled by the voice speed); no voice is loaded or downloaded;</li>
-<li>VHS captures 10 frames per second instead of 30, and the video is encoded at half
-  size; the terminal itself keeps its size, so output and <code>wait</code> behave as in the
-  real build;</li>
-<li>long pauses are <a href="#fast-pauses">fast</a>; one that does not end on a still screen is
-  logged, not an error;</li>
-<li>the video is silent and the narration is burned in as subtitles, so you see
-  where each line would be spoken (<code>--subtitles</code> picks another mode).</li>
+<li>A scene that only talks needs no <code>actions</code>.</li>
+<li><code>hold: auto</code> at the end of a scene does nothing extra. Use it only in the middle of a
+  scene, when the actions after it should wait for the narration.</li>
 </ul>
-<p><code>narratty plan SPEC --draft</code> prints the estimated timeline. <code>--draft</code> only applies to
-mp4 output.</p>
-<h2 id="fast-pauses">Fast pauses<a class="headerlink" href="#fast-pauses" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--fast
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># not needed</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">intro</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This demo looks like an editor.</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">hold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># enough</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">intro</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This demo looks like an editor.</span>
 </code></pre></div>
-<p>Most of a narrated video is pauses: the screen holds still while the voice talks.
-VHS records in real time, so a 10 s pause costs 10 s of recording. With <code>--fast</code>, a
-visible pause longer than 1 s is recorded for 1 s, and its last frame is repeated for
-the rest. The video is as long as without <code>--fast</code>; the cursor does not blink.</p>
-<p>That is only right when the screen is still at the end of that second, so narratty
-checks the recording and fails, naming the scene, when</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># hold: auto in the middle: show the result while talking, then clear the screen</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">result</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The build is green, all tests passed.</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">make test</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">passed</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">hold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">ctrl_sequence</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">C-l</span>
+</code></pre></div>
+<h2 id="run-for-commands-type_command-for-typing"><code>run</code> for commands, <code>type_command</code> for typing<a class="headerlink" href="#run-for-commands-type_command-for-typing" title="Permanent link">&para;</a></h2>
+<p><code>run</code> types a command, presses Enter and pauses for <code>timing.run_hold_ms</code> (500 ms), so
+the viewer sees the output before the next command is typed.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># long form</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type_command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">git status</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Enter</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">hold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500ms</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># same thing</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">git status</span>
+</code></pre></div>
+<p>Use <code>type_command</code> for input that is not a finished command: text in an editor, a
+prompt that is answered later, or a command that is edited before Enter:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type_command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">git commit -m "wip"</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">hold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1s</span><span class="w">                   </span><span class="c1"># let the viewer read it</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Backspace 4</span><span class="w">           </span><span class="c1"># remove wip"</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type_command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fix"</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Enter</span>
+</code></pre></div>
+<p>Change the pause for every <code>run</code> in the spec with <code>timing.run_hold_ms</code>. For a single
+longer pause, add a <code>hold</code> after that <code>run</code>.</p>
+<h2 id="wait-for-output-instead-of-guessing">Wait for output instead of guessing<a class="headerlink" href="#wait-for-output-instead-of-guessing" title="Permanent link">&para;</a></h2>
+<p>A command that takes a moment should be followed by <code>wait</code>, not by a long <code>hold</code>. The
+video then continues as soon as the output is there:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker compose up -d</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Started</span>
+</code></pre></div>
+<p><code>wait: "pattern"</code> uses the default timeout of 15 seconds. Give the mapping form only
+for a different timeout:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">screen</span><span class="p">:</span><span class="w"> </span><span class="s">"Successfully</span><span class="nv"> </span><span class="s">built"</span><span class="p p-Indicator">,</span><span class="nt"> timeout_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">5m</span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<p>Slow setup (installs, builds, downloads) belongs in a <code>hidden: true</code> scene, which is
+run but not recorded.</p>
+<h2 id="only-divergent-values-per-scene">Only divergent values per scene<a class="headerlink" href="#only-divergent-values-per-scene" title="Permanent link">&para;</a></h2>
+<p>Set a value once at the top and override it only where a scene differs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">terminal</span><span class="p">:</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">typing_speed_ms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span><span class="w">          </span><span class="c1"># the whole video types a bit faster</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">long-command</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nt">typing_speed_ms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w">        </span><span class="c1"># this one command would take too long otherwise</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker run --rm -v "$PWD:/work" -w /work ghcr.io/acme/tool:latest check</span>
+</code></pre></div>
+<p>The same goes for pauses. Every <code>key</code> and <code>ctrl_sequence</code> is followed by
+<code>timing.pause_ms</code> (100 ms). A scene that steps through a menu sets its own pause
+instead of a <code>hold</code> after every key:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># instead of a hold after every key</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">explore</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">pause_ms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600ms</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Right</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Right</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Down</span>
+</code></pre></div>
+<h2 id="yaml-pitfalls">YAML pitfalls<a class="headerlink" href="#yaml-pitfalls" title="Permanent link">&para;</a></h2>
 <ul>
-<li>the screen changed in the last half second, or</li>
-<li>a command the scene started is still running (it might print later). Interactive
-  programs (editors, pagers, tmux) do not count; they wait for keys.</li>
+<li>List items start with <code>-</code>. <code>* item</code> is Markdown, not YAML (<code>*</code> starts an alias),
+  and fails to parse.</li>
+<li>Quote text that contains <code>:</code>, <code>#</code> or starts with a special character
+  (<code>*</code>, <code>&amp;</code>, <code>!</code>, <code>%</code>, <code>@</code>, <code>`</code>, <code>{</code>, <code>[</code>).</li>
+<li><code>&gt;-</code> folds a long command over several lines; a line break becomes a space.</li>
+<li>Comments (<code>#</code>) inside a <code>&gt;</code> or <code>|</code> block are part of the text.</li>
 </ul>
-<p>For a command that runs longer, add a <code>wait</code> for its last output before the pause, or
-set <code>fast: false</code> on the scene. The running-command check reads <code>/proc</code>, so it only works on
-Linux (natively or in the container). In the editor layout it only sees <code>tmux</code>, so
-there only the screen is checked. Pauses in <a href="../spec/#timelapse">timelapse</a> scenes are
-recorded in full; those scenes are sped up anyway.</p>
-<p>A scene's <code>fast</code> overrides the command line: <code>fast: false</code> records its pauses in full
-even with <code>--fast</code>, <code>fast: true</code> fills them even without it.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">scenes</span><span class="p">:</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">build</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">fast</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">        </span><span class="c1"># output may still arrive during the pause</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">make</span>
-</code></pre></div>
-<p>With <code>--format cast</code>, <code>--fast</code> skips the rest of a pause once there has been no
-output for half a second and no command is running. The cast's timestamps are the
-same as without it.</p>
-<h2 id="asciicast-with-narration">Asciicast with narration<a class="headerlink" href="#asciicast-with-narration" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--format<span class="w"> </span>cast<span class="w">   </span><span class="c1"># demo.cast, demo.mp3, demo.html</span>
-</code></pre></div>
-<p>Instead of a video, this writes an <a href="https://docs.asciinema.org/manual/asciicast/v2/">asciicast</a>
-(<code>.cast</code>), the narration as MP3, and an HTML page that plays both with
-<a href="https://docs.asciinema.org/manual/player/">asciinema-player</a>. The player uses the
-audio as its clock, so pausing and seeking stay in sync. Terminal text stays
-selectable, and the cast is a few kilobytes.</p>
+<h2 id="let-validate-find-redundant-lines">Let <code>validate</code> find redundant lines<a class="headerlink" href="#let-validate-find-redundant-lines" title="Permanent link">&para;</a></h2>
+<p><code>narratty validate</code> reports every problem with its line and column. With the schema
+line at the top, editors show the same problems while you type. Lines that are valid
+but redundant are reported as hints:</p>
 <ul>
-<li><strong>The page is self-contained</strong>: cast and audio are embedded, so it works opened
-  from disk or on any static host. The player itself loads from jsDelivr.</li>
-<li><strong><code>-o</code></strong> names the page; the <code>.cast</code> and <code>.mp3</code> go beside it.</li>
-<li><strong>Recording</strong>: VHS cannot write asciicasts, so narratty runs the scenes itself in a
-  pseudo-terminal of the same size and shell. Each clip is placed at its scene's
-  recorded start, so there is no drift check.</li>
-<li><strong>Size</strong>: columns and rows follow <code>terminal.width</code>, <code>height</code> and <code>font_size</code>. The
-  theme applies when asciinema-player has one of the same name (Dracula, Monokai,
-  Nord, Solarized, Tango, …).</li>
-<li><strong>Overlays</strong> are drawn over the player as HTML boxes and follow its clock. The
-  <code>.cast</code> itself has none: asciicast has no way to store them. The same goes for
-  browser views, which the page shows as images over the player.</li>
-<li><strong><code>wait</code></strong> matches the text printed since the last clear, not a rendered screen;
-  full-screen programs such as <code>vim</code> are not modelled.</li>
+<li>values equal to their default</li>
+<li><code>hold: auto</code> at the end of a scene, or with <code>narration_start: after_actions</code></li>
+<li><code>type_command</code> directly followed by Enter (write <code>run</code>)</li>
+<li><code>wait: {screen: ...}</code> without a timeout (write <code>wait: "..."</code>)</li>
+<li>the bare <code>- enter</code> (write <code>key: Enter</code>)</li>
 </ul>
-<p>To embed the recording in your own page, use the <code>.cast</code> and <code>.mp3</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nx">AsciinemaPlayer</span><span class="p">.</span><span class="nx">create</span><span class="p">(</span><span class="s2">"demo.cast"</span><span class="p">,</span><span class="w"> </span><span class="nx">element</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">audioUrl</span><span class="o">:</span><span class="w"> </span><span class="s2">"demo.mp3"</span><span class="w"> </span><span class="p">});</span>
-</code></pre></div>
-<p>Seeking needs a server that supports range requests, as most static hosts do.</p>
-<h2 id="looking-before-rendering">Looking before rendering<a class="headerlink" href="#looking-before-rendering" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Command</th>
-<th>Shows</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>narratty plan SPEC</code></td>
-<td>Each scene's start, action time, narration length and the total</td>
-</tr>
-<tr>
-<td><code>narratty plan SPEC --draft</code></td>
-<td>The same with estimated narration lengths, without TTS</td>
-</tr>
-<tr>
-<td><code>narratty tape SPEC</code></td>
-<td>The generated VHS tape</td>
-</tr>
-<tr>
-<td><code>narratty render SPEC</code></td>
-<td>Records only the silent video (<code>demo.silent.mp4</code>)</td>
-</tr>
-</tbody>
-</table>
-<h2 id="how-sync-works">How sync works<a class="headerlink" href="#how-sync-works" title="Permanent link">&para;</a></h2>
-<p>Narration starts when its scene starts, so the voice talks while the command is
-typed. Set <code>narration_start: after_actions</code> on a scene to speak only after its
-actions. The pause that fills a scene goes where the scene has <code>hold: auto</code>, or
-after its actions otherwise.</p>
-<p>VHS's real timing differs from its nominal timing by a few percent, depending on the
-machine. narratty measures the recorded video and stretches the clip positions to
-match, so each clip still starts with its scene.</p>
-<h2 id="things-to-know">Things to know<a class="headerlink" href="#things-to-know" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong><code>wait</code> matches the whole screen</strong>, including the command you just typed. Wait for
-  text that only the command's output contains, e.g. <code>wait: {screen: "Build
-  succeeded"}</code> rather than a word that also appears in the command.</li>
-<li><strong>Slow commands</strong> make the video longer than planned. Give the scene a larger
-  <code>hold</code>, or move the slow part into a hidden scene. The drift check reports how far
-  off the video is.</li>
-<li><strong>Hidden scenes</strong> run without being recorded and clear the screen afterwards, which
-  makes them good for setup such as <code>cd</code>, exporting variables or warming caches.</li>
-<li><strong>The workspace</strong> is a throwaway snapshot by default, so demos can build and write
-  files without touching your checkout; see <a href="../container/#workspace-modes">workspace modes</a>.</li>
-</ul>
+<h2 id="specs-written-by-an-ai-agent">Specs written by an AI agent<a class="headerlink" href="#specs-written-by-an-ai-agent" title="Permanent link">&para;</a></h2>
+<p>Point the agent at this page and let it run <code>narratty validate</code> after each change
+until it reports no problems and no hints.</p>
 
 
 

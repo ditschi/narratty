@@ -21,6 +21,42 @@
          <lastmod>2026-10-01</lastmod>
     </url>
     <url>
+         <loc>https://ditschi.github.io/narratty/latest/examples/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/examples/browser/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/examples/cast/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/examples/editor-layout/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/examples/end-card/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/examples/pronunciation/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/examples/subtitles/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/examples/terminal/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/examples/voices/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
          <loc>https://ditschi.github.io/narratty/latest/user-guide/building/</loc>
          <lastmod>2026-10-01</lastmod>
     </url>
@@ -34,6 +70,10 @@
     </url>
     <url>
          <loc>https://ditschi.github.io/narratty/latest/user-guide/container/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/user-guide/environments/</loc>
          <lastmod>2026-10-01</lastmod>
     </url>
     <url>
@@ -54,6 +94,10 @@
     </url>
     <url>
          <loc>https://ditschi.github.io/narratty/latest/user-guide/voices/</loc>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/narratty/latest/user-guide/writing-specs/</loc>
          <lastmod>2026-10-01</lastmod>
     </url>
 </urlset>
