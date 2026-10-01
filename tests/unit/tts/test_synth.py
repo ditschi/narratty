@@ -12,6 +12,7 @@ from narratty.cache import AudioCache
 from narratty.errors import MissingDependencyError
 from narratty.spec.loader import parse_spec
 from narratty.tts.base import VoiceInfo
+from narratty.tts.lexicon import Entry, Lexicon
 from narratty.tts.synth import synthesize_spec
 from tests.helpers import write_tone
 
@@ -117,3 +118,17 @@ def test_unavailable_engine_fails_early(tmp_path: Path) -> None:
         synthesize_spec(
             parse_spec(SPEC, Path("t.narratty.yaml")), ToneProvider(available=False), AudioCache(tmp_path)
         )
+
+
+def test_lexicon_changes_only_what_is_spoken(tmp_path: Path) -> None:
+    spec = parse_spec(SPEC.replace("Hello   there.", "Edit .bazelrc there."), Path("t.narratty.yaml"))
+    provider = ToneProvider()
+    lexicon = Lexicon([Entry(".bazelrc", "dot bay zel R C", "spec")])
+    synthesize_spec(spec, provider, AudioCache(tmp_path), lexicon=lexicon)
+    assert provider.spoken[0] == "Edit dot bay zel R C there."
+    assert spec.scenes[1].narration == "Edit .bazelrc there."
+    again = ToneProvider()
+    clips = synthesize_spec(
+        spec, again, AudioCache(tmp_path), lexicon=Lexicon([Entry(".bazelrc", "dot bazel", "spec")])
+    )
+    assert [c.cached for c in clips] == [False, True], "a changed respelling re-synthesizes that clip"

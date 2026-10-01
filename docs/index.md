@@ -17,6 +17,8 @@ natively.
 - **[Sandboxed by default](user-guide/container.md):** runs in Docker or Podman with no network unless the spec
   asks for it and you approve. The demo runs in a throwaway snapshot of your
   repository. Native mode is available too.
+- **[Subtitles](user-guide/building.md#subtitles) and [drafts](user-guide/building.md#draft):** SRT/VTT files, a soft track or burned-in text from the
+  narration; `--draft` previews timing in seconds, without TTS.
 - **Scripting:** hidden setup scenes, waits for screen output, key presses and
   per-scene typing speed.
 - **[Editor layout](user-guide/toolkit.md#editor-layout):** a file explorer with

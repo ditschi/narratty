@@ -12,6 +12,7 @@ from narratty.errors import MissingDependencyError
 from narratty.spec.model import Spec
 from narratty.tts.audio import wav_duration_ms
 from narratty.tts.base import TtsProvider
+from narratty.tts.lexicon import Lexicon
 from narratty.tts.normalize import normalize_text
 
 
@@ -48,8 +49,13 @@ def synthesize_spec(
     download: bool = True,
     show_progress: bool = True,
     on_clip: Callable[[Clip], None] | None = None,
+    lexicon: Lexicon | None = None,
 ) -> list[Clip]:
-    """Synthesize (or fetch from cache) one clip per narrated scene, in scene order."""
+    """Synthesize (or fetch from cache) one clip per narrated scene, in scene order.
+
+    ``lexicon`` rewrites the narration into what the engine should say; the rewritten
+    text is what the cache key hashes.
+    """
     voice = spec.tts.voice
     prepare_voice(provider, voice, download=download, show_progress=show_progress)
     options = spec.tts.provider_options()
@@ -57,6 +63,8 @@ def synthesize_spec(
     clips: list[Clip] = []
     for scene in spec.narrated_scenes:
         text = normalize_text(scene.narration or "")
+        if lexicon is not None:
+            text = lexicon.apply(text)
         key = clip_key(provider.name, voice, text, version, options)
         path = cache.get(key)
         cached = path is not None
