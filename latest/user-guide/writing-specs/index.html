@@ -736,6 +736,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#say-which-narratty-a-spec-needs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Say which narratty a spec needs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#specs-written-by-an-ai-agent" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1526,6 +1537,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#say-which-narratty-a-spec-needs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Say which narratty a spec needs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#specs-written-by-an-ai-agent" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1678,6 +1700,12 @@ but redundant are reported as hints:</p>
 <li><code>wait: {screen: ...}</code> without a timeout (write <code>wait: "..."</code>)</li>
 <li>the bare <code>- enter</code> (write <code>key: Enter</code>)</li>
 </ul>
+<h2 id="say-which-narratty-a-spec-needs">Say which narratty a spec needs<a class="headerlink" href="#say-which-narratty-a-spec-needs" title="Permanent link">&para;</a></h2>
+<p>A spec shared with others should name the oldest narratty it works with. Keys added
+in a release are marked "(since X.Y)" in the <a href="../spec/">spec reference</a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">requires</span><span class="p">:</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">narratty</span><span class="p">:</span><span class="w"> </span><span class="s">"&gt;=0.3"</span>
+</code></pre></div>
 <h2 id="specs-written-by-an-ai-agent">Specs written by an AI agent<a class="headerlink" href="#specs-written-by-an-ai-agent" title="Permanent link">&para;</a></h2>
 <p>Point the agent at this page and let it run <code>narratty validate</code> after each change
 until it reports no problems and no hints.</p>

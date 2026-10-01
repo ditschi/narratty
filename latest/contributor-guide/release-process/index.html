@@ -1264,6 +1264,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#spec-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#one-time-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1372,6 +1383,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#spec-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#one-time-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1443,6 +1465,36 @@ GHCR for linux/amd64 and linux/arm64:</p>
 </tbody>
 </table>
 <p><code>narratty-toolkit</code> gets the same tags.</p>
+<h2 id="spec-changes">Spec changes<a class="headerlink" href="#spec-changes" title="Permanent link">&para;</a></h2>
+<p>The spec's <code>version</code> and <code>schema/vN.json</code> mark breaking changes only.</p>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New key, action, value or short form</td>
+<td>Keep <code>version: 1</code>; add "(since X.Y)" to the key in <code>docs/user-guide/spec.md</code> and the release to its <a href="../../user-guide/spec/#spec-versions">Spec versions</a> table</td>
+</tr>
+<tr>
+<td>Default changed, e.g. a timing (like <code>timing.pause_ms</code> in 0.3)</td>
+<td>Keep <code>version: 1</code>; say in the changelog how to get the old behaviour</td>
+</tr>
+<tr>
+<td>Key removed or renamed, or its meaning changed so that existing specs fail or do something else</td>
+<td>New <code>version: 2</code> with <code>schema/v2.json</code>; keep reading <code>version: 1</code> for at least one minor release and say how to migrate in the changelog</td>
+</tr>
+<tr>
+<td>Something deprecated (like the bare <code>- enter</code>)</td>
+<td>Keep accepting it; mark it <code>deprecated</code> in the schema and add a <code>validate</code> hint</td>
+</tr>
+</tbody>
+</table>
+<p><code>schema/v1.json</code> is regenerated with <code>narratty schema &gt; schema/v1.json</code> (a unit test
+checks it), and each release tag serves its own copy.</p>
 <h2 id="one-time-setup">One-time setup<a class="headerlink" href="#one-time-setup" title="Permanent link">&para;</a></h2>
 <ul>
 <li>PyPI and TestPyPI: add a <em>trusted publisher</em> for <code>ditschi/narratty</code>, workflow

@@ -812,6 +812,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#spec-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec versions
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1724,6 +1735,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#spec-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec versions
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1824,6 +1846,11 @@ fail validation:</p>
 <td>Extra commands the demo needs (checked by <code>doctor</code>)</td>
 </tr>
 <tr>
+<td><code>requires.narratty</code></td>
+<td>unset</td>
+<td>narratty versions the spec needs, e.g. <code>"&gt;=0.3"</code>; see <a href="#spec-versions">Spec versions</a> (since 0.5)</td>
+</tr>
+<tr>
 <td><code>workspace</code></td>
 <td></td>
 <td>What directory the demo runs in</td>
@@ -1836,7 +1863,7 @@ fail validation:</p>
 <tr>
 <td><code>environment</code></td>
 <td></td>
-<td>Run the demo shell in a project image, Compose service or container</td>
+<td>Run the demo shell in a project image, Compose service or container (since 0.3)</td>
 </tr>
 <tr>
 <td><code>end_card</code></td>
@@ -1846,12 +1873,12 @@ fail validation:</p>
 <tr>
 <td><code>subtitles</code></td>
 <td><code>none</code></td>
-<td><code>none</code>, <code>files</code>, <code>track</code> or <code>burn</code>; see <a href="../building/#subtitles">Subtitles</a></td>
+<td><code>none</code>, <code>files</code>, <code>track</code> or <code>burn</code>; see <a href="../building/#subtitles">Subtitles</a> (since 0.3)</td>
 </tr>
 <tr>
 <td><code>overlay_styles</code></td>
 <td><code>{}</code></td>
-<td>Named overlay styles; see <a href="#overlays">Overlays</a></td>
+<td>Named overlay styles; see <a href="#overlays">Overlays</a> (since 0.3)</td>
 </tr>
 <tr>
 <td><code>scenes</code></td>
@@ -1903,7 +1930,7 @@ fail validation:</p>
 <tr>
 <td><code>lexicon</code></td>
 <td><code>{}</code></td>
-<td>How to say terms, e.g. <code>{k8s: kubernetes}</code>; see <a href="../voices/#pronunciation">Pronunciation</a></td>
+<td>How to say terms, e.g. <code>{k8s: kubernetes}</code>; see <a href="../voices/#pronunciation">Pronunciation</a> (since 0.3)</td>
 </tr>
 </tbody>
 </table>
@@ -1935,12 +1962,12 @@ fail validation:</p>
 <tr>
 <td><code>run_hold_ms</code></td>
 <td><code>500</code></td>
-<td>Pause after each <code>run</code> action</td>
+<td>Pause after each <code>run</code> action (since 0.3)</td>
 </tr>
 <tr>
 <td><code>pause_ms</code></td>
 <td><code>100</code></td>
-<td>Pause after each <code>key</code> and <code>ctrl_sequence</code></td>
+<td>Pause after each <code>key</code> and <code>ctrl_sequence</code> (since 0.3)</td>
 </tr>
 </tbody>
 </table>
@@ -1987,7 +2014,7 @@ fail validation:</p>
 <tr>
 <td><code>layout</code></td>
 <td><code>plain</code></td>
-<td><code>plain</code> or <code>editor</code>: an explorer with preview above the shell, see <a href="../toolkit/#editor-layout">Editor layout</a></td>
+<td><code>plain</code> or <code>editor</code>: an explorer with preview above the shell, see <a href="../toolkit/#editor-layout">Editor layout</a> (since 0.3)</td>
 </tr>
 </tbody>
 </table>
@@ -2073,11 +2100,12 @@ you for approval before the first run.</p>
 <tr>
 <td><code>docker</code></td>
 <td><code>false</code></td>
-<td>Give the demo your Docker or Podman engine; <a href="../container/#docker-in-the-demo">full host access</a></td>
+<td>Give the demo your Docker or Podman engine; <a href="../container/#docker-in-the-demo">full host access</a> (since 0.3)</td>
 </tr>
 </tbody>
 </table>
 <h2 id="environment"><code>environment</code><a class="headerlink" href="#environment" title="Permanent link">&para;</a></h2>
+<p>Since narratty 0.3.</p>
 <p>Runs the demo shell in your project's image, Compose service or container; see
 <a href="../environments/">Project environments</a>.</p>
 <table>
@@ -2224,7 +2252,7 @@ wins over the config.</p>
 <tr>
 <td><code>pause_ms</code></td>
 <td><code>timing.pause_ms</code></td>
-<td>Per-scene pause after each <code>key</code> and <code>ctrl_sequence</code></td>
+<td>Per-scene pause after each <code>key</code> and <code>ctrl_sequence</code> (since 0.3)</td>
 </tr>
 <tr>
 <td><code>narration_start</code></td>
@@ -2234,17 +2262,17 @@ wins over the config.</p>
 <tr>
 <td><code>timelapse</code></td>
 <td>none</td>
-<td>Show the scene this many times faster (greater than 1)</td>
+<td>Show the scene this many times faster (greater than 1) (since 0.3)</td>
 </tr>
 <tr>
 <td><code>expect_exit</code></td>
 <td><code>success</code></td>
-<td>Exit codes of the scene's commands: <code>success</code>, <code>failure</code> or <code>any</code>; see <a href="#exit-codes">Exit codes</a></td>
+<td>Exit codes of the scene's commands: <code>success</code>, <code>failure</code> or <code>any</code>; see <a href="#exit-codes">Exit codes</a> (since 0.3)</td>
 </tr>
 <tr>
 <td><code>fast</code></td>
 <td><code>--fast</code></td>
-<td><code>true</code>/<code>false</code>: fill long pauses with still frames or not; see <a href="../building/#fast-pauses">Fast pauses</a></td>
+<td><code>true</code>/<code>false</code>: fill long pauses with still frames or not; see <a href="../building/#fast-pauses">Fast pauses</a> (since 0.3)</td>
 </tr>
 </tbody>
 </table>
@@ -2286,7 +2314,7 @@ whichever is longer.</p>
 <tr>
 <td><code>run</code></td>
 <td><code>- run: ls -la</code></td>
-<td>Types the command, presses Enter, pauses <code>timing.run_hold_ms</code>; may set its own <code>expect_exit</code></td>
+<td>Types the command, presses Enter, pauses <code>timing.run_hold_ms</code>; may set its own <code>expect_exit</code> (since 0.3)</td>
 </tr>
 <tr>
 <td><code>type_command</code></td>
@@ -2316,32 +2344,32 @@ whichever is longer.</p>
 <tr>
 <td><code>wait</code></td>
 <td><code>- wait: {prompt: true, timeout_ms: 10m}</code></td>
-<td>Waits until the command has finished and the prompt is back</td>
+<td>Waits until the command has finished and the prompt is back (since 0.3)</td>
 </tr>
 <tr>
 <td><code>diff</code></td>
 <td><code>- diff</code> or <code>- diff: [src, README.md]</code></td>
-<td>Shows what changed since the recording started, optionally only for some paths</td>
+<td>Shows what changed since the recording started, optionally only for some paths (since 0.3)</td>
 </tr>
 <tr>
 <td><code>focus</code></td>
 <td><code>- focus: explorer</code></td>
-<td>Moves the keyboard to <code>explorer</code> or <code>terminal</code> (editor layout)</td>
+<td>Moves the keyboard to <code>explorer</code> or <code>terminal</code> (editor layout) (since 0.3)</td>
 </tr>
 <tr>
 <td><code>reveal</code></td>
 <td><code>- reveal: src/app.py</code></td>
-<td>Selects a path, relative to the workspace, in the explorer (editor layout)</td>
+<td>Selects a path, relative to the workspace, in the explorer (editor layout) (since 0.3)</td>
 </tr>
 <tr>
 <td><code>overlay</code></td>
 <td><code>- overlay: "Open src/main.py"</code></td>
-<td>Shows text over the video; see <a href="#overlays">Overlays</a></td>
+<td>Shows text over the video; see <a href="#overlays">Overlays</a> (since 0.3)</td>
 </tr>
 <tr>
 <td><code>browser</code></td>
 <td><code>- browser: docs/site/index.html</code></td>
-<td>Shows a web page over the terminal; see <a href="#browser-views">Browser views</a></td>
+<td>Shows a web page over the terminal; see <a href="#browser-views">Browser views</a> (since 0.3)</td>
 </tr>
 </tbody>
 </table>
@@ -2405,6 +2433,7 @@ checked. In a <a href="../environments/">project environment</a> the log is read
 after recording. With bash 3.2 (macOS's default) narratty turns on shell history to read the
 command lines, so <code>key: Up</code> recalls earlier commands there.</p>
 <h3 id="overlays">Overlays<a class="headerlink" href="#overlays" title="Permanent link">&para;</a></h3>
+<p>Since narratty 0.3.</p>
 <p>An overlay shows text over the video, in a rounded, semi-transparent box: a chapter
 title, the file the narration talks about. It stays readable while the terminal
 scrolls.</p>
@@ -2486,6 +2515,7 @@ it only lists what differs. Overlays fade in and out. They need the mp4 to be
 re-encoded, which <code>build</code> does when a spec has any; in the <a href="../building/#asciicast-with-narration">cast page</a>
 they are drawn over the player and follow its clock.</p>
 <h3 id="browser-views">Browser views<a class="headerlink" href="#browser-views" title="Permanent link">&para;</a></h3>
+<p>Since narratty 0.3.</p>
 <p>A browser view shows a web page or a local HTML file as a browser renders it, for
 example the rendered documentation next to its Markdown source. Chromium (which VHS
 records with) captures the page at the video's width; the view covers the terminal
@@ -2542,6 +2572,36 @@ earlier one, and overlays are drawn on top. Web pages need network access: in th
 container that is <code>sandbox: {network: full}</code>. Prefer local files for pages behind a
 login; narratty never signs in. The whole example is in
 <a href="https://github.com/ditschi/narratty/tree/main/examples/browser"><code>examples/browser</code></a>.</p>
+<h2 id="spec-versions">Spec versions<a class="headerlink" href="#spec-versions" title="Permanent link">&para;</a></h2>
+<p><code>version</code> changes only when a spec that worked before would break: a key is removed,
+renamed or changes its meaning. New keys, actions and short forms keep the version,
+so every <code>version: 1</code> spec keeps working with newer narratty releases.</p>
+<p>A spec that uses newer keys needs a newer narratty, which <code>version</code> does not tell.
+<code>requires.narratty</code> does:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">requires</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">narratty</span><span class="p">:</span><span class="w"> </span><span class="s">"&gt;=0.3"</span><span class="w">   </span><span class="c1"># uses run, key: Enter and durations</span>
+</code></pre></div>
+<p>narratty checks it before anything else in the spec, so an older narratty that knows
+the key reports the version to install instead of the keys it does not know. Releases
+before 0.5 do not know <code>requires.narratty</code> and reject it as an unknown key.</p>
+<table>
+<thead>
+<tr>
+<th>Release</th>
+<th>Added to <code>version: 1</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.3</td>
+<td><code>run</code> action, <code>key: Enter</code> (the bare <code>- enter</code> still works), durations like <code>1.5s</code>, <code>wait: "pattern"</code>, <code>wait: {prompt: true}</code>, <code>timing.run_hold_ms</code>, <code>timing.pause_ms</code> and scene <code>pause_ms</code>, <code>tts.lexicon</code>, <code>subtitles</code>, <code>environment</code>, <code>sandbox.docker</code>, <code>terminal.layout</code>, overlays (<code>overlay</code>, <code>overlay_styles</code>), <code>browser</code>, <code>diff</code>, <code>focus</code>, <code>reveal</code>, scene <code>timelapse</code>, <code>expect_exit</code> and <code>fast</code></td>
+</tr>
+<tr>
+<td>0.5</td>
+<td><code>requires.narratty</code></td>
+</tr>
+</tbody>
+</table>
 
 
 
