@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Conventional Commits](https://www.conventionalcommits.org/) and is maintained by
 commitizen.
 
+## v0.4.1 (2026-10-01)
+
+### Fix
+
+- **render**: keep VHS waits for helper messages working after the screen scrolled
+- **render**: start VHS with bash in the editor bridge and for sh
+
 ## v0.4.0 (2026-10-01)
 
 ### Feat
