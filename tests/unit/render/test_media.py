@@ -13,6 +13,7 @@ import pytest
 
 from narratty.errors import MissingDependencyError, RenderError
 from narratty.render import media
+from narratty.render.overlays import OverlayImage
 
 
 class FakeRunner:
@@ -139,9 +140,10 @@ def test_mux_burns_subtitles_in(tmp_path: Path) -> None:
         Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", subtitles=srt, burn=True, fast=True, runner=runner
     )
     argv, kwargs = runner.calls[0]
-    subtitles, scale = argv[argv.index("-vf") + 1].rsplit(",", 1)
-    assert subtitles.startswith("subtitles=subtitles.srt:force_style=")
-    assert scale == "scale=trunc(iw/4)*2:trunc(ih/4)*2", "drafts shrink after drawing the text"
+    graph = argv[argv.index("-filter_complex") + 1]
+    subtitles, scale = graph.split(";")
+    assert subtitles.startswith("[0:v]subtitles=subtitles.srt:force_style=")
+    assert scale == "[subs]scale=trunc(iw/4)*2:trunc(ih/4)*2[small]", "drafts shrink after drawing the text"
     assert argv[argv.index("-c:v") + 1] == "libx264"
     assert argv[argv.index("-preset") + 1] == "ultrafast"
     assert "-c:s" not in argv
@@ -152,5 +154,22 @@ def test_draft_mux_without_subtitles_still_shrinks(tmp_path: Path) -> None:
     runner = FakeRunner()
     media.mux(Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", fast=True, runner=runner)
     argv = runner.calls[0][0]
-    assert argv[argv.index("-vf") + 1] == "scale=trunc(iw/4)*2:trunc(ih/4)*2"
+    assert argv[argv.index("-filter_complex") + 1] == "[0:v]scale=trunc(iw/4)*2:trunc(ih/4)*2[small]"
     assert argv[argv.index("-c:v") + 1] == "libx264"
+
+
+def test_mux_with_overlays_reencodes(tmp_path: Path) -> None:
+    runner = FakeRunner(stdout='{"format": {"duration": "4.0"}, "streams": []}')
+    overlay = OverlayImage(tmp_path / "o.png", "10", "10", 500, 1500)
+    media.mux(Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", overlays=[overlay], runner=runner)
+    argv = runner.calls[-1][0]
+    assert argv[argv.index("-loop") + 1 : argv.index("-loop") + 6] == [
+        "1",
+        "-t",
+        "1.500",
+        "-i",
+        str(overlay.path),
+    ]
+    assert argv[argv.index("-map") + 1] == "[vo0]"
+    assert argv[argv.index("-c:v") + 1] == "libx264"
+    assert "-shortest" not in argv

@@ -12,8 +12,12 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from narratty.errors import MissingDependencyError, RenderError
+
+if TYPE_CHECKING:
+    from narratty.render.overlays import OverlayImage
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -139,6 +143,7 @@ def mux(
     *,
     subtitles: Path | None = None,
     burn: bool = False,
+    overlays: Sequence[OverlayImage] = (),
     fast: bool = False,
     runner: Runner = _run,
 ) -> None:
@@ -146,32 +151,49 @@ def mux(
 
     ``subtitles`` (an SRT) becomes a soft subtitle track, or with ``burn`` is drawn
     into the picture. ``fast`` (drafts) scales the picture to half size and encodes it
-    quickly. Either re-encodes the video; otherwise the video stream is copied as is.
-    ffmpeg runs in the SRT's directory so the filter graph only sees its plain file name.
+    quickly. Burned subtitles, ``overlays`` and ``fast`` re-encode the video; otherwise
+    the video stream is copied as is. ffmpeg runs in the SRT's directory so the filter
+    graph only sees its plain file name.
     """
+    from narratty.render.overlays import filter_graph
+
     out.parent.mkdir(parents=True, exist_ok=True)
     argv = [require("ffmpeg"), "-y", "-v", "error", "-i", str(video), "-i", str(audio)]
-    maps = ["-map", "0:v:0", "-map", "1:a:0"]
+    for overlay in overlays:
+        # A still image, looped until its overlay ends.
+        argv += ["-loop", "1", "-t", f"{overlay.end_ms / 1000:.3f}", "-i", str(overlay.path)]
+    maps = ["-map", "1:a:0"]
     # -shortest would also stop at the last subtitle, so a soft track ends at the video instead.
     length = ["-shortest"]
-    filters = []
-    if subtitles is not None and burn:
-        filters.append(f"subtitles={subtitles.name}:force_style='{BURN_STYLE}'")
-    if fast:
-        # After the subtitles, so they are drawn at full resolution.
-        filters.append("scale=trunc(iw/4)*2:trunc(ih/4)*2")
-    if filters:
+    burn_subtitles = subtitles is not None and burn
+    if burn_subtitles or overlays or fast:
+        graph, source = [], "0:v"
+        if subtitles is not None and burn:
+            graph.append(f"[0:v]subtitles={subtitles.name}:force_style='{BURN_STYLE}'[subs]")
+            source = "subs"
+        if overlays:
+            layered, source = filter_graph(overlays, 2, source)
+            graph.append(layered)
+        if fast:
+            # Last, so subtitles and overlays are drawn at full resolution.
+            graph.append(f"[{source}]scale=trunc(iw/4)*2:trunc(ih/4)*2[small]")
+            source = "small"
+        maps = ["-map", f"[{source}]", *maps]
         video_codec = [
-            "-vf", ",".join(filters),
+            "-filter_complex", ";".join(graph),
             "-c:v", "libx264", "-preset", "ultrafast" if fast else "medium",
             "-crf", "28" if fast else "18", "-pix_fmt", "yuv420p",
         ]  # fmt: skip
     else:
+        maps = ["-map", "0:v:0", *maps]
         video_codec = ["-c:v", "copy"]
     if subtitles is not None and not burn:
         argv += ["-i", str(subtitles)]
-        maps += ["-map", "2:s:0"]
+        maps += ["-map", f"{2 + len(overlays)}:s:0"]
         video_codec += ["-c:s", "mov_text"]
+        length = ["-t", f"{probe(video, runner=runner).duration_ms / 1000:.3f}"]
+    elif overlays:
+        # The looped images are inputs too; the picture decides the length.
         length = ["-t", f"{probe(video, runner=runner).duration_ms / 1000:.3f}"]
     argv += [
         *maps, *video_codec,

@@ -8,7 +8,9 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from narratty.render.script import (
+    END_CUE,
     Ctrl,
+    Cue,
     Hide,
     Mark,
     Press,
@@ -72,7 +74,7 @@ def _marker(marks: Path | None, label: str) -> list[str]:
 def step_lines(step: Step, marks: Path | None = None) -> list[str]:
     """VHS commands for one step.
 
-    With ``marks``, visible scene starts and timelapse ends take a screenshot there;
+    With ``marks``, visible scene starts, timelapse ends and cues take a screenshot there;
     VHS logs it as it happens, which locates it in the video.
     """
     match step:
@@ -90,6 +92,8 @@ def step_lines(step: Step, marks: Path | None = None) -> list[str]:
             return ["Hide"]
         case Show():
             return ["Show"]
+        case Cue(label):
+            return [f"# cue: {label}", *_marker(marks, f"cue-{label}")]
         case Mark() | TimelapseEnd():
             return _section_lines(step, marks)
     raise AssertionError(step)  # pragma: no cover
@@ -150,7 +154,7 @@ def generate_tape(
         lines.append(f"Sleep {timeline.lead_in_ms}ms")
     for scene in spec.scenes:
         lines += ["", *_lines(scene_steps(spec, scene, timeline.scene(scene.id), python=python), marks)]
-    lines.append("")
+    lines += ["", *step_lines(Cue(END_CUE), marks)]
     if timeline.tail_ms:
         lines.append(f"Sleep {timeline.tail_ms}ms")
     if timeline.end_card_ms:

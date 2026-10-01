@@ -66,6 +66,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `sandbox` | | Permissions of the container |
 | `end_card` | on | Closing card, see below |
 | `subtitles` | `none` | `none`, `files`, `track` or `burn`; see [Subtitles](building.md#subtitles) |
+| `overlay_styles` | `{}` | Named overlay styles; see [Overlays](#overlays) |
 | `scenes` | required | At least one scene |
 
 ## `tts`
@@ -207,6 +208,7 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 | `diff` | `- diff` or `- diff: [src, README.md]` | Shows what changed since the recording started, optionally only for some paths |
 | `focus` | `- focus: explorer` | Moves the keyboard to `explorer` or `terminal` (editor layout) |
 | `reveal` | `- reveal: src/app.py` | Selects a path, relative to the workspace, in the explorer (editor layout) |
+| `overlay` | `- overlay: "Open src/main.py"` | Shows text over the video; see [Overlays](#overlays) |
 
 Keys: `Enter`, `Tab`, `Space`, `Backspace`, `Delete`, `Escape`, `Up`, `Down`, `Left`,
 `Right`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`. Names are case-insensitive.
@@ -251,3 +253,52 @@ Commands inside programs (a REPL, an editor, a nested shell) are not checked, no
 anything with `shell: sh`. In the editor layout, the terminal pane's commands are
 checked. With bash 3.2 (macOS's default) narratty turns on shell history to read the
 command lines, so `key: Up` recalls earlier commands there.
+
+### Overlays
+
+An overlay shows text over the video, in a rounded, semi-transparent box: a chapter
+title, the file the narration talks about. It stays readable while the terminal
+scrolls.
+
+![Overlays: a chapter, a file name, a custom style and text without a box](../assets/overlays.png)
+
+```yaml
+overlay_styles:
+  file: {position: top, size: small, color: "#f1fa8c"}
+
+scenes:
+  - id: setup
+    narration: Let's set up the project.
+    actions:
+      - overlay: {text: "1 · Setup", style: chapter}
+      - run: make setup
+      - overlay: Run the tests next
+      - overlay: {text: src/greet/__main__.py, style: file, duration_ms: 3000}
+```
+
+The overlay appears where its action stands in the scene. It stays until the first
+of: `duration_ms` has passed, another overlay takes its position, or the scene ends.
+With `keep: true` it stays past the scene until another overlay takes its position
+(the `chapter` style keeps). The box is sized around the text; `\n` starts a new
+line. The top right is usually free of terminal text; the bottom is shared with
+[burned-in subtitles](building.md#subtitles).
+
+`overlay: "text"` uses the `default` style. A mapping takes `text`, an optional
+`style` and any style key to change just this overlay:
+
+| Style key | `default` | Meaning |
+|---|---|---|
+| `position` | `bottom-right` | `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right` |
+| `size` | `medium` | `small`, `medium`, `large`, or a factor of `terminal.font_size` (`1.3` = medium) |
+| `color` | `#ffffff` | Text colour, `#rrggbb` |
+| `background` | `#000000b3` | Box colour, `#rrggbbaa` (the last two digits are the opacity) |
+| `box` | `true` | `false` shows the text alone, with a dark outline |
+| `bold` | `false` | Bold text |
+| `duration_ms` | unset | Hide after this long |
+| `keep` | `false` | Stay past the end of the scene |
+
+Built-in styles: `default` (above) and `chapter` (`top-right`, `large`, bold, `keep`).
+`overlay_styles` changes them or adds your own; each style starts from `default`, so
+it only lists what differs. Overlays fade in and out. They need the mp4 to be
+re-encoded, which `build` does when a spec has any; in the [cast page](building.md#asciicast-with-narration)
+they are drawn over the player and follow its clock.

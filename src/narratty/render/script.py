@@ -24,6 +24,7 @@ from narratty.spec.model import (
     Reveal,
     Run,
     Scene,
+    ShowOverlay,
     Spec,
     TypeCommand,
     Wait,
@@ -105,7 +106,16 @@ class TimelapseEnd:
     narration_after: bool = False
 
 
-Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark | TimelapseEnd
+@dataclass(frozen=True)
+class Cue:
+    """A point in time to remember (where an overlay starts, where the last scene ends)."""
+
+    label: str
+
+
+Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark | TimelapseEnd | Cue
+
+END_CUE = "end"
 
 END_CARD_TIMEOUT_MS = 30_000
 LAYOUT_TIMEOUT_MS = 15_000
@@ -217,8 +227,13 @@ def action_steps(action: Action, pace: Pacing, context: Context | None = None) -
     return []
 
 
+def overlay_cue(scene_id: str, index: int) -> str:
+    """Label of the cue where the overlay at ``actions[index]`` of a scene starts."""
+    return f"overlay:{scene_id}:{index}"
+
+
 def _sends_keys(action: Action) -> bool:
-    return not isinstance(action, Hold | Wait)
+    return not isinstance(action, Hold | Wait | ShowOverlay)
 
 
 def _unhide(steps: list[Step]) -> list[Step]:
@@ -237,7 +252,15 @@ def _end_hidden(steps: list[Step], context: Context) -> list[Step]:
 
 def _timelapse_steps(scene: Scene, timing: SceneTiming, pace: Pacing, context: Context) -> list[Step]:
     """A timelapse scene: its actions between markers, the end holds for the narration."""
-    actions = [step for action in scene.actions for step in action_steps(action, pace, context)]
+    actions = [
+        step
+        for index, action in enumerate(scene.actions)
+        for step in (
+            [Cue(overlay_cue(scene.id, index))]
+            if isinstance(action, ShowOverlay)
+            else action_steps(action, pace, context)
+        )
+    ]
     if context.editor and any(isinstance(action, Diff) for action in scene.actions):
         actions += close_popup()
     end = TimelapseEnd(scene.id, timing.hold_ms, timing.narration_after)
@@ -259,7 +282,10 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | 
     if scene.hidden:
         steps.append(Hide())
     filled = popup = False
-    for action in scene.actions:
+    for index, action in enumerate(scene.actions):
+        if isinstance(action, ShowOverlay):
+            steps.append(Cue(overlay_cue(scene.id, index)))
+            continue
         if isinstance(action, Hold) and action.hold == "auto" and fill_at_hold:
             if timing.fill_ms:
                 steps.append(Sleep(timing.fill_ms))
@@ -345,6 +371,7 @@ def build_script(
         steps.append(Sleep(timeline.lead_in_ms))
     for scene in spec.scenes:
         steps += scene_steps(spec, scene, timeline.scene(scene.id), python=python)
+    steps.append(Cue(END_CUE))
     if timeline.tail_ms:
         steps.append(Sleep(timeline.tail_ms))
     if timeline.end_card_ms:

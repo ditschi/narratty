@@ -116,7 +116,12 @@ def test_draft_build_burns_in_the_narration(tmp_path: Path, monkeypatch: pytest.
     fake = FakeMedia(monkeypatch, planned_ms)
     result = build(spec, draft=True, workspace=WorkspaceOptions("rw", allow_dirty=True))
     assert result.output == tmp_path / "demo.draft.mp4"
-    assert fake.mux_kwargs == {"subtitles": fake.mux_kwargs["subtitles"], "burn": True, "fast": True}
+    assert fake.mux_kwargs == {
+        "subtitles": fake.mux_kwargs["subtitles"],
+        "burn": True,
+        "overlays": [],
+        "fast": True,
+    }
     assert "Hello there." in fake.srt
 
 

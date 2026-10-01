@@ -159,4 +159,5 @@ scenes:
     assert 'Screenshot "/w/marks/scene-pull.png"' in tape
     assert 'Screenshot "/w/marks/end-pull.png"' in tape
     assert "scene-setup" not in tape, "hidden scenes are not recorded, so get no marker"
+    assert 'Screenshot "/w/marks/cue-end.png"' in tape, "cues are located like scene starts"
     assert "Screenshot" not in generate_tape(spec, timeline, Path("/out/v.mp4"))

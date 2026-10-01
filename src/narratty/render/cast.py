@@ -27,6 +27,7 @@ from pathlib import Path
 from narratty.errors import RenderError
 from narratty.render.script import (
     Ctrl,
+    Cue,
     Hide,
     Mark,
     Press,
@@ -42,7 +43,7 @@ from narratty.timeline import timelapse_layout
 
 # VHS's defaults: 60 px padding; a monospace cell is about 0.6 × 1.2 font sizes.
 _PADDING_PX = 60
-_CELL_WIDTH, _CELL_HEIGHT = 0.6, 1.2
+CELL_WIDTH, _CELL_HEIGHT = 0.6, 1.2
 
 SHELL_ARGV = {
     "bash": ["bash", "--noprofile", "--norc", "+o", "history"],
@@ -70,7 +71,7 @@ KEYS = {
 
 def terminal_size(term: Terminal) -> tuple[int, int]:
     """Columns and rows matching the video's pixel size and font size."""
-    cols = (term.width - 2 * _PADDING_PX) / (term.font_size * _CELL_WIDTH)
+    cols = (term.width - 2 * _PADDING_PX) / (term.font_size * CELL_WIDTH)
     rows = (term.height - 2 * _PADDING_PX) / (term.font_size * _CELL_HEIGHT)
     return max(20, int(cols)), max(5, int(rows))
 
@@ -136,6 +137,7 @@ class Recorder:
         self.cols, self.rows = cols, rows
         self.events: list[tuple[float, str, str]] = []
         self.marks: dict[str, float] = {}
+        self.cues: dict[str, float] = {}
         self.screen = ScreenText(rows)
         self._clock = clock
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
@@ -278,10 +280,18 @@ class Recorder:
                 self.hide()
             case Show():
                 self.show()
+            case Mark() | TimelapseEnd() | Cue():
+                self._section(step)
+
+    def _section(self, step: Mark | TimelapseEnd | Cue) -> None:
+        """Scene starts, timelapse ends and cues: remember when they happened."""
+        match step:
             case Mark(scene_id, False, timelapse) if scene_id is not None:
                 self._start_scene(scene_id, timelapse)
             case TimelapseEnd():
                 self._end_timelapse(step)
+            case Cue(label):
+                self.cues[label] = self.now()
 
     def _start_scene(self, scene_id: str, timelapse: float | None) -> None:
         self.mark(scene_id)
@@ -317,12 +327,13 @@ def _take_terminal() -> None:
 
 @dataclass(frozen=True)
 class Recording:
-    """An asciicast and when each visible scene started in it."""
+    """An asciicast, when each visible scene started in it and when each cue was reached."""
 
     cast: str
     duration_ms: int
     scene_starts_ms: dict[str, int]
     narration_offsets_ms: dict[str, int] = field(default_factory=dict)  # timelapse scenes
+    cues_ms: dict[str, int] = field(default_factory=dict)
 
 
 def record(
@@ -356,4 +367,5 @@ def record(
         round(duration * 1000),
         {label: round(start * 1000) for label, start in recorder.marks.items()},
         {label: round(offset * 1000) for label, offset in recorder.narration_offsets.items()},
+        {label: round(at * 1000) for label, at in recorder.cues.items()},
     )

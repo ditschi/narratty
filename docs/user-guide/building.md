@@ -87,6 +87,8 @@ selectable, and the cast is a few kilobytes.
 - **Size**: columns and rows follow `terminal.width`, `height` and `font_size`. The
   theme applies when asciinema-player has one of the same name (Dracula, Monokai,
   Nord, Solarized, Tango, …).
+- **Overlays** are drawn over the player as HTML boxes and follow its clock. The
+  `.cast` itself has none: asciicast has no way to store them.
 - **`wait`** matches the text printed since the last clear, not a rendered screen;
   full-screen programs such as `vim` are not modelled.
 
