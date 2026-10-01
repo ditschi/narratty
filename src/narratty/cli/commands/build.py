@@ -77,7 +77,13 @@ def build_command(
         False,
         "--draft",
         help="Fast preview: no TTS (estimated narration lengths), 10 fps, half-size video, silent, "
-        "narration burned in as subtitles. Writes <spec>.draft.mp4 by default.",
+        "narration burned in as subtitles, --fast. Writes <spec>.draft.mp4 by default.",
+    ),
+    fast: bool = typer.Option(
+        False,
+        "--fast",
+        help="Don't wait out long pauses: once the screen is still, fill the rest with the "
+        "last frame. Fails if a pause ends while the screen is still changing.",
     ),
     workspace_mode: WorkspaceMode | None = WorkspaceModeOption,
     keep_workspace: bool = KeepWorkspaceOption,
@@ -120,6 +126,7 @@ def build_command(
             container_flag(spec, end_card),
             *(["--subtitles", subtitles.value] if subtitles else []),
             *(["--draft"] if draft else []),
+            *(["--fast"] if fast else []),
         ],
         sandbox=request,
     )
@@ -141,6 +148,7 @@ def build_command(
                 workspace=workspace,
                 end_card=end_card,
                 subtitles=subtitles.value if subtitles else None,
+                fast=fast,
                 log=log,
             )
         else:
@@ -154,6 +162,7 @@ def build_command(
                 end_card=end_card,
                 subtitles=subtitles.value if subtitles else None,
                 draft=draft,
+                fast=fast,
                 log=log,
             )
     err.print(

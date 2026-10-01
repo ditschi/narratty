@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 
+from narratty.render.pauses import SETTLE_MS, Pause, command_keyword
 from narratty.render.script import (
     END_CUE,
     Ctrl,
@@ -29,7 +31,7 @@ from narratty.render.script import (
 from narratty.spec.model import Spec
 from narratty.timeline import Timeline
 
-__all__ = ["FRAMERATE", "generate_tape", "prompt_setup", "quote_chunks"]
+__all__ = ["FRAMERATE", "Tape", "build_tape", "generate_tape", "prompt_setup", "quote_chunks"]
 
 FRAMERATE = 30
 # VHS's default font list plus a Nerd Font fallback, so icons (yazi, eza --icons) render
@@ -113,8 +115,55 @@ def _section_lines(step: Mark | TimelapseEnd, marks: Path | None) -> list[str]:
     raise AssertionError(step)  # pragma: no cover
 
 
-def _lines(steps: Iterable[Step], marks: Path | None = None) -> list[str]:
-    return [line for step in steps for line in step_lines(step, marks)]
+class _Writer:
+    """Tape lines, the commands among them and, with ``fast``, the shortened pauses.
+
+    Pauses in timelapse scenes are not shortened; those scenes are sped up anyway.
+    """
+
+    def __init__(self, fast: bool, marks: Path | None = None) -> None:
+        self.fast = fast
+        self.marks = marks
+        self.lines: list[str] = []
+        self.commands: list[str] = []
+        self.pauses: list[Pause] = []
+        self._hidden = False
+        self._timelapse = False
+        self._scene: str | None = None
+        self._scene_command = 0
+
+    def raw(self, *lines: str) -> None:
+        for line in lines:
+            self.lines.append(line)
+            if line and not line.startswith("#"):
+                self.commands.append(command_keyword(line))
+
+    def steps(self, steps: Iterable[Step]) -> None:
+        for step in steps:
+            match step:
+                case Hide() | Show():
+                    self._hidden = isinstance(step, Hide)
+                case Mark(scene_id, _, timelapse):
+                    self._scene, self._scene_command = scene_id, len(self.commands)
+                    self._timelapse = bool(timelapse)
+                case TimelapseEnd():
+                    self._timelapse = False
+                case Sleep(ms) if self._shortens(ms):
+                    self.pauses.append(Pause(len(self.commands), ms, self._scene, self._scene_command))
+                    step = Sleep(SETTLE_MS)
+            self.raw(*step_lines(step, self.marks))
+
+    def _shortens(self, ms: int) -> bool:
+        return self.fast and not self._hidden and not self._timelapse and ms > SETTLE_MS
+
+
+@dataclass(frozen=True)
+class Tape:
+    """A tape, its commands' keywords (as VHS prints them) and its shortened pauses."""
+
+    text: str
+    commands: tuple[str, ...]
+    pauses: tuple[Pause, ...]
 
 
 def generate_tape(
@@ -134,8 +183,30 @@ def generate_tape(
     up timelapse scenes). ``exit_log`` receives the commands' exit codes (see
     ``narratty.render.exits``).
     """
+    tape = build_tape(
+        spec, timeline, output, python=python, framerate=framerate, marks=marks, exit_log=exit_log
+    )
+    return tape.text
+
+
+def build_tape(
+    spec: Spec,
+    timeline: Timeline,
+    output: Path,
+    *,
+    python: str | None = None,
+    framerate: int = FRAMERATE,
+    marks: Path | None = None,
+    exit_log: Path | None = None,
+    fast: bool = False,
+) -> Tape:
+    """The tape rendering ``spec`` into ``output`` (see :func:`generate_tape`).
+
+    ``fast`` shortens long pauses (see ``narratty.render.pauses``).
+    """
     term = spec.terminal
-    lines = [
+    tape = _Writer(fast, marks)
+    tape.raw(
         f"# narratty tape for {json.dumps(spec.meta.title)}",
         f"Output {json.dumps(str(output))}",
         f"Set Shell {term.shell}",
@@ -146,17 +217,22 @@ def generate_tape(
         f"Set Theme {json.dumps(term.theme)}",
         f"Set TypingSpeed {term.typing_speed_ms}ms",
         f"Set Framerate {framerate}",
-        "",
-    ]
+    )
+    if fast:
+        tape.raw("Set CursorBlink false")  # a repeated frame would stop the blinking
+    tape.raw("")
     python = python or sys.executable
-    lines += _lines(setup_steps(spec, python, exit_log))
+    tape.steps(setup_steps(spec, python, exit_log))
     if timeline.lead_in_ms:
-        lines.append(f"Sleep {timeline.lead_in_ms}ms")
+        tape.steps([Sleep(timeline.lead_in_ms)])
     for scene in spec.scenes:
-        lines += ["", *_lines(scene_steps(spec, scene, timeline.scene(scene.id), python=python), marks)]
-    lines += ["", *step_lines(Cue(END_CUE), marks)]
+        tape.raw("")
+        tape.steps(scene_steps(spec, scene, timeline.scene(scene.id), python=python))
+    tape.raw("")
+    tape.steps([Cue(END_CUE)])
     if timeline.tail_ms:
-        lines.append(f"Sleep {timeline.tail_ms}ms")
+        tape.steps([Sleep(timeline.tail_ms)])
     if timeline.end_card_ms:
-        lines += ["", *_lines(teardown_steps(spec) + end_card_steps(spec, timeline, python))]
-    return "\n".join(lines) + "\n"
+        tape.raw("")
+        tape.steps(teardown_steps(spec) + end_card_steps(spec, timeline, python))
+    return Tape("\n".join(tape.lines) + "\n", tuple(tape.commands), tuple(tape.pauses))

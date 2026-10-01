@@ -74,9 +74,9 @@ def test_run_vhs_logs_lines_with_times(tmp_path: Path, monkeypatch: pytest.Monke
     ticks = iter([10.0, 10.5, 12.0])
 
     @contextmanager
-    def stream(argv: list[str], **kwargs: object) -> Iterator[Iterator[str]]:
+    def stream(argv: list[str], **kwargs: object) -> Iterator[tuple[int, Iterator[str]]]:
         calls.append((argv, kwargs))
-        yield iter(["Show\n", "\x1b[1mSleep 1s\x1b[0m\n"])
+        yield 1, iter(["Show\n", "\x1b[1mSleep 1s\x1b[0m\n"])
 
     log = media.run_vhs(tmp_path / "t.tape", tmp_path, stream=stream, clock=lambda: next(ticks))
     assert log == [media.LogLine(0.5, "Show"), media.LogLine(2.0, "Sleep 1s")]
@@ -89,8 +89,8 @@ def test_run_vhs_reports_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(media.shutil, "which", lambda name: f"/usr/bin/{name}")
 
     @contextmanager
-    def stream(argv: list[str], **_: object) -> Iterator[Iterator[str]]:
-        yield iter(["chromium crashed\n"])
+    def stream(argv: list[str], **_: object) -> Iterator[tuple[int, Iterator[str]]]:
+        yield 1, iter(["chromium crashed\n"])
         raise subprocess.CalledProcessError(1, argv)
 
     with pytest.raises(RenderError, match="chromium crashed"):
@@ -173,3 +173,61 @@ def test_mux_with_overlays_reencodes(tmp_path: Path) -> None:
     assert argv[argv.index("-map") + 1] == "[vo0]"
     assert argv[argv.index("-c:v") + 1] == "libx264"
     assert "-shortest" not in argv
+
+
+def test_probe_reads_the_frame_rate() -> None:
+    payload = {
+        "streams": [{"codec_type": "video", "r_frame_rate": "30000/1001"}],
+        "format": {"duration": "1.0"},
+    }
+    info = media.probe(Path("x.mp4"), runner=FakeRunner(stdout=json.dumps(payload)))
+    assert info.frame_rate == pytest.approx(29.97, abs=0.01)
+
+
+def test_freezes_parses_freezedetect() -> None:
+    stdout = (
+        "frame:0 pts:0 pts_time:0\n"
+        "lavfi.freezedetect.freeze_start=0.5\nlavfi.freezedetect.freeze_duration=1\n"
+        "lavfi.freezedetect.freeze_end=1.5\n"
+        "lavfi.freezedetect.freeze_start=2.04\n"
+    )
+    runner = FakeRunner(stdout=stdout)
+    assert media.freezes(Path("v.mp4"), runner=runner) == [(500, 1500), (2040, None)]
+    assert any("freezedetect" in arg for arg in runner.calls[0][0])
+    with pytest.raises(RenderError, match="analyse"):
+        media.freezes(Path("v.mp4"), runner=FakeRunner(returncode=1))
+
+
+def test_repeat_frames_shifts_later_inserts(tmp_path: Path) -> None:
+    runner = FakeRunner()
+    media.repeat_frames(Path("v.mp4"), [(10, 50), (20, 0), (30, 25)], tmp_path / "o.mp4", runner=runner)
+    argv = runner.calls[0][0]
+    graph = argv[argv.index("-vf") + 1]
+    assert graph == "loop=loop=50:size=1:start=10,loop=loop=25:size=1:start=80,setpts=N/FRAME_RATE/TB"
+    with pytest.raises(RenderError, match="fill the pauses"):
+        media.repeat_frames(Path("v.mp4"), [], tmp_path / "o.mp4", runner=FakeRunner(returncode=1))
+
+
+FAKE_VHS = """\
+#!/bin/sh
+printf '\\033[90mFile: t.tape\\033[0m\\n\\n'
+printf '\\033[94mHide\\033[0m \\n'
+printf 'Sleep 10ms\\n'
+[ -n "$FAIL" ] && { echo "recording failed"; exit 1; }
+printf 'Creating v.mp4...\\n'
+"""
+
+
+def test_run_vhs_reports_each_line_as_it_arrives(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    vhs = tmp_path / "vhs"
+    vhs.write_text(FAKE_VHS, encoding="utf-8")
+    vhs.chmod(0o755)
+    monkeypatch.setattr(media.shutil, "which", lambda name: str(vhs))
+    seen: list[str] = []
+    log = media.run_vhs(tmp_path / "t.tape", tmp_path, on_line=lambda line, pid: seen.append(line.text))
+    progress = [line.text for line in log if media.is_progress(line)]
+    assert progress == ["Hide", "Sleep 10ms", "Creating v.mp4..."], "colours and blank lines are dropped"
+    assert seen == [line.text for line in log]
+    monkeypatch.setenv("FAIL", "1")
+    with pytest.raises(RenderError, match="recording failed"):
+        media.run_vhs(tmp_path / "t.tape", tmp_path)

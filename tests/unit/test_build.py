@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -84,13 +86,14 @@ class FakeMedia:
 
     def __init__(self, monkeypatch: pytest.MonkeyPatch, video_ms: int) -> None:
         self.mux_kwargs: dict[str, object] = {}
+        self.render_kwargs: dict[str, object] = {}
         self.srt = ""
         monkeypatch.setattr("narratty.build.render_silent", self._render)
         monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(video_ms, True, True))
         monkeypatch.setattr(media, "mux", self._mux)
 
-    @staticmethod
-    def _render(planned: Plan, video: Path, work: Path, workspace: Path) -> None:
+    def _render(self, planned: Plan, video: Path, work: Path, workspace: Path, **kwargs: object) -> None:
+        self.render_kwargs = kwargs
         video.write_bytes(b"mp4")
 
     def _mux(self, video: Path, audio: Path, out: Path, **kwargs: object) -> None:
@@ -122,6 +125,7 @@ def test_draft_build_burns_in_the_narration(tmp_path: Path, monkeypatch: pytest.
         "overlays": [],
         "fast": True,
     }
+    assert fake.render_kwargs["fast"] is True  # a draft fills its pauses with still frames
     assert "Hello there." in fake.srt
 
 
@@ -167,3 +171,117 @@ def test_narrations_use_the_clip_lengths(tmp_path: Path) -> None:
         Narrated("One.", 0, 1500),
         Narrated("Two.", 2100, 500),
     ]
+
+
+class FakeVhs:
+    """VHS that prints each tape command a second apart, plus ffprobe/ffmpeg for the stills."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch, freezes: list[tuple[int, int | None]]) -> None:
+        self.repeated: list[tuple[int, int]] = []
+        self.recorded_ms = 0
+        monkeypatch.setattr(media, "run_vhs", self._run)
+        monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(self.recorded_ms, True, False, 25.0))
+        monkeypatch.setattr(media, "freezes", lambda path: freezes)
+        monkeypatch.setattr(media, "repeat_frames", self._repeat)
+
+    def _run(self, tape: Path, cwd: Path, **kwargs: Any) -> list[media.LogLine]:
+        lines = [line for line in tape.read_text(encoding="utf-8").splitlines() if line and line[0] != "#"]
+        output = Path(json.loads(lines[0].removeprefix("Output ")))
+        output.write_bytes(b"mp4")
+        printed = [
+            media.LogLine(float(i), line.replace("@", " ").replace("+", " ").replace('"', ""))
+            for i, line in enumerate(lines)
+        ]
+        self.recorded_ms = 1000 * (len(lines) - 2)  # the settings print at once
+        log = [media.LogLine(0.0, "File: t.tape"), media.LogLine(0.0, ""), *printed]
+        log.append(media.LogLine(float(len(lines)), "Creating ..."))
+        for line in log:
+            kwargs["on_line"](line, 0)
+        return log
+
+    def _repeat(self, video: Path, inserts: list[tuple[int, int]], out: Path, **kwargs: Any) -> None:
+        self.repeated = inserts
+        out.write_bytes(b"mp4")
+
+
+FAST_SPEC = (
+    "end_card: false\ntiming: {lead_in_ms: 0, tail_ms: 0, narration_buffer_ms: 0}\n"
+    "scenes: [{id: a, narration: Hello there and welcome to this rather long narration.,\n"
+    "  actions: [{type_command: ls}, enter]}]\n"
+)
+
+
+def _fast_render(tmp_path: Path, *, draft: bool, logs: list[str] | None = None) -> Path:
+    """Render with ``--fast``; returns the video."""
+    import dataclasses
+
+    from narratty.build import plan, render_silent
+
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(FAST_SPEC, encoding="utf-8")
+    planned = dataclasses.replace(plan(spec, draft=True), draft=draft)
+    work = tmp_path / "work"
+    work.mkdir()
+    video = tmp_path / "v.mp4"
+    render_silent(planned, video, work, tmp_path, fast=True, log=None if logs is None else logs.append)
+    return video
+
+
+def test_fast_render_repeats_frames_of_still_pauses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeVhs(monkeypatch, [(0, None)])
+    video = _fast_render(tmp_path, draft=False)
+    assert video.read_bytes() == b"mp4"
+    assert "Sleep 1000ms" in (tmp_path / "work" / "scene.tape").read_text(encoding="utf-8")
+    [(frame, count)] = fake.repeated
+    assert count > 0 and frame >= 0
+
+
+def test_fast_render_fails_when_a_pause_kept_changing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    FakeVhs(monkeypatch, [])
+    with pytest.raises(RenderError, match="not still at the end of a pause in: a"):
+        _fast_render(tmp_path, draft=False)
+
+
+def test_fast_draft_only_logs_a_changing_pause(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeVhs(monkeypatch, [])
+    logs: list[str] = []
+    _fast_render(tmp_path, draft=True, logs=logs)
+    assert any("pause in: a" in line for line in logs)
+    assert len(fake.repeated) == 1, "the draft keeps its timing"
+
+
+def test_fast_render_places_cues_after_the_filled_pauses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import dataclasses
+
+    from narratty.build import plan, render_silent
+
+    from narratty.render import pauses
+
+    fake = FakeVhs(monkeypatch, [(0, None)])
+    monkeypatch.setattr(Path, "replace", lambda self, target: target)
+    recorded: dict[str, dict[str, int]] = {}
+    shift = pauses.shift_positions
+
+    def spy(positions: dict[str, int], *args: Any) -> dict[str, int]:
+        recorded["positions"] = dict(positions)
+        return shift(positions, *args)
+
+    monkeypatch.setattr(pauses, "shift_positions", spy)
+    spec = tmp_path / "demo.narratty.yaml"
+    actions = "enter, {overlay: Before}, {hold: auto}, {overlay: After}]}]"
+    spec.write_text(FAST_SPEC.replace("enter]}]", actions), encoding="utf-8")
+    planned = dataclasses.replace(plan(spec, draft=True), draft=False)
+    work = tmp_path / "work"
+    work.mkdir()
+    layout = render_silent(planned, tmp_path / "v.mp4", work, tmp_path, fast=True)
+    assert layout is not None and not layout.segments
+    [(_, count)] = fake.repeated
+    filled_ms = count * 40  # 25 fps
+    before, after = layout.cues_ms["overlay:a:2"], layout.cues_ms["overlay:a:4"]
+    raw = recorded["positions"]
+    assert before == raw["cue-overlay:a:2"], "before the pause: unchanged"
+    assert after == raw["cue-overlay:a:4"] + filled_ms, "after the pause: later by the filled frames"

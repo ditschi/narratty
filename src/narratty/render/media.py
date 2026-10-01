@@ -11,6 +11,7 @@ import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -63,16 +64,28 @@ class LogLine:
     text: str
 
 
-_ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+_ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07")
+
+
+def is_progress(line: LogLine) -> bool:
+    """Whether VHS printed ``line`` for a command it started (not blank, not ``File:``)."""
+    text = line.text.strip()
+    return bool(text) and not text.startswith("File:")
 
 
 @contextmanager
-def _stream(argv: Sequence[str], *, cwd: Path, env: Mapping[str, str]) -> Iterator[Iterator[str]]:
+def _stream(argv: Sequence[str], *, cwd: Path, env: Mapping[str, str]) -> Iterator[tuple[int, Iterator[str]]]:
     with subprocess.Popen(  # noqa: S603
-        list(argv), cwd=cwd, env=dict(env), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        list(argv),
+        cwd=cwd,
+        env=dict(env),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        errors="replace",
     ) as proc:
         assert proc.stdout is not None  # noqa: S101
-        yield proc.stdout
+        yield proc.pid, proc.stdout
         if proc.wait() != 0:
             raise subprocess.CalledProcessError(proc.returncode, argv)
 
@@ -82,16 +95,24 @@ def run_vhs(
     cwd: Path,
     *,
     extra_env: Mapping[str, str] | None = None,
-    stream: Callable[..., AbstractContextManager[Iterator[str]]] = _stream,
+    on_line: Callable[[LogLine, int], None] | None = None,
+    stream: Callable[..., AbstractContextManager[tuple[int, Iterator[str]]]] = _stream,
     clock: Callable[[], float] = time.monotonic,
 ) -> list[LogLine]:
-    """Render ``tape`` with VHS, running the recorded shell in ``cwd``; returns its log."""
+    """Render ``tape`` with VHS, running the recorded shell in ``cwd``; returns its log.
+
+    ``on_line(line, vhs_pid)`` is called as each line arrives.
+    """
     env = {**vhs_env(), **(extra_env or {})}
     log: list[LogLine] = []
     start = clock()
     try:
-        with stream([require("vhs"), str(tape)], cwd=cwd, env=env) as lines:
-            log.extend(LogLine(clock() - start, _ANSI.sub("", line).rstrip()) for line in lines)
+        with stream([require("vhs"), str(tape)], cwd=cwd, env=env) as (pid, lines):
+            for text in lines:
+                line = LogLine(clock() - start, _ANSI.sub("", text).rstrip())
+                log.append(line)
+                if on_line is not None:
+                    on_line(line, pid)
     except (subprocess.CalledProcessError, OSError):
         tail = "\n".join(line.text for line in log[-5:] if line.text) or "no output"
         raise RenderError(
@@ -107,6 +128,7 @@ class MediaInfo:
     duration_ms: int
     has_video: bool
     has_audio: bool
+    frame_rate: float = 0.0
 
 
 def probe(path: Path, *, runner: Runner = _run) -> MediaInfo:
@@ -116,7 +138,7 @@ def probe(path: Path, *, runner: Runner = _run) -> MediaInfo:
         "-v",
         "error",
         "-show_entries",
-        "format=duration:stream=codec_type",
+        "format=duration:stream=codec_type,r_frame_rate",
         "-of",
         "json",
         str(path),
@@ -127,7 +149,9 @@ def probe(path: Path, *, runner: Runner = _run) -> MediaInfo:
     data = json.loads(result.stdout)
     kinds = {stream.get("codec_type") for stream in data.get("streams", [])}
     duration = float(data.get("format", {}).get("duration", 0.0))
-    return MediaInfo(round(duration * 1000), "video" in kinds, "audio" in kinds)
+    rates = [s.get("r_frame_rate", "0/0") for s in data.get("streams", []) if s.get("codec_type") == "video"]
+    rate = float(Fraction(rates[0])) if rates and rates[0] != "0/0" else 0.0
+    return MediaInfo(round(duration * 1000), "video" in kinds, "audio" in kinds, rate)
 
 
 # Opaque box behind the text; sizes are in libass's 384x288 script coordinates.
@@ -216,3 +240,54 @@ def encode_mp3(audio: Path, out: Path, *, runner: Runner = _run) -> None:
     result = runner(argv)
     if result.returncode != 0:
         raise RenderError(f"ffmpeg failed to encode {out}:\n{_tail(result)}")
+
+
+def freezes(video: Path, *, runner: Runner = _run) -> list[tuple[int, int | None]]:
+    """Stretches of ``video`` (ms) in which no pixel changes; the last may run to the end (None)."""
+    argv = [
+        require("ffmpeg"), "-v", "error", "-i", str(video),
+        # -100 dB: a single typed dot on a 1600x900 frame is well above this.
+        "-vf", "freezedetect=n=-100dB:d=0.1,metadata=mode=print:file=-",
+        "-f", "null", "-",
+    ]  # fmt: skip
+    result = runner(argv)
+    if result.returncode != 0:
+        raise RenderError(f"ffmpeg could not analyse {video}:\n{_tail(result)}")
+    stretches: list[tuple[int, int | None]] = []
+    for line in result.stdout.splitlines():
+        key, _, value = line.partition("=")
+        if key == "lavfi.freezedetect.freeze_start":
+            stretches.append((round(float(value) * 1000), None))
+        elif key == "lavfi.freezedetect.freeze_end" and stretches:
+            stretches[-1] = (stretches[-1][0], round(float(value) * 1000))
+    return stretches
+
+
+def repeat_frames(
+    video: Path,
+    inserts: Sequence[tuple[int, int]],
+    out: Path,
+    *,
+    fast: bool = False,
+    runner: Runner = _run,
+) -> None:
+    """Re-encode ``video`` with frame ``n`` repeated ``count`` more times, for each ``(n, count)``.
+
+    ``inserts`` are sorted by frame; ``fast``: quicker, larger.
+    """
+    loops, shift = [], 0
+    for frame, count in inserts:
+        if count > 0:
+            loops.append(f"loop=loop={count}:size=1:start={frame + shift}")
+            shift += count
+    graph = ",".join([*loops, "setpts=N/FRAME_RATE/TB"])
+    argv = [
+        require("ffmpeg"), "-y", "-v", "error", "-i", str(video),
+        "-vf", graph,
+        "-c:v", "libx264", "-preset", "ultrafast" if fast else "medium",
+        "-crf", "28" if fast else "18", "-pix_fmt", "yuv420p", "-an",
+        str(out),
+    ]  # fmt: skip
+    result = runner(argv)
+    if result.returncode != 0:
+        raise RenderError(f"ffmpeg failed to fill the pauses of {video}:\n{_tail(result)}")
