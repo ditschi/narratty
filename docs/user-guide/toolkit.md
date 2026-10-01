@@ -215,10 +215,4 @@ scenes:
   three. It runs its own `tmux` server with its own settings, so a `~/.tmux.conf` does
   not change the recording.
 
-`examples/editor-layout` shows all of it:
-
-<video controls width="100%" src="../../assets/editor-layout.mp4"></video>
-
-```bash
-narratty build examples/editor-layout/editor.narratty.yaml
-```
+The [editor layout example](../examples/editor-layout.md) shows all of it.

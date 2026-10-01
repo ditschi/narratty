@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+terminal: {width: 960, height: 540, font_size: 20}
+scenes:
+  - id: intro
+    narration: >-
+      This is not a video. It is an asciicast with a narration track, so you can
+      select and copy the text.
+    actions:
+      - run: ls -1
+  - id: size
+    narration: The recording itself is only a few kilobytes.
+    actions:
+      - run: echo "Hello from an asciicast"

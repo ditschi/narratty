@@ -68,12 +68,18 @@ def test_hold_auto_mid_scene_is_fine_but_not_after_actions() -> None:
 
 
 @pytest.mark.parametrize(
-    "text",
-    [render_template("1.2.3"), *(path.read_text(encoding="utf-8") for path in EXAMPLES)],
+    ("text", "voices"),
+    [
+        (render_template("1.2.3"), False),
+        *((path.read_text(encoding="utf-8"), path.parent.name == "voices") for path in EXAMPLES),
+    ],
     ids=["template", *(path.parent.name for path in EXAMPLES)],
 )
-def test_template_and_examples_have_no_hints(text: str) -> None:
-    assert _hints(text) == []
+def test_template_and_examples_have_no_hints(text: str, voices: bool) -> None:
+    hints = _hints(text)
+    if voices:  # the voice examples spell out provider and voice to show them
+        hints = [hint for hint in hints if "same as the default" not in hint]
+    assert hints == []
 
 
 def test_load_spec_with_hints(tmp_path: Path) -> None:

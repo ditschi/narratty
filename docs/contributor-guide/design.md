@@ -418,22 +418,18 @@ scenes:
   - id: setup
     hidden: true                  # runs but is not recorded (VHS Hide/Show)
     actions:
-      - type_command: "cd /work && clear"
-      - enter
+      - run: "cd /work && clear"
 
   - id: intro
     narration: >
       This is a quick tour of the repository layout.
     actions:
-      - type_command: "eza --tree --level=1 ."
-      - enter
+      - run: "eza --tree --level=1 ."
       - wait: { screen: '\$ $', timeout_ms: 5000 }   # wait for the prompt to return
 
   - id: wrap
     narration: >
       That is the high level map.
-    actions:
-      - hold: auto
 ```
 
 Changes vs. draft: top-level `version`, a `timing` block, `hidden` scenes, `wait`
