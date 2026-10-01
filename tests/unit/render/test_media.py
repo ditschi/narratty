@@ -12,6 +12,7 @@ import pytest
 
 from narratty.errors import MissingDependencyError, RenderError
 from narratty.render import media
+from narratty.render.overlays import OverlayImage
 
 
 class FakeRunner:
@@ -111,8 +112,25 @@ def test_mux_burns_subtitles_in(tmp_path: Path) -> None:
         Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", subtitles=srt, burn=True, fast=True, runner=runner
     )
     argv, kwargs = runner.calls[0]
-    assert argv[argv.index("-vf") + 1].startswith("subtitles=subtitles.srt:force_style=")
+    assert argv[argv.index("-filter_complex") + 1].startswith("[0:v]subtitles=subtitles.srt:force_style=")
     assert argv[argv.index("-c:v") + 1] == "libx264"
     assert argv[argv.index("-preset") + 1] == "ultrafast"
     assert "-c:s" not in argv
     assert kwargs["cwd"] == tmp_path
+
+
+def test_mux_with_overlays_reencodes(tmp_path: Path) -> None:
+    runner = FakeRunner(stdout='{"format": {"duration": "4.0"}, "streams": []}')
+    overlay = OverlayImage(tmp_path / "o.png", "10", "10", 500, 1500)
+    media.mux(Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", overlays=[overlay], runner=runner)
+    argv = runner.calls[-1][0]
+    assert argv[argv.index("-loop") + 1 : argv.index("-loop") + 6] == [
+        "1",
+        "-t",
+        "1.500",
+        "-i",
+        str(overlay.path),
+    ]
+    assert argv[argv.index("-map") + 1] == "[vo0]"
+    assert argv[argv.index("-c:v") + 1] == "libx264"
+    assert "-shortest" not in argv

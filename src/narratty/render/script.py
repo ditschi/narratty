@@ -10,7 +10,18 @@ import sys
 from dataclasses import dataclass
 
 from narratty.end_card import CREDIT
-from narratty.spec.model import Action, CtrlSequence, Enter, Hold, Key, Scene, Spec, TypeCommand, Wait
+from narratty.spec.model import (
+    Action,
+    CtrlSequence,
+    Enter,
+    Hold,
+    Key,
+    Scene,
+    ShowOverlay,
+    Spec,
+    TypeCommand,
+    Wait,
+)
 from narratty.timeline import SceneTiming, Timeline, typing_speed
 
 
@@ -71,7 +82,16 @@ class Mark:
     hidden: bool = False
 
 
-Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark
+@dataclass(frozen=True)
+class Cue:
+    """A point in time to remember (where an overlay starts, where the last scene ends)."""
+
+    label: str
+
+
+Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark | Cue
+
+END_CUE = "end"
 
 END_CARD_TIMEOUT_MS = 30_000
 
@@ -105,6 +125,11 @@ def action_steps(action: Action, speed: int) -> list[Step]:
     return []
 
 
+def overlay_cue(scene_id: str, index: int) -> str:
+    """Label of the cue where the overlay at ``actions[index]`` of a scene starts."""
+    return f"overlay:{scene_id}:{index}"
+
+
 def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming) -> list[Step]:
     """Steps for one scene, with its fill pause at ``hold: auto`` or at the end."""
     speed = typing_speed(spec, scene)
@@ -113,7 +138,10 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming) -> list[Step]:
     if scene.hidden:
         steps.append(Hide())
     filled = False
-    for action in scene.actions:
+    for index, action in enumerate(scene.actions):
+        if isinstance(action, ShowOverlay):
+            steps.append(Cue(overlay_cue(scene.id, index)))
+            continue
         if isinstance(action, Hold) and action.hold == "auto" and fill_at_hold:
             if timing.fill_ms:
                 steps.append(Sleep(timing.fill_ms))
@@ -161,6 +189,7 @@ def build_script(spec: Spec, timeline: Timeline, *, python: str | None = None) -
         steps.append(Sleep(timeline.lead_in_ms))
     for scene in spec.scenes:
         steps += scene_steps(spec, scene, timeline.scene(scene.id))
+    steps.append(Cue(END_CUE))
     if timeline.tail_ms:
         steps.append(Sleep(timeline.tail_ms))
     if timeline.end_card_ms:

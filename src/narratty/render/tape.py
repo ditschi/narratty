@@ -8,7 +8,9 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from narratty.render.script import (
+    END_CUE,
     Ctrl,
+    Cue,
     Hide,
     Mark,
     Press,
@@ -71,10 +73,10 @@ def step_lines(step: Step) -> list[str]:
             return [f"Sleep {ms}ms"]
         case WaitScreen(pattern, timeout_ms):
             return [f"Wait+Screen@{timeout_ms}ms /{pattern.replace('/', '\\/')}/"]
-        case Hide():
-            return ["Hide"]
-        case Show():
-            return ["Show"]
+        case Hide() | Show():
+            return [type(step).__name__]
+        case Cue(label):
+            return [f"# cue: {label}"]
         case Mark(None):
             return ["# end card"]
         case Mark(scene_id, hidden):
@@ -112,7 +114,7 @@ def generate_tape(
         lines.append(f"Sleep {timeline.lead_in_ms}ms")
     for scene in spec.scenes:
         lines += ["", *_lines(scene_steps(spec, scene, timeline.scene(scene.id)))]
-    lines.append("")
+    lines += ["", *step_lines(Cue(END_CUE))]
     if timeline.tail_ms:
         lines.append(f"Sleep {timeline.tail_ms}ms")
     if timeline.end_card_ms:

@@ -25,12 +25,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from narratty.errors import RenderError
-from narratty.render.script import Ctrl, Hide, Mark, Press, Show, Sleep, Step, Type, WaitScreen
+from narratty.render.script import Ctrl, Cue, Hide, Mark, Press, Show, Sleep, Step, Type, WaitScreen
 from narratty.spec.model import Terminal
 
 # VHS's defaults: 60 px padding; a monospace cell is about 0.6 × 1.2 font sizes.
 _PADDING_PX = 60
-_CELL_WIDTH, _CELL_HEIGHT = 0.6, 1.2
+CELL_WIDTH, _CELL_HEIGHT = 0.6, 1.2
 
 SHELL_ARGV = {
     "bash": ["bash", "--noprofile", "--norc", "+o", "history"],
@@ -60,7 +60,7 @@ KEYS = {
 
 def terminal_size(term: Terminal) -> tuple[int, int]:
     """Columns and rows matching the video's pixel size and font size."""
-    cols = (term.width - 2 * _PADDING_PX) / (term.font_size * _CELL_WIDTH)
+    cols = (term.width - 2 * _PADDING_PX) / (term.font_size * CELL_WIDTH)
     rows = (term.height - 2 * _PADDING_PX) / (term.font_size * _CELL_HEIGHT)
     return max(20, int(cols)), max(5, int(rows))
 
@@ -126,6 +126,7 @@ class Recorder:
         self.cols, self.rows = cols, rows
         self.events: list[tuple[float, str, str]] = []
         self.marks: dict[str, float] = {}
+        self.cues: dict[str, float] = {}
         self.screen = ScreenText(rows)
         self._clock = clock
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
@@ -249,6 +250,8 @@ class Recorder:
                 self.show()
             case Mark(scene_id, hidden) if scene_id is not None and not hidden:
                 self.mark(scene_id)
+            case Cue(label):
+                self.cues[label] = self.now()
 
     def _keys(self, keys: Sequence[str], speed_ms: int) -> None:
         for key in keys:
@@ -271,11 +274,12 @@ def _take_terminal() -> None:
 
 @dataclass(frozen=True)
 class Recording:
-    """An asciicast and when each visible scene started in it."""
+    """An asciicast, when each visible scene started in it and when each cue was reached."""
 
     cast: str
     duration_ms: int
     scene_starts_ms: dict[str, int]
+    cues_ms: dict[str, int] = field(default_factory=dict)
 
 
 def record(
@@ -308,4 +312,5 @@ def record(
         "\n".join(lines) + "\n",
         round(duration * 1000),
         {label: round(start * 1000) for label, start in recorder.marks.items()},
+        {label: round(at * 1000) for label, at in recorder.cues.items()},
     )

@@ -51,6 +51,7 @@ demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did 
 | `sandbox` | | Permissions of the container |
 | `end_card` | on | Closing card, see below |
 | `subtitles` | `none` | `none`, `files`, `track` or `burn`; see [Subtitles](building.md#subtitles) |
+| `overlay_styles` | `{}` | Named overlay styles; see [Overlays](#overlays) |
 | `scenes` | required | At least one scene |
 
 ## `tts`
@@ -156,5 +157,60 @@ whichever is longer.
 | `key` | `- key: Up` or `- key: Down 3` | Presses a named VHS key, optionally repeated |
 | `hold` | `- hold: 1500` or `- hold: auto` | Waits; `auto` waits until the narration is done |
 | `wait` | `- wait: {screen: "Done", timeout_ms: 15000}` | Waits until the screen matches a regex |
+| `overlay` | `- overlay: "Open src/main.py"` | Shows text over the video; see [Overlays](#overlays) |
 
 A scene has at most one `hold: auto`, and only when it has narration.
+
+### Overlays
+
+An overlay shows text over the video, in a rounded, semi-transparent box: a chapter
+title, the file the narration talks about. It stays readable while the terminal
+scrolls.
+
+![Overlays: a chapter, a file name, a custom style and text without a box](../assets/overlays.png)
+
+```yaml
+overlay_styles:
+  file: {position: top, size: small, color: "#f1fa8c"}
+
+scenes:
+  - id: setup
+    narration: Let's set up the project.
+    actions:
+      - overlay: {text: "1 · Setup", style: chapter}
+      - type_command: make setup
+      - enter
+      - overlay: Run the tests next
+      - overlay: {text: src/greet/__main__.py, style: file, duration_ms: 3000}
+```
+
+The overlay appears where its action stands in the scene. It stays until the first
+of: `duration_ms` has passed, another overlay takes its position, or the scene ends.
+With `keep: true` it stays past the scene until another overlay takes its position
+(the `chapter` style keeps). The box is sized around the text; `\n` starts a new
+line. The top right is usually free of terminal text; the bottom is shared with
+[burned-in subtitles](building.md#subtitles).
+
+In the mp4, an overlay's time comes from the planned timeline, so one placed right
+after a `wait` for a slow command can show up early. Put it before the `wait`, or at
+the start of the next scene.
+
+`overlay: "text"` uses the `default` style. A mapping takes `text`, an optional
+`style` and any style key to change just this overlay:
+
+| Style key | `default` | Meaning |
+|---|---|---|
+| `position` | `bottom-right` | `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right` |
+| `size` | `medium` | `small`, `medium`, `large`, or a factor of `terminal.font_size` (`1.3` = medium) |
+| `color` | `#ffffff` | Text colour, `#rrggbb` |
+| `background` | `#000000b3` | Box colour, `#rrggbbaa` (the last two digits are the opacity) |
+| `box` | `true` | `false` shows the text alone, with a dark outline |
+| `bold` | `false` | Bold text |
+| `duration_ms` | unset | Hide after this long |
+| `keep` | `false` | Stay past the end of the scene |
+
+Built-in styles: `default` (above) and `chapter` (`top-right`, `large`, bold, `keep`).
+`overlay_styles` changes them or adds your own; each style starts from `default`, so
+it only lists what differs. Overlays fade in and out. They need the mp4 to be
+re-encoded, which `build` does when a spec has any; in the [cast page](building.md#asciicast-with-narration)
+they are drawn over the player and follow its clock.

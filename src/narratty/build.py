@@ -8,6 +8,7 @@ from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from narratty.cache import AudioCache
 from narratty.end_card import with_end_card
@@ -18,12 +19,15 @@ from narratty.render.narration import Placement, build_track
 from narratty.render.subtitles import Narrated, SubtitleFiles, cues_for, to_srt
 from narratty.render.tape import generate_tape
 from narratty.spec import load_spec
-from narratty.spec.model import Spec
+from narratty.spec.model import ShowOverlay, Spec
 from narratty.timeline import Timeline, build_timeline
 from narratty.tts.lexicon import load_lexicon
 from narratty.tts.registry import get_provider
 from narratty.tts.synth import Clip, synthesize_spec
 from narratty.workspace import PreparedWorkspace, export_artifacts, prepare_workspace
+
+if TYPE_CHECKING:
+    from narratty.render.overlays import OverlayImage
 
 SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml", ".yaml", ".yml")
 DEFAULT_MAX_DRIFT = 0.10
@@ -192,6 +196,23 @@ def narrations(planned: Plan, starts: dict[str, int]) -> list[Narrated]:
     ]
 
 
+def has_overlays(spec: Spec) -> bool:
+    """Whether any scene shows an overlay."""
+    return any(isinstance(action, ShowOverlay) for scene in spec.scenes for action in scene.actions)
+
+
+def overlay_images(planned: Plan, video_ms: int, work: Path) -> list[OverlayImage]:
+    """The spec's overlays drawn into ``work``, timed like :func:`place_clips`."""
+    if not has_overlays(planned.spec):
+        return []
+    from narratty.render.overlays import images, planned_times, scaled, schedule
+    from narratty.render.script import build_script
+
+    shown = schedule(planned.spec, planned_times(build_script(planned.spec, planned.timeline)))
+    scale = video_ms / planned.timeline.total_ms if planned.timeline.total_ms else 1.0
+    return images(planned.spec, scaled(shown, scale), work / "overlays")
+
+
 def build(
     spec_path: Path,
     output: Path | None = None,
@@ -232,7 +253,12 @@ def build(
         if mode in ("track", "burn") and cues:
             srt = work / "subtitles.srt"
             srt.write_text(to_srt(cues), encoding="utf-8")
-        media.mux(silent, track, output, subtitles=srt, burn=mode == "burn", fast=planned.draft)
+        overlays = overlay_images(planned, video_ms, work)
+        if overlays:
+            say(f"drawing {len(overlays)} overlays")
+        media.mux(
+            silent, track, output, subtitles=srt, burn=mode == "burn", overlays=overlays, fast=planned.draft
+        )
         if mode == "files":
             SubtitleFiles.beside(output).write(cues)
         _export_artifacts(planned, ws.path, output, say)
@@ -325,8 +351,19 @@ def build_cast(
         if subtitle_mode(planned, subtitles) != "none":
             starts = {p.scene_id: p.start_ms for p in used}
             SubtitleFiles.beside(outputs.page).write(cues_for(narrations(planned, starts)))
+        overlays: list[dict[str, Any]] = []
+        if has_overlays(spec):
+            from narratty.render.overlays import page_overlays, schedule
+
+            overlays = page_overlays(
+                schedule(spec, recording.scene_starts_ms | recording.cues_ms), spec.terminal
+            )
         page = player_page(
-            spec.meta.title, recording.cast, outputs.audio, theme=player_theme(spec.terminal.theme)
+            spec.meta.title,
+            recording.cast,
+            outputs.audio,
+            theme=player_theme(spec.terminal.theme),
+            overlays=overlays,
         )
         outputs.page.write_text(page, encoding="utf-8")
         _export_artifacts(planned, ws.path, outputs.page, say)

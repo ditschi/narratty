@@ -19,6 +19,8 @@ natively.
   repository. Native mode is available too.
 - **[Subtitles](user-guide/building.md#subtitles) and [drafts](user-guide/building.md#draft):** SRT/VTT files, a soft track or burned-in text from the
   narration; `--draft` previews timing in seconds, without TTS.
+- **[Overlays](user-guide/spec.md#overlays):** chapter titles, file names and notes in a
+  rounded box over the video, with reusable styles.
 - **Scripting:** hidden setup scenes, waits for screen output, key presses and
   per-scene typing speed.
 - **[Demo toolkit](user-guide/toolkit.md):** bat, eza, fd, ripgrep, jq, yazi, tmux and

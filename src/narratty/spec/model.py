@@ -117,7 +117,61 @@ class Key(_Model):
         return value
 
 
-ACTION_KEYS = ("type_command", "enter", "ctrl_sequence", "hold", "wait", "key")
+OverlayPosition = Literal[
+    "top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"
+]
+_COLOR = r"^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+
+
+class OverlayStyle(_Model):
+    """How an overlay looks and how long it stays. Unset keys come from its style."""
+
+    position: OverlayPosition | None = Field(None, description="Where in the picture (default bottom-right).")
+    size: Literal["small", "medium", "large"] | Annotated[float, Field(gt=0)] | None = Field(
+        None,
+        description="Text size: small, medium, large, or a factor of terminal.font_size (default medium).",
+    )
+    color: str | None = Field(None, pattern=_COLOR, description="Text colour, #rrggbb (default #ffffff).")
+    background: str | None = Field(
+        None, pattern=_COLOR, description="Box colour, #rrggbb or #rrggbbaa with alpha (default #000000b3)."
+    )
+    box: bool | None = Field(None, description="Draw the rounded box; false shows outlined text only.")
+    bold: bool | None = None
+    duration_ms: PositiveInt | None = Field(
+        None, description="Hide after this long; by default it stays until the scene ends."
+    )
+    keep: bool | None = Field(
+        None, description="Stay past the scene's end until another overlay takes its position."
+    )
+
+
+class Overlay(OverlayStyle):
+    """Text shown over the video. ``overlay: "text"`` is short for ``overlay: {text: "text"}``."""
+
+    text: str = Field(min_length=1)
+    style: str = Field("default", description="Named style from overlay_styles (built in: default, chapter).")
+
+
+def _or_text(schema: dict[str, Any]) -> None:
+    """Let the schema accept the text shorthand next to the mapping."""
+    schema["anyOf"] = [
+        {"type": "string", "minLength": 1, "description": "The text; short for {text: ...}."},
+        {"$ref": schema.pop("$ref")},
+    ]
+
+
+class ShowOverlay(_Model):
+    """Show text over the video from this point (a chapter title, a file name)."""
+
+    overlay: Overlay = Field(json_schema_extra=_or_text)
+
+    @field_validator("overlay", mode="before")
+    @classmethod
+    def _text_shorthand(cls, value: Any) -> Any:
+        return {"text": value} if isinstance(value, str) else value
+
+
+ACTION_KEYS = ("type_command", "enter", "ctrl_sequence", "hold", "wait", "key", "overlay")
 
 
 def _action_tag(value: Any) -> str | None:
@@ -141,7 +195,8 @@ Action = Annotated[
     | Annotated[CtrlSequence, Tag("ctrl_sequence")]
     | Annotated[Hold, Tag("hold")]
     | Annotated[Wait, Tag("wait")]
-    | Annotated[Key, Tag("key")],
+    | Annotated[Key, Tag("key")]
+    | Annotated[ShowOverlay, Tag("overlay")],
     Discriminator(
         _action_tag,
         custom_error_type="invalid_action",
@@ -182,6 +237,8 @@ class Scene(_Model):
             raise ValueError("only one 'hold: auto' is allowed per scene")
         if auto_holds and not self.narration:
             raise ValueError("'hold: auto' needs narration to take its length from")
+        if self.hidden and any(isinstance(a, ShowOverlay) for a in self.actions):
+            raise ValueError("a hidden scene cannot show an overlay")
         return self
 
 
@@ -322,6 +379,11 @@ class Spec(_Model):
         description="Subtitles from the narration: files (.srt/.vtt beside the output), "
         "track (soft track in the mp4) or burn (drawn into the video).",
     )
+    overlay_styles: dict[Annotated[str, Field(pattern=SCENE_ID_PATTERN)], OverlayStyle] = Field(
+        {},
+        description="Named overlay styles, used as `overlay: {text: ..., style: <name>}`. "
+        "`default` and `chapter` are built in and can be changed here.",
+    )
     scenes: list[Scene] = Field(min_length=1)
 
     @field_validator("end_card", mode="before")
@@ -337,6 +399,18 @@ class Spec(_Model):
             if scene.id in seen:
                 raise ValueError(f"duplicate scene id {scene.id!r}")
             seen.add(scene.id)
+        return self
+
+    @model_validator(mode="after")
+    def _known_overlay_styles(self) -> Spec:
+        known = {"default", "chapter", *self.overlay_styles}
+        for scene in self.scenes:
+            for action in scene.actions:
+                if isinstance(action, ShowOverlay) and action.overlay.style not in known:
+                    raise ValueError(
+                        f"scene {scene.id!r}: unknown overlay style {action.overlay.style!r}; "
+                        f"expected one of {', '.join(sorted(known))}"
+                    )
         return self
 
     @property
