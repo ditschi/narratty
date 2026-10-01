@@ -111,7 +111,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `source` | `.` | Directory the demo runs in, relative to the spec |
 | `mode` | `snapshot` | `snapshot` (throwaway copy), `rw` (the real directory) or `ro` (read-only) |
 | `include_uncommitted` | `true` | Copy uncommitted files into the snapshot |
-| `caches` | `{}` | Named cache volumes, `name: /path/in/container` |
+| `caches` | `{}` | Caches kept across runs, `name: /path/in/container` |
 | `artifacts` | `[]` | Paths copied out of the workspace after the run |
 
 ## `sandbox`
