@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>narratty</title>
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1E2E"/>
+      <stop offset="100%" stop-color="#11111B"/>
+    </linearGradient>
+  </defs>
+  <path d="M88,24H424A64,64 0 0 1 488,88V344A64,64 0 0 1 424,408H200L96,488V408H88A64,64 0 0 1 24,344V88A64,64 0 0 1 88,24Z" fill="url(#bgGrad)" stroke="#89B4FA" stroke-width="24" stroke-linejoin="round"/>
+  <path fill="#A6E3A1" d="M150 280.2V253L205.2 228.8Q209.2 227 213.6 225.8Q218 224.6 220.6 224.2Q218 223.8 213.6 222.7Q209.2 221.6 205.2 219.8L150 195.6V168.2L242 209.8V238.4Z"/>
+  <path fill="#F5E0DC" d="M268 323V295H364V323Z"/>
+</svg>
