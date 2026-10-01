@@ -20,7 +20,7 @@ from narratty.render.narration import Placement, build_track
 from narratty.render.subtitles import Narrated, SubtitleFiles, cues_for, to_srt
 from narratty.render.tape import generate_tape
 from narratty.spec import load_spec
-from narratty.spec.model import ShowOverlay, Spec
+from narratty.spec.model import ShowBrowser, ShowOverlay, Spec
 from narratty.timeline import Timeline, build_timeline
 from narratty.tts.lexicon import load_lexicon
 from narratty.tts.registry import get_provider
@@ -172,7 +172,7 @@ def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> ti
 
     tape = work / "scene.tape"
     framerate = DRAFT_FRAMERATE if planned.draft else FRAMERATE
-    measured = planned.timeline.has_timelapse or has_overlays(planned.spec)
+    measured = planned.timeline.has_timelapse or has_overlays(planned.spec) or has_browsers(planned.spec)
     marks = (work / "marks").resolve() if measured else None
     recording = work / "recording.mp4" if marks else video
     if marks:
@@ -255,25 +255,35 @@ def has_overlays(spec: Spec) -> bool:
     return any(isinstance(action, ShowOverlay) for scene in spec.scenes for action in scene.actions)
 
 
+def has_browsers(spec: Spec) -> bool:
+    """Whether any scene shows a browser."""
+    return any(isinstance(action, ShowBrowser) for scene in spec.scenes for action in scene.actions)
+
+
 def overlay_images(
-    planned: Plan, video_ms: int, work: Path, layout: timelapse.Layout | None = None
+    planned: Plan, video_ms: int, work: Path, workspace: Path, layout: timelapse.Layout | None = None
 ) -> list[OverlayImage]:
-    """The spec's overlays drawn into ``work``.
+    """The spec's browser views and overlays drawn into ``work``.
 
     Timed where their cues were recorded (``layout``), else like :func:`place_clips`.
+    Browser views come first, so overlays are drawn on top of them.
     """
-    if not has_overlays(planned.spec):
-        return []
+    from narratty.render import browser
     from narratty.render.overlays import images, planned_times, scaled, schedule
     from narratty.render.script import build_script
 
+    spec = planned.spec
+    if not (has_overlays(spec) or has_browsers(spec)):
+        return []
     if layout is not None:
-        shown = schedule(planned.spec, layout.scene_starts_ms | layout.cues_ms)
+        times, scale = layout.scene_starts_ms | layout.cues_ms, 1.0
     else:
-        planned_shown = schedule(planned.spec, planned_times(build_script(planned.spec, planned.timeline)))
+        times = planned_times(build_script(spec, planned.timeline))
         scale = video_ms / planned.timeline.total_ms if planned.timeline.total_ms else 1.0
-        shown = scaled(planned_shown, scale)
-    return images(planned.spec, shown, work / "overlays")
+    views = browser.scaled(browser.schedule(spec, times), scale)
+    shots = browser.shoot(spec, views, workspace, work / "browser")
+    shown = scaled(schedule(spec, times), scale)
+    return browser.images(shots, browser.bar_height(spec.terminal)) + images(spec, shown, work / "overlays")
 
 
 def build(
@@ -321,7 +331,9 @@ def build(
         if mode in ("track", "burn") and cues:
             srt = work / "subtitles.srt"
             srt.write_text(to_srt(cues), encoding="utf-8")
-        overlays = overlay_images(planned, video_ms, work, layout)
+        if has_browsers(planned.spec):
+            say("capturing browser views")
+        overlays = overlay_images(planned, video_ms, work, ws.path, layout)
         if overlays:
             say(f"drawing {len(overlays)} overlays")
         media.mux(
@@ -429,18 +441,25 @@ def build_cast(
             starts = {p.scene_id: p.start_ms for p in used}
             SubtitleFiles.beside(outputs.page).write(cues_for(narrations(planned, starts)))
         overlays: list[dict[str, Any]] = []
+        times = recording.scene_starts_ms | recording.cues_ms
         if has_overlays(spec):
             from narratty.render.overlays import page_overlays, schedule
 
-            overlays = page_overlays(
-                schedule(spec, recording.scene_starts_ms | recording.cues_ms), spec.terminal
-            )
+            overlays = page_overlays(schedule(spec, times), spec.terminal)
+        views: list[dict[str, Any]] = []
+        if has_browsers(spec):
+            from narratty.render import browser
+
+            say("capturing browser views")
+            shots = browser.shoot(spec, browser.schedule(spec, times), ws.path, work / "browser")
+            views = browser.page_views(shots, spec.terminal)
         page = player_page(
             spec.meta.title,
             recording.cast,
             outputs.audio,
             theme=player_theme(spec.terminal.theme),
             overlays=overlays,
+            browsers=views,
         )
         outputs.page.write_text(page, encoding="utf-8")
         _export_artifacts(planned, ws.path, outputs.page, say)

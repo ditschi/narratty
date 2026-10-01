@@ -21,6 +21,8 @@ natively.
   narration; `--draft` previews timing in seconds, without TTS.
 - **[Overlays](user-guide/spec.md#overlays):** chapter titles, file names and notes in a
   rounded box over the video, with reusable styles.
+- **[Browser views](user-guide/spec.md#browser-views):** a web page or local HTML file
+  as Chromium renders it, scrolling while the narration talks about it.
 - **Scripting:** hidden setup scenes, waits for screen output, key presses and
   per-scene typing speed.
 - **[Editor layout](user-guide/toolkit.md#editor-layout):** a file explorer with

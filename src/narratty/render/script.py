@@ -24,6 +24,7 @@ from narratty.spec.model import (
     Reveal,
     Run,
     Scene,
+    ShowBrowser,
     ShowOverlay,
     Spec,
     TypeCommand,
@@ -228,12 +229,12 @@ def action_steps(action: Action, pace: Pacing, context: Context | None = None) -
 
 
 def overlay_cue(scene_id: str, index: int) -> str:
-    """Label of the cue where the overlay at ``actions[index]`` of a scene starts."""
+    """Label of the cue where the overlay or browser at ``actions[index]`` of a scene starts."""
     return f"overlay:{scene_id}:{index}"
 
 
 def _sends_keys(action: Action) -> bool:
-    return not isinstance(action, Hold | Wait | ShowOverlay)
+    return not isinstance(action, Hold | Wait | ShowOverlay | ShowBrowser)
 
 
 def _unhide(steps: list[Step]) -> list[Step]:
@@ -257,7 +258,7 @@ def _timelapse_steps(scene: Scene, timing: SceneTiming, pace: Pacing, context: C
         for index, action in enumerate(scene.actions)
         for step in (
             [Cue(overlay_cue(scene.id, index))]
-            if isinstance(action, ShowOverlay)
+            if isinstance(action, ShowOverlay | ShowBrowser)
             else action_steps(action, pace, context)
         )
     ]
@@ -283,7 +284,7 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | 
         steps.append(Hide())
     filled = popup = False
     for index, action in enumerate(scene.actions):
-        if isinstance(action, ShowOverlay):
+        if isinstance(action, ShowOverlay | ShowBrowser):
             steps.append(Cue(overlay_cue(scene.id, index)))
             continue
         if isinstance(action, Hold) and action.hold == "auto" and fill_at_hold:

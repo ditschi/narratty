@@ -209,6 +209,7 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 | `focus` | `- focus: explorer` | Moves the keyboard to `explorer` or `terminal` (editor layout) |
 | `reveal` | `- reveal: src/app.py` | Selects a path, relative to the workspace, in the explorer (editor layout) |
 | `overlay` | `- overlay: "Open src/main.py"` | Shows text over the video; see [Overlays](#overlays) |
+| `browser` | `- browser: docs/site/index.html` | Shows a web page over the terminal; see [Browser views](#browser-views) |
 
 Keys: `Enter`, `Tab`, `Space`, `Backspace`, `Delete`, `Escape`, `Up`, `Down`, `Left`,
 `Right`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`. Names are case-insensitive.
@@ -302,3 +303,41 @@ Built-in styles: `default` (above) and `chapter` (`top-right`, `large`, bold, `k
 it only lists what differs. Overlays fade in and out. They need the mp4 to be
 re-encoded, which `build` does when a spec has any; in the [cast page](building.md#asciicast-with-narration)
 they are drawn over the player and follow its clock.
+
+### Browser views
+
+A browser view shows a web page or a local HTML file as a browser renders it, for
+example the rendered documentation next to its Markdown source. Chromium (which VHS
+records with) captures the page at the video's width; the view covers the terminal
+under an address bar until its scene ends.
+
+```yaml
+sandbox:
+  network: full       # only for web pages; local files need no network
+scenes:
+  - id: page
+    narration: This is the page you should see.
+    actions:
+      - browser: {url: "https://github.com/ditschi/narratty", scroll: 1400}
+  - id: docs
+    narration: The built documentation looks like this.
+    actions:
+      - run: mkdocs build
+      - wait: "Documentation built"
+      - browser: {url: site/index.html, scroll: auto}
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `url` | required | An `http(s)` URL, or an HTML file in the workspace |
+| `scroll` | `none` | `auto` scrolls to the end of the page (at most 4 screens), a number scrolls that many pixels |
+| `duration_ms` | unset | Hide after this long |
+| `load_ms` | `5000` | How long the page may load before it is captured |
+
+`browser: URL` is short for `browser: {url: URL}`. The page is captured once, after
+it has loaded; scrolling pauses a moment at the top and at the bottom and takes the
+rest of the time the view is shown. A later view in the same scene replaces an
+earlier one, and overlays are drawn on top. Web pages need network access: in the
+container that is `sandbox: {network: full}`. Prefer local files for pages behind a
+login; narratty never signs in. The whole example is in
+[`examples/browser`](https://github.com/ditschi/narratty/tree/main/examples/browser).

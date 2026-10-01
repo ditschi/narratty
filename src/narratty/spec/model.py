@@ -15,6 +15,7 @@ from pydantic import (
     ConfigDict,
     Discriminator,
     Field,
+    NonNegativeInt,
     StringConstraints,
     Tag,
     WithJsonSchema,
@@ -253,6 +254,42 @@ class ShowOverlay(_Model):
         return {"text": value} if isinstance(value, str) else value
 
 
+class Browser(_Model):
+    """A web page or local HTML file. ``browser: URL`` is short for ``browser: {url: URL}``."""
+
+    url: str = Field(min_length=1, description="An http(s) URL, or an HTML file in the workspace.")
+    scroll: Literal["none", "auto"] | NonNegativeInt = Field(
+        "none",
+        description="Scroll down while shown: auto (to the end of the page, at most 4 screens) "
+        "or this many pixels.",
+    )
+    duration_ms: Annotated[Duration, Field(gt=0)] | None = Field(
+        None, description="Hide after this long; by default it stays until the scene ends."
+    )
+    load_ms: Annotated[Duration, Field(gt=0)] = Field(
+        5000, description="How long the page may load before it is captured."
+    )
+
+
+def _or_url(schema: dict[str, Any]) -> None:
+    """Let the schema accept the URL shorthand next to the mapping."""
+    schema["anyOf"] = [
+        {"type": "string", "minLength": 1, "description": "The URL or file; short for {url: ...}."},
+        {"$ref": schema.pop("$ref")},
+    ]
+
+
+class ShowBrowser(_Model):
+    """Show a web page over the terminal from this point, as Chromium renders it."""
+
+    browser: Browser = Field(json_schema_extra=_or_url)
+
+    @field_validator("browser", mode="before")
+    @classmethod
+    def _url_shorthand(cls, value: Any) -> Any:
+        return {"url": value} if isinstance(value, str) else value
+
+
 ACTION_KEYS = (
     "run",
     "type_command",
@@ -265,6 +302,7 @@ ACTION_KEYS = (
     "reveal",
     "diff",
     "overlay",
+    "browser",
 )
 BARE_ACTIONS = ("enter", "diff")
 EDITOR_ACTIONS = ("focus", "reveal")
@@ -296,7 +334,8 @@ Action = Annotated[
     | Annotated[Focus, Tag("focus")]
     | Annotated[Reveal, Tag("reveal")]
     | Annotated[Diff, Tag("diff")]
-    | Annotated[ShowOverlay, Tag("overlay")],
+    | Annotated[ShowOverlay, Tag("overlay")]
+    | Annotated[ShowBrowser, Tag("browser")],
     Discriminator(
         _action_tag,
         custom_error_type="invalid_action",
@@ -361,6 +400,8 @@ class Scene(_Model):
                 raise ValueError("a timelapse scene cannot use 'hold: auto'; narration is waited for anyway")
         if self.hidden and any(isinstance(a, ShowOverlay) for a in self.actions):
             raise ValueError("a hidden scene cannot show an overlay")
+        if self.hidden and any(isinstance(a, ShowBrowser) for a in self.actions):
+            raise ValueError("a hidden scene cannot show a browser")
         return self
 
 
