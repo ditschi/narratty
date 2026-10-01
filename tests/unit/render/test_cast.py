@@ -203,3 +203,14 @@ def test_fast_skips_pauses_of_interactive_programs(tmp_path: Path) -> None:
     events, starts, wall = _record_timed(tmp_path, spec)
     assert _when(events, "bye") * 1000 >= starts["after"] - 1, "the program waited for the next scene's key"
     assert wall < starts["after"] / 1000 - 0.5, "a program waiting for keys counts as still"
+
+
+def test_wait_for_the_prompt(tmp_path: Path) -> None:
+    spec = SPEC.split("  - id: greet")[0] + (
+        "  - id: greet\n    narration: Hello.\n    actions:\n"
+        "      - type_command: 'sleep 0.5; printf \"do%se\\\\n\" n'\n      - enter\n"
+        "      - wait: {prompt: true, timeout_ms: 3000}\n"
+    )
+    events, _, _ = _record(spec, tmp_path, audio_ms=10)
+    output = "".join(str(e[2]) for e in events if e[1] == "o")
+    assert "done" in output, "recorded until the command had finished"

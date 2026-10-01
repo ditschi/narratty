@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,9 +27,11 @@ from narratty.tts.synth import Clip, synthesize_spec
 from narratty.workspace import PreparedWorkspace, export_artifacts, prepare_workspace
 
 if TYPE_CHECKING:
+    from narratty.container import SandboxRequest
     from narratty.render.overlays import OverlayImage
     from narratty.render.pauses import Insert, JobWatch
     from narratty.render.tape import Tape
+    from narratty.spec.model import Environment
 
 SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml", ".yaml", ".yml")
 DEFAULT_MAX_DRIFT = 0.10
@@ -116,13 +118,18 @@ class WorkspaceOptions:
 
 
 def workspace_for(
-    planned: Plan, options: WorkspaceOptions, *, in_container: bool = False, log: Log | None = None
+    planned: Plan,
+    options: WorkspaceOptions,
+    sandbox: SandboxRequest | None = None,
+    *,
+    log: Log | None = None,
 ) -> AbstractContextManager[PreparedWorkspace]:
     """The prepared workspace (inside the container: the one the host mounted)."""
     if override := os.environ.get("NARRATTY_WORKSPACE"):
         path = Path(override)
         return nullcontext(PreparedWorkspace(path, "rw", path))
     spec = planned.spec
+    in_container = _environment(spec, sandbox) is not None  # ro is enforced there
     return prepare_workspace(
         planned.workspace_source,
         options.mode or spec.workspace.mode,
@@ -135,8 +142,10 @@ def workspace_for(
     )
 
 
-def warn_unenforced_sandbox(spec: Spec, log: Log) -> None:
+def warn_unenforced_sandbox(spec: Spec, log: Log, request: SandboxRequest | None = None) -> None:
     """Native runs cannot restrict network or mounts; say so once."""
+    if _environment(spec, request) is not None:
+        return  # the environment's container enforces them
     if spec.sandbox.elevated and not os.environ.get("NARRATTY_IN_CONTAINER"):
         log("sandbox settings are only enforced in a container; running natively with your own access")
 
@@ -147,9 +156,73 @@ def recording_env(spec: Spec, work: Path) -> dict[str, str]:
     return {**spec.sandbox.env, DIFF_BASE_ENV: str(work / "diff-base")}
 
 
-def fresh_exit_log(work: Path) -> Path:
-    """An empty log in ``work`` for the recorded commands' exit codes."""
+def _environment(spec: Spec, request: SandboxRequest | None) -> Environment | None:
+    from narratty import bridge
+    from narratty.environment import EnvironmentOptions, resolve
+    from narratty.runtime import IN_CONTAINER_ENV
+
+    if os.environ.get(IN_CONTAINER_ENV) and bridge.current() is None:
+        return None  # the host chose to run the demo in the narratty container
+    return resolve(spec.environment, request.environment if request else EnvironmentOptions())
+
+
+@contextmanager
+def environment_bridge(
+    planned: Plan, workspace: PreparedWorkspace, request: SandboxRequest | None, log: Log | None = None
+) -> Iterator[list[str] | None]:
+    """The bridge to the demo shell's environment, or None to run the shell locally.
+
+    In the narratty container the host passes the bridge in; natively this starts the
+    environment and bridges with ``docker exec``.
+    """
+    from narratty import bridge
+
+    if (given := bridge.current()) is not None:
+        yield given
+        return
+    environment = _environment(planned.spec, request)
+    if environment is None:
+        yield None
+        return
+    from narratty.container import SandboxRequest, approved_sandbox, image_ref
+    from narratty.env_provide import provide
+    from narratty.environment import running
+    from narratty.runtime import container_engine
+
+    engine = container_engine()
+    if (kept := running(engine, planned.spec_path)) is not None:
+        if log:
+            log(f"using the environment {kept[0].container} from `narratty env up`")
+        yield kept[0].exec_bridge()
+        return
+    request = request or SandboxRequest()
+    sandbox = approved_sandbox(planned.spec_path, planned.spec, request)
+    with provide(
+        environment,
+        planned.spec,
+        spec_dir=planned.spec_path.resolve().parent,
+        sandbox=sandbox,
+        workspace=workspace,
+        engine=engine,
+        narratty_image=image_ref(),
+        with_agent=False,
+        keep=request.environment.keep,
+        rebuild=request.environment.rebuild,
+        log=log,
+    ) as session:
+        yield session.exec_bridge()
+
+
+def fresh_exit_log(work: Path, bridge: Sequence[str] | None = None) -> Path | None:
+    """An empty log in ``work`` for the recorded commands' exit codes.
+
+    None with a ``bridge``: the project environment cannot reach the log, so exit codes
+    are not checked there.
+    """
     log = work / "exits.log"
+    if bridge is not None:
+        log.unlink(missing_ok=True)
+        return None
     log.write_text("", encoding="utf-8")
     return log
 
@@ -162,9 +235,19 @@ def check_exits(planned: Plan, work: Path, output: Path) -> None:
 
 
 def render_silent(
-    planned: Plan, video: Path, work: Path, workspace: Path, *, fast: bool = False, log: Log | None = None
+    planned: Plan,
+    video: Path,
+    work: Path,
+    workspace: Path,
+    bridge: Sequence[str] | None = None,
+    *,
+    fast: bool = False,
+    log: Log | None = None,
 ) -> timelapse.Layout | None:
     """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``.
+
+    With a ``bridge`` the shell runs in the project environment; its exit codes are not
+    checked there.
 
     ``fast`` records long pauses briefly and fills them with still frames (see
     ``narratty.render.pauses``); a pause whose screen was not still fails the build,
@@ -174,6 +257,7 @@ def render_silent(
     timelapse scenes are sped up into ``video`` and the returned layout says where each
     scene and cue landed.
     """
+    from narratty.bridge import shim_env
     from narratty.draft import FRAMERATE as DRAFT_FRAMERATE
     from narratty.render.tape import FRAMERATE, build_tape
 
@@ -190,7 +274,8 @@ def render_silent(
         recording.resolve(),
         framerate=framerate,
         marks=marks,
-        exit_log=fresh_exit_log(work),
+        exit_log=fresh_exit_log(work, bridge),
+        remote=bridge is not None,
         fast=fast,
     )
     tape_path.write_text(tape.text, encoding="utf-8")
@@ -199,11 +284,11 @@ def render_silent(
         from narratty.render.pauses import JobWatch
 
         jobs = JobWatch(tape.pauses)
+    extra_env = recording_env(planned.spec, work)
+    if bridge is not None:
+        extra_env["PATH"] = shim_env(work / "shims", bridge, os.environ)["PATH"]
     vhs_log = media.run_vhs(
-        tape_path,
-        workspace,
-        extra_env=recording_env(planned.spec, work),
-        on_line=_progress_watch(jobs) if jobs else None,
+        tape_path, workspace, extra_env=extra_env, on_line=_progress_watch(jobs) if jobs else None
     )
     if not recording.is_file():
         raise RenderError(f"VHS finished but wrote no video to {recording}")
@@ -375,27 +460,29 @@ def build(
     subtitles: str | None = None,
     draft: bool = False,
     fast: bool = False,
+    sandbox: SandboxRequest | None = None,
     log: Log | None = None,
 ) -> BuildResult:
     """Run the full pipeline and verify the result.
 
     ``subtitles`` overrides the spec's ``subtitles`` (a draft burns them in by default).
     ``fast`` fills long pauses with still frames instead of recording them (a draft
-    always does).
+    always does). ``sandbox`` carries the command line's sandbox and environment choices.
     """
     say = log or (lambda _message: None)
     output = (output or default_output(spec_path, ".draft.mp4" if draft else ".mp4")).resolve()
     say("estimating narration" if draft else "synthesizing narration")
     planned = plan(spec_path, offline=offline, end_card=end_card, draft=draft, log=say)
     mode = subtitle_mode(planned, subtitles)
-    warn_unenforced_sandbox(planned.spec, say)
+    warn_unenforced_sandbox(planned.spec, say, sandbox)
     with (
         work_directory(work_dir) as work,
-        workspace_for(planned, workspace or WorkspaceOptions(), log=say) as ws,
+        workspace_for(planned, workspace or WorkspaceOptions(), sandbox, log=say) as ws,
+        environment_bridge(planned, ws, sandbox, say) as bridge,
     ):
         say(f"recording {len(planned.timeline.scenes)} scenes with VHS")
         silent = work / "silent.mp4"
-        layout = render_silent(planned, silent, work, ws.path, fast=fast or draft, log=say)
+        layout = render_silent(planned, silent, work, ws.path, bridge, fast=fast or draft, log=say)
         video_ms = media.probe(silent).duration_ms
         if layout is None or not layout.segments:
             expected_ms, placements = planned.timeline.total_ms, place_clips(planned, video_ms)
@@ -481,6 +568,7 @@ def build_cast(
     end_card: bool | None = None,
     subtitles: str | None = None,
     fast: bool = False,
+    sandbox: SandboxRequest | None = None,
     log: Log | None = None,
 ) -> BuildResult:
     """Record an asciicast with a narration track and a page that plays both.
@@ -490,6 +578,7 @@ def build_cast(
     Clips are placed at the recorded start of their scene, so there is no drift to check.
     ``fast`` skips the rest of a long pause once the output has been quiet for a moment.
     """
+    from narratty.bridge import shim_env
     from narratty.render.cast import record
     from narratty.render.player import player_page, player_theme
     from narratty.render.script import build_script
@@ -498,18 +587,24 @@ def build_cast(
     outputs = CastOutputs((output or default_output(spec_path, ".html")).resolve())
     say("synthesizing narration")
     planned = plan(spec_path, offline=offline, end_card=end_card, log=say)
-    warn_unenforced_sandbox(planned.spec, say)
+    warn_unenforced_sandbox(planned.spec, say, sandbox)
     spec = planned.spec
     with (
         work_directory(work_dir) as work,
-        workspace_for(planned, workspace or WorkspaceOptions(), log=say) as ws,
+        workspace_for(planned, workspace or WorkspaceOptions(), sandbox, log=say) as ws,
+        environment_bridge(planned, ws, sandbox, say) as bridge,
     ):
         say(f"recording {len(planned.timeline.scenes)} scenes as an asciicast")
+        env = {**os.environ, **recording_env(spec, work)}
+        if bridge is not None:
+            env = shim_env(work / "shims", bridge, env)
         recording = record(
-            build_script(spec, planned.timeline, exit_log=fresh_exit_log(work)),
+            build_script(
+                spec, planned.timeline, exit_log=fresh_exit_log(work, bridge), remote=bridge is not None
+            ),
             terminal=spec.terminal,
             cwd=ws.path,
-            env={**os.environ, **recording_env(spec, work)},
+            env=env,
             title=spec.meta.title,
             fast=fast,
         )

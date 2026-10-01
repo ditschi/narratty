@@ -37,6 +37,8 @@ class Policy:
     allow_mounts: bool = True
     allow_ssh_agent: bool = True
     allow_docker: bool = True
+    allow_environment: tuple[str, ...] | None = None  # None = any source
+    allow_packages: bool = True
 
 
 def load_policy(directory: Path | None = None) -> Policy:
@@ -47,12 +49,15 @@ def load_policy(directory: Path | None = None) -> Policy:
     if max_network not in NETWORK_LEVELS:
         raise UsageError(f"{path}: max_network must be one of {', '.join(NETWORK_LEVELS)}")
     allow_env = raw.get("allow_env")
+    allow_environment = raw.get("allow_environment")
     return Policy(
         max_network=max_network,
         allow_env=tuple(allow_env) if allow_env is not None else None,
         allow_mounts=bool(raw.get("allow_mounts", True)),
         allow_ssh_agent=bool(raw.get("allow_ssh_agent", True)),
         allow_docker=bool(raw.get("allow_docker", True)),
+        allow_environment=tuple(allow_environment) if allow_environment is not None else None,
+        allow_packages=bool(raw.get("allow_packages", True)),
     )
 
 
@@ -116,9 +121,12 @@ def describe(sandbox: Sandbox) -> list[str]:
     return lines
 
 
-def approval_key(spec_path: Path, sandbox: Sandbox) -> str:
-    """Identifies one spec file with one exact sandbox block."""
-    blob = json.dumps([str(spec_path.resolve()), sandbox.model_dump(mode="json")], sort_keys=True)
+def approval_key(spec_path: Path, sandbox: Sandbox, extra: Sequence[str] = ()) -> str:
+    """Identifies one spec file with one exact sandbox block (and ``extra`` grants)."""
+    parts: list[object] = [str(spec_path.resolve()), sandbox.model_dump(mode="json")]
+    if extra:
+        parts.append(list(extra))
+    blob = json.dumps(parts, sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()
 
 
@@ -133,19 +141,23 @@ def ensure_consent(
     interactive: bool = True,
     confirm: Confirm | None = None,
     directory: Path | None = None,
+    extra: Sequence[str] = (),
 ) -> None:
-    """Ask once before granting more than the default; remember the answer."""
-    if not sandbox.elevated:
+    """Ask once before granting more than the default; remember the answer.
+
+    ``extra`` lists further grants to approve with the sandbox (e.g. from ``environment``).
+    """
+    if not sandbox.elevated and not extra:
         return
     store = (directory or config_dir()) / "approvals.json"
     try:
         approved: dict[str, str] = json.loads(store.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         approved = {}
-    key = approval_key(spec_path, sandbox)
+    key = approval_key(spec_path, sandbox, extra)
     if key in approved:
         return
-    grants = describe(sandbox)
+    grants = [*describe(sandbox), *extra]
     if not assume_yes:
         if not interactive or confirm is None:
             raise UsageError(
@@ -170,8 +182,8 @@ class ContainerAccess:
     volumes: list[str] = field(default_factory=list)
 
 
-def _container_path(path: str) -> str:
-    return CONTAINER_HOME + path[1:] if path.startswith("~") else path
+def _container_path(path: str, home: str = CONTAINER_HOME) -> str:
+    return home.rstrip("/") + path[1:] if path.startswith("~") else path
 
 
 def container_access(
@@ -181,8 +193,12 @@ def container_access(
     caches: Mapping[str, str],
     cache_root: Path,
     environ: Mapping[str, str] | None = None,
+    home: str = CONTAINER_HOME,
 ) -> ContainerAccess:
-    """Flags for everything but the allowlist network (see :func:`allowlist_network`)."""
+    """Flags for everything but the allowlist network (see :func:`allowlist_network`).
+
+    ``~`` in container paths means ``home``.
+    """
     environ = os.environ if environ is None else environ
     access = ContainerAccess(network="none" if sandbox.network == "none" else "bridge")
     access.env.update(sandbox.env)
@@ -194,11 +210,11 @@ def container_access(
         if not host.exists():
             raise UsageError(f"extra mount {mount.host} does not exist", hint=f"Resolved to {host}.")
         suffix = ":ro" if mount.mode == "ro" else ""
-        access.volumes.append(f"{host}:{_container_path(mount.container)}{suffix}")
+        access.volumes.append(f"{host}:{_container_path(mount.container, home)}{suffix}")
     for name, path in sorted(caches.items()):
         host = cache_root / "build-caches" / name
         host.mkdir(parents=True, exist_ok=True)
-        access.volumes.append(f"{host}:{_container_path(path)}")
+        access.volumes.append(f"{host}:{_container_path(path, home)}")
     if sandbox.ssh_agent:
         sock = environ.get("SSH_AUTH_SOCK")
         if not sock:

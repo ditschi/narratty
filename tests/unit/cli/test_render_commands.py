@@ -140,6 +140,13 @@ def test_build_sync_failure_exit_code(spec: Path, monkeypatch: pytest.MonkeyPatc
     assert isinstance(result.exception, SyncError)
 
 
+def test_env_shell_needs_an_environment(tmp_path: Path) -> None:
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text("scenes: [{id: a}]\n", encoding="utf-8")
+    result = CliRunner().invoke(app, ["env", "shell", str(spec)])
+    assert "has no environment" in str(result.exception)
+
+
 def test_plan_draft_estimates_without_tts(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("narratty.build.get_provider", lambda *args: pytest.fail("TTS loaded"))
     result = runner.invoke(app, ["plan", str(spec), "--draft"], env={"COLUMNS": "200"})

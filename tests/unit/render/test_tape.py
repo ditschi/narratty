@@ -161,3 +161,19 @@ scenes:
     assert "scene-setup" not in tape, "hidden scenes are not recorded, so get no marker"
     assert 'Screenshot "/w/marks/cue-end.png"' in tape, "cues are located like scene starts"
     assert "Screenshot" not in generate_tape(spec, timeline, Path("/out/v.mp4"))
+
+
+def test_wait_for_the_prompt() -> None:
+    tape = _tape(
+        SPEC.replace('{screen: "built a/b", timeout_ms: 2000}', "{prompt: true, timeout_ms: 600000}")
+    )
+    assert "Wait+Line@600000ms /^demo>\\s*$/" in tape.splitlines()
+
+
+def test_wait_needs_one_condition() -> None:
+    from narratty.spec.model import WaitSpec
+
+    with pytest.raises(ValueError, match="either screen or prompt"):
+        WaitSpec()
+    with pytest.raises(ValueError, match="either screen or prompt"):
+        WaitSpec(screen="x", prompt=True)

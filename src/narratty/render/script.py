@@ -6,6 +6,7 @@ pseudo-terminal. Generating it once keeps the two in step.
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -66,10 +67,11 @@ class Sleep:
 
 @dataclass(frozen=True)
 class WaitScreen:
-    """Block until the screen matches ``pattern``."""
+    """Block until the screen (or with ``line``, the cursor's line) matches ``pattern``."""
 
     pattern: str
     timeout_ms: int
+    line: bool = False
 
 
 @dataclass(frozen=True)
@@ -142,6 +144,12 @@ def prompt_setup(shell: str, prompt: str, exit_log: Path | None = None) -> str:
     return f"{prefix}PS1={_shell_quote(prompt)}; clear"
 
 
+def prompt_pattern(prompt: str) -> str:
+    """A line holding only ``prompt`` (RE2 and Python syntax): the last command has finished."""
+    escaped = re.sub(r"([\\.^$|?*+()\[\]{}])", r"\\\1", prompt.rstrip())
+    return f"^{escaped}\\s*$"
+
+
 def encode_path(path: str) -> str:
     """``path`` as hex, so it passes tmux and shell quoting unchanged."""
     return path.encode().hex()
@@ -168,10 +176,12 @@ def _tmux_string(text: str) -> str:
 
 @dataclass(frozen=True)
 class Context:
-    """What action steps depend on beyond the action: the layout and the helper interpreter."""
+    """What action steps depend on beyond the action: the layout, the helper interpreter
+    and the prompt (``wait: {prompt: true}`` waits for it)."""
 
     editor: bool
     python: str
+    prompt: str = "$ "
 
 
 def diff_steps(action: Diff, context: Context) -> list[Step]:
@@ -202,6 +212,15 @@ def _then_sleep(steps: list[Step], ms: int) -> list[Step]:
     return [*steps, Sleep(ms)] if ms else steps
 
 
+def _key_steps(action: Enter | Key | CtrlSequence, speed: int) -> list[Step]:
+    if isinstance(action, Enter):
+        return [Press("Enter", speed)]
+    if isinstance(action, Key):
+        name, _, count = action.key.partition(" ")
+        return [Press(name, speed, int(count) if count else None)]
+    return [Ctrl(action.ctrl_sequence.removeprefix("C-").upper())]
+
+
 def action_steps(action: Action, pace: Pacing, context: Context | None = None) -> list[Step]:
     """Steps for one action (``hold: auto`` is placed by the caller)."""
     context = context or Context(editor=False, python=sys.executable)
@@ -214,14 +233,11 @@ def action_steps(action: Action, pace: Pacing, context: Context | None = None) -
         return _then_sleep([Type(action.run, speed), Press("Enter", speed)], pace.run_hold_ms)
     if isinstance(action, TypeCommand):
         return [Type(action.type_command, speed)]
-    if isinstance(action, Enter):
-        return _then_sleep([Press("Enter", speed)], pace.pause_ms)
-    if isinstance(action, Key):
-        name, _, count = action.key.partition(" ")
-        return _then_sleep([Press(name, speed, int(count) if count else None)], pace.pause_ms)
-    if isinstance(action, CtrlSequence):
-        return _then_sleep([Ctrl(action.ctrl_sequence.removeprefix("C-").upper())], pace.pause_ms)
+    if isinstance(action, Enter | Key | CtrlSequence):
+        return _then_sleep(_key_steps(action, speed), pace.pause_ms)
     if isinstance(action, Wait):
+        if action.wait.screen is None:
+            return [WaitScreen(prompt_pattern(context.prompt), action.wait.timeout_ms, line=True)]
         return [WaitScreen(action.wait.screen, action.wait.timeout_ms)]
     if isinstance(action, Hold) and action.hold != "auto":
         return [Sleep(action.hold)]
@@ -275,7 +291,7 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | 
     keys, or the end of the scene.
     """
     pace = pacing(spec, scene)
-    context = Context(spec.terminal.layout == "editor", python or sys.executable)
+    context = Context(spec.terminal.layout == "editor", python or sys.executable, spec.terminal.prompt)
     if timing.timelapse:
         return _timelapse_steps(scene, timing, pace, context)
     fill_at_hold = scene.narration_start == "with_actions"
@@ -304,14 +320,21 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | 
     return _end_hidden(steps, context) if scene.hidden else steps
 
 
-def end_card_steps(spec: Spec, timeline: Timeline, python: str) -> list[Step]:
-    """Draw the end card while hidden, then keep it on screen for its duration."""
-    command = f"{prompt_setup(spec.terminal.shell, '')}; {_shell_quote(python)} -m narratty.end_card"
+def end_card_steps(spec: Spec, timeline: Timeline, python: str, *, remote: bool = False) -> list[Step]:
+    """Draw the end card while hidden, then keep it on screen for its duration.
+
+    ``remote``: the shell runs in a project environment without narratty. Leaving it
+    drops to a local ``sh`` (see ``narratty.bridge``), which draws the card.
+    """
+    shell = "sh" if remote else spec.terminal.shell
+    command = f"{prompt_setup(shell, '')}; {_shell_quote(python)} -m narratty.end_card"
     if not spec.end_card.qr:
         command += " --no-qr"
+    leave: list[Step] = [Type("exit", 1), Press("Enter", 1), Sleep(500)] if remote else []
     return [
         Mark(None),
         Hide(),
+        *leave,
         Type(command, 1),
         Press("Enter", 1),
         WaitScreen(CREDIT, END_CARD_TIMEOUT_MS),
@@ -359,12 +382,18 @@ def teardown_steps(spec: Spec) -> list[Step]:
 
 
 def build_script(
-    spec: Spec, timeline: Timeline, *, python: str | None = None, exit_log: Path | None = None
+    spec: Spec,
+    timeline: Timeline,
+    *,
+    python: str | None = None,
+    exit_log: Path | None = None,
+    remote: bool = False,
 ) -> list[Step]:
     """Every step of the recording, from prompt setup to the end card.
 
     ``python`` is the interpreter that draws the end card (default: the running one);
-    ``exit_log`` receives the commands' exit codes (see ``narratty.render.exits``).
+    ``exit_log`` receives the commands' exit codes (see ``narratty.render.exits``);
+    ``remote`` says the shell runs in a project environment.
     """
     python = python or sys.executable
     steps = setup_steps(spec, python, exit_log)
@@ -376,5 +405,5 @@ def build_script(
     if timeline.tail_ms:
         steps.append(Sleep(timeline.tail_ms))
     if timeline.end_card_ms:
-        steps += teardown_steps(spec) + end_card_steps(spec, timeline, python)
+        steps += teardown_steps(spec) + end_card_steps(spec, timeline, python, remote=remote)
     return steps

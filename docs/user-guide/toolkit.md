@@ -118,6 +118,10 @@ The dev container keeps its user; nothing runs as root at run time.
 
 ## Onboarding videos
 
+To run the whole demo in the project's image, Compose service or dev container, use a
+[project environment](environments.md); the toolkit is mounted there automatically.
+The pattern below records the steps that lead into the container.
+
 A video that clones a repository, starts its dev container and works inside it needs
 Docker during the recording. Either give the sandboxed demo your engine with
 `sandbox.docker: true` ([full host access](container.md#docker-in-the-demo), you

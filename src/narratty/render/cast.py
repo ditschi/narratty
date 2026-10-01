@@ -285,8 +285,8 @@ class Recorder:
                 self._pause(ms / 1000)
             case Sleep(ms):
                 self.pump(ms / 1000)
-            case WaitScreen(pattern, timeout_ms):
-                self._wait(pattern, timeout_ms)
+            case WaitScreen(pattern, timeout_ms, line):
+                self._wait(pattern, timeout_ms, line=line)
             case Hide():
                 self.hide()
             case Show():
@@ -360,11 +360,16 @@ class Recorder:
             self.send(key)
             self.pump(speed_ms / 1000)
 
-    def _wait(self, pattern: str, timeout_ms: int) -> None:
+    def _wait(self, pattern: str, timeout_ms: int, *, line: bool = False) -> None:
         regex = re.compile(pattern)
-        if not self.pump(timeout_ms / 1000, lambda: bool(regex.search(self.screen.text))):
+
+        def matches() -> bool:
+            return bool(regex.search(self.screen.lines[-1] if line else self.screen.text))
+
+        if not self.pump(timeout_ms / 1000, matches):
+            what = "the prompt to come back" if line else f"the screen to match /{pattern}/"
             raise RenderError(
-                f"timed out after {timeout_ms} ms waiting for the screen to match /{pattern}/",
+                f"timed out after {timeout_ms} ms waiting for {what}",
                 hint="Check the pattern against the command's output, or raise wait.timeout_ms.",
             )
 

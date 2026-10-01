@@ -180,3 +180,20 @@ def test_allowlist_network_lifecycle() -> None:
         assert [c[c.index("--alias") + 1] for c in connects] == ["cache.example.com", "lic.example.com"]
     assert calls[-1] == ["docker", "network", "rm", network]
     assert sum(1 for c in calls if c[1] == "rm") == 2
+
+
+def test_extra_grants_need_consent(tmp_path: Path) -> None:
+    from narratty.sandbox import ensure_consent
+
+    spec = tmp_path / "s.narratty.yaml"
+    asked: list[str] = []
+
+    def confirm(question: str) -> bool:
+        asked.append(question)
+        return True
+
+    ensure_consent(spec, Sandbox(), confirm=confirm, directory=tmp_path, extra=["building as root"])
+    assert "building as root" in asked[0]
+    ensure_consent(spec, Sandbox(), confirm=confirm, directory=tmp_path, extra=["building as root"])
+    ensure_consent(spec, Sandbox(), confirm=confirm, directory=tmp_path)
+    assert len(asked) == 1, "remembered; nothing to ask without grants"

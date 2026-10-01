@@ -125,23 +125,32 @@ class Hold(_Model):
 
 
 class WaitSpec(_Model):
-    """Wait until the screen matches a regular expression."""
+    """Wait until the screen matches a regular expression, or until the prompt is back."""
 
-    screen: str = Field(min_length=1)
+    screen: str | None = Field(None, min_length=1, description="Regular expression to wait for.")
+    prompt: bool = Field(False, description="Wait until the command has finished and the prompt is back.")
     timeout_ms: Duration = Field(15000, gt=0)
 
     @field_validator("screen")
     @classmethod
-    def _compiles(cls, value: str) -> str:
+    def _compiles(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
         try:
             re.compile(value)
         except re.error as error:
             raise ValueError(f"not a valid regular expression: {error}") from error
         return value
 
+    @model_validator(mode="after")
+    def _one_condition(self) -> WaitSpec:
+        if (self.screen is None) == (not self.prompt):
+            raise ValueError("set either screen or prompt: true")
+        return self
+
 
 class Wait(_Model):
-    """Block until ``wait.screen`` matches the terminal content.
+    """Block until ``wait.screen`` matches the terminal content, or the prompt is back.
 
     ``wait: "pattern"`` is short for ``wait: {screen: "pattern"}``.
     """
@@ -530,6 +539,94 @@ class Sandbox(_Model):
         )
 
 
+ENV_SOURCES = ("image", "build", "compose", "container", "devcontainer")
+PACKAGE_MANAGERS = ("apt", "apk", "dnf", "microdnf", "yum", "zypper")
+PACKAGE_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9.+_:=~<>*-]*$"
+
+
+class EnvCompose(_Model):
+    """A service of the project's Compose file (path relative to the spec)."""
+
+    file: str | list[str] = Field("compose.yaml", description="Compose file, or several merged in order.")
+    service: str = Field(min_length=1, description="Service the demo shell runs in.")
+
+
+class EnvBuild(_Model):
+    """Build the environment's image from a Dockerfile (paths relative to the spec)."""
+
+    context: str = Field(".", description="Build context.")
+    dockerfile: str | None = Field(None, description="Dockerfile; defaults to <context>/Dockerfile.")
+    target: str | None = Field(None, description="Build stage to stop at.")
+    args: dict[str, str] = Field({}, description="Build arguments.")
+
+
+class Environment(_Model):
+    """A project container the demo shell runs in; the rest of narratty stays outside it."""
+
+    image: str | None = Field(None, min_length=1, description="Image to run the demo shell in.")
+    build: EnvBuild | None = Field(None, description="Build the image from a Dockerfile instead.")
+    compose: EnvCompose | None = Field(None, description="Run in a service of a Compose file.")
+    container: str | None = Field(None, min_length=1, description="Run in this running container.")
+    devcontainer: str | None = Field(
+        None,
+        min_length=1,
+        description="Run as this devcontainer.json describes (image, Dockerfile or Compose service).",
+    )
+    workdir: str | None = Field(
+        None,
+        pattern=r"^/",
+        description="Where the shell starts; for image and build also where the workspace is mounted "
+        "(default /work). compose and container default to the container's working directory.",
+    )
+    user: str = Field(
+        "host",
+        pattern=r"^(host|image|[0-9]+(:[0-9]+)?|[a-z_][a-z0-9_-]*)$",
+        description="host: your user id, so files stay yours; image: the image's user; a user name; "
+        "or UID[:GID].",
+    )
+    env: dict[str, str] = Field({}, description="Variables set in the environment's container.")
+    read_only: bool = Field(False, description="Mount the image's root filesystem read-only.")
+    packages: list[Annotated[str, Field(pattern=PACKAGE_PATTERN)]] = Field(
+        [], description="Packages to add for the demo, with the image's package manager."
+    )
+    package_manager: Literal["auto", "apt", "apk", "dnf", "microdnf", "yum", "zypper"] = Field(
+        "auto", description="auto detects it in the image."
+    )
+    setup: list[Annotated[str, Field(min_length=1)]] = Field(
+        [], description="Shell commands run as root when the image is built (after packages)."
+    )
+    toolkit: Literal["prefer", "fallback", "off"] = Field(
+        "prefer",
+        description="Mount narratty's demo toolkit: first on PATH (prefer), last (fallback) or not (off).",
+    )
+
+    @model_validator(mode="after")
+    def _one_source(self) -> Environment:
+        given = [name for name in ENV_SOURCES if getattr(self, name) is not None]
+        if len(given) != 1:
+            raise ValueError(f"set exactly one of: {', '.join(ENV_SOURCES)}")
+        if self.container is not None and self.layered:
+            raise ValueError("packages and setup cannot be added to a running container")
+        if self.container is not None and self.env:
+            raise ValueError("env cannot be set for a running container")
+        return self
+
+    @property
+    def mount_point(self) -> str:
+        """Where image and build environments mount the workspace."""
+        return self.workdir or "/work"
+
+    @property
+    def layered(self) -> bool:
+        """True when narratty adds packages or setup commands on top of the image."""
+        return bool(self.packages or self.setup)
+
+    @property
+    def source(self) -> str:
+        """The key naming where the container comes from (``image``, …)."""
+        return next(name for name in ENV_SOURCES if getattr(self, name) is not None)
+
+
 class EndCard(_Model):
     """The closing "Created with narratty" card with a link and QR code to the docs."""
 
@@ -551,6 +648,7 @@ class Spec(_Model):
     requires: Requires = Requires()
     workspace: Workspace = Workspace()
     sandbox: Sandbox = Sandbox()
+    environment: Environment | None = None
     end_card: EndCard = EndCard()
     subtitles: Literal["none", "files", "track", "burn"] = Field(
         "none",
@@ -569,6 +667,14 @@ class Spec(_Model):
     def _end_card_shorthand(cls, value: Any) -> Any:
         """``end_card: false`` is short for ``end_card: {enabled: false}``."""
         return {"enabled": value} if isinstance(value, bool) else value
+
+    @model_validator(mode="after")
+    def _container_runs_in_place(self) -> Spec:
+        if self.environment is not None and self.environment.container and self.workspace.mode != "rw":
+            raise ValueError(
+                "environment.container runs in the container's own files; set workspace.mode to rw"
+            )
+        return self
 
     @model_validator(mode="after")
     def _unique_scene_ids(self) -> Spec:

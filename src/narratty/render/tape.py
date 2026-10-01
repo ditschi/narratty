@@ -88,8 +88,9 @@ def step_lines(step: Step, marks: Path | None = None) -> list[str]:
             return [f"Ctrl+{char}"]
         case Sleep(ms):
             return [f"Sleep {ms}ms"]
-        case WaitScreen(pattern, timeout_ms):
-            return [f"Wait+Screen@{timeout_ms}ms /{pattern.replace('/', '\\/')}/"]
+        case WaitScreen(pattern, timeout_ms, line):
+            scope = "Line" if line else "Screen"
+            return [f"Wait+{scope}@{timeout_ms}ms /{pattern.replace('/', '\\/')}/"]
         case Hide():
             return ["Hide"]
         case Show():
@@ -175,16 +176,24 @@ def generate_tape(
     framerate: int = FRAMERATE,
     marks: Path | None = None,
     exit_log: Path | None = None,
+    remote: bool = False,
 ) -> str:
     """The complete tape rendering ``spec`` into ``output``.
 
     ``python`` is the interpreter that runs narratty's helpers in the recorded shell
     (default: the running one). ``marks`` is where scene markers go (needed to speed
     up timelapse scenes). ``exit_log`` receives the commands' exit codes (see
-    ``narratty.render.exits``).
+    ``narratty.render.exits``). ``remote`` says the shell runs in a project environment.
     """
     tape = build_tape(
-        spec, timeline, output, python=python, framerate=framerate, marks=marks, exit_log=exit_log
+        spec,
+        timeline,
+        output,
+        python=python,
+        framerate=framerate,
+        marks=marks,
+        exit_log=exit_log,
+        remote=remote,
     )
     return tape.text
 
@@ -198,6 +207,7 @@ def build_tape(
     framerate: int = FRAMERATE,
     marks: Path | None = None,
     exit_log: Path | None = None,
+    remote: bool = False,
     fast: bool = False,
 ) -> Tape:
     """The tape rendering ``spec`` into ``output`` (see :func:`generate_tape`).
@@ -234,5 +244,5 @@ def build_tape(
         tape.steps([Sleep(timeline.tail_ms)])
     if timeline.end_card_ms:
         tape.raw("")
-        tape.steps(teardown_steps(spec) + end_card_steps(spec, timeline, python))
+        tape.steps(teardown_steps(spec) + end_card_steps(spec, timeline, python, remote=remote))
     return Tape("\n".join(tape.lines) + "\n", tuple(tape.commands), tuple(tape.pauses))

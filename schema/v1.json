@@ -180,6 +180,244 @@
       "deprecated": true,
       "deprecationMessage": "Write `key: Enter` instead."
     },
+    "EnvBuild": {
+      "additionalProperties": false,
+      "description": "Build the environment's image from a Dockerfile (paths relative to the spec).",
+      "properties": {
+        "context": {
+          "default": ".",
+          "description": "Build context.",
+          "title": "Context",
+          "type": "string"
+        },
+        "dockerfile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dockerfile; defaults to <context>/Dockerfile.",
+          "title": "Dockerfile"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Build stage to stop at.",
+          "title": "Target"
+        },
+        "args": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Build arguments.",
+          "title": "Args",
+          "type": "object"
+        }
+      },
+      "title": "EnvBuild",
+      "type": "object"
+    },
+    "EnvCompose": {
+      "additionalProperties": false,
+      "description": "A service of the project's Compose file (path relative to the spec).",
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": "compose.yaml",
+          "description": "Compose file, or several merged in order.",
+          "title": "File"
+        },
+        "service": {
+          "description": "Service the demo shell runs in.",
+          "minLength": 1,
+          "title": "Service",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service"
+      ],
+      "title": "EnvCompose",
+      "type": "object"
+    },
+    "Environment": {
+      "additionalProperties": false,
+      "description": "A project container the demo shell runs in; the rest of narratty stays outside it.",
+      "properties": {
+        "image": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Image to run the demo shell in.",
+          "title": "Image"
+        },
+        "build": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EnvBuild"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Build the image from a Dockerfile instead."
+        },
+        "compose": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EnvCompose"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run in a service of a Compose file."
+        },
+        "container": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run in this running container.",
+          "title": "Container"
+        },
+        "devcontainer": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run as this devcontainer.json describes (image, Dockerfile or Compose service).",
+          "title": "Devcontainer"
+        },
+        "workdir": {
+          "anyOf": [
+            {
+              "pattern": "^/",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where the shell starts; for image and build also where the workspace is mounted (default /work). compose and container default to the container's working directory.",
+          "title": "Workdir"
+        },
+        "user": {
+          "default": "host",
+          "description": "host: your user id, so files stay yours; image: the image's user; a user name; or UID[:GID].",
+          "pattern": "^(host|image|[0-9]+(:[0-9]+)?|[a-z_][a-z0-9_-]*)$",
+          "title": "User",
+          "type": "string"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Variables set in the environment's container.",
+          "title": "Env",
+          "type": "object"
+        },
+        "read_only": {
+          "default": false,
+          "description": "Mount the image's root filesystem read-only.",
+          "title": "Read Only",
+          "type": "boolean"
+        },
+        "packages": {
+          "default": [],
+          "description": "Packages to add for the demo, with the image's package manager.",
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9.+_:=~<>*-]*$",
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "package_manager": {
+          "default": "auto",
+          "description": "auto detects it in the image.",
+          "enum": [
+            "auto",
+            "apt",
+            "apk",
+            "dnf",
+            "microdnf",
+            "yum",
+            "zypper"
+          ],
+          "title": "Package Manager",
+          "type": "string"
+        },
+        "setup": {
+          "default": [],
+          "description": "Shell commands run as root when the image is built (after packages).",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Setup",
+          "type": "array"
+        },
+        "toolkit": {
+          "default": "prefer",
+          "description": "Mount narratty's demo toolkit: first on PATH (prefer), last (fallback) or not (off).",
+          "enum": [
+            "prefer",
+            "fallback",
+            "off"
+          ],
+          "title": "Toolkit",
+          "type": "string"
+        }
+      },
+      "title": "Environment",
+      "type": "object"
+    },
     "Focus": {
       "additionalProperties": false,
       "description": "Move the keyboard to a pane of the editor layout.",
@@ -1165,7 +1403,7 @@
     },
     "Wait": {
       "additionalProperties": false,
-      "description": "Block until ``wait.screen`` matches the terminal content.\n\n``wait: \"pattern\"`` is short for ``wait: {screen: \"pattern\"}``.",
+      "description": "Block until ``wait.screen`` matches the terminal content, or the prompt is back.\n\n``wait: \"pattern\"`` is short for ``wait: {screen: \"pattern\"}``.",
       "properties": {
         "wait": {
           "anyOf": [
@@ -1187,12 +1425,27 @@
     },
     "WaitSpec": {
       "additionalProperties": false,
-      "description": "Wait until the screen matches a regular expression.",
+      "description": "Wait until the screen matches a regular expression, or until the prompt is back.",
       "properties": {
         "screen": {
-          "minLength": 1,
-          "title": "Screen",
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Regular expression to wait for.",
+          "title": "Screen"
+        },
+        "prompt": {
+          "default": false,
+          "description": "Wait until the command has finished and the prompt is back.",
+          "title": "Prompt",
+          "type": "boolean"
         },
         "timeout_ms": {
           "anyOf": [
@@ -1211,9 +1464,6 @@
           "title": "Timeout Ms"
         }
       },
-      "required": [
-        "screen"
-      ],
       "title": "WaitSpec",
       "type": "object"
     },
@@ -1342,6 +1592,17 @@
         "ssh_agent": false,
         "docker": false
       }
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Environment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "end_card": {
       "anyOf": [

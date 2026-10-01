@@ -81,6 +81,66 @@ def test_verify_needs_both_streams(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         verify(_result(tmp_path, 10000), max_drift=0.1)
 
 
+def _env_plan(tmp_path: Path) -> Plan:
+    spec_path = tmp_path / "s.narratty.yaml"
+    spec = parse_spec("environment: {image: acme/dev:1}\nscenes: [{id: a}]\n", spec_path)
+    return Plan(spec_path, spec, (), build_timeline(spec, {}))
+
+
+def test_environment_bridge_natively(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from contextlib import contextmanager
+
+    from narratty.build import environment_bridge
+    from narratty.environment import Session
+    from narratty.workspace import PreparedWorkspace
+
+    started: list[dict[str, object]] = []
+
+    @contextmanager
+    def fake_provide(environment: object, spec: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        started.append(kwargs)
+        yield Session("podman", "env-1", "/work")
+
+    monkeypatch.setattr("narratty.env_provide.provide", fake_provide)
+    monkeypatch.setattr("narratty.runtime.container_engine", lambda: "podman")
+    monkeypatch.setattr("narratty.environment.running", lambda engine, spec_path: None)
+    workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge is not None
+        assert bridge[:2] == ["podman", "exec"] and bridge[-1] == "env-1"
+    assert started[0]["with_agent"] is False and started[0]["engine"] == "podman"
+
+
+def test_environment_bridge_reuses_a_kept_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.build import environment_bridge
+    from narratty.environment import Session
+    from narratty.workspace import PreparedWorkspace
+
+    kept = Session("docker", "narratty-env-abc", "/work")
+    monkeypatch.setattr("narratty.runtime.container_engine", lambda: "docker")
+    monkeypatch.setattr("narratty.environment.running", lambda engine, spec_path: (kept, tmp_path))
+    monkeypatch.setattr("narratty.env_provide.provide", lambda *a, **k: pytest.fail("started another"))
+    workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge == kept.exec_bridge()
+
+
+def test_environment_bridge_in_the_container(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from narratty.bridge import BRIDGE_ENV, encode
+    from narratty.build import environment_bridge
+    from narratty.workspace import PreparedWorkspace
+
+    workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
+    monkeypatch.setenv("NARRATTY_IN_CONTAINER", "1")
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge is None, "the host ran it with --no-env"
+    monkeypatch.setenv(BRIDGE_ENV, encode(["narratty-agent", "connect"]))
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge == ["narratty-agent", "connect"]
+
+
 class FakeMedia:
     """VHS, ffprobe and ffmpeg replaced; records what mux was asked to do."""
 
@@ -92,7 +152,9 @@ class FakeMedia:
         monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(video_ms, True, True))
         monkeypatch.setattr(media, "mux", self._mux)
 
-    def _render(self, planned: Plan, video: Path, work: Path, workspace: Path, **kwargs: object) -> None:
+    def _render(
+        self, planned: Plan, video: Path, work: Path, workspace: Path, bridge: object = None, **kwargs: object
+    ) -> None:
         self.render_kwargs = kwargs
         video.write_bytes(b"mp4")
 
@@ -258,7 +320,6 @@ def test_fast_render_places_cues_after_the_filled_pauses(
     import dataclasses
 
     from narratty.build import plan, render_silent
-
     from narratty.render import pauses
 
     fake = FakeVhs(monkeypatch, [(0, None)])

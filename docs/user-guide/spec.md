@@ -64,6 +64,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `requires.tools` | `[]` | Extra commands the demo needs (checked by `doctor`) |
 | `workspace` | | What directory the demo runs in |
 | `sandbox` | | Permissions of the container |
+| `environment` | | Run the demo shell in a project image, Compose service or container |
 | `end_card` | on | Closing card, see below |
 | `subtitles` | `none` | `none`, `files`, `track` or `burn`; see [Subtitles](building.md#subtitles) |
 | `overlay_styles` | `{}` | Named overlay styles; see [Overlays](#overlays) |
@@ -127,6 +128,29 @@ you for approval before the first run.
 | `extra_mounts` | `[]` | `{host, container, mode: ro\|rw}` |
 | `ssh_agent` | `false` | Forward the host SSH agent |
 | `docker` | `false` | Give the demo your Docker or Podman engine; [full host access](container.md#docker-in-the-demo) |
+
+## `environment`
+
+Runs the demo shell in your project's image, Compose service or container; see
+[Project environments](environments.md).
+
+| Key | Default | Meaning |
+|---|---|---|
+| `image` | | Image to run the shell in |
+| `build` | | `{context, dockerfile, target, args}`: build the image instead |
+| `compose` | | `{file, service}`: run in a Compose service (`file`: one file or a list, default `compose.yaml`) |
+| `container` | | Run in this running container (needs `workspace.mode: rw`) |
+| `devcontainer` | | Run what this `devcontainer.json` (or its folder) describes |
+| `workdir` | `/work` | Where the workspace is mounted and the shell starts; for `compose` and `container` the container's working directory |
+| `user` | `host` | `host` (your user id), `image` (the image's user), a user name or `UID[:GID]` |
+| `env` | `{}` | Variables set in the environment's container |
+| `read_only` | `false` | Mount the image's root filesystem read-only |
+| `packages` | `[]` | Packages added with the image's package manager |
+| `package_manager` | `auto` | `auto`, `apt`, `apk`, `dnf`, `microdnf`, `yum` or `zypper` |
+| `setup` | `[]` | Commands run as root when the image is built |
+| `toolkit` | `prefer` | Mount the demo toolkit first (`prefer`) or last (`fallback`) on `PATH`, or not (`off`) |
+
+Set exactly one of `image`, `build`, `compose`, `container` and `devcontainer`.
 
 ## `end_card`
 
@@ -205,6 +229,7 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 | `key` | `- key: Enter` or `- key: Down 3` | Presses a key, optionally repeated |
 | `hold` | `- hold: 1.5s` or `- hold: auto` | Waits; `auto` waits until the narration is done |
 | `wait` | `- wait: "Done"` or `- wait: {screen: "Done", timeout_ms: 1m}` | Waits until the screen matches a regex (default timeout 15 s) |
+| `wait` | `- wait: {prompt: true, timeout_ms: 10m}` | Waits until the command has finished and the prompt is back |
 | `diff` | `- diff` or `- diff: [src, README.md]` | Shows what changed since the recording started, optionally only for some paths |
 | `focus` | `- focus: explorer` | Moves the keyboard to `explorer` or `terminal` (editor layout) |
 | `reveal` | `- reveal: src/app.py` | Selects a path, relative to the workspace, in the explorer (editor layout) |
