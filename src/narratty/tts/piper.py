@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
@@ -41,6 +42,8 @@ class PiperProvider:
     """Synthesizes with Piper; voices live in ``<data>/piper`` as ``<id>.onnx`` + ``.onnx.json``."""
 
     name = "piper"
+    # Each clip is its own process, which spends most of its time loading the voice.
+    concurrency = min(4, os.cpu_count() or 1)
 
     def __init__(
         self,

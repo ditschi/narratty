@@ -62,7 +62,12 @@ class Plan:
 
 
 def plan(
-    spec_path: Path, *, offline: bool = False, end_card: bool | None = None, draft: bool = False
+    spec_path: Path,
+    *,
+    offline: bool = False,
+    end_card: bool | None = None,
+    draft: bool = False,
+    log: Log | None = None,
 ) -> Plan:
     """Load ``spec_path``, synthesize (or reuse) its narration and compute the timeline.
 
@@ -78,7 +83,9 @@ def plan(
         return Plan(spec_path, spec, (), build_timeline(spec, estimated_audio_ms(spec)), draft=True)
     provider = get_provider(spec.tts.provider, data_dir())
     lexicon = load_lexicon(spec_path, spec.tts)
-    clips = synthesize_spec(spec, provider, AudioCache(cache_dir()), download=not offline, lexicon=lexicon)
+    clips = synthesize_spec(
+        spec, provider, AudioCache(cache_dir()), download=not offline, lexicon=lexicon, log=log
+    )
     timeline = build_timeline(spec, {clip.scene_id: clip.duration_ms for clip in clips})
     return Plan(spec_path, spec, tuple(clips), timeline)
 
@@ -212,7 +219,7 @@ def build(
     say = log or (lambda _message: None)
     output = (output or default_output(spec_path, ".draft.mp4" if draft else ".mp4")).resolve()
     say("estimating narration" if draft else "synthesizing narration")
-    planned = plan(spec_path, offline=offline, end_card=end_card, draft=draft)
+    planned = plan(spec_path, offline=offline, end_card=end_card, draft=draft, log=say)
     mode = subtitle_mode(planned, subtitles)
     warn_unenforced_sandbox(planned.spec, say)
     with (
@@ -301,7 +308,7 @@ def build_cast(
     say = log or (lambda _message: None)
     outputs = CastOutputs((output or default_output(spec_path, ".html")).resolve())
     say("synthesizing narration")
-    planned = plan(spec_path, offline=offline, end_card=end_card)
+    planned = plan(spec_path, offline=offline, end_card=end_card, log=say)
     warn_unenforced_sandbox(planned.spec, say)
     spec = planned.spec
     with (
