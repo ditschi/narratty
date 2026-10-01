@@ -31,7 +31,7 @@ from narratty.render.script import (
 from narratty.spec.model import Spec
 from narratty.timeline import Timeline
 
-__all__ = ["FRAMERATE", "Tape", "build_tape", "generate_tape", "prompt_setup", "quote_chunks"]
+__all__ = ["FRAMERATE", "Tape", "build_tape", "generate_tape", "prompt_setup", "quote_chunks", "uses_fast"]
 
 FRAMERATE = 30
 # VHS's default font list plus a Nerd Font fallback, so icons (yazi, eza --icons) render
@@ -119,7 +119,8 @@ def _section_lines(step: Mark | TimelapseEnd, marks: Path | None) -> list[str]:
 class _Writer:
     """Tape lines, the commands among them and, with ``fast``, the shortened pauses.
 
-    Pauses in timelapse scenes are not shortened; those scenes are sped up anyway.
+    A scene's own ``fast`` overrides the build's. Pauses in timelapse scenes are not
+    shortened; those scenes are sped up anyway.
     """
 
     def __init__(self, fast: bool, marks: Path | None = None) -> None:
@@ -129,6 +130,7 @@ class _Writer:
         self.commands: list[str] = []
         self.pauses: list[Pause] = []
         self._hidden = False
+        self._scene_fast = fast
         self._timelapse = False
         self._scene: str | None = None
         self._scene_command = 0
@@ -144,9 +146,10 @@ class _Writer:
             match step:
                 case Hide() | Show():
                     self._hidden = isinstance(step, Hide)
-                case Mark(scene_id, _, timelapse):
+                case Mark(scene_id, _, timelapse, scene_fast):
                     self._scene, self._scene_command = scene_id, len(self.commands)
                     self._timelapse = bool(timelapse)
+                    self._scene_fast = self.fast if scene_fast is None else scene_fast
                 case TimelapseEnd():
                     self._timelapse = False
                 case Sleep(ms) if self._shortens(ms):
@@ -155,7 +158,7 @@ class _Writer:
             self.raw(*step_lines(step, self.marks))
 
     def _shortens(self, ms: int) -> bool:
-        return self.fast and not self._hidden and not self._timelapse and ms > SETTLE_MS
+        return self._scene_fast and not self._hidden and not self._timelapse and ms > SETTLE_MS
 
 
 @dataclass(frozen=True)
@@ -165,6 +168,11 @@ class Tape:
     text: str
     commands: tuple[str, ...]
     pauses: tuple[Pause, ...]
+
+
+def uses_fast(spec: Spec, fast: bool) -> bool:
+    """Whether any scene may have its pauses shortened."""
+    return any(fast if scene.fast is None else scene.fast for scene in spec.scenes)
 
 
 def generate_tape(
@@ -212,7 +220,8 @@ def build_tape(
 ) -> Tape:
     """The tape rendering ``spec`` into ``output`` (see :func:`generate_tape`).
 
-    ``fast`` shortens long pauses (see ``narratty.render.pauses``).
+    ``fast`` shortens long pauses (see ``narratty.render.pauses``); a scene's own
+    ``fast`` overrides it.
     """
     term = spec.terminal
     tape = _Writer(fast, marks)
@@ -228,7 +237,7 @@ def build_tape(
         f"Set TypingSpeed {term.typing_speed_ms}ms",
         f"Set Framerate {framerate}",
     )
-    if fast:
+    if uses_fast(spec, fast):
         tape.raw("Set CursorBlink false")  # a repeated frame would stop the blinking
     tape.raw("")
     python = python or sys.executable

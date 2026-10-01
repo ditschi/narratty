@@ -71,6 +71,11 @@ KeepEnvOption = typer.Option(False, "--keep-env", help="Keep the environment's c
 RebuildEnvOption = typer.Option(
     False, "--rebuild-env", help="Rebuild the environment's image (Dockerfile, packages, setup)."
 )
+IgnoreExitOption = typer.Option(
+    False,
+    "--ignore-exit",
+    help="Don't check exit codes, except where a scene or `run` action sets expect_exit.",
+)
 YesOption = typer.Option(
     False, "--yes", "-y", envvar="NARRATTY_YES", help="Approve the spec's sandbox permissions without asking."
 )

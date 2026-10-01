@@ -313,3 +313,39 @@ def test_policy_can_forbid_environments(
             "render", _write_env_spec(tmp_path), runtime=Runtime.DOCKER, image="img", sandbox=SandboxRequest()
         )
     assert docker_calls == []
+
+
+def test_the_host_checks_exit_codes_logged_in_the_environment(
+    tmp_path: Path,
+    docker_calls: list[list[str]],
+    provided: list[dict[str, object]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from narratty.build import REMOTE_EXIT_LOG_ENV
+    from narratty.errors import CommandError
+
+    read: list[tuple[list[str], str]] = []
+
+    def fake_read(argv: list[str], remote: str) -> str:
+        read.append((list(argv), remote))
+        return "2\tmake all\n"
+
+    monkeypatch.setattr("narratty.build.read_remote_exit_log", fake_read)
+    spec = _write_env_spec(tmp_path)
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "narration: Hi.", "narration: Hi.\n    actions: [{run: make all}]"
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(CommandError, match="`make all` exited with 2"):
+        delegate("render", spec, runtime=Runtime.DOCKER, image="img", sandbox=SandboxRequest())
+    [(argv, remote)] = read
+    assert argv[:2] == ["docker", "exec"] and argv[-1] == "narratty-env-1"
+    assert f"{REMOTE_EXIT_LOG_ENV}={remote}" in docker_calls[0], "the recorder logs to the same file"
+    assert (
+        delegate(
+            "render", spec, runtime=Runtime.DOCKER, image="img", sandbox=SandboxRequest(), ignore_exit=True
+        )
+        == 0
+    )

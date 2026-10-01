@@ -87,10 +87,21 @@ checks the recording and fails, naming the scene, when
   programs (editors, pagers, tmux) do not count; they wait for keys.
 
 For a command that runs longer, add a `wait` for its last output before the pause, or
-build without `--fast`. The running-command check reads `/proc`, so it only works on
+set `fast: false` on the scene. The running-command check reads `/proc`, so it only works on
 Linux (natively or in the container). In the editor layout it only sees `tmux`, so
 there only the screen is checked. Pauses in [timelapse](spec.md#timelapse) scenes are
 recorded in full; those scenes are sped up anyway.
+
+A scene's `fast` overrides the command line: `fast: false` records its pauses in full
+even with `--fast`, `fast: true` fills them even without it.
+
+```yaml
+scenes:
+  - id: build
+    fast: false        # output may still arrive during the pause
+    actions:
+      - run: make
+```
 
 With `--format cast`, `--fast` skips the rest of a pause once there has been no
 output for half a second and no command is running. The cast's timestamps are the

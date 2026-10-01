@@ -89,12 +89,14 @@ class Mark:
     """Start of a section: a scene (``scene_id``) or the end card (``None``).
 
     With ``timelapse``, the scene is shown that many times faster until its
-    :class:`TimelapseEnd`.
+    :class:`TimelapseEnd`. ``fast`` is the scene's own choice about fast pauses
+    (None: the build's).
     """
 
     scene_id: str | None
     hidden: bool = False
     timelapse: float | None = None
+    fast: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -295,7 +297,7 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | 
     if timing.timelapse:
         return _timelapse_steps(scene, timing, pace, context)
     fill_at_hold = scene.narration_start == "with_actions"
-    steps: list[Step] = [Mark(scene.id, scene.hidden)]
+    steps: list[Step] = [Mark(scene.id, scene.hidden, fast=scene.fast)]
     if scene.hidden:
         steps.append(Hide())
     filled = popup = False

@@ -177,3 +177,37 @@ def test_wait_needs_one_condition() -> None:
         WaitSpec()
     with pytest.raises(ValueError, match="either screen or prompt"):
         WaitSpec(screen="x", prompt=True)
+
+
+FAST_SCENES = """\
+timing: {{lead_in_ms: 0, tail_ms: 0, narration_buffer_ms: 0}}
+end_card: false
+scenes:
+  - id: slow
+    {slow}
+    narration: Hello.
+    actions: [{{run: ls}}]
+  - id: quick
+    {quick}
+    narration: Hello.
+    actions: [{{run: ls}}]
+"""
+
+
+@pytest.mark.parametrize(
+    ("fast", "slow", "quick", "shortened"),
+    [
+        (True, "", "", ["slow", "quick"]),
+        (True, "fast: false", "", ["quick"]),
+        (False, "", "fast: true", ["quick"]),
+        (False, "", "", []),
+    ],
+)
+def test_a_scene_overrides_fast(fast: bool, slow: str, quick: str, shortened: list[str]) -> None:
+    from narratty.render.tape import build_tape
+
+    spec = parse_spec(FAST_SCENES.format(slow=slow, quick=quick), Path("t.narratty.yaml"))
+    timeline = build_timeline(spec, {"slow": 3000, "quick": 3000})
+    tape = build_tape(spec, timeline, Path("/out/v.mp4"), fast=fast)
+    assert [pause.scene_id for pause in tape.pauses] == shortened
+    assert ("Set CursorBlink false" in tape.text) == bool(shortened)

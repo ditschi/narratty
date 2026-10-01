@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,7 +27,7 @@ from narratty.runtime import Runtime, release_tag
 
 if TYPE_CHECKING:
     from narratty.build import WorkspaceOptions
-    from narratty.environment import EnvironmentOptions
+    from narratty.environment import EnvironmentOptions, Session
     from narratty.spec.model import Sandbox, Spec
 
 IMAGE_REPOSITORY = "ghcr.io/ditschi/narratty"
@@ -213,13 +214,15 @@ def delegate(
     work_dir: Path | None = None,
     extra_args: Sequence[str] = (),
     sandbox: SandboxRequest | None = None,
+    ignore_exit: bool = False,
     runner: Runner | None = None,
 ) -> int | None:
     """Run ``narratty <command>`` in a container when ``runtime`` resolves to one.
 
     ``sandbox`` is given for commands that run the demo; they get the prepared
-    workspace and the spec's sandbox permissions. Returns the container's exit code,
-    or None when the command should run natively.
+    workspace and the spec's sandbox permissions. In a project environment the host
+    checks the exit codes afterwards (``ignore_exit`` as for ``build``). Returns the
+    container's exit code, or None when the command should run natively.
     """
     from narratty.doctor import CONTAINER_TOOLS
     from narratty.errors import MissingDependencyError
@@ -245,7 +248,7 @@ def delegate(
         base.add_work_dir(work_dir)
     if sandbox is None:
         return run(base.container(), runner=runner)
-    return _run_demo(base, spec, sandbox, runner)
+    return _run_demo(base, spec, sandbox, runner, _ExitCheck(output, ignore_exit))
 
 
 def _ensure_voice(provider_name: str, voice: str) -> None:
@@ -309,11 +312,37 @@ class _Invocation:
         )
 
 
-def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runner: Runner | None) -> int:
+@dataclass(frozen=True)
+class _ExitCheck:
+    """How the host checks exit codes logged in a project environment."""
+
+    output: Path | None = None
+    ignore_exit: bool = False
+
+    def run(self, spec: Spec, session: Session, remote: str) -> None:
+        from narratty.build import read_remote_exit_log
+        from narratty.render.exits import check
+
+        text = read_remote_exit_log(session.exec_bridge(), remote)
+        if text is None:
+            return
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "exits.log"
+            log.write_text(text, encoding="utf-8")
+            check(spec, log, default="any" if self.ignore_exit else "success", output=self.output)
+
+
+def _run_demo(
+    invocation: _Invocation,
+    spec: Spec,
+    request: SandboxRequest,
+    runner: Runner | None,
+    exits: _ExitCheck | None = None,
+) -> int:
     from narratty.bridge import BRIDGE_ENV, encode
-    from narratty.build import Plan
+    from narratty.build import REMOTE_EXIT_LOG_ENV, Plan, remote_exit_log
     from narratty.env_provide import provide
-    from narratty.environment import Session, resolve, running
+    from narratty.environment import resolve, running
     from narratty.paths import cache_dir
     from narratty.sandbox import allowlist_network, container_access
     from narratty.ui.console import err
@@ -343,7 +372,12 @@ def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runn
         if network is not None:
             invocation.network = network
         invocation.env[BRIDGE_ENV] = encode(session.agent_bridge())
-        return run(invocation.container(), runner=runner)
+        # The agent cannot read files; the host reads the exit log once the recording is done.
+        invocation.env[REMOTE_EXIT_LOG_ENV] = remote = remote_exit_log()
+        code = run(invocation.container(), runner=runner)
+        if code == 0:
+            (exits or _ExitCheck()).run(spec, session, remote)
+        return code
 
     if environment is not None and (kept := running(invocation.engine.value, spec_file)) is not None:
         session, path = kept

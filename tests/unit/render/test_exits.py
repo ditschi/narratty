@@ -10,7 +10,7 @@ import pytest
 
 from narratty.errors import CommandError, ExitCode
 from narratty.render.cast import record
-from narratty.render.exits import Exit, assign, check, parse_log, problems, typed_commands
+from narratty.render.exits import Exit, Typed, assign, check, parse_log, problems, typed_commands
 from narratty.render.script import build_script, prompt_setup
 from narratty.render.shell_hooks import exit_hook
 from narratty.spec.loader import parse_spec
@@ -42,16 +42,16 @@ def _spec(text: str = SPEC) -> Spec:
     return parse_spec(text, Path("t.narratty.yaml"))
 
 
-def test_expect_exit_defaults_to_success() -> None:
-    assert [s.expect_exit for s in _spec().scenes] == ["success", "success", "failure", "any"]
+def test_expect_exit_is_unset_by_default() -> None:
+    assert [s.expect_exit for s in _spec().scenes] == [None, None, "failure", "any"]
 
 
 def test_typed_commands_are_the_lines_submitted_with_enter() -> None:
     assert typed_commands(_spec()) == [
-        ("setup", "cd demo"),
-        ("build", "make all"),
-        ("broken", "cat missing"),
-        ("flaky", "curl example.org"),
+        Typed("setup", "cd demo"),
+        Typed("build", "make all"),
+        Typed("broken", "cat missing"),
+        Typed("flaky", "curl example.org"),
     ]
 
 
@@ -61,11 +61,12 @@ def test_parse_log_skips_malformed_rows() -> None:
 
 def test_assign_ties_entries_to_scenes() -> None:
     entries = [Exit(0, "PS1=x; clear"), Exit(0, "cd demo"), Exit(0, "make all -j"), Exit(2, "make clean")]
-    assert assign(_spec(), entries) == {
-        None: [Exit(0, "PS1=x; clear")],
-        "setup": [Exit(0, "cd demo")],
-        "build": [Exit(0, "make all -j"), Exit(2, "make clean")],
-    }, "a completed line matches its prefix; unmatched lines join the scene before"
+    assert [(typed and typed.scene_id, entry) for typed, entry in assign(_spec(), entries)] == [
+        (None, Exit(0, "PS1=x; clear")),
+        ("setup", Exit(0, "cd demo")),
+        ("build", Exit(0, "make all -j")),
+        ("build", Exit(2, "make clean")),
+    ], "a completed line matches its prefix; unmatched lines join the line before"
 
 
 def test_all_expectations_met() -> None:
@@ -100,6 +101,49 @@ def test_failure_before_the_first_scene() -> None:
         "before the first scene: `setup-hook` exited with 127",
         "scene 'broken' expects a command to fail but ran none at the shell prompt",
     ]
+
+
+RUN_SPEC = """\
+end_card: false
+scenes:
+  - id: mixed
+    actions:
+      - run: make lint
+      - run: make typo
+        expect_exit: failure
+      - run: curl example.org
+        expect_exit: any
+  - id: loose
+    expect_exit: any
+    actions:
+      - run: make test
+        expect_exit: success
+"""
+
+
+def test_a_run_action_overrides_its_scene() -> None:
+    entries = [Exit(0, "make lint"), Exit(2, "make typo"), Exit(6, "curl example.org"), Exit(1, "make test")]
+    assert problems(_spec(RUN_SPEC), entries) == ["scene 'loose': `make test` exited with 1"]
+
+
+def test_a_run_action_expected_to_fail() -> None:
+    assert problems(_spec(RUN_SPEC), [Exit(0, "make lint"), Exit(0, "make typo")]) == [
+        "scene 'mixed': `make typo` is expected to fail but succeeded"
+    ]
+    assert problems(_spec(RUN_SPEC), [Exit(0, "make lint")]) == [
+        "scene 'mixed': `make typo` is expected to fail but did not run at the shell prompt"
+    ]
+
+
+def test_the_default_applies_only_where_nothing_is_set() -> None:
+    entries = [Exit(1, "make lint"), Exit(0, "make typo"), Exit(1, "make test")]
+    assert problems(_spec(RUN_SPEC), entries, default="any") == [
+        "scene 'mixed': `make typo` is expected to fail but succeeded",
+        "scene 'loose': `make test` exited with 1",
+    ]
+    assert problems(_spec(), [Exit(127, "setup-hook"), Exit(2, "make all")], default="any") == [
+        "scene 'broken' expects a command to fail but ran none at the shell prompt"
+    ], "explicit scene settings still count"
 
 
 def test_check_raises_with_its_own_exit_code(tmp_path: Path) -> None:

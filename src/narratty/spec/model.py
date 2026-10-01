@@ -87,10 +87,16 @@ class TypeCommand(_Model):
     type_command: str = Field(min_length=1)
 
 
+ExpectExit = Literal["success", "failure", "any"]
+
+
 class Run(_Model):
     """Type a command, press Enter, then pause for ``timing.run_hold_ms``."""
 
     run: str = Field(min_length=1)
+    expect_exit: ExpectExit | None = Field(
+        None, description="Exit code of this command: success, failure or any; overrides the scene's."
+    )
 
 
 class Enter(_Model):
@@ -322,9 +328,9 @@ def _action_tag(value: Any) -> str | None:
         return next(k for k in ACTION_KEYS if k in type(value).model_fields)
     if isinstance(value, str):
         return value if value in BARE_ACTIONS else None
-    if isinstance(value, dict) and len(value) == 1:
-        key = next(iter(value))
-        return key if key in ACTION_KEYS else None
+    if isinstance(value, dict):
+        keys = [key for key in value if key in ACTION_KEYS]
+        return keys[0] if len(keys) == 1 else None  # other keys are the action's options
     return None
 
 
@@ -374,10 +380,15 @@ class Scene(_Model):
         le=1000,
         description="Show the scene this many times faster (e.g. a long download).",
     )
-    expect_exit: Literal["success", "failure", "any"] = Field(
-        "success",
-        description="Exit codes of the scene's commands: success (all exit 0), "
+    expect_exit: ExpectExit | None = Field(
+        None,
+        description="Exit codes of the scene's commands: success (all exit 0, the default), "
         "failure (at least one fails) or any (not checked).",
+    )
+    fast: bool | None = Field(
+        None,
+        description="Fill long pauses with still frames (true) or record them in full (false); "
+        "overrides --fast.",
     )
 
     @field_validator("actions", mode="before")

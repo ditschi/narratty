@@ -188,7 +188,8 @@ wins over the config.
 | `pause_ms` | `timing.pause_ms` | Per-scene pause after each `key` and `ctrl_sequence` |
 | `narration_start` | `with_actions` | Or `after_actions` |
 | `timelapse` | none | Show the scene this many times faster (greater than 1) |
-| `expect_exit` | `success` | Exit codes of the scene's commands: `success`, `failure` or `any` |
+| `expect_exit` | `success` | Exit codes of the scene's commands: `success`, `failure` or `any`; see [Exit codes](#exit-codes) |
+| `fast` | `--fast` | `true`/`false`: fill long pauses with still frames or not; see [Fast pauses](building.md#fast-pauses) |
 
 A scene lasts as long as its actions or its narration plus `narration_buffer_ms`,
 whichever is longer.
@@ -223,7 +224,7 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 
 | Action | Example | Does |
 |---|---|---|
-| `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms` |
+| `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms`; may set its own `expect_exit` |
 | `type_command` | `- type_command: "ls -la"` | Types the text, without Enter |
 | `ctrl_sequence` | `- ctrl_sequence: C-c` | Presses Ctrl plus a key |
 | `key` | `- key: Enter` or `- key: Down 3` | Presses a key, optionally repeated |
@@ -256,7 +257,7 @@ layout it opens in a popup that stays until the next key press of the scene or i
 ### Exit codes
 
 narratty logs the exit code of every command line run at the shell prompt and checks
-it against the scene's `expect_exit` after recording:
+it against `expect_exit` after recording:
 
 | Value | Build fails when |
 |---|---|
@@ -270,14 +271,23 @@ it against the scene's `expect_exit` after recording:
   expect_exit: failure
   actions:
     - run: git stauts
+- id: retry
+  actions:
+    - run: make test
+    - run: curl https://example.org
+      expect_exit: any            # this command only
 ```
+
+The most specific setting wins: a `run` action's `expect_exit`, then the scene's, then
+the command line (`--ignore-exit` makes `any` the default), then `success`.
 
 The build exits with code 7 and names each offending command; the video is still
 written so you can inspect it. A line's exit code is that of its last command
 (`a; b` reports `b`). Commands stopped with `C-c` or `C-z` do not count as failures.
 Commands inside programs (a REPL, an editor, a nested shell) are not checked, nor is
 anything with `shell: sh`. In the editor layout, the terminal pane's commands are
-checked. With bash 3.2 (macOS's default) narratty turns on shell history to read the
+checked. In a [project environment](environments.md) the log is read from its container
+after recording. With bash 3.2 (macOS's default) narratty turns on shell history to read the
 command lines, so `key: Up` recalls earlier commands there.
 
 ### Overlays

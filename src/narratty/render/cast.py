@@ -141,6 +141,7 @@ class Recorder:
     ) -> None:
         self.cols, self.rows = cols, rows
         self.fast = fast
+        self._scene_fast = fast  # the current scene's own choice wins
         self.events: list[tuple[float, str, str]] = []
         self.marks: dict[str, float] = {}
         self.cues: dict[str, float] = {}
@@ -297,8 +298,10 @@ class Recorder:
     def _section(self, step: Mark | TimelapseEnd | Cue) -> None:
         """Scene starts, timelapse ends and cues: remember when they happened."""
         match step:
-            case Mark(scene_id, False, timelapse) if scene_id is not None:
-                self._start_scene(scene_id, timelapse)
+            case Mark(scene_id, hidden, timelapse, fast):
+                self._scene_fast = self.fast if fast is None else fast
+                if scene_id is not None and not hidden:
+                    self._start_scene(scene_id, timelapse)
             case TimelapseEnd():
                 self._end_timelapse(step)
             case Cue(label):
@@ -318,8 +321,8 @@ class Recorder:
         self.pump(freeze / 1000)
 
     def _may_skip(self, ms: int) -> bool:
-        """Whether a pause may end early: ``fast``, shown, long, outside timelapse scenes."""
-        return self.fast and self._hidden_since is None and self._fast is None and ms > SETTLE_MS
+        """Whether a pause may end early: fast (here), shown, long, outside timelapse scenes."""
+        return self._scene_fast and self._hidden_since is None and self._fast is None and ms > SETTLE_MS
 
     def _pause(self, seconds: float) -> None:
         """Pause, but skip the rest once the screen is still.

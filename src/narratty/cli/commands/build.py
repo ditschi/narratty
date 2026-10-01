@@ -13,6 +13,7 @@ from narratty.cli.options import (
     AllowHostOption,
     EndCardOption,
     EnvImageOption,
+    IgnoreExitOption,
     ImageOption,
     KeepEnvOption,
     KeepWorkspaceOption,
@@ -89,6 +90,7 @@ def build_command(
         help="Don't wait out long pauses: once the screen is still, fill the rest with the "
         "last frame. Fails if a pause ends while the screen is still changing.",
     ),
+    ignore_exit: bool = IgnoreExitOption,
     workspace_mode: WorkspaceMode | None = WorkspaceModeOption,
     keep_workspace: bool = KeepWorkspaceOption,
     allow_dirty: bool = AllowDirtyOption,
@@ -134,8 +136,10 @@ def build_command(
             *(["--subtitles", subtitles.value] if subtitles else []),
             *(["--draft"] if draft else []),
             *(["--fast"] if fast else []),
+            *(["--ignore-exit"] if ignore_exit else []),
         ],
         sandbox=request,
+        ignore_exit=ignore_exit,
     )
     if code is not None:
         raise typer.Exit(code)
@@ -156,6 +160,7 @@ def build_command(
                 end_card=end_card,
                 subtitles=subtitles.value if subtitles else None,
                 fast=fast,
+                ignore_exit=ignore_exit,
                 sandbox=request,
                 log=log,
             )
@@ -171,6 +176,7 @@ def build_command(
                 subtitles=subtitles.value if subtitles else None,
                 draft=draft,
                 fast=fast,
+                ignore_exit=ignore_exit,
                 sandbox=request,
                 log=log,
             )

@@ -211,3 +211,21 @@ def test_durations(value: Any, ms: int) -> None:
 def test_invalid_durations(value: str) -> None:
     with pytest.raises(ValidationError):
         Spec.model_validate(_spec(scenes=[{"id": "a", "actions": [{"hold": value}]}]))
+
+
+def test_run_takes_its_own_expect_exit() -> None:
+    from pathlib import Path
+
+    from narratty.spec.loader import parse_spec
+    from narratty.spec.model import Run
+
+    def parse(actions: str, scene: str = "") -> Spec:
+        return parse_spec(f"scenes:\n  - id: a\n{scene}    actions: {actions}\n", Path("t.narratty.yaml"))
+
+    spec = parse("[{run: make typo, expect_exit: failure}]", "    fast: false\n")
+    assert spec.scenes[0].actions == [Run(run="make typo", expect_exit="failure")]
+    assert spec.scenes[0].fast is False
+    with pytest.raises(Exception, match="exactly one of"):
+        parse("[{run: ls, key: Enter}]")
+    with pytest.raises(Exception, match="expect_exit"):
+        parse("[{key: Enter, expect_exit: any}]")

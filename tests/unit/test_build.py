@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -258,7 +259,8 @@ class FakeVhs:
         log = [media.LogLine(0.0, "File: t.tape"), media.LogLine(0.0, ""), *printed]
         log.append(media.LogLine(float(len(lines)), "Creating ..."))
         for line in log:
-            kwargs["on_line"](line, 0)
+            if kwargs.get("on_line"):
+                kwargs["on_line"](line, 0)
         return log
 
     def _repeat(self, video: Path, inserts: list[tuple[int, int]], out: Path, **kwargs: Any) -> None:
@@ -273,14 +275,16 @@ FAST_SPEC = (
 )
 
 
-def _fast_render(tmp_path: Path, *, draft: bool, logs: list[str] | None = None) -> Path:
+def _fast_render(
+    tmp_path: Path, *, draft: bool, logs: list[str] | None = None, text: str = FAST_SPEC
+) -> Path:
     """Render with ``--fast``; returns the video."""
     import dataclasses
 
     from narratty.build import plan, render_silent
 
     spec = tmp_path / "demo.narratty.yaml"
-    spec.write_text(FAST_SPEC, encoding="utf-8")
+    spec.write_text(text, encoding="utf-8")
     planned = dataclasses.replace(plan(spec, draft=True), draft=draft)
     work = tmp_path / "work"
     work.mkdir()
@@ -346,3 +350,48 @@ def test_fast_render_places_cues_after_the_filled_pauses(
     raw = recorded["positions"]
     assert before == raw["cue-overlay:a:2"], "before the pause: unchanged"
     assert after == raw["cue-overlay:a:4"] + filled_ms, "after the pause: later by the filled frames"
+
+
+def test_exit_log_in_the_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from narratty.build import REMOTE_EXIT_LOG_ENV, collect_exit_log, fresh_exit_log
+
+    (tmp_path / "exits.log").write_text("stale", encoding="utf-8")
+    remote = fresh_exit_log(tmp_path, ["docker", "exec", "-it", "dev"])
+    assert str(remote).startswith("/tmp/narratty-exits-") and not (tmp_path / "exits.log").exists()
+    monkeypatch.setenv(REMOTE_EXIT_LOG_ENV, "/tmp/given.log")
+    assert fresh_exit_log(tmp_path, ["narratty-agent", "connect"]) == Path("/tmp/given.log")
+
+    calls: list[list[str]] = []
+
+    def fake_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, "0\tls\n", "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    collect_exit_log(["narratty-agent", "connect", "--"], remote, tmp_path)
+    assert calls == [], "the agent cannot read files; the host does"
+    collect_exit_log(["docker", "exec", "--interactive", "--tty", "--workdir", "/w", "dev"], remote, tmp_path)
+    [argv] = calls
+    assert argv[:5] == ["docker", "exec", "--workdir", "/w", "dev"], "no terminal for reading a file"
+    assert argv[5:7] == ["sh", "-c"] and str(remote) in argv[7]
+    assert (tmp_path / "exits.log").read_text(encoding="utf-8") == "0\tls\n"
+
+
+def test_a_scene_can_opt_out_of_fast(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeVhs(monkeypatch, [(0, None)])
+    _fast_render(tmp_path, draft=False, text=FAST_SPEC.replace("{id: a,", "{id: a, fast: false,"))
+    assert fake.repeated == [], "the scene's pause was recorded in full"
+
+
+def test_a_scene_can_opt_in_to_fast(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import dataclasses
+
+    from narratty.build import plan, render_silent
+
+    fake = FakeVhs(monkeypatch, [(0, None)])
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(FAST_SPEC.replace("{id: a,", "{id: a, fast: true,"), encoding="utf-8")
+    planned = dataclasses.replace(plan(spec, draft=True), draft=False)
+    (tmp_path / "work").mkdir()
+    render_silent(planned, tmp_path / "v.mp4", tmp_path / "work", tmp_path)
+    assert fake.repeated, "filled without --fast"

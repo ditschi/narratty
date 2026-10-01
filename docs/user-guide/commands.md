@@ -18,6 +18,7 @@
 | `narratty build SPEC --subtitles MODE` | Add [subtitles](building.md#subtitles): `none`, `files`, `track` or `burn` |
 | `narratty build SPEC --draft` | Build a fast [draft](building.md#draft) (`demo.draft.mp4`) |
 | `narratty build SPEC --fast` | Fill long pauses with still frames instead of recording them ([fast pauses](building.md#fast-pauses)) |
+| `narratty build SPEC --ignore-exit` | Don't check exit codes, except where the spec sets `expect_exit` ([exit codes](spec.md#exit-codes)) |
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
 | `narratty env shell SPEC` | Open a shell in the spec's [project environment](environments.md) |
 | `narratty env build SPEC [--rebuild-env]` | Build the environment's image and print its tag |
@@ -48,4 +49,4 @@
 | 4 | missing dependency (tool, voice or container runtime) |
 | 5 | render or mux failure |
 | 6 | sync verification failure |
-| 7 | a recorded command exited contrary to its scene's `expect_exit` |
+| 7 | a recorded command exited contrary to its `expect_exit` |

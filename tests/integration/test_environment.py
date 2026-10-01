@@ -53,6 +53,17 @@ def test_cast_natively(tmp_path: Path) -> None:
     assert (tmp_path / "made-in-env").is_file(), "the workspace is mounted at /work"
 
 
+def test_exit_codes_are_checked_in_the_environment(tmp_path: Path) -> None:
+    from narratty.errors import CommandError
+
+    spec = _spec(tmp_path)
+    run = "      - run: test -e nothing-here\n"
+    spec.write_text(SPEC.replace("      - wait", run + "      - wait"), encoding="utf-8")
+    with pytest.raises(CommandError, match="`test -e nothing-here` exited with 1"):
+        build_cast(spec, workspace=WorkspaceOptions(mode="rw"), sandbox=SandboxRequest())
+    build_cast(spec, workspace=WorkspaceOptions(mode="rw"), sandbox=SandboxRequest(), ignore_exit=True)
+
+
 @pytest.mark.skipif(not all(shutil.which(t) for t in ("vhs", "ttyd")), reason="needs vhs and ttyd")
 def test_video_natively(tmp_path: Path) -> None:
     result = build(_spec(tmp_path), workspace=WorkspaceOptions(mode="rw"), sandbox=SandboxRequest())

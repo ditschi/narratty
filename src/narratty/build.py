@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import os
+import shlex
+import subprocess
 import tempfile
+import uuid
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass
@@ -213,25 +216,70 @@ def environment_bridge(
         yield session.exec_bridge()
 
 
-def fresh_exit_log(work: Path, bridge: Sequence[str] | None = None) -> Path | None:
-    """An empty log in ``work`` for the recorded commands' exit codes.
+REMOTE_EXIT_LOG_ENV = "NARRATTY_REMOTE_EXIT_LOG"
 
-    None with a ``bridge``: the project environment cannot reach the log, so exit codes
-    are not checked there.
+
+def fresh_exit_log(work: Path, bridge: Sequence[str] | None = None) -> Path:
+    """Where the recorded shell logs its commands' exit codes.
+
+    Locally an empty ``exits.log`` in ``work``. With a ``bridge`` the shell runs in the
+    project environment, so the log is a file there; :func:`collect_exit_log` (or the
+    host, see ``NARRATTY_REMOTE_EXIT_LOG``) copies it into ``work`` afterwards.
     """
     log = work / "exits.log"
     if bridge is not None:
         log.unlink(missing_ok=True)
-        return None
+        return Path(os.environ.get(REMOTE_EXIT_LOG_ENV) or remote_exit_log())
     log.write_text("", encoding="utf-8")
     return log
 
 
-def check_exits(planned: Plan, work: Path, output: Path) -> None:
-    """Fail when a command's exit code contradicts its scene's ``expect_exit``."""
+def remote_exit_log() -> str:
+    """A fresh path for the exit log in a project environment."""
+    return f"/tmp/narratty-exits-{uuid.uuid4().hex[:12]}.log"  # noqa: S108 - inside the environment
+
+
+def read_remote_exit_log(exec_argv: Sequence[str], remote: str) -> str | None:
+    """The log at ``remote`` in the environment, read (and removed) with ``exec_argv``.
+
+    ``exec_argv`` is a ``docker exec`` bridge; its terminal flags are dropped. None when
+    it cannot be read (an image without ``sh``).
+    """
+    argv = [arg for arg in exec_argv if arg not in ("--interactive", "--tty")]
+    quoted = shlex.quote(remote)
+    try:
+        result = subprocess.run(  # noqa: S603
+            [*argv, "sh", "-c", f"cat {quoted} 2>/dev/null; rm -f {quoted}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    return result.stdout if result.returncode == 0 else None
+
+
+def collect_exit_log(bridge: Sequence[str] | None, remote: Path, work: Path) -> None:
+    """Copy the environment's exit log into ``work`` (``docker exec`` bridges only).
+
+    In the narratty container the bridge is the agent, which cannot read files; the
+    host collects the log there once the recording is done.
+    """
+    if bridge is None or len(bridge) < 2 or bridge[1] != "exec":
+        return
+    text = read_remote_exit_log(bridge, str(remote))
+    if text is not None:
+        (work / "exits.log").write_text(text, encoding="utf-8")
+
+
+def check_exits(planned: Plan, work: Path, output: Path, *, ignore_exit: bool = False) -> None:
+    """Fail when a command's exit code contradicts its ``expect_exit``.
+
+    ``ignore_exit`` makes ``any`` the default; a scene's or action's own setting wins.
+    """
     from narratty.render.exits import check
 
-    check(planned.spec, work / "exits.log", output=output)
+    check(planned.spec, work / "exits.log", default="any" if ignore_exit else "success", output=output)
 
 
 def render_silent(
@@ -246,11 +294,11 @@ def render_silent(
 ) -> timelapse.Layout | None:
     """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``.
 
-    With a ``bridge`` the shell runs in the project environment; its exit codes are not
-    checked there.
+    With a ``bridge`` the shell runs in the project environment.
 
     ``fast`` records long pauses briefly and fills them with still frames (see
-    ``narratty.render.pauses``); a pause whose screen was not still fails the build,
+    ``narratty.render.pauses``), except in scenes with ``fast: false``; scenes with
+    ``fast: true`` do so without it. A pause whose screen was not still fails the build,
     except in a draft, which only logs it.
 
     With timelapse scenes, overlays or browser views, the tape also takes markers: the
@@ -259,13 +307,14 @@ def render_silent(
     """
     from narratty.bridge import shim_env
     from narratty.draft import FRAMERATE as DRAFT_FRAMERATE
-    from narratty.render.tape import FRAMERATE, build_tape
+    from narratty.render.tape import FRAMERATE, build_tape, uses_fast
 
     tape_path = work / "scene.tape"
+    filling = uses_fast(planned.spec, fast)
     framerate = DRAFT_FRAMERATE if planned.draft else FRAMERATE
     measured = planned.timeline.has_timelapse or has_overlays(planned.spec) or has_browsers(planned.spec)
     marks = (work / "marks").resolve() if measured else None
-    recording = work / "recording.mp4" if marks or fast else video
+    recording = work / "recording.mp4" if marks or filling else video
     if marks:
         marks.mkdir(parents=True, exist_ok=True)
     tape = build_tape(
@@ -274,13 +323,13 @@ def render_silent(
         recording.resolve(),
         framerate=framerate,
         marks=marks,
-        exit_log=fresh_exit_log(work, bridge),
+        exit_log=(exit_log := fresh_exit_log(work, bridge)),
         remote=bridge is not None,
         fast=fast,
     )
     tape_path.write_text(tape.text, encoding="utf-8")
     jobs = None
-    if fast:
+    if filling:
         from narratty.render.pauses import JobWatch
 
         jobs = JobWatch(tape.pauses)
@@ -290,6 +339,7 @@ def render_silent(
     vhs_log = media.run_vhs(
         tape_path, workspace, extra_env=extra_env, on_line=_progress_watch(jobs) if jobs else None
     )
+    collect_exit_log(bridge, exit_log, work)
     if not recording.is_file():
         raise RenderError(f"VHS finished but wrote no video to {recording}")
     if jobs is None and marks is None:
@@ -353,7 +403,7 @@ def _fill_pauses(
             raise RenderError(
                 message,
                 hint="Let the scene `wait` for the command's last output before the pause, "
-                "or build without --fast.",
+                "or set `fast: false` on the scene.",
             )
         say(f"{message}; the draft freezes the picture there anyway")
     media.repeat_frames(
@@ -460,6 +510,7 @@ def build(
     subtitles: str | None = None,
     draft: bool = False,
     fast: bool = False,
+    ignore_exit: bool = False,
     sandbox: SandboxRequest | None = None,
     log: Log | None = None,
 ) -> BuildResult:
@@ -467,7 +518,8 @@ def build(
 
     ``subtitles`` overrides the spec's ``subtitles`` (a draft burns them in by default).
     ``fast`` fills long pauses with still frames instead of recording them (a draft
-    always does). ``sandbox`` carries the command line's sandbox and environment choices.
+    always does). ``ignore_exit`` stops checking exit codes where the spec sets no
+    ``expect_exit``. ``sandbox`` carries the command line's sandbox and environment choices.
     """
     say = log or (lambda _message: None)
     output = (output or default_output(spec_path, ".draft.mp4" if draft else ".mp4")).resolve()
@@ -509,7 +561,7 @@ def build(
         if mode == "files":
             SubtitleFiles.beside(output).write(cues)
         _export_artifacts(planned, ws.path, output, say)
-        check_exits(planned, work, output)
+        check_exits(planned, work, output, ignore_exit=ignore_exit)
     result = BuildResult(output, expected_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
     return result
@@ -568,6 +620,7 @@ def build_cast(
     end_card: bool | None = None,
     subtitles: str | None = None,
     fast: bool = False,
+    ignore_exit: bool = False,
     sandbox: SandboxRequest | None = None,
     log: Log | None = None,
 ) -> BuildResult:
@@ -577,6 +630,7 @@ def build_cast(
     with any ``subtitles`` mode but ``none`` also the ``.srt`` and ``.vtt``.
     Clips are placed at the recorded start of their scene, so there is no drift to check.
     ``fast`` skips the rest of a long pause once the output has been quiet for a moment.
+    ``ignore_exit`` as in :func:`build`.
     """
     from narratty.bridge import shim_env
     from narratty.render.cast import record
@@ -600,7 +654,10 @@ def build_cast(
             env = shim_env(work / "shims", bridge, env)
         recording = record(
             build_script(
-                spec, planned.timeline, exit_log=fresh_exit_log(work, bridge), remote=bridge is not None
+                spec,
+                planned.timeline,
+                exit_log=(exit_log := fresh_exit_log(work, bridge)),
+                remote=bridge is not None,
             ),
             terminal=spec.terminal,
             cwd=ws.path,
@@ -608,6 +665,7 @@ def build_cast(
             title=spec.meta.title,
             fast=fast,
         )
+        collect_exit_log(bridge, exit_log, work)
         outputs.page.parent.mkdir(parents=True, exist_ok=True)
         outputs.cast.write_text(recording.cast, encoding="utf-8")
         say("mixing narration")
@@ -641,7 +699,7 @@ def build_cast(
         )
         outputs.page.write_text(page, encoding="utf-8")
         _export_artifacts(planned, ws.path, outputs.page, say)
-        check_exits(planned, work, outputs.page)
+        check_exits(planned, work, outputs.page, ignore_exit=ignore_exit)
     return BuildResult(outputs.page, planned.timeline.total_ms, recording.duration_ms, tuple(used))
 
 

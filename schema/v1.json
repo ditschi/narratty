@@ -901,6 +901,24 @@
           "minLength": 1,
           "title": "Run",
           "type": "string"
+        },
+        "expect_exit": {
+          "anyOf": [
+            {
+              "enum": [
+                "success",
+                "failure",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Exit code of this command: success, failure or any; overrides the scene's.",
+          "title": "Expect Exit"
         }
       },
       "required": [
@@ -1116,15 +1134,35 @@
           "title": "Timelapse"
         },
         "expect_exit": {
-          "default": "success",
-          "description": "Exit codes of the scene's commands: success (all exit 0), failure (at least one fails) or any (not checked).",
-          "enum": [
-            "success",
-            "failure",
-            "any"
+          "anyOf": [
+            {
+              "enum": [
+                "success",
+                "failure",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Expect Exit",
-          "type": "string"
+          "default": null,
+          "description": "Exit codes of the scene's commands: success (all exit 0, the default), failure (at least one fails) or any (not checked).",
+          "title": "Expect Exit"
+        },
+        "fast": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fill long pauses with still frames (true) or record them in full (false); overrides --fast.",
+          "title": "Fast"
         }
       },
       "required": [

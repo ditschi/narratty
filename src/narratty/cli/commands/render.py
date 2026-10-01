@@ -12,6 +12,7 @@ from narratty.cli.options import (
     AllowHostOption,
     EndCardOption,
     EnvImageOption,
+    IgnoreExitOption,
     ImageOption,
     KeepEnvOption,
     KeepWorkspaceOption,
@@ -41,6 +42,7 @@ def render_command(
     no_env: bool = NoEnvOption,
     keep_env: bool = KeepEnvOption,
     rebuild_env: bool = RebuildEnvOption,
+    ignore_exit: bool = IgnoreExitOption,
     yes: bool = YesOption,
     end_card: bool | None = EndCardOption,
     offline: bool = OfflineOption,
@@ -71,8 +73,9 @@ def render_command(
         runtime=runtime,
         image=image,
         output=video,
-        extra_args=[container_flag(spec, end_card)],
+        extra_args=[container_flag(spec, end_card), *(["--ignore-exit"] if ignore_exit else [])],
         sandbox=request,
+        ignore_exit=ignore_exit,
     )
     if code is not None:
         raise typer.Exit(code)
@@ -85,5 +88,5 @@ def render_command(
         environment_bridge(planned, ws, request) as bridge,
     ):
         render_silent(planned, video, work, ws.path, bridge)
-        check_exits(planned, work, video)
+        check_exits(planned, work, video, ignore_exit=ignore_exit)
     err.print(f"[green]wrote[/] {video}", highlight=False, soft_wrap=True)
