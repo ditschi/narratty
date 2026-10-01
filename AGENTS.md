@@ -21,6 +21,8 @@
   never renumber `ExitCode`.
 - Data goes to stdout, logs and errors to stderr (`narratty.ui.console`).
 - Commits and PR titles follow Conventional Commits.
+- Spec changes: additive keys keep `version: 1` and get "(since X.Y)" in `docs/user-guide/spec.md`;
+  only breaking changes get a new spec version. See `docs/contributor-guide/release-process.md`.
 
 ## Gotchas
 

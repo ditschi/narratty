@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Any, Literal
 
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from pydantic import (
     BaseModel,
     BeforeValidator,
@@ -72,6 +73,14 @@ Duration = Annotated[
         }
     ),
 ]
+
+
+def parse_requirement(value: str) -> SpecifierSet:
+    """A version requirement such as ``>=0.3`` or ``>=0.3,<1``."""
+    try:
+        return SpecifierSet(value)
+    except InvalidSpecifier as error:
+        raise ValueError(f"not a version requirement like '>=0.3': {value!r}") from error
 
 
 class _Model(BaseModel):
@@ -502,6 +511,17 @@ class Terminal(_Model):
 
 class Requires(_Model):
     tools: list[str] = []
+    narratty: str | None = Field(
+        None,
+        description="narratty versions this spec needs, e.g. '>=0.3' (checked before the rest of the spec).",
+    )
+
+    @field_validator("narratty")
+    @classmethod
+    def _specifier(cls, value: str | None) -> str | None:
+        if value is not None:
+            parse_requirement(value)
+        return value
 
 
 class Workspace(_Model):

@@ -25,6 +25,20 @@ GHCR for linux/amd64 and linux/arm64:
 
 `narratty-toolkit` gets the same tags.
 
+## Spec changes
+
+The spec's `version` and `schema/vN.json` mark breaking changes only.
+
+| Change | What to do |
+|---|---|
+| New key, action, value or short form | Keep `version: 1`; add "(since X.Y)" to the key in `docs/user-guide/spec.md` and the release to its [Spec versions](../user-guide/spec.md#spec-versions) table |
+| Default changed, e.g. a timing (like `timing.pause_ms` in 0.3) | Keep `version: 1`; say in the changelog how to get the old behaviour |
+| Key removed or renamed, or its meaning changed so that existing specs fail or do something else | New `version: 2` with `schema/v2.json`; keep reading `version: 1` for at least one minor release and say how to migrate in the changelog |
+| Something deprecated (like the bare `- enter`) | Keep accepting it; mark it `deprecated` in the schema and add a `validate` hint |
+
+`schema/v1.json` is regenerated with `narratty schema > schema/v1.json` (a unit test
+checks it), and each release tag serves its own copy.
+
 ## One-time setup
 
 - PyPI and TestPyPI: add a *trusted publisher* for `ditschi/narratty`, workflow
