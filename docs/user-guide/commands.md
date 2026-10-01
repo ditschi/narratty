@@ -20,6 +20,8 @@
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
 | `narratty env shell SPEC` | Open a shell in the spec's [project environment](environments.md) |
 | `narratty env build SPEC [--rebuild-env]` | Build the environment's image and print its tag |
+| `narratty env up SPEC` | Start the environment and keep it; `build`, `render` and `env shell` reuse it |
+| `narratty env down SPEC` | Remove what `env up` started |
 
 `plan`, `tape`, `render` and `build` take `--end-card` / `--no-end-card` to override
 [`end_card`](spec.md#end_card). `build` and `render` also take `--workspace-mode`,

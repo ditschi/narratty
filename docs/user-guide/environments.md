@@ -1,8 +1,9 @@
 # Project environments
 
 By default the demo shell runs in the narratty image. When the demo needs your
-project's own toolchain, run the shell in the project's image instead. Only the shell
-moves: VHS, Chromium, the voices and ffmpeg stay in narratty.
+project's own toolchain, run the shell in the project's image, Compose service or dev
+container instead. Only the shell moves: VHS, Chromium, the voices and ffmpeg stay in
+narratty, and the project's image needs no change.
 
 ```yaml
 environment:
@@ -12,7 +13,8 @@ environment:
 ```
 
 The image needs Linux (amd64 or arm64) and the [`terminal.shell`](spec.md#terminal).
-Without `environment`, nothing changes.
+Without `environment`, nothing changes. Set exactly one source: `image`, `build`,
+`compose` or `container`.
 
 ## Build from a Dockerfile
 
@@ -27,6 +29,38 @@ environment:
     target: dev
     args: {PY: "3.12"}
 ```
+
+## Run in a Compose service
+
+```yaml
+environment:
+  compose:
+    file: compose.yaml    # relative to the spec
+    service: dev
+```
+
+narratty starts the Compose project from the [workspace](container.md#workspace-modes)
+(a snapshot by default), so the service's relative mounts such as `.:/src` point at
+it. It waits until the services are up (`up --wait`), runs the demo shell in `dev`,
+and removes the project with its volumes afterwards. The shell starts in the service's
+`working_dir` unless `workdir` is set. Networks, mounts and privileges come from the
+Compose file, including `network_mode: host`; the sandbox rules do not apply to them.
+
+A devcontainer that uses Compose works the same way: point `file` and `service` at the
+`dockerComposeFile` and `service` of `devcontainer.json`.
+
+## Run in a running container
+
+```yaml
+environment:
+  container: dev        # name or id
+  user: image
+workspace:
+  mode: rw              # required: the demo works in the container's own files
+```
+
+narratty neither starts nor stops the container and adds no mounts; the demo shell
+starts in its working directory. Use this for a dev container you already have open.
 
 ## Extra tools for the demo
 
@@ -50,20 +84,45 @@ package manager once per image; an image without one (distroless, scratch) needs
 forces a rebuild.
 
 Because the build runs as root with network access, the first run asks for approval,
-like [sandbox permissions](container.md#you-stay-in-control).
+like [sandbox permissions](container.md#you-stay-in-control). `packages` and `setup`
+work with `image`, `build` and `compose`, not with a running container.
+
+## Demo toolkit
+
+The [toolkit](toolkit.md) (`yazi`, `bat`, `eza` and their settings) is mounted
+read-only at `/.narratty/toolkit` and put first on `PATH`; nothing is installed into
+the image. `toolkit: fallback` puts it last, so the image's own tools win;
+`toolkit: off` leaves it out. Without the toolkit image (offline, no access to GHCR)
+the demo runs without it.
+
+## Keep it running
+
+```bash
+narratty env up demo.narratty.yaml     # start and keep the environment
+narratty build demo.narratty.yaml      # uses it: no start-up, warm state
+narratty env shell demo.narratty.yaml  # look around in the same container
+narratty env down demo.narratty.yaml   # remove container, volumes and snapshot
+```
+
+While it runs, `build`, `render` and `env shell` reuse it instead of starting a new
+one. The demo then sees what earlier runs left behind, so reset state in a hidden
+scene when a video must start clean.
 
 ## How it runs
 
 1. narratty pulls or builds the image, prepares the
    [workspace](container.md#workspace-modes) and starts the image with the workspace
-   mounted at `workdir`.
+   mounted at `workdir` (or starts the Compose service, or attaches to the container).
 2. In a [sandboxed run](container.md), the static `narratty-agent` from the narratty
    image is mounted read-only into that container. It serves the demo shell over a
    socket in a small volume shared with the narratty container, which keeps no network
-   and no access to Docker. In a native run, `docker exec` opens the shell.
+   and no access to Docker. For a running container the agent is copied in, serves one
+   shell on an abstract socket and is removed afterwards. In a native run,
+   `docker exec` opens the shell.
 3. The recording types into that shell. The end card is drawn by narratty after the
    demo shell has exited.
 4. The container is removed afterwards. `--keep-env` keeps it and prints how to enter it.
+   A running container is left as it was.
 
 ## Rules and permissions
 
@@ -81,14 +140,34 @@ in native runs too: `network`, `allow_hosts`, `env`, `env_passthrough`, `extra_m
 `read_only: true` also mounts the image's root filesystem read-only (off by default,
 since project images often write outside the workspace).
 
+`compose` and `container` run with what the Compose file or the container already
+has, so the first run asks for approval for them too.
+
 A policy in `~/.config/narratty/config.toml` limits which kinds of environments a spec
 may use:
 
 ```toml
 [sandbox]
-allow_environment = ["image", "build"]   # [] forbids environments
+allow_environment = ["image", "build"]   # also "compose", "container"; [] forbids environments
 allow_packages = false                   # no packages or setup commands
 ```
+
+## Builds with a warm cache
+
+Keep the checkout clean and the build fast: the default `snapshot` workspace gives
+the build a writable copy, and `workspace.caches` keeps caches across runs in named
+volumes.
+
+```yaml
+workspace:
+  mode: snapshot                      # default; writes never reach your checkout
+  caches: {bazel: ~/.cache/bazel}     # persists between runs
+environment:
+  image: ghcr.io/acme/toolchain:2.3
+```
+
+To wait for a long build, end the command with a marker and wait for it, for example
+`bazel build //... && echo BUILD-OK` with `wait: {screen: "BUILD-OK", timeout_ms: 900000}`.
 
 ## Command line
 
@@ -100,6 +179,8 @@ narratty build demo.narratty.yaml --keep-env               # keep the container 
 narratty build demo.narratty.yaml --rebuild-env            # rebuild Dockerfile and packages
 narratty env build demo.narratty.yaml                      # build the image only
 narratty env shell demo.narratty.yaml                      # interactive shell, same setup
+narratty env up demo.narratty.yaml                         # start and keep it
+narratty env down demo.narratty.yaml                       # remove it
 ```
 
 `narratty env shell` starts the environment like a build would, with the same bridge,

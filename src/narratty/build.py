@@ -170,9 +170,16 @@ def environment_bridge(
         yield None
         return
     from narratty.container import SandboxRequest, approved_sandbox, image_ref
-    from narratty.environment import provide
+    from narratty.env_provide import provide
+    from narratty.environment import running
     from narratty.runtime import container_engine
 
+    engine = container_engine()
+    if (kept := running(engine, planned.spec_path)) is not None:
+        if log:
+            log(f"using the environment {kept[0].container} from `narratty env up`")
+        yield kept[0].exec_bridge()
+        return
     request = request or SandboxRequest()
     sandbox = approved_sandbox(planned.spec_path, planned.spec, request)
     with provide(
@@ -181,7 +188,7 @@ def environment_bridge(
         spec_dir=planned.spec_path.resolve().parent,
         sandbox=sandbox,
         workspace=workspace,
-        engine=container_engine(),
+        engine=engine,
         narratty_image=image_ref(),
         with_agent=False,
         keep=request.environment.keep,

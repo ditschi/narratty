@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -74,3 +75,14 @@ def container_engine(*, which: Which | None = None) -> str:
     raise MissingDependencyError(
         "the spec's environment needs Docker or Podman", hint="Install one, or pass --no-env."
     )
+
+
+_RELEASE = re.compile(r"^\d+\.\d+\.\d+$")
+
+
+def release_tag(version: str | None = None) -> str:
+    """Image tag for ``version`` (default: this one): the version itself, ``edge`` for development builds."""
+    from narratty import __version__
+
+    tag = __version__ if version is None else version
+    return tag if _RELEASE.match(tag) else "edge"

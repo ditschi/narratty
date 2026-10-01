@@ -25,12 +25,11 @@ import uuid
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
-from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from narratty.errors import MissingDependencyError, NarrattyError, UsageError
-from narratty.spec.model import ENV_SOURCES, Environment, Sandbox, Spec
+from narratty.spec.model import ENV_SOURCES, Environment
 
 if TYPE_CHECKING:
     from narratty.sandbox import ContainerAccess, Policy
@@ -241,46 +240,112 @@ def _extract(engine: str, image: str, source: str, dest: Path, run: Engine) -> N
 
 @dataclass(frozen=True)
 class Session:
-    """A running environment container."""
+    """A running environment container and how to reach its shell."""
 
     engine: str
     container: str
-    workdir: str
-    volume: str | None = None
+    workdir: str | None = None
+    volume: str | None = None  # holds the agent's socket (image, build, compose)
+    socket: str | None = None  # an abstract socket in the container's network (container)
+    user: str | None = None  # for exec, when the container runs as someone else
 
     def exec_bridge(self) -> list[str]:
         """The bridge on the host: ``docker exec -it``."""
-        return [
-            self.engine, "exec", "--interactive", "--tty", "--workdir", self.workdir,
-            "--env", "TERM", "--env", "COLORTERM", self.container,
-        ]  # fmt: skip
+        argv = [self.engine, "exec", "--interactive", "--tty", "--env", "TERM", "--env", "COLORTERM"]
+        if self.workdir:
+            argv += ["--workdir", self.workdir]
+        if self.user:
+            argv += ["--user", self.user]
+        return [*argv, self.container]
 
     def agent_bridge(self) -> list[str]:
-        """The bridge in the narratty container (with the volume at ``RECORDER_RUN_DIR``)."""
-        return [RECORDER_AGENT, "connect", "--socket", f"{RECORDER_RUN_DIR}/agent.sock", "--"]
+        """The bridge in the narratty container (given :meth:`recorder_flags`)."""
+        socket = self.socket or f"{RECORDER_RUN_DIR}/agent.sock"
+        return [RECORDER_AGENT, "connect", "--socket", socket, "--"]
 
-    def recorder_volume(self) -> str:
-        """``--volume`` value giving the narratty container the agent's socket."""
+    def recorder_flags(self) -> tuple[list[str], str | None]:
+        """Volumes and network the narratty container needs to reach the agent."""
+        if self.socket is not None:
+            return [], f"container:{self.container}"
         if self.volume is None:
-            raise AssertionError("the environment was started without the agent")
-        return f"{self.volume}:{RECORDER_RUN_DIR}"
+            raise UsageError(
+                f"the environment {self.container} was started without narratty-agent",
+                hint="Remove it with `narratty env down`, then start it with a container runtime.",
+            )
+        return [f"{self.volume}:{RECORDER_RUN_DIR}"], None
 
 
-def _user_flags(engine: str, user: str) -> list[str]:
+def user_flags(engine: str, user: str) -> list[str]:
+    """``run`` flags for ``environment.user``."""
     if user == "image":
         return []
     if user != "host":
         return ["--user", user]
     if engine == "podman":
         return ["--userns", "keep-id"]
+    return ["--user", host_user()]
+
+
+def host_user() -> str:
+    """``UID:GID`` of the current user."""
     if hasattr(os, "getuid"):
-        return ["--user", f"{os.getuid()}:{os.getgid()}"]
-    return []  # pragma: no cover - Windows
+        return f"{os.getuid()}:{os.getgid()}"
+    return "1000:1000"  # pragma: no cover - Windows
 
 
 def home_for(environment: Environment, image: ImageInfo) -> str:
     """``$HOME`` in the environment (what ``~`` in mounts means)."""
     return HOST_HOME if environment.user == "host" else image.home
+
+
+def spec_key(spec_path: Path) -> str:
+    """Identifies a spec file in container names and labels."""
+    return hashlib.sha256(str(spec_path.resolve()).encode()).hexdigest()[:12]
+
+
+def create_run_volume(engine: str, name: str, run: Engine) -> None:
+    """A small tmpfs volume for the agent's socket, shared with the narratty container."""
+    _check(
+        run(
+            [
+                engine,
+                "volume",
+                "create",
+                "--label",
+                "narratty.environment=1",
+                "--opt",
+                "type=tmpfs",
+                "--opt",
+                "device=tmpfs",
+                "--opt",
+                "o=size=1m,mode=1777",
+                name,
+            ]
+        ),  # fmt: skip
+        "creating the agent's volume",
+    )
+
+
+@dataclass
+class Mounts:
+    """What goes into the environment besides the workspace."""
+
+    access: ContainerAccess
+    agent: Path | None = None
+    volume: str | None = None
+    toolkit: Path | None = None
+    labels: dict[str, str] = field(default_factory=dict)
+
+    def volumes(self) -> list[str]:
+        """``--volume`` values."""
+        volumes = list(self.access.volumes)
+        if self.agent is not None and self.volume is not None:
+            volumes += [f"{self.agent}:{AGENT_DIR}:ro", f"{self.volume}:{RUN_DIR}"]
+        if self.toolkit is not None:
+            from narratty.env_toolkit import TOOLKIT_DIR
+
+            volumes.append(f"{self.toolkit}:{TOOLKIT_DIR}:ro")
+        return volumes
 
 
 def run_argv(
@@ -291,26 +356,25 @@ def run_argv(
     name: str,
     shell: str,
     workspace: PreparedWorkspace,
-    access: ContainerAccess,
+    mounts: Mounts,
     network: str,
-    agent: Path | None,
-    volume: str | None,
     keep: bool,
 ) -> list[str]:
-    """``run`` command for the environment's container.
+    """``run`` command for an image or build environment.
 
     The container idles in an interactive ``shell`` (it only has to stay up); demo
     shells are started next to it with ``exec``.
     """
+    workdir = environment.mount_point
     argv = [
         engine, "run", "--detach", "--interactive", "--tty", "--init", "--name", name,
         "--label", "narratty.environment=1",
         "--network", network,
         "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges",
-        *_user_flags(engine, environment.user),
-        "--workdir", environment.workdir,
-        "--volume", f"{workspace.path}:{environment.workdir}" + (":ro" if workspace.read_only else ""),
+        *user_flags(engine, environment.user),
+        "--workdir", workdir,
+        "--volume", f"{workspace.path}:{workdir}" + (":ro" if workspace.read_only else ""),
     ]  # fmt: skip
     if not keep:
         argv.append("--rm")
@@ -318,11 +382,11 @@ def run_argv(
         argv += ["--read-only", "--tmpfs", "/tmp:rw,exec,mode=1777"]
     if environment.user == "host":
         argv += ["--tmpfs", f"{HOST_HOME}:rw,mode=1777", "--env", f"HOME={HOST_HOME}"]
-    if agent is not None and volume is not None:
-        argv += ["--volume", f"{agent}:{AGENT_DIR}:ro", "--volume", f"{volume}:{RUN_DIR}"]
-    for mount in access.volumes:
-        argv += ["--volume", mount]
-    for key, value in sorted(access.env.items()):
+    for key, value in sorted(mounts.labels.items()):
+        argv += ["--label", f"{key}={value}"]
+    for volume in mounts.volumes():
+        argv += ["--volume", volume]
+    for key, value in sorted(mounts.access.env.items()):
         argv += ["--env", f"{key}={value}"]
     return [*argv, "--entrypoint", shell, image.ref]
 
@@ -335,116 +399,130 @@ def start(
     engine: str,
     shell: str,
     workspace: PreparedWorkspace,
-    access: ContainerAccess,
+    mounts: Mounts,
     network: str,
-    agent: Path | None,
+    name: str | None = None,
     keep: bool = False,
     run: Engine = _engine,
     log: Log | None = None,
 ) -> Iterator[Session]:
-    """Start the environment; with ``agent`` (a directory), serve demo shells on a socket.
+    """Start an image or build environment; with an agent, serve demo shells on a socket.
 
     Everything is removed afterwards unless ``keep``.
     """
     say = log or (lambda _message: None)
-    name = f"narratty-env-{uuid.uuid4().hex[:12]}"
-    volume = f"{name}-run" if agent is not None else None
+    name = name or f"narratty-env-{uuid.uuid4().hex[:12]}"
     with ExitStack() as cleanup:
-        if volume is not None:
-            _check(
-                run(
-                    [
-                        engine,
-                        "volume",
-                        "create",
-                        "--label",
-                        "narratty.environment=1",
-                        "--opt",
-                        "type=tmpfs",
-                        "--opt",
-                        "device=tmpfs",
-                        "--opt",
-                        "o=size=1m,mode=1777",
-                        volume,
-                    ]
-                ),  # fmt: skip
-                "creating the agent's volume",
-            )
+        if mounts.agent is not None:
+            mounts.volume = f"{name}-run"
+            mounts.labels["narratty.volume"] = mounts.volume
+            create_run_volume(engine, mounts.volume, run)
             if not keep:
-                cleanup.callback(run, [engine, "volume", "rm", "--force", volume])
+                cleanup.callback(run, [engine, "volume", "rm", "--force", mounts.volume])
+        mounts.labels["narratty.workdir"] = environment.mount_point
         say(f"starting the environment ({image.ref})")
         argv = run_argv(
             environment, image, engine=engine, name=name, shell=shell, workspace=workspace,
-            access=access, network=network, agent=agent, volume=volume, keep=keep,
+            mounts=mounts, network=network, keep=keep,
         )  # fmt: skip
-        _check(run(argv), f"starting {image.ref}")
+        result = run(argv)
+        if result.returncode != 0:
+            raise NarrattyError(
+                f"starting {image.ref} failed: {(result.stderr or result.stdout).strip()}",
+                hint=f"The image needs Linux and `{shell}` (terminal.shell).",
+            )
         if not keep:
             cleanup.callback(run, [engine, "rm", "--force", name])
-        if agent is not None:
-            _serve(engine, name, environment.workdir, run)
-        yield Session(engine, name, environment.workdir, volume)
+        if mounts.agent is not None:
+            serve_agent(engine, name, AGENT, SOCKET, environment.mount_point, run=run)
+        yield Session(engine, name, environment.mount_point, mounts.volume)
         if keep:
-            say(f"kept the environment: {engine} exec -it {name} {shell}; remove it: {engine} rm -f {name}")
+            say(f"kept the environment {name}; remove it with `narratty env down` or `{engine} rm -f {name}`")
 
 
-@contextmanager
-def provide(
-    environment: Environment,
-    spec: Spec,
-    *,
-    spec_dir: Path,
-    sandbox: Sandbox,
-    workspace: PreparedWorkspace,
-    engine: str,
-    narratty_image: str,
-    with_agent: bool,
-    keep: bool = False,
-    rebuild: bool = False,
-    run: Engine = _engine,
-    log: Log | None = None,
-) -> Iterator[Session]:
-    """Start ``environment`` for ``spec`` under the (already approved) ``sandbox`` rules.
-
-    ``narratty_image`` supplies the agent (``with_agent``) and the allowlist forwarders.
-    """
+def add_toolkit(
+    environment: Environment, image: ImageInfo, mounts: Mounts, *, engine: str, run: Engine, log: Log | None
+) -> None:
+    """Mount the demo toolkit (unless ``toolkit: off``) and put it on ``PATH``."""
+    from narratty.env_toolkit import toolkit_dir, toolkit_env
     from narratty.paths import cache_dir
-    from narratty.sandbox import allowlist_network, container_access
 
-    image = prepare_image(environment, spec_dir=spec_dir, engine=engine, rebuild=rebuild, run=run, log=log)
-    access = container_access(
-        sandbox,
-        spec_dir=spec_dir,
-        caches=spec.workspace.caches,
-        cache_root=cache_dir(),
-        home=home_for(environment, image),
-    )
-    agent = (
-        agent_dir(engine, narratty_image, image.architecture, cache=cache_dir(), run=run)
-        if with_agent
-        else None
-    )
-    launch = partial(
-        start, environment, image, engine=engine, shell=spec.terminal.shell, workspace=workspace,
-        access=access, agent=agent, keep=keep, run=run, log=log,
-    )  # fmt: skip
-    if sandbox.network != "allowlist":
-        with launch(network=access.network) as session:
-            yield session
+    if environment.toolkit == "off":
         return
-    with (
-        allowlist_network(engine, narratty_image, sandbox.allow_hosts) as network,
-        launch(network=network) as session,
-    ):
-        yield session
+    mounts.toolkit = toolkit_dir(engine, image.architecture, cache=cache_dir(), run=run, log=log)
+    if mounts.toolkit is not None:
+        mounts.access.env.update(toolkit_env(environment.toolkit, image.env.get("PATH")))
 
 
-def _serve(engine: str, container: str, workdir: str, run: Engine) -> None:
-    serve = [AGENT, "serve", "--socket", SOCKET, "--workdir", workdir]
-    _check(run([engine, "exec", "--detach", container, *serve]), "starting narratty-agent")
-    ping = run([engine, "exec", container, AGENT, "ping", "--socket", SOCKET, "--wait", READY_TIMEOUT])
+def serve_agent(
+    engine: str,
+    container: str,
+    agent: str,
+    socket: str,
+    workdir: str | None,
+    *,
+    user: str | None = None,
+    once: bool = False,
+    run: Engine = _engine,
+) -> None:
+    """Start ``agent serve`` in ``container`` and wait until it answers."""
+    serve = [agent, "serve", "--socket", socket]
+    if workdir:
+        serve += ["--workdir", workdir]
+    if once:
+        serve.append("--once")
+    as_user = ["--user", user] if user else []
+    _check(run([engine, "exec", "--detach", *as_user, container, *serve]), "starting narratty-agent")
+    ping = run([engine, "exec", container, agent, "ping", "--socket", socket, "--wait", READY_TIMEOUT])
     if ping.returncode != 0:
         logs = run([engine, "logs", container])
         raise NarrattyError(
             f"narratty-agent did not start in the environment: {(ping.stderr or ping.stdout).strip()}",
             hint=(logs.stdout + logs.stderr).strip()[-500:] or None,
         )
+
+
+# ── environments kept for later runs (env up / down) ──────────────────────────
+
+
+def running(engine: str, spec_path: Path, *, run: Engine = _engine) -> tuple[Session, Path] | None:
+    """The environment ``env up`` started for ``spec_path``, and its workspace."""
+    key = spec_key(spec_path)
+    found = run([engine, "ps", "--format", "{{.Names}}", "--filter", f"label=narratty.spec={key}"])
+    container = next(iter(found.stdout.split()), None) if found.returncode == 0 else None
+    if container is None:
+        return None
+    inspect = [engine, "inspect", "--format", "{{json .Config.Labels}}", container]
+    labels = json.loads(_check(run(inspect), "inspecting the environment").stdout or "{}") or {}
+    session = Session(
+        engine,
+        container,
+        labels.get("narratty.workdir") or None,
+        labels.get("narratty.volume") or None,
+        user=labels.get("narratty.user") or None,
+    )
+    return session, Path(labels["narratty.workspace"])
+
+
+def down(engine: str, spec_path: Path, *, run: Engine = _engine, log: Log | None = None) -> int:
+    """Remove every environment kept for ``spec_path``; returns how many."""
+    import shutil
+
+    key = spec_key(spec_path)
+    found = run([engine, "ps", "--all", "--quiet", "--filter", f"label=narratty.spec={key}"])
+    containers = found.stdout.split() if found.returncode == 0 else []
+    for container in containers:
+        labels = json.loads(
+            run([engine, "inspect", "--format", "{{json .Config.Labels}}", container]).stdout or "{}"
+        ) or {}  # fmt: skip
+        if project := labels.get("com.docker.compose.project"):
+            run([engine, "compose", "--project-name", project, "down", "--volumes", "--remove-orphans"])
+        else:
+            run([engine, "rm", "--force", container])
+        if volume := labels.get("narratty.volume"):
+            run([engine, "volume", "rm", "--force", volume])
+        if snapshot := labels.get("narratty.snapshot"):
+            shutil.rmtree(snapshot, ignore_errors=True)
+        if log:
+            log(f"removed {labels.get('narratty.name', container)}")
+    return len(containers)

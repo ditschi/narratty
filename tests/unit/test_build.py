@@ -99,13 +99,30 @@ def test_environment_bridge_natively(tmp_path: Path, monkeypatch: pytest.MonkeyP
         started.append(kwargs)
         yield Session("podman", "env-1", "/work")
 
-    monkeypatch.setattr("narratty.environment.provide", fake_provide)
+    monkeypatch.setattr("narratty.env_provide.provide", fake_provide)
     monkeypatch.setattr("narratty.runtime.container_engine", lambda: "podman")
+    monkeypatch.setattr("narratty.environment.running", lambda engine, spec_path: None)
     workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
     with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
         assert bridge is not None
         assert bridge[:2] == ["podman", "exec"] and bridge[-1] == "env-1"
     assert started[0]["with_agent"] is False and started[0]["engine"] == "podman"
+
+
+def test_environment_bridge_reuses_a_kept_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.build import environment_bridge
+    from narratty.environment import Session
+    from narratty.workspace import PreparedWorkspace
+
+    kept = Session("docker", "narratty-env-abc", "/work")
+    monkeypatch.setattr("narratty.runtime.container_engine", lambda: "docker")
+    monkeypatch.setattr("narratty.environment.running", lambda engine, spec_path: (kept, tmp_path))
+    monkeypatch.setattr("narratty.env_provide.provide", lambda *a, **k: pytest.fail("started another"))
+    workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
+    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+        assert bridge == kept.exec_bridge()
 
 
 def test_environment_bridge_in_the_container(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

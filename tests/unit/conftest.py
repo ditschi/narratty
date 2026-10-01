@@ -17,3 +17,4 @@ def _isolated_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NARRATTY_WORKSPACE", raising=False)
     monkeypatch.delenv("NARRATTY_BRIDGE", raising=False)
     monkeypatch.delenv("NARRATTY_AGENT_DIR", raising=False)
+    monkeypatch.delenv("NARRATTY_TOOLKIT_IMAGE", raising=False)

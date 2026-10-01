@@ -95,3 +95,72 @@ def test_packages_and_build(tmp_path: Path) -> None:
     assert "jq-" in check.stdout and "made" in check.stdout
     again = runner.invoke(app, ["env", "build", str(spec)])
     assert again.stdout.strip().splitlines()[-1] == tag, "cached"
+
+
+def _cast_output(spec: Path, mode: str = "rw") -> str:
+    result = build_cast(spec, workspace=WorkspaceOptions(mode=mode), sandbox=SandboxRequest(assume_yes=True))
+    events = [json.loads(line) for line in CastOutputs(result.output).cast.read_text().splitlines()[1:]]
+    return "".join(e[2] for e in events if e[1] == "o")
+
+
+def test_compose_service(tmp_path: Path) -> None:
+    (tmp_path / "compose.yaml").write_text(
+        f"services:\n  dev:\n    image: {IMAGE}\n    command: sleep infinity\n"
+        "    volumes: ['.:/src']\n    working_dir: /src\n",
+        encoding="utf-8",
+    )
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(SPEC.replace(f'{{image: "{IMAGE}"}}', "{compose: {service: dev}}"), encoding="utf-8")
+    output = _cast_output(spec)
+    assert "in-42" in output
+    assert (tmp_path / "made-in-env").is_file(), "the service's own mounts point at the workspace"
+    left = subprocess.run(
+        ["docker", "ps", "--all", "--quiet", "--filter", "label=narratty.environment=1"],
+        capture_output=True, text=True, check=True,
+    )  # fmt: skip
+    assert left.stdout.strip() == "", "the project is removed"
+
+
+def test_running_container(tmp_path: Path) -> None:
+    name = f"narratty-test-{os.getpid()}"
+    subprocess.run(
+        ["docker", "run", "--detach", "--name", name, "--volume", f"{tmp_path}:/src", "--workdir", "/src",
+         IMAGE, "sleep", "infinity"],
+        check=True, capture_output=True,
+    )  # fmt: skip
+    try:
+        spec = tmp_path / "demo.narratty.yaml"
+        spec.write_text(
+            "workspace: {mode: rw}\n"
+            + SPEC.replace(f'{{image: "{IMAGE}"}}', f"{{container: {name}, user: image}}"),
+            encoding="utf-8",
+        )
+        assert "in-42" in _cast_output(spec)
+        assert (tmp_path / "made-in-env").is_file()
+        running = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Running}}", name], capture_output=True, text=True
+        )
+        assert running.stdout.strip() == "true", "narratty leaves the container running"
+    finally:
+        subprocess.run(["docker", "rm", "--force", name], check=False, capture_output=True)
+
+
+def test_env_up_is_reused_until_down(tmp_path: Path) -> None:
+    spec = _spec(tmp_path)
+    runner = CliRunner()
+    up = runner.invoke(
+        app, ["env", "up", str(spec), "--workspace-mode", "rw", "--runtime", "native", "--yes"]
+    )
+    assert up.exit_code == 0, up.output
+    container = up.stdout.strip().splitlines()[-1]
+    try:
+        assert "in-42" in _cast_output(spec)
+        again = runner.invoke(app, ["env", "up", str(spec), "--runtime", "native"])
+        assert again.stdout.strip().splitlines()[-1] == container, "already running"
+    finally:
+        down = runner.invoke(app, ["env", "down", str(spec), "--runtime", "native"])
+    assert down.exit_code == 0, down.output
+    left = subprocess.run(
+        ["docker", "ps", "--all", "--quiet", "--filter", f"id={container}"], capture_output=True, text=True
+    )
+    assert left.stdout.strip() == ""

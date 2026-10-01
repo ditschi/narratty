@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func serve(socket, workdir string) error {
+func serve(socket, workdir string, once bool) error {
 	abstract := strings.HasPrefix(socket, "@")
 	if !abstract {
 		_ = os.Remove(socket)
@@ -42,6 +42,13 @@ func serve(socket, workdir string) error {
 			}
 			return err
 		}
+		if once { // one connection at a time; pings do not count
+			if handle(conn, workdir) {
+				listener.Close()
+				return nil
+			}
+			continue
+		}
 		go handle(conn, workdir)
 	}
 }
@@ -60,27 +67,28 @@ func mergeEnv(base []string, overrides map[string]string) []string {
 	return env
 }
 
-func handle(conn net.Conn, workdir string) {
+// handle serves one connection; it reports whether a shell ran.
+func handle(conn net.Conn, workdir string) bool {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	out := &frameWriter{w: conn}
 	h, err := readHeader(reader)
 	if err != nil {
 		_ = out.write(frameError, []byte(err.Error()))
-		return
+		return false
 	}
 	if h.Ping {
 		_ = out.exit(0)
-		return
+		return false
 	}
 	if len(h.Argv) == 0 {
 		_ = out.write(frameError, []byte("no command given"))
-		return
+		return false
 	}
 	master, slave, err := openPTY()
 	if err != nil {
 		_ = out.write(frameError, []byte(err.Error()))
-		return
+		return false
 	}
 	defer master.Close()
 	_ = setSize(master, h.Rows, h.Cols)
@@ -96,7 +104,7 @@ func handle(conn net.Conn, workdir string) {
 	slave.Close()
 	if err != nil {
 		_ = out.write(frameError, []byte(fmt.Sprintf("cannot start %s: %v", h.Argv[0], err)))
-		return
+		return false
 	}
 	pid := cmd.Process.Pid
 
@@ -144,6 +152,7 @@ func handle(conn net.Conn, workdir string) {
 		<-drained
 	}
 	_ = out.exit(exitCode(cmd.ProcessState))
+	return true
 }
 
 func exitCode(state *os.ProcessState) int {

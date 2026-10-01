@@ -23,7 +23,7 @@ max_network = "allowlist"          # none | allowlist | full
 allow_env = ["LM_LICENSE_FILE"]    # env_passthrough names a spec may use
 allow_mounts = true
 allow_ssh_agent = false
-allow_environment = ["image", "build"]  # environment sources a spec may use
+allow_environment = ["image", "build", "compose", "container"]  # sources a spec may use
 allow_packages = true              # environment.packages and setup
 ```
 

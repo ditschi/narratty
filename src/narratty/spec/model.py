@@ -295,9 +295,16 @@ class Sandbox(_Model):
         return bool(self.network != "none" or self.env_passthrough or self.extra_mounts or self.ssh_agent)
 
 
-ENV_SOURCES = ("image", "build")
+ENV_SOURCES = ("image", "build", "compose", "container")
 PACKAGE_MANAGERS = ("apt", "apk", "dnf", "microdnf", "yum", "zypper")
 PACKAGE_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9.+_:=~<>*-]*$"
+
+
+class EnvCompose(_Model):
+    """A service of the project's Compose file (path relative to the spec)."""
+
+    file: str = Field("compose.yaml", description="Compose file.")
+    service: str = Field(min_length=1, description="Service the demo shell runs in.")
 
 
 class EnvBuild(_Model):
@@ -314,8 +321,13 @@ class Environment(_Model):
 
     image: str | None = Field(None, min_length=1, description="Image to run the demo shell in.")
     build: EnvBuild | None = Field(None, description="Build the image from a Dockerfile instead.")
-    workdir: str = Field(
-        "/work", pattern=r"^/", description="Where the workspace is mounted and the shell starts."
+    compose: EnvCompose | None = Field(None, description="Run in a service of a Compose file.")
+    container: str | None = Field(None, min_length=1, description="Run in this running container.")
+    workdir: str | None = Field(
+        None,
+        pattern=r"^/",
+        description="Where the shell starts; for image and build also where the workspace is mounted "
+        "(default /work). compose and container default to the container's working directory.",
     )
     user: str = Field(
         "host",
@@ -332,13 +344,24 @@ class Environment(_Model):
     setup: list[Annotated[str, Field(min_length=1)]] = Field(
         [], description="Shell commands run as root when the image is built (after packages)."
     )
+    toolkit: Literal["prefer", "fallback", "off"] = Field(
+        "prefer",
+        description="Mount narratty's demo toolkit: first on PATH (prefer), last (fallback) or not (off).",
+    )
 
     @model_validator(mode="after")
     def _one_source(self) -> Environment:
         given = [name for name in ENV_SOURCES if getattr(self, name) is not None]
         if len(given) != 1:
             raise ValueError(f"set exactly one of: {', '.join(ENV_SOURCES)}")
+        if self.container is not None and self.layered:
+            raise ValueError("packages and setup cannot be added to a running container")
         return self
+
+    @property
+    def mount_point(self) -> str:
+        """Where image and build environments mount the workspace."""
+        return self.workdir or "/work"
 
     @property
     def layered(self) -> bool:
@@ -386,6 +409,14 @@ class Spec(_Model):
     def _end_card_shorthand(cls, value: Any) -> Any:
         """``end_card: false`` is short for ``end_card: {enabled: false}``."""
         return {"enabled": value} if isinstance(value, bool) else value
+
+    @model_validator(mode="after")
+    def _container_runs_in_place(self) -> Spec:
+        if self.environment is not None and self.environment.container and self.workspace.mode != "rw":
+            raise ValueError(
+                "environment.container runs in the container's own files; set workspace.mode to rw"
+            )
+        return self
 
     @model_validator(mode="after")
     def _unique_scene_ids(self) -> Spec:

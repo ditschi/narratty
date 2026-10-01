@@ -115,6 +115,29 @@
       "title": "EnvBuild",
       "type": "object"
     },
+    "EnvCompose": {
+      "additionalProperties": false,
+      "description": "A service of the project's Compose file (path relative to the spec).",
+      "properties": {
+        "file": {
+          "default": "compose.yaml",
+          "description": "Compose file.",
+          "title": "File",
+          "type": "string"
+        },
+        "service": {
+          "description": "Service the demo shell runs in.",
+          "minLength": 1,
+          "title": "Service",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service"
+      ],
+      "title": "EnvCompose",
+      "type": "object"
+    },
     "Environment": {
       "additionalProperties": false,
       "description": "A project container the demo shell runs in; the rest of narratty stays outside it.",
@@ -145,12 +168,45 @@
           "default": null,
           "description": "Build the image from a Dockerfile instead."
         },
+        "compose": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EnvCompose"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run in a service of a Compose file."
+        },
+        "container": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run in this running container.",
+          "title": "Container"
+        },
         "workdir": {
-          "default": "/work",
-          "description": "Where the workspace is mounted and the shell starts.",
-          "pattern": "^/",
-          "title": "Workdir",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^/",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where the shell starts; for image and build also where the workspace is mounted (default /work). compose and container default to the container's working directory.",
+          "title": "Workdir"
         },
         "user": {
           "default": "host",
@@ -199,6 +255,17 @@
           },
           "title": "Setup",
           "type": "array"
+        },
+        "toolkit": {
+          "default": "prefer",
+          "description": "Mount narratty's demo toolkit: first on PATH (prefer), last (fallback) or not (off).",
+          "enum": [
+            "prefer",
+            "fallback",
+            "off"
+          ],
+          "title": "Toolkit",
+          "type": "string"
         }
       },
       "title": "Environment",

@@ -14,7 +14,6 @@ and runs hardened: no network, all capabilities dropped, read-only root filesyst
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
@@ -23,7 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from narratty import __version__
-from narratty.runtime import Runtime
+from narratty.runtime import Runtime, release_tag
 
 if TYPE_CHECKING:
     from narratty.build import WorkspaceOptions
@@ -31,8 +30,6 @@ if TYPE_CHECKING:
     from narratty.spec.model import Sandbox, Spec
 
 IMAGE_REPOSITORY = "ghcr.io/ditschi/narratty"
-_RELEASE = re.compile(r"^\d+\.\d+\.\d+$")
-
 Runner = Callable[[Sequence[str]], int]
 
 
@@ -44,8 +41,7 @@ def image_ref(*, version: str = __version__, override: str | None = None) -> str
     override = override or os.environ.get("NARRATTY_IMAGE")
     if override:
         return override
-    tag = version if _RELEASE.match(version) else "edge"
-    return f"{IMAGE_REPOSITORY}:{tag}"
+    return f"{IMAGE_REPOSITORY}:{release_tag(version)}"
 
 
 @dataclass(frozen=True)
@@ -160,7 +156,7 @@ def approved_sandbox(spec_file: Path, spec: Spec, request: SandboxRequest) -> Sa
 
     import typer
 
-    from narratty.env_image import grants
+    from narratty.env_provide import grants
     from narratty.environment import check_policy as check_environment_policy
     from narratty.environment import resolve
     from narratty.sandbox import apply_overrides, check_policy, ensure_consent, load_policy
@@ -289,7 +285,8 @@ class _Invocation:
 def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runner: Runner | None) -> int:
     from narratty.bridge import BRIDGE_ENV, encode
     from narratty.build import Plan
-    from narratty.environment import provide, resolve
+    from narratty.env_provide import provide
+    from narratty.environment import Session, resolve, running
     from narratty.paths import cache_dir
     from narratty.sandbox import allowlist_network, container_access
     from narratty.ui.console import err
@@ -310,6 +307,20 @@ def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runn
     def log(message: str) -> None:
         err.print(f"[dim]{message}[/]", highlight=False, soft_wrap=True)
 
+    def record(session: Session) -> int:
+        # The demo runs in the environment; the recorder only reaches its agent.
+        volumes, network = session.recorder_flags()
+        invocation.volumes += volumes
+        if network is not None:
+            invocation.network = network
+        invocation.env[BRIDGE_ENV] = encode(session.agent_bridge())
+        return run(invocation.container(), runner=runner)
+
+    if environment is not None and (kept := running(invocation.engine.value, spec_file)) is not None:
+        session, path = kept
+        log(f"using the environment {session.container} from `narratty env up`")
+        invocation.mounts.append(Mount(path, CONTAINER_WORKSPACE))
+        return record(session)
     source = Plan.source_of(spec_file, spec)
     with prepare_workspace(
         source,
@@ -323,7 +334,6 @@ def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runn
     ) as workspace:
         invocation.mounts.append(Mount(workspace.path, CONTAINER_WORKSPACE, read_only=workspace.read_only))
         if environment is not None:
-            # The demo runs in the environment; the recorder only reaches its agent.
             with provide(
                 environment,
                 spec,
@@ -337,9 +347,7 @@ def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runn
                 rebuild=request.environment.rebuild,
                 log=log,
             ) as session:
-                invocation.volumes.append(session.recorder_volume())
-                invocation.env[BRIDGE_ENV] = encode(session.agent_bridge())
-                return run(invocation.container(), runner=runner)
+                return record(session)
         if sandbox.network != "allowlist":
             return run(invocation.container(), runner=runner)
         with allowlist_network(invocation.engine.value, invocation.image, sandbox.allow_hosts) as network:

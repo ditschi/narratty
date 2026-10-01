@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+from narratty.env_provide import provide
 from narratty.environment import (
     EnvironmentOptions,
     ImageInfo,
@@ -16,10 +18,10 @@ from narratty.environment import (
     agent_dir,
     check_policy,
     inspect_image,
-    provide,
     resolve,
 )
 from narratty.errors import MissingDependencyError, NarrattyError, UsageError
+from narratty.runtime import release_tag
 from narratty.spec.model import Environment, Sandbox, Spec
 from narratty.workspace import PreparedWorkspace
 
@@ -216,7 +218,7 @@ def test_agent_serves_on_a_shared_volume(tmp_path: Path, image_engine: FakeEngin
     assert f"{tmp_path / 'agents' / 'arm64'}:/.narratty/agent:ro" in run
     serve = image_engine.called("docker", "exec", "--detach")[0]
     assert serve[-5:] == ["serve", "--socket", "/.narratty/run/agent.sock", "--workdir", "/work"]
-    assert session.recorder_volume() == f"{volume}:/run/narratty"
+    assert session.recorder_flags() == ([f"{volume}:/run/narratty"], None)
     assert session.agent_bridge()[:2] == ["narratty-agent", "connect"]
     removed = [call[1:3] for call in image_engine.calls[len(during) :]]
     assert removed == [["rm", "--force"], ["volume", "rm"]]
@@ -285,3 +287,252 @@ def test_allowlist_network_for_the_environment(
     run = image_engine.called("docker", "run")[0]
     assert run[run.index("--network") + 1] == "narratty-net"
     assert used == ["narratty:1"]
+
+
+# ── the demo toolkit ──────────────────────────────────────────────────────────
+
+
+def test_toolkit_is_mounted_and_put_first_on_path(tmp_path: Path, image_engine: FakeEngine) -> None:
+    def run(argv: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        if argv[1] == "cp":  # docker cp NAME:/. DEST
+            Path(argv[3], "bin").mkdir(parents=True)
+        return image_engine(argv)
+
+    spec = _spec(tmp_path)
+    assert spec.environment is not None
+    workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
+    with provide(
+        spec.environment, spec, spec_dir=tmp_path, sandbox=spec.sandbox, workspace=workspace,
+        engine="docker", narratty_image="narratty:1", with_agent=False, run=run,
+    ):  # fmt: skip
+        pass
+    started = image_engine.called("docker", "run", "--detach")[0]
+    assert any(volume.endswith(":/.narratty/toolkit:ro") for volume in _volume_flags(started))
+    assert "PATH=/.narratty/toolkit/bin:/usr/bin" in started
+    assert image_engine.called("docker", "create", "--platform", "linux/arm64")
+
+
+def test_toolkit_off_or_missing(tmp_path: Path, image_engine: FakeEngine) -> None:
+    _, during = _provide(tmp_path, _spec(tmp_path, toolkit="off"), image_engine, with_agent=False)
+    assert not any("narratty-toolkit" in arg for call in during for arg in call)
+    toolkit = f"ghcr.io/ditschi/narratty-toolkit:{release_tag()}"
+    missing = FakeEngine(
+        {
+            ("docker", "image", "inspect", "--format", "{{.Id}}", toolkit): (1, ""),
+            ("docker", "image", "inspect"): (0, json.dumps([IMAGE])),
+        }
+    )
+    _, during = _provide(tmp_path, _spec(tmp_path), missing, with_agent=False)
+    assert missing.called("docker", "pull", "--platform", "linux/arm64", toolkit)
+    started = next(call for call in during if call[1] == "run")
+    assert not any(".narratty/toolkit" in arg for arg in started)
+
+
+def _volume_flags(argv: list[str]) -> list[str]:
+    return [argv[i + 1] for i, arg in enumerate(argv) if arg == "--volume"]
+
+
+def test_toolkit_env_prefers_or_falls_back() -> None:
+    from narratty.env_toolkit import toolkit_env
+
+    assert toolkit_env("prefer", "/bin")["PATH"] == "/.narratty/toolkit/bin:/bin"
+    assert toolkit_env("fallback", None)["PATH"].endswith(":/.narratty/toolkit/bin")
+
+
+# ── Compose ───────────────────────────────────────────────────────────────────
+
+COMPOSE_CONFIG: dict[str, Any] = {"services": {"dev": {"image": "acme/dev:1"}, "db": {"image": "postgres"}}}
+
+
+def _compose_engine() -> FakeEngine:
+    return FakeEngine(
+        {
+            ("docker", "compose"): (0, ""),
+            ("docker", "image", "inspect"): (0, json.dumps([IMAGE])),
+        }
+    )
+
+
+def _compose_run(
+    engine: FakeEngine, config: dict[str, Any] = COMPOSE_CONFIG
+) -> tuple[Callable[[Sequence[str]], subprocess.CompletedProcess[str]], list[dict[str, Any]]]:
+    overrides: list[dict[str, Any]] = []
+
+    def run(argv: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        result = engine(argv)
+        if argv[1] == "compose" and "config" in argv:
+            return subprocess.CompletedProcess(argv, 0, json.dumps(config), "")
+        if argv[1] == "compose" and "up" in argv:
+            files = [argv[i + 1] for i, arg in enumerate(argv) if arg == "--file"]
+            overrides.append(json.loads(Path(files[-1]).read_text(encoding="utf-8")))
+        if argv[1] == "compose" and "ps" in argv:
+            return subprocess.CompletedProcess(argv, 0, "c0ffee\n", "")
+        return result
+
+    return run, overrides
+
+
+def _compose_spec(tmp_path: Path, **env: object) -> tuple[Spec, PreparedWorkspace]:
+    source = tmp_path / "src"
+    snapshot = tmp_path / "snap"
+    for root in (source, snapshot):
+        root.mkdir()
+        (root / "compose.yaml").write_text("services: {}\n", encoding="utf-8")
+    spec = Spec.model_validate(
+        {"environment": {"compose": {"service": "dev"}, **env}, "scenes": [{"id": "a"}]}
+    )
+    return spec, PreparedWorkspace(snapshot, "snapshot", source)
+
+
+def test_compose_service_runs_from_the_workspace_copy(tmp_path: Path, image_engine: FakeEngine) -> None:
+    engine = _compose_engine()
+    run, overrides = _compose_run(engine)
+    spec, workspace = _compose_spec(tmp_path, toolkit="off")
+    assert spec.environment is not None
+    with provide(
+        spec.environment, spec, spec_dir=tmp_path / "src", sandbox=spec.sandbox, workspace=workspace,
+        engine="docker", narratty_image="narratty:1", with_agent=True, run=run,
+    ) as session:  # fmt: skip
+        assert session.container == "c0ffee"
+        assert session.recorder_flags() == ([f"{session.volume}:/run/narratty"], None)
+    up = next(call for call in engine.calls if "up" in call)
+    assert up[up.index("--project-directory") + 1] == str(tmp_path / "snap")
+    assert up[-4:] == ["up", "--detach", "--wait", "dev"]
+    service = overrides[0]["services"]["dev"]
+    assert f"{session.volume}" == overrides[0]["volumes"]["narratty_run"]["name"]
+    assert "narratty_run:/.narratty/run" in service["volumes"]
+    assert "image" not in service, "no packages, no derived image"
+    serve = engine.called("docker", "exec", "--detach")[0]
+    assert serve[:5] == ["docker", "exec", "--detach", "--user", serve[4]] and "c0ffee" in serve
+    downs = [call for call in engine.calls if "down" in call]
+    assert downs and "--volumes" in downs[0]
+
+
+def test_compose_layered_image_is_used(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("narratty.env_image.build_layer", lambda *a, **k: "narratty-env:123")
+    engine = _compose_engine()
+    run, overrides = _compose_run(engine)
+    spec, workspace = _compose_spec(tmp_path, toolkit="off", packages=["jq"])
+    assert spec.environment is not None
+    with provide(
+        spec.environment, spec, spec_dir=tmp_path / "src", sandbox=spec.sandbox, workspace=workspace,
+        engine="docker", narratty_image="narratty:1", with_agent=False, run=run,
+    ):  # fmt: skip
+        pass
+    service = overrides[0]["services"]["dev"]
+    assert (service["image"], service["pull_policy"]) == ("narratty-env:123", "never")
+
+
+def test_compose_errors(tmp_path: Path) -> None:
+    from narratty.env_compose import compose_file
+
+    spec, workspace = _compose_spec(tmp_path)
+    assert spec.environment is not None
+    with pytest.raises(UsageError, match="outside the workspace"):
+        compose_file(spec.environment, tmp_path, workspace)
+    run, _ = _compose_run(_compose_engine(), {"services": {"db": {"image": "postgres"}}})
+    with pytest.raises(UsageError, match="no service 'dev'"), provide(
+        spec.environment, spec, spec_dir=tmp_path / "src", sandbox=spec.sandbox, workspace=workspace,
+        engine="docker", narratty_image="narratty:1", with_agent=False, run=run,
+    ):  # fmt: skip
+        pass
+
+
+# ── a running container ───────────────────────────────────────────────────────
+
+
+def _container_engine(running: bool = True) -> FakeEngine:
+    state = {"State": {"Running": running}, "Image": "sha256:img"}
+    return FakeEngine(
+        {
+            ("docker", "inspect"): (0, json.dumps(state)),
+            ("docker", "image", "inspect"): (0, "arm64\n"),
+        }
+    )
+
+
+def _attach(tmp_path: Path, engine: FakeEngine, *, with_agent: bool, user: str = "image") -> Session:
+    spec = Spec.model_validate(
+        {
+            "environment": {"container": "dev", "user": user},
+            "workspace": {"mode": "rw"},
+            "scenes": [{"id": "a"}],
+        }
+    )
+    assert spec.environment is not None
+    with provide(
+        spec.environment, spec, spec_dir=tmp_path, sandbox=spec.sandbox,
+        workspace=PreparedWorkspace(tmp_path, "rw", tmp_path), engine="docker",
+        narratty_image="narratty:1", with_agent=with_agent, run=engine,
+    ) as session:  # fmt: skip
+        return session
+
+
+def test_container_natively_is_docker_exec(tmp_path: Path) -> None:
+    engine = _container_engine()
+    session = _attach(tmp_path, engine, with_agent=False, user="1000")
+    assert session.exec_bridge()[-3:] == ["--user", "1000", "dev"]
+    assert not engine.called("docker", "cp")
+
+
+def test_container_sandboxed_serves_one_shell(tmp_path: Path, image_engine: FakeEngine) -> None:
+    engine = _container_engine()
+    session = _attach(tmp_path, engine, with_agent=True)
+    assert session.socket is not None and session.socket.startswith("@narratty-")
+    assert session.recorder_flags() == ([], "container:dev")
+    assert session.agent_bridge()[3] == session.socket
+    copied = engine.called("docker", "cp")[0]
+    target = copied[-1].removeprefix("dev:")
+    serve = engine.called("docker", "exec", "--detach")[0]
+    assert serve[-5:] == [target, "serve", "--socket", session.socket, "--once"]
+    assert engine.calls[-2][-5:] == ["connect", "--socket", session.socket, "--", "true"]
+    assert engine.calls[-1][-3:] == ["rm", "-f", target]
+
+
+def test_container_must_run(tmp_path: Path) -> None:
+    with pytest.raises(UsageError, match="not running"):
+        _attach(tmp_path, _container_engine(running=False), with_agent=False)
+
+
+def test_container_needs_rw_and_no_packages() -> None:
+    with pytest.raises(ValueError, match="rw"):
+        Spec.model_validate({"environment": {"container": "dev"}, "scenes": [{"id": "a"}]})
+    with pytest.raises(ValueError, match="running container"):
+        Environment(container="dev", packages=["jq"])
+
+
+def test_grants_name_what_the_sandbox_does_not_cover() -> None:
+    from narratty.env_provide import grants
+
+    assert grants(Environment(image="x")) == []
+    assert "dev" in grants(Environment(container="dev"))[0]
+    assert "Compose service web" in grants(Environment(compose={"service": "web"}))[0]
+
+
+# ── env up / down ─────────────────────────────────────────────────────────────
+
+
+def test_running_and_down_find_kept_environments(tmp_path: Path) -> None:
+    from narratty.environment import down, running, spec_key
+
+    spec_path = tmp_path / "demo.narratty.yaml"
+    labels = {
+        "narratty.workdir": "/work",
+        "narratty.volume": "narratty-env-x-run",
+        "narratty.workspace": str(tmp_path / "ws"),
+        "narratty.snapshot": str(tmp_path / "snap"),
+    }
+    (tmp_path / "snap").mkdir()
+    engine = FakeEngine({("docker", "ps"): (0, "abc\n"), ("docker", "inspect"): (0, json.dumps(labels))})
+    found = running("docker", spec_path, run=engine)
+    assert found is not None
+    session, workspace = found
+    assert (session.container, session.workdir, session.volume, workspace) == (
+        "abc", "/work", "narratty-env-x-run", tmp_path / "ws"
+    )  # fmt: skip
+    assert engine.calls[0][-1] == f"label=narratty.spec={spec_key(spec_path)}"
+    assert down("docker", spec_path, run=engine) == 1
+    assert ["docker", "rm", "--force", "abc"] in engine.calls
+    assert ["docker", "volume", "rm", "--force", "narratty-env-x-run"] in engine.calls
+    assert not (tmp_path / "snap").exists()
+    assert running("docker", spec_path, run=FakeEngine({("docker", "ps"): (0, "")})) is None

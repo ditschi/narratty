@@ -4,7 +4,7 @@
 // recorder runs instead of the shell. It is statically linked, so it runs in any
 // Linux image.
 //
-//	narratty-agent serve --socket /.narratty/run/agent.sock [--workdir DIR]
+//	narratty-agent serve --socket /.narratty/run/agent.sock [--workdir DIR] [--once]
 //	narratty-agent connect --socket PATH [--env NAME]... -- bash --norc
 //	narratty-agent ping --socket PATH [--wait 10s]
 //
@@ -46,10 +46,11 @@ func run(args []string) int {
 	switch command {
 	case "serve":
 		workdir := flags.String("workdir", "", "start shells in this directory")
+		once := flags.Bool("once", false, "exit when the first shell has ended")
 		if flags.Parse(args) != nil || *socket == "" {
 			return usage()
 		}
-		if err := serve(*socket, *workdir); err != nil {
+		if err := serve(*socket, *workdir, *once); err != nil {
 			fmt.Fprintln(os.Stderr, "narratty-agent:", err)
 			return 1
 		}

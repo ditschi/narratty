@@ -13,7 +13,7 @@ import (
 func startServer(t *testing.T) string {
 	t.Helper()
 	socket := filepath.Join(t.TempDir(), "agent.sock")
-	go func() { _ = serve(socket, t.TempDir()) }()
+	go func() { _ = serve(socket, t.TempDir(), false) }()
 	if err := ping(socket, 5*time.Second); err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestReportsMissingCommand(t *testing.T) {
 
 func TestAbstractSocket(t *testing.T) {
 	socket := "@narratty-agent-test-" + strings.ReplaceAll(t.Name(), "/", "-")
-	go func() { _ = serve(socket, "") }()
+	go func() { _ = serve(socket, "", false) }()
 	if err := ping(socket, 5*time.Second); err != nil {
 		t.Fatal(err)
 	}
@@ -100,5 +100,25 @@ func TestMergeEnv(t *testing.T) {
 	slices.Sort(env)
 	if !slices.Equal(env, []string{"A=1", "B=3", "C=4"}) {
 		t.Errorf("got %v", env)
+	}
+}
+
+func TestOnceExitsAfterTheFirstShell(t *testing.T) {
+	socket := filepath.Join(t.TempDir(), "agent.sock")
+	done := make(chan error, 1)
+	go func() { done <- serve(socket, "", true) }()
+	if err := ping(socket, 5*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if _, code := session(t, socket, header{Argv: []string{"true"}}, ""); code != 0 {
+		t.Fatalf("exit code %d", code)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("still serving")
 	}
 }

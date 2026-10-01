@@ -217,7 +217,8 @@ def provided(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
         calls.append({"environment": environment, **kwargs})
         yield Session("docker", "narratty-env-1", "/work", "narratty-env-1-run")
 
-    monkeypatch.setattr("narratty.environment.provide", fake_provide)
+    monkeypatch.setattr("narratty.env_provide.provide", fake_provide)
+    monkeypatch.setattr("narratty.environment.running", lambda engine, spec_path: None)
     return calls
 
 
@@ -236,6 +237,24 @@ def test_environment_runs_the_demo_elsewhere(
     assert "narratty-agent" in bridge
     assert argv[argv.index("--network") + 1] == "none"
     assert "TZ=UTC" not in argv, "the sandbox applies to the environment, not the recorder"
+
+
+def test_a_kept_environment_is_reused(
+    tmp_path: Path,
+    docker_calls: list[list[str]],
+    provided: list[dict[str, object]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from narratty.environment import Session
+
+    kept = Session("docker", "dev", socket="@narratty-x")
+    monkeypatch.setattr("narratty.environment.running", lambda engine, spec_path: (kept, tmp_path))
+    spec = _write_env_spec(tmp_path)
+    assert delegate("render", spec, runtime=Runtime.DOCKER, image="img", sandbox=SandboxRequest()) == 0
+    assert provided == []
+    argv = docker_calls[0]
+    assert argv[argv.index("--network") + 1] == "container:dev"
+    assert any(volume.startswith(f"{tmp_path}:/work") for volume in _volumes(argv))
 
 
 def test_no_env_runs_the_demo_in_the_narratty_image(
