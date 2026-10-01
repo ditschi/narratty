@@ -112,3 +112,31 @@ scenes:
     events, _, _ = _record(spec, tmp_path)
     output = "".join(str(e[2]) for e in events if e[1] == "o")
     assert "-old" in output and "+new" in output
+
+
+def test_timelapse_scene_is_sped_up_and_held_for_its_narration(tmp_path: Path) -> None:
+    spec = parse_spec(
+        """\
+timing: {lead_in_ms: 0, tail_ms: 0, narration_buffer_ms: 0}
+terminal: {typing_speed_ms: 1}
+end_card: false
+scenes:
+  - id: start
+    actions: [{type_command: "sleep 2; echo fin''ished"}, enter]
+  - id: fast
+    timelapse: 8
+    narration: Sped up.
+    actions: [{wait: {screen: "finished", timeout_ms: 5000}}]
+  - id: next
+    actions: [{hold: 50}]
+""",
+        tmp_path / "t.narratty.yaml",
+    )
+    timeline = build_timeline(spec, {"fast": 600})
+    recording = record(
+        build_script(spec, timeline), terminal=spec.terminal, cwd=tmp_path, env=os.environ, title="T"
+    )
+    starts = recording.scene_starts_ms
+    assert starts["next"] - starts["fast"] >= 590, "held until the narration ends"
+    assert recording.narration_offsets_ms == {"fast": 0}
+    assert recording.duration_ms < 1500, "2 s of waiting took about 0.25 s"

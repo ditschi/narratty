@@ -1,12 +1,14 @@
 # syntax=docker/dockerfile:1.7
 # narratty image: the CLI plus everything a native render needs (VHS, ttyd, Chromium,
-# ffmpeg, fonts, Kokoro and Piper with a default voice each) and the demo toolkit. ttyd is not
+# ffmpeg, fonts, the Docker CLI, Kokoro and Piper with a default voice each) and the demo toolkit. ttyd is not
 # packaged in Debian trixie, so its static release binary is used. Targets:
 #   toolkit ghcr.io/ditschi/narratty-toolkit:<version>  (static demo tools, see below)
 #   base    ghcr.io/ditschi/narratty:<version>
 
 ARG PYTHON_IMAGE=docker.io/library/python:3.12-slim-trixie
 ARG RUST_IMAGE=docker.io/library/rust:1-trixie
+# Docker CLI with the Compose and Buildx plugins, for demos with `sandbox.docker: true`.
+ARG DOCKER_CLI_IMAGE=docker.io/library/docker:28-cli
 
 # ── toolkit ───────────────────────────────────────────────────────────────────
 # Statically linked demo tools (bat, delta, eza, fd, ripgrep, jq, micro, yazi, zsh,
@@ -23,6 +25,8 @@ RUN /opt/toolkit/build.sh "${TARGETARCH:-amd64}"
 
 FROM scratch AS toolkit
 COPY --from=toolkit-build /toolkit/ /
+
+FROM ${DOCKER_CLI_IMAGE} AS docker-cli
 
 # ── wheel ─────────────────────────────────────────────────────────────────────
 FROM ${PYTHON_IMAGE} AS wheel
@@ -59,6 +63,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* /tmp/vhs.deb
 
 COPY --from=toolkit / /usr/local/
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/
 RUN if command -v fc-cache >/dev/null; then fc-cache -f; fi
 
 COPY --from=wheel /dist/*.whl /tmp/

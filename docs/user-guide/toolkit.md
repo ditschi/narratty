@@ -118,10 +118,15 @@ The dev container keeps its user; nothing runs as root at run time.
 ## Onboarding videos
 
 A video that clones a repository, starts its dev container and works inside it needs
-Docker during the recording. Run it with `--runtime native`, so the demo uses Docker
-on your machine:
+Docker during the recording. Either give the sandboxed demo your engine with
+`sandbox.docker: true` ([full host access](container.md#docker-in-the-demo), you
+approve it once), or run with `--runtime native`:
 
 ```yaml
+sandbox:
+  docker: true
+  network: allowlist                   # for git clone
+  allow_hosts: [github.com:443]
 scenes:
   - id: clone
     narration: Clone the repository.
@@ -129,15 +134,22 @@ scenes:
       - type_command: git clone https://github.com/acme/app && cd app
       - enter
       - wait: {screen: "done\\.", timeout_ms: 120000}
-  - id: build                    # add the toolkit and build, both unrecorded
+  - id: toolkit                  # add the toolkit, unrecorded
     hidden: true
     actions:
       - type_command: >-
           echo 'COPY --from=ghcr.io/ditschi/narratty-toolkit:latest / /usr/local/'
-          >> .devcontainer/Dockerfile &&
-          docker compose up -d --build >/tmp/build.log 2>&1 && echo ready
+          >> .devcontainer/Dockerfile
       - enter
-      - wait: {screen: "ready", timeout_ms: 900000}
+  - id: build
+    narration: Build and start the dev container. This is sped up.
+    actions:
+      - type_command: docker compose up -d --build && echo rea""dy
+      - enter
+  - id: build-runs               # the build output, ten times faster
+    timelapse: 10
+    actions:
+      - wait: {screen: "\\nready", timeout_ms: 900000}
   - id: enter
     narration: Open a shell in the dev container.
     actions:
@@ -159,14 +171,18 @@ scenes:
 
 Things to watch:
 
-- Hidden scenes take no time in the video, so long downloads and builds disappear.
-  After a hidden scene the screen is cleared.
+- A [timelapse](spec.md#timelapse) scene shows the build sped up. To leave it out
+  instead, make the scene `hidden: true`: hidden scenes take no time in the video,
+  and the screen is cleared after them.
+- `echo rea""dy` prints `ready`, but the typed command does not match the `wait`.
 - Instead of editing the Dockerfile, the hidden scene can write the
   [Compose override](#in-a-dev-container) and start with both files.
 - The appended `COPY` line lands in the last stage of the Dockerfile. If the dev
   container builds an earlier stage (`target:`), add it there.
 - Viewers who follow the video do not have that line. Use the toolkit to show the
   project, not for steps they are meant to repeat.
+- The dev container keeps running after the render. End with a hidden scene that
+  leaves it (`exit`) and runs `docker compose down`.
 
 ## Editor layout
 

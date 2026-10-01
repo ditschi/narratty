@@ -88,3 +88,32 @@ def test_end_card_adds_to_the_total() -> None:
     card_timeline = build_timeline(with_card, {})
     assert card_timeline.end_card_ms == 3000
     assert card_timeline.total_ms == plain_timeline.total_ms + 3000
+
+
+def test_timelapse_scene_is_planned_sped_up() -> None:
+    spec = _spec(
+        """\
+timing: {narration_buffer_ms: 500, lead_in_ms: 0, tail_ms: 0}
+terminal: {typing_speed_ms: 40}
+end_card: false
+scenes:
+  - id: fast
+    timelapse: 4
+    narration: Downloading.
+    actions: [{hold: 8000}, {wait: {screen: done}}]
+  - id: late
+    timelapse: 4
+    narration: Then this.
+    narration_start: after_actions
+    actions: [{hold: 400}]
+"""
+    )
+    timeline = build_timeline(spec, {"fast": 1000, "late": 1000})
+    fast, late = timeline.scenes
+    assert (fast.timelapse, fast.fill_ms, fast.hold_ms) == (4, 0, 1500)
+    assert fast.length_ms == 2000, "8 s at 4x beats narration and buffer"
+    assert late.length_ms == 100 + 1500, "narration after the 100 ms of footage"
+    assert fast.timelapse_layout(1000) == (0, 500)
+    assert late.timelapse_layout(100) == (100, 1500)
+    assert timeline.has_timelapse
+    assert not build_timeline(SPEC, AUDIO).has_timelapse

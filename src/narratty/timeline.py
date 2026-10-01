@@ -7,6 +7,10 @@ pause, at the scene's ``hold: auto`` if it has one, else after its actions. Hidd
 scenes are not recorded and take no time. The end card, when enabled, follows the
 tail. Clip *n* is placed at its scene's start, so a timing error in one scene never
 shifts the narration of the next.
+
+A timelapse scene is recorded in real time and sped up afterwards, so its length is
+only known after recording (see :func:`timelapse_layout`); the plan counts its
+deterministic actions, sped up.
 """
 
 from __future__ import annotations
@@ -47,11 +51,21 @@ class SceneTiming:
     audio_ms: int
     fill_ms: int
     audio_offset_ms: int
+    timelapse: float | None = None
+    hold_ms: int = 0  # timelapse only: narration plus buffer, waited for after the speed-up
+    narration_after: bool = False
 
     @property
     def length_ms(self) -> int:
         """Recorded length of the scene (0 when hidden)."""
+        if self.timelapse:  # planned: waits count as 0
+            sped = round(self.action_ms / self.timelapse)
+            return sped + self.timelapse_layout(sped)[1]
         return 0 if self.hidden else self.action_ms + self.fill_ms
+
+    def timelapse_layout(self, sped_ms: int) -> tuple[int, int]:
+        """See :func:`timelapse_layout`."""
+        return timelapse_layout(sped_ms, self.hold_ms, narration_after=self.narration_after)
 
     @property
     def audio_start_ms(self) -> int:
@@ -77,6 +91,23 @@ class Timeline:
         """Timing of the scene called ``scene_id``."""
         return next(s for s in self.scenes if s.scene_id == scene_id)
 
+    @property
+    def has_timelapse(self) -> bool:
+        """True when a scene is sped up after recording."""
+        return any(s.timelapse for s in self.scenes)
+
+
+def timelapse_layout(sped_ms: int, hold_ms: int, *, narration_after: bool) -> tuple[int, int]:
+    """Where a timelapse scene's narration starts and how long its last frame is held.
+
+    ``sped_ms`` is the scene's footage after the speed-up. Narration starts with the
+    footage (or after it with ``after_actions``); the last frame stays until the
+    narration and its buffer (``hold_ms``) are done. Returns ``(offset, freeze)``.
+    """
+    if narration_after:
+        return sped_ms, hold_ms
+    return 0, max(0, hold_ms - sped_ms)
+
 
 def build_timeline(spec: Spec, audio_ms: Mapping[str, int]) -> Timeline:
     """Compute the timeline from the spec and each narrated scene's clip length."""
@@ -89,6 +120,15 @@ def build_timeline(spec: Spec, audio_ms: Mapping[str, int]) -> Timeline:
         audio = audio_ms.get(scene.id, 0) if scene.narration else 0
         if scene.hidden:
             timings.append(SceneTiming(scene.id, True, cursor, actions, 0, 0, 0))
+            continue
+        if scene.timelapse:
+            hold = audio + buffer if audio else 0
+            after = scene.narration_start == "after_actions"
+            timing = SceneTiming(
+                scene.id, False, cursor, actions, audio, 0, 0, scene.timelapse, hold, narration_after=after
+            )
+            timings.append(timing)
+            cursor += timing.length_ms
             continue
         if scene.narration_start == "after_actions":
             offset, fill = actions, audio + buffer if audio else 0

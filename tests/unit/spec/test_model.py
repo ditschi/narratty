@@ -104,6 +104,9 @@ def test_narration_whitespace_is_collapsed() -> None:
         ({"id": "a", "actions": [{"type_command": "ls", "enter": True}]}, "exactly one"),
         ({"id": "a", "actions": [{"diff": []}]}, "at least 1 item"),
         ({"id": "a", "actions": [{"diff": ""}]}, "at least 1 character"),
+        ({"id": "a", "hidden": True, "timelapse": 8}, "hidden scene cannot have a timelapse"),
+        ({"id": "a", "narration": "x", "timelapse": 8, "actions": [{"hold": "auto"}]}, "timelapse"),
+        ({"id": "a", "timelapse": 1}, "greater than 1"),
     ],
 )
 def test_invalid_scenes(scene: dict[str, Any], message: str) -> None:

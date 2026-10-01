@@ -68,6 +68,21 @@ def test_policy_caps() -> None:
         assert part in raised.value.message
 
 
+def test_policy_can_lock_the_engine(tmp_path: Path) -> None:
+    (tmp_path / "config.toml").write_text("[sandbox]\nallow_docker = false\n", encoding="utf-8")
+    policy = load_policy(tmp_path)
+    assert not policy.allow_docker
+    check_policy(_sandbox(), policy)
+    with pytest.raises(UsageError, match="allow_docker = false"):
+        check_policy(_sandbox(docker=True), policy)
+
+
+def test_engine_access_is_elevated_and_named() -> None:
+    sandbox = _sandbox(docker=True)
+    assert sandbox.elevated
+    assert describe(sandbox) == ["your Docker/Podman engine: full control of this machine, like root"]
+
+
 def test_describe() -> None:
     lines = describe(
         _sandbox(network="allowlist", allow_hosts=["lic:27000"], env_passthrough=["A"], ssh_agent=True)

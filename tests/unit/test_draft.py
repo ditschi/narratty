@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from narratty.build import plan
-from narratty.draft import draft_spec, estimate_ms, estimated_audio_ms, speaking_rate
+from narratty.draft import estimate_ms, speaking_rate
 from narratty.spec.loader import parse_spec
 
 
@@ -26,16 +26,6 @@ def test_speaking_rate(tts: str, rate: float, tmp_path: Path) -> None:
     assert speaking_rate(spec) == rate
 
 
-def test_draft_spec_halves_the_terminal(tmp_path: Path) -> None:
-    spec = parse_spec(
-        "terminal: {width: 1200, height: 150, font_size: 11}\nscenes: [{id: a, narration: Hi.}, {id: b}]\n",
-        tmp_path / "s.narratty.yaml",
-    )
-    term = draft_spec(spec).terminal
-    assert (term.width, term.height, term.font_size) == (600, 100, 6)
-    assert estimated_audio_ms(spec) == {"a": estimate_ms("Hi.")}
-
-
 def test_draft_plan_skips_tts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def no_tts(*args: object) -> None:
         raise AssertionError("a draft must not load a TTS provider")
@@ -48,4 +38,4 @@ def test_draft_plan_skips_tts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     planned = plan(path, draft=True)
     assert planned.draft and planned.clips == ()
     assert planned.timeline.scene("a").audio_ms == estimate_ms("Hello there my friend.")
-    assert planned.spec.terminal.width == 600
+    assert planned.spec.terminal.width == 1200, "same rows and columns as the real build, so `wait` matches"

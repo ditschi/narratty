@@ -193,3 +193,34 @@ def test_full_network_needs_consent(tmp_path: Path, docker_calls: list[list[str]
     )
     argv = docker_calls[-1]
     assert argv[argv.index("--network") + 1] == "bridge"
+
+
+def test_run_argv_adds_groups() -> None:
+    argv = run_argv(ContainerSpec(Runtime.DOCKER, "img", [], [], groups=["998"]))
+    assert argv[argv.index("--group-add") + 1] == "998"
+
+
+def test_engine_socket_and_host_paths(
+    tmp_path: Path, docker_calls: list[list[str]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.engine_access import EngineAccess
+
+    spec = _write_spec(tmp_path)
+    text = spec.read_text(encoding="utf-8")
+    spec.write_text(text.replace("scenes:", "sandbox: {docker: true}\nscenes:"), encoding="utf-8")
+    monkeypatch.setattr(
+        "narratty.engine_access.engine_access", lambda engine: EngineAccess("/run/d.sock", ("998",))
+    )
+    delegate(
+        "render",
+        spec,
+        runtime=Runtime.DOCKER,
+        image="img",
+        sandbox=SandboxRequest(WorkspaceOptions("rw"), assume_yes=True),
+    )
+    argv = docker_calls[-1]
+    assert "/run/d.sock:/run/docker.sock" in _volumes(argv)
+    assert argv[argv.index("--group-add") + 1] == "998"
+    assert "DOCKER_HOST=unix:///run/docker.sock" in argv
+    assert f"{tmp_path}:{tmp_path}" in _volumes(argv), "the workspace keeps its host path"
+    assert f"NARRATTY_WORKSPACE={tmp_path}" in argv

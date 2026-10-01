@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -66,16 +67,43 @@ def test_encode_mp3(tmp_path: Path) -> None:
         media.encode_mp3(Path("a.wav"), tmp_path / "a.mp3", runner=FakeRunner(returncode=1))
 
 
-def test_run_vhs_uses_the_workspace_and_reports_errors(tmp_path: Path) -> None:
-    runner = FakeRunner()
-    media.run_vhs(tmp_path / "t.tape", tmp_path, runner=runner)
-    argv, kwargs = runner.calls[0]
+def test_run_vhs_logs_lines_with_times(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(media.shutil, "which", lambda name: f"/usr/bin/{name}")
+    calls: list[tuple[list[str], dict[str, object]]] = []
+    ticks = iter([10.0, 10.5, 12.0])
+
+    @contextmanager
+    def stream(argv: list[str], **kwargs: object) -> Iterator[Iterator[str]]:
+        calls.append((argv, kwargs))
+        yield iter(["Show\n", "\x1b[1mSleep 1s\x1b[0m\n"])
+
+    log = media.run_vhs(tmp_path / "t.tape", tmp_path, stream=stream, clock=lambda: next(ticks))
+    assert log == [media.LogLine(0.5, "Show"), media.LogLine(2.0, "Sleep 1s")]
+    argv, kwargs = calls[0]
     assert argv == ["/usr/bin/vhs", str(tmp_path / "t.tape")]
     assert kwargs["cwd"] == tmp_path
+
+
+def test_run_vhs_reports_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(media.shutil, "which", lambda name: f"/usr/bin/{name}")
+
+    @contextmanager
+    def stream(argv: list[str], **_: object) -> Iterator[Iterator[str]]:
+        yield iter(["chromium crashed\n"])
+        raise subprocess.CalledProcessError(1, argv)
+
     with pytest.raises(RenderError, match="chromium crashed"):
-        media.run_vhs(
-            tmp_path / "t.tape", tmp_path, runner=FakeRunner(returncode=1, stderr="chromium crashed")
-        )
+        media.run_vhs(tmp_path / "t.tape", tmp_path, stream=stream)
+
+
+def test_run_vhs_streams_a_real_process(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    script = tmp_path / "vhs"
+    script.write_text("#!/bin/sh\necho Hide\necho Show\nexit $1\n", encoding="utf-8")
+    script.chmod(0o755)
+    monkeypatch.setattr(media, "require", lambda tool: str(script))
+    assert [line.text for line in media.run_vhs(Path("0"), tmp_path)] == ["Hide", "Show"]
+    with pytest.raises(RenderError, match="Show"):
+        media.run_vhs(Path("3"), tmp_path)
 
 
 def test_vhs_env_disables_the_sandbox_in_containers() -> None:
@@ -111,8 +139,18 @@ def test_mux_burns_subtitles_in(tmp_path: Path) -> None:
         Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", subtitles=srt, burn=True, fast=True, runner=runner
     )
     argv, kwargs = runner.calls[0]
-    assert argv[argv.index("-vf") + 1].startswith("subtitles=subtitles.srt:force_style=")
+    subtitles, scale = argv[argv.index("-vf") + 1].rsplit(",", 1)
+    assert subtitles.startswith("subtitles=subtitles.srt:force_style=")
+    assert scale == "scale=trunc(iw/4)*2:trunc(ih/4)*2", "drafts shrink after drawing the text"
     assert argv[argv.index("-c:v") + 1] == "libx264"
     assert argv[argv.index("-preset") + 1] == "ultrafast"
     assert "-c:s" not in argv
     assert kwargs["cwd"] == tmp_path
+
+
+def test_draft_mux_without_subtitles_still_shrinks(tmp_path: Path) -> None:
+    runner = FakeRunner()
+    media.mux(Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", fast=True, runner=runner)
+    argv = runner.calls[0][0]
+    assert argv[argv.index("-vf") + 1] == "scale=trunc(iw/4)*2:trunc(ih/4)*2"
+    assert argv[argv.index("-c:v") + 1] == "libx264"

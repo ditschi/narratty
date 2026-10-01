@@ -108,6 +108,7 @@ you for approval before the first run.
 | `env` | `{}` | Fixed environment variables |
 | `extra_mounts` | `[]` | `{host, container, mode: ro\|rw}` |
 | `ssh_agent` | `false` | Forward the host SSH agent |
+| `docker` | `false` | Give the demo your Docker or Podman engine; [full host access](container.md#docker-in-the-demo) |
 
 ## `end_card`
 
@@ -143,9 +144,37 @@ wins over the config.
 | `hidden` | `false` | Run without recording (setup); cannot have narration |
 | `typing_speed_ms` | terminal's | Per-scene typing speed |
 | `narration_start` | `with_actions` | Or `after_actions` |
+| `timelapse` | none | Show the scene this many times faster (greater than 1) |
 
 A scene lasts as long as its actions or its narration plus `narration_buffer_ms`,
 whichever is longer.
+
+### Timelapse
+
+A long step (a download, a build) can be shown sped up instead of hidden:
+
+```yaml
+- id: install
+  narration: Installing the dependencies takes a while; here it is eight times faster.
+  actions:
+    - type_command: npm ci
+    - enter
+- id: install-runs
+  timelapse: 8
+  actions:
+    - wait: {screen: "added \\d+ packages", timeout_ms: 600000}
+```
+
+- The whole scene is sped up, typing included, so type the command in the scene
+  before and only wait in the timelapse scene.
+- Narration plays at normal speed. If it is longer than the sped-up footage, the
+  last frame stays until it ends. With `narration_start: after_actions` it starts
+  when the footage ends.
+- A timelapse scene cannot be hidden or use `hold: auto`.
+- `narratty plan` cannot know how long the waits take, so its length for the
+  scene counts only the fixed actions.
+- The video is re-encoded once (H.264) to speed up the scenes. `narratty tape` shows
+  where the scenes are, but plain `vhs` does not speed them up.
 
 ### Actions
 

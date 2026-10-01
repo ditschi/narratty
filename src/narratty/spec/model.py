@@ -198,6 +198,12 @@ class Scene(_Model):
     hidden: bool = False
     typing_speed_ms: PositiveInt | None = None
     narration_start: Literal["with_actions", "after_actions"] = "with_actions"
+    timelapse: float | None = Field(
+        None,
+        gt=1,
+        le=1000,
+        description="Show the scene this many times faster (e.g. a long download).",
+    )
 
     @field_validator("actions", mode="before")
     @classmethod
@@ -221,6 +227,11 @@ class Scene(_Model):
             raise ValueError("only one 'hold: auto' is allowed per scene")
         if auto_holds and not self.narration:
             raise ValueError("'hold: auto' needs narration to take its length from")
+        if self.timelapse is not None:
+            if self.hidden:
+                raise ValueError("a hidden scene cannot have a timelapse")
+            if auto_holds:
+                raise ValueError("a timelapse scene cannot use 'hold: auto'; narration is waited for anyway")
         return self
 
 
@@ -322,6 +333,10 @@ class Sandbox(_Model):
     env: dict[str, str] = {}
     extra_mounts: list[Mount] = []
     ssh_agent: bool = False
+    docker: bool = Field(
+        False,
+        description="Give the demo your Docker or Podman engine. This is full control of the host.",
+    )
 
     @model_validator(mode="after")
     def _hosts_need_allowlist(self) -> Sandbox:
@@ -334,7 +349,13 @@ class Sandbox(_Model):
     @property
     def elevated(self) -> bool:
         """True when the sandbox asks for more than the locked-down default."""
-        return bool(self.network != "none" or self.env_passthrough or self.extra_mounts or self.ssh_agent)
+        return bool(
+            self.network != "none"
+            or self.env_passthrough
+            or self.extra_mounts
+            or self.ssh_agent
+            or self.docker
+        )
 
 
 class EndCard(_Model):

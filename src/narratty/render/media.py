@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
-from collections.abc import Callable, Mapping, Sequence
+import time
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -45,16 +48,52 @@ def vhs_env(base: Mapping[str, str] | None = None) -> dict[str, str]:
     return env
 
 
+@dataclass(frozen=True)
+class LogLine:
+    """A line VHS printed, and when (seconds after it started).
+
+    VHS prints each command as it starts it, so the times locate markers in the video.
+    """
+
+    at: float
+    text: str
+
+
+_ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+@contextmanager
+def _stream(argv: Sequence[str], *, cwd: Path, env: Mapping[str, str]) -> Iterator[Iterator[str]]:
+    with subprocess.Popen(  # noqa: S603
+        list(argv), cwd=cwd, env=dict(env), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    ) as proc:
+        assert proc.stdout is not None  # noqa: S101
+        yield proc.stdout
+        if proc.wait() != 0:
+            raise subprocess.CalledProcessError(proc.returncode, argv)
+
+
 def run_vhs(
-    tape: Path, cwd: Path, *, extra_env: Mapping[str, str] | None = None, runner: Runner = _run
-) -> None:
-    """Render ``tape`` with VHS, running the recorded shell in ``cwd``."""
+    tape: Path,
+    cwd: Path,
+    *,
+    extra_env: Mapping[str, str] | None = None,
+    stream: Callable[..., AbstractContextManager[Iterator[str]]] = _stream,
+    clock: Callable[[], float] = time.monotonic,
+) -> list[LogLine]:
+    """Render ``tape`` with VHS, running the recorded shell in ``cwd``; returns its log."""
     env = {**vhs_env(), **(extra_env or {})}
-    result = runner([require("vhs"), str(tape)], cwd=cwd, env=env)
-    if result.returncode != 0:
+    log: list[LogLine] = []
+    start = clock()
+    try:
+        with stream([require("vhs"), str(tape)], cwd=cwd, env=env) as lines:
+            log.extend(LogLine(clock() - start, _ANSI.sub("", line).rstrip()) for line in lines)
+    except (subprocess.CalledProcessError, OSError):
+        tail = "\n".join(line.text for line in log[-5:] if line.text) or "no output"
         raise RenderError(
-            f"VHS failed:\n{_tail(result)}", hint=f"The tape is at {tape}; run `vhs {tape}` to debug."
-        )
+            f"VHS failed:\n{tail}", hint=f"The tape is at {tape}; run `vhs {tape}` to debug."
+        ) from None
+    return log
 
 
 @dataclass(frozen=True)
@@ -106,18 +145,24 @@ def mux(
     """Combine the silent video with the narration track (AAC).
 
     ``subtitles`` (an SRT) becomes a soft subtitle track, or with ``burn`` is drawn
-    into the picture, which re-encodes the video (``fast``: quicker, larger). Otherwise
-    the video stream is copied as is. ffmpeg runs in the SRT's directory so the filter
-    graph only sees its plain file name.
+    into the picture. ``fast`` (drafts) scales the picture to half size and encodes it
+    quickly. Either re-encodes the video; otherwise the video stream is copied as is.
+    ffmpeg runs in the SRT's directory so the filter graph only sees its plain file name.
     """
     out.parent.mkdir(parents=True, exist_ok=True)
     argv = [require("ffmpeg"), "-y", "-v", "error", "-i", str(video), "-i", str(audio)]
     maps = ["-map", "0:v:0", "-map", "1:a:0"]
     # -shortest would also stop at the last subtitle, so a soft track ends at the video instead.
     length = ["-shortest"]
+    filters = []
     if subtitles is not None and burn:
+        filters.append(f"subtitles={subtitles.name}:force_style='{BURN_STYLE}'")
+    if fast:
+        # After the subtitles, so they are drawn at full resolution.
+        filters.append("scale=trunc(iw/4)*2:trunc(ih/4)*2")
+    if filters:
         video_codec = [
-            "-vf", f"subtitles={subtitles.name}:force_style='{BURN_STYLE}'",
+            "-vf", ",".join(filters),
             "-c:v", "libx264", "-preset", "ultrafast" if fast else "medium",
             "-crf", "28" if fast else "18", "-pix_fmt", "yuv420p",
         ]  # fmt: skip

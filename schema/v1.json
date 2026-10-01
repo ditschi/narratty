@@ -322,6 +322,12 @@
           "default": false,
           "title": "Ssh Agent",
           "type": "boolean"
+        },
+        "docker": {
+          "default": false,
+          "description": "Give the demo your Docker or Podman engine. This is full control of the host.",
+          "title": "Docker",
+          "type": "boolean"
         }
       },
       "title": "Sandbox",
@@ -410,6 +416,21 @@
           ],
           "title": "Narration Start",
           "type": "string"
+        },
+        "timelapse": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 1,
+              "maximum": 1000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Show the scene this many times faster (e.g. a long download).",
+          "title": "Timelapse"
         }
       },
       "required": [
@@ -722,7 +743,8 @@
         "env_passthrough": [],
         "env": {},
         "extra_mounts": [],
-        "ssh_agent": false
+        "ssh_agent": false,
+        "docker": false
       }
     },
     "end_card": {

@@ -79,13 +79,30 @@ class Show:
 
 @dataclass(frozen=True)
 class Mark:
-    """Start of a section: a scene (``scene_id``) or the end card (``None``)."""
+    """Start of a section: a scene (``scene_id``) or the end card (``None``).
+
+    With ``timelapse``, the scene is shown that many times faster until its
+    :class:`TimelapseEnd`.
+    """
 
     scene_id: str | None
     hidden: bool = False
+    timelapse: float | None = None
 
 
-Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark
+@dataclass(frozen=True)
+class TimelapseEnd:
+    """End of a timelapse scene; its last frame is held for the narration.
+
+    See :func:`narratty.timeline.timelapse_layout` for ``hold_ms`` and ``narration_after``.
+    """
+
+    scene_id: str
+    hold_ms: int
+    narration_after: bool = False
+
+
+Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark | TimelapseEnd
 
 END_CARD_TIMEOUT_MS = 30_000
 LAYOUT_TIMEOUT_MS = 15_000
@@ -194,6 +211,24 @@ def _unhide(steps: list[Step]) -> list[Step]:
     return [step for step in steps if not isinstance(step, Hide | Show)]
 
 
+def _end_hidden(steps: list[Step], context: Context) -> list[Step]:
+    """A hidden scene's steps (Mark, Hide, ...): one Hide, then clear and Show."""
+    steps = [steps[0], steps[1], *_unhide(steps[2:])]
+    # Clear what the hidden commands printed; hidden time is not recorded.
+    if context.editor:
+        return [*steps, *tmux_command("send-keys -t :.2 clear Enter"), Sleep(300), Show()]
+    return [*steps, Type("clear", 1), Press("Enter", 1), Sleep(300), Show()]
+
+
+def _timelapse_steps(scene: Scene, timing: SceneTiming, speed: int, context: Context) -> list[Step]:
+    """A timelapse scene: its actions between markers, the end holds for the narration."""
+    actions = [step for action in scene.actions for step in action_steps(action, speed, context)]
+    if context.editor and any(isinstance(action, Diff) for action in scene.actions):
+        actions += close_popup()
+    end = TimelapseEnd(scene.id, timing.hold_ms, timing.narration_after)
+    return [Mark(scene.id, timelapse=timing.timelapse), *actions, end]
+
+
 def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | None = None) -> list[Step]:
     """Steps for one scene, with its fill pause at ``hold: auto`` or at the end.
 
@@ -202,6 +237,8 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | 
     """
     speed = typing_speed(spec, scene)
     context = Context(spec.terminal.layout == "editor", python or sys.executable)
+    if timing.timelapse:
+        return _timelapse_steps(scene, timing, speed, context)
     fill_at_hold = scene.narration_start == "with_actions"
     steps: list[Step] = [Mark(scene.id, scene.hidden)]
     if scene.hidden:
@@ -222,14 +259,7 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming, *, python: str | 
         steps.append(Sleep(timing.fill_ms))
     if popup:
         steps += close_popup()
-    if scene.hidden:
-        steps = [steps[0], steps[1], *_unhide(steps[2:])]
-        # Clear what the hidden commands printed; hidden time is not recorded.
-        if context.editor:
-            steps += [*tmux_command("send-keys -t :.2 clear Enter"), Sleep(300), Show()]
-        else:
-            steps += [Type("clear", 1), Press("Enter", 1), Sleep(300), Show()]
-    return steps
+    return _end_hidden(steps, context) if scene.hidden else steps
 
 
 def end_card_steps(spec: Spec, timeline: Timeline, python: str) -> list[Step]:
