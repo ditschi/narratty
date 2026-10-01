@@ -710,6 +710,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#docker-in-the-demo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docker in the demo
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#you-stay-in-control" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1039,6 +1050,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#docker-in-the-demo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docker in the demo
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#you-stay-in-control" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1082,7 +1104,8 @@
 <h1 id="sandboxed-runs">Sandboxed runs<a class="headerlink" href="#sandboxed-runs" title="Permanent link">&para;</a></h1>
 <p>With Docker or Podman installed, <code>build</code>, <code>render</code>, <code>tts</code>, <code>plan</code> and <code>tape</code> run
 inside the narratty image by default (<code>--runtime auto</code>). The image contains VHS,
-ttyd, Chromium, ffmpeg, fonts, Kokoro, Piper, <code>git</code>, <code>tree</code> and the <a href="../toolkit/">demo toolkit</a>
+ttyd, Chromium, ffmpeg, fonts, Kokoro, Piper, <code>git</code>, <code>tree</code>, the Docker CLI (with
+Compose and Buildx) and the <a href="../toolkit/">demo toolkit</a>
 (<code>bat</code>, <code>eza</code>, <code>fd</code>, <code>ripgrep</code>, <code>jq</code>, <code>yazi</code>, <code>tmux</code>, <code>zsh</code>). You only need narratty
 itself and a container runtime on the host.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w">                    </span><span class="c1"># container if available</span>
@@ -1200,6 +1223,7 @@ real cache directories are used.</p>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">extra_mounts</span><span class="p">:</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="nv">~/.netrc</span><span class="p p-Indicator">,</span><span class="nt"> container</span><span class="p">:</span><span class="w"> </span><span class="nv">~/.netrc</span><span class="p p-Indicator">,</span><span class="nt"> mode</span><span class="p">:</span><span class="w"> </span><span class="nv">ro</span><span class="p p-Indicator">}</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="nt">ssh_agent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">docker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </code></pre></div>
 <ul>
 <li><strong><code>network: allowlist</code></strong> puts the container on an internal network with no route
@@ -1212,6 +1236,29 @@ real cache directories are used.</p>
 <li><code>--network none|allowlist|full</code> and <code>--allow-host HOST:PORT</code> (repeatable) override
   the spec for one run.</li>
 </ul>
+<h3 id="docker-in-the-demo">Docker in the demo<a class="headerlink" href="#docker-in-the-demo" title="Permanent link">&para;</a></h3>
+<p><code>docker: true</code> mounts your Docker or Podman engine's socket into the container. The
+demo's <code>docker</code> and <code>docker compose</code> commands then start containers on your machine,
+next to the narratty container.</p>
+<div class="admonition warning">
+<p class="admonition-title">This is full access to your machine</p>
+<p>Whoever can use the engine can start a privileged container that mounts <code>/</code>.
+Use it only for specs you trust. The approval prompt says so, and
+<code>allow_docker = false</code> in the policy blocks it for every spec.</p>
+</div>
+<ul>
+<li>The socket is <code>DOCKER_HOST</code> (a <code>unix://</code> path) or <code>/var/run/docker.sock</code> for
+  Docker, and <code>CONTAINER_HOST</code> or the socket <code>podman info</code> reports for Podman
+  (<code>systemctl --user enable --now podman.socket</code>).</li>
+<li>The workspace is mounted at its path on the host instead of <code>/work</code>, so bind mounts
+  the demo passes to the engine (<code>-v .:/app</code>, Compose <code>volumes:</code>) point at the same
+  files.</li>
+<li>Containers the demo starts use the engine's networks, not the sandbox's. A port
+  they publish is on your machine, not on <code>localhost</code> in the narratty container; use
+  <code>docker compose exec</code> to work inside them.</li>
+<li>They keep running after the render. Stop them in a hidden last scene
+  (<code>docker compose down</code>).</li>
+</ul>
 <h3 id="you-stay-in-control">You stay in control<a class="headerlink" href="#you-stay-in-control" title="Permanent link">&para;</a></h3>
 <p>The first run of a spec that asks for more than the defaults lists what it wants and
 asks for approval. The answer is remembered for that spec file and that exact
@@ -1223,6 +1270,7 @@ in CI.</p>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">allow_env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"LM_LICENSE_FILE"</span><span class="p">]</span><span class="w">    </span><span class="c1"># env_passthrough names a spec may use</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">allow_mounts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">allow_ssh_agent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">allow_docker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
 </code></pre></div>
 <p>A spec that needs more than the policy allows fails with a message naming what is
 over the limit.</p>

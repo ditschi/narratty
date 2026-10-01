@@ -2073,6 +2073,7 @@ in the spec, because the spec author knows what the demo needs.</p>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">env</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> NAME</span><span class="p">:</span><span class="w"> </span><span class="nv">value</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w">               </span><span class="c1"># fixed, non-secret values</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">extra_mounts</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="w"> </span><span class="nv">host</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">container</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">mode</span><span class="w"> </span><span class="p p-Indicator">}]</span><span class="w">   </span><span class="c1"># e.g. ~/.netrc, a licence file</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">ssh_agent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                   </span><span class="c1"># forward SSH_AUTH_SOCK (e.g. git over ssh)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">docker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                      </span><span class="c1"># mount the engine socket (Docker outside of Docker)</span>
 </code></pre></div>
 <p><strong>How <code>allowlist</code> works.</strong> The container sits on an internal Docker network with no
 route out. A small forwarder sidecar (part of narratty, same image) listens on each
@@ -2083,7 +2084,7 @@ intact), and no proxy settings are needed inside the demo. Anything not listed f
 to resolve or connect.</p>
 <p><strong>Who decides.</strong> The spec declares what it needs; you stay in control:
 - <strong>Consent</strong>: the first run of a spec that asks for more than <code>network: none</code>, any
-  <code>env_passthrough</code>, <code>extra_mounts</code> or <code>ssh_agent</code> shows a short summary and asks
+  <code>env_passthrough</code>, <code>extra_mounts</code>, <code>ssh_agent</code> or <code>docker</code> shows a short summary and asks
   (questionary prompt). The approval is remembered per spec path and a hash of its
   <code>sandbox</code> block, so a changed spec asks again. <code>--yes</code> for CI.
 - <strong>Overrides</strong>: <code>--network none|allowlist|full</code> and <code>--allow-host</code> on the command

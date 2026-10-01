@@ -1065,6 +1065,7 @@
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">allow_env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"LM_LICENSE_FILE"</span><span class="p">]</span><span class="w">    </span><span class="c1"># env_passthrough names a spec may use</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">allow_mounts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">allow_ssh_agent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">allow_docker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">               </span><span class="c1"># no spec gets your Docker/Podman engine</span>
 </code></pre></div>
 <p>Every key is optional. A command-line flag beats the spec, and the spec beats this
 file. <code>[sandbox]</code> is a cap: a spec asking for more fails. See

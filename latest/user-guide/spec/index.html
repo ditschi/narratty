@@ -681,6 +681,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#timelapse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timelapse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#actions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1149,6 +1160,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#timelapse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timelapse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#actions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1475,6 +1497,11 @@ you for approval before the first run.</p>
 <td><code>false</code></td>
 <td>Forward the host SSH agent</td>
 </tr>
+<tr>
+<td><code>docker</code></td>
+<td><code>false</code></td>
+<td>Give the demo your Docker or Podman engine; <a href="../container/#docker-in-the-demo">full host access</a></td>
+</tr>
 </tbody>
 </table>
 <h2 id="end_card"><code>end_card</code><a class="headerlink" href="#end_card" title="Permanent link">&para;</a></h2>
@@ -1555,10 +1582,39 @@ wins over the config.</p>
 <td><code>with_actions</code></td>
 <td>Or <code>after_actions</code></td>
 </tr>
+<tr>
+<td><code>timelapse</code></td>
+<td>none</td>
+<td>Show the scene this many times faster (greater than 1)</td>
+</tr>
 </tbody>
 </table>
 <p>A scene lasts as long as its actions or its narration plus <code>narration_buffer_ms</code>,
 whichever is longer.</p>
+<h3 id="timelapse">Timelapse<a class="headerlink" href="#timelapse" title="Permanent link">&para;</a></h3>
+<p>A long step (a download, a build) can be shown sped up instead of hidden:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">install</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Installing the dependencies takes a while; here it is eight times faster.</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type_command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">npm ci</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">enter</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">install-runs</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">timelapse</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">screen</span><span class="p">:</span><span class="w"> </span><span class="s">"added</span><span class="nv"> </span><span class="s">\\d+</span><span class="nv"> </span><span class="s">packages"</span><span class="p p-Indicator">,</span><span class="nt"> timeout_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">600000</span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<ul>
+<li>The whole scene is sped up, typing included, so type the command in the scene
+  before and only wait in the timelapse scene.</li>
+<li>Narration plays at normal speed. If it is longer than the sped-up footage, the
+  last frame stays until it ends. With <code>narration_start: after_actions</code> it starts
+  when the footage ends.</li>
+<li>A timelapse scene cannot be hidden or use <code>hold: auto</code>.</li>
+<li><code>narratty plan</code> cannot know how long the waits take, so its length for the
+  scene counts only the fixed actions.</li>
+<li>The video is re-encoded once (H.264) to speed up the scenes. <code>narratty tape</code> shows
+  where the scenes are, but plain <code>vhs</code> does not speed them up.</li>
+</ul>
 <h3 id="actions">Actions<a class="headerlink" href="#actions" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
