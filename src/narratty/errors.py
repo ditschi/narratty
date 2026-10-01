@@ -25,6 +25,7 @@ class ExitCode(IntEnum):
     MISSING_DEPENDENCY = 4
     RENDER = 5
     SYNC = 6
+    COMMAND = 7
 
 
 class NarrattyError(Exception):
@@ -70,3 +71,9 @@ class SyncError(NarrattyError):
     """The rendered video drifted too far from the timeline."""
 
     exit_code = ExitCode.SYNC
+
+
+class CommandError(NarrattyError):
+    """A command in the recording exited contrary to its scene's ``expect_exit``."""
+
+    exit_code = ExitCode.COMMAND

@@ -142,6 +142,20 @@ def recording_env(spec: Spec, work: Path) -> dict[str, str]:
     return {**spec.sandbox.env, DIFF_BASE_ENV: str(work / "diff-base")}
 
 
+def fresh_exit_log(work: Path) -> Path:
+    """An empty log in ``work`` for the recorded commands' exit codes."""
+    log = work / "exits.log"
+    log.write_text("", encoding="utf-8")
+    return log
+
+
+def check_exits(planned: Plan, work: Path, output: Path) -> None:
+    """Fail when a command's exit code contradicts its scene's ``expect_exit``."""
+    from narratty.render.exits import check
+
+    check(planned.spec, work / "exits.log", output=output)
+
+
 def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> timelapse.Layout | None:
     """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``.
 
@@ -157,8 +171,16 @@ def render_silent(planned: Plan, video: Path, work: Path, workspace: Path) -> ti
     recording = work / "recording.mp4" if marks else video
     if marks:
         marks.mkdir(parents=True, exist_ok=True)
+    exit_log = fresh_exit_log(work)
     tape.write_text(
-        generate_tape(planned.spec, planned.timeline, recording.resolve(), framerate=framerate, marks=marks),
+        generate_tape(
+            planned.spec,
+            planned.timeline,
+            recording.resolve(),
+            framerate=framerate,
+            marks=marks,
+            exit_log=exit_log,
+        ),
         encoding="utf-8",
     )
     log = media.run_vhs(tape, workspace, extra_env=recording_env(planned.spec, work))
@@ -268,6 +290,7 @@ def build(
         if mode == "files":
             SubtitleFiles.beside(output).write(cues)
         _export_artifacts(planned, ws.path, output, say)
+        check_exits(planned, work, output)
     result = BuildResult(output, expected_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
     return result
@@ -349,7 +372,7 @@ def build_cast(
     ):
         say(f"recording {len(planned.timeline.scenes)} scenes as an asciicast")
         recording = record(
-            build_script(spec, planned.timeline),
+            build_script(spec, planned.timeline, exit_log=fresh_exit_log(work)),
             terminal=spec.terminal,
             cwd=ws.path,
             env={**os.environ, **recording_env(spec, work)},
@@ -370,6 +393,7 @@ def build_cast(
         )
         outputs.page.write_text(page, encoding="utf-8")
         _export_artifacts(planned, ws.path, outputs.page, say)
+        check_exits(planned, work, outputs.page)
     return BuildResult(outputs.page, planned.timeline.total_ms, recording.duration_ms, tuple(used))
 
 

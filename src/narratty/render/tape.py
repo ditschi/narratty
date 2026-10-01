@@ -121,12 +121,14 @@ def generate_tape(
     python: str | None = None,
     framerate: int = FRAMERATE,
     marks: Path | None = None,
+    exit_log: Path | None = None,
 ) -> str:
     """The complete tape rendering ``spec`` into ``output``.
 
     ``python`` is the interpreter that runs narratty's helpers in the recorded shell
     (default: the running one). ``marks`` is where scene markers go (needed to speed
-    up timelapse scenes).
+    up timelapse scenes). ``exit_log`` receives the commands' exit codes (see
+    ``narratty.render.exits``).
     """
     term = spec.terminal
     lines = [
@@ -143,7 +145,7 @@ def generate_tape(
         "",
     ]
     python = python or sys.executable
-    lines += _lines(setup_steps(spec, python))
+    lines += _lines(setup_steps(spec, python, exit_log))
     if timeline.lead_in_ms:
         lines.append(f"Sleep {timeline.lead_in_ms}ms")
     for scene in spec.scenes:

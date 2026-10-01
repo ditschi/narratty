@@ -42,6 +42,7 @@ def render_command(
     """Synthesize the narration (for timing) and record the silent video with VHS."""
     from narratty.build import (
         WorkspaceOptions,
+        check_exits,
         default_output,
         plan,
         render_silent,
@@ -76,4 +77,5 @@ def render_command(
         workspace_for(planned, workspace) as ws,
     ):
         render_silent(planned, video, work, ws.path)
+        check_exits(planned, work, video)
     err.print(f"[green]wrote[/] {video}", highlight=False, soft_wrap=True)

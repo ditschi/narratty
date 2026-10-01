@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 from narratty.diff import READY as DIFF_READY
 from narratty.end_card import CREDIT
+from narratty.render.shell_hooks import exit_hook
 from narratty.spec.model import (
     Action,
     CtrlSequence,
@@ -117,11 +119,16 @@ def _shell_quote(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"
 
 
-def prompt_setup(shell: str, prompt: str) -> str:
-    """Shell command that sets a fixed prompt and clears the screen."""
+def prompt_setup(shell: str, prompt: str, exit_log: Path | None = None) -> str:
+    """Shell command that sets a fixed prompt and clears the screen.
+
+    With ``exit_log``, it also installs the hook that logs exit codes there.
+    """
+    hook = exit_hook(shell, exit_log) if exit_log else None
+    prefix = f"{hook}; " if hook else ""
     if shell == "fish":
-        return f"function fish_prompt; printf '%s' {_shell_quote(prompt)}; end; clear"
-    return f"PS1={_shell_quote(prompt)}; clear"
+        return f"{prefix}function fish_prompt; printf '%s' {_shell_quote(prompt)}; end; clear"
+    return f"{prefix}PS1={_shell_quote(prompt)}; clear"
 
 
 def encode_path(path: str) -> str:
@@ -286,8 +293,12 @@ def end_card_steps(spec: Spec, timeline: Timeline, python: str) -> list[Step]:
     ]
 
 
-def setup_steps(spec: Spec, python: str | None = None) -> list[Step]:
-    """Unrecorded: record the diff baseline, set the prompt, clear, build the layout."""
+def setup_steps(spec: Spec, python: str | None = None, exit_log: Path | None = None) -> list[Step]:
+    """Unrecorded: record the diff baseline, set the prompt, clear, build the layout.
+
+    With ``exit_log``, the demo's shell also logs its commands' exit codes there (in the
+    editor layout, the shell in the terminal pane).
+    """
     term = spec.terminal
     python = python or sys.executable
     steps: list[Step] = [Hide()]
@@ -295,11 +306,15 @@ def setup_steps(spec: Spec, python: str | None = None) -> list[Step]:
         steps += [Type(_module(python, "diff", "start"), 1), Press("Enter", 1)]
         steps.append(WaitScreen(DIFF_READY, BASELINE_TIMEOUT_MS))
     # The pause is hidden, so it costs no time; it lets `clear` finish.
-    steps += [Type(prompt_setup(term.shell, term.prompt), 1), Press("Enter", 1), Sleep(500)]
-    if term.layout == "editor":
+    editor = term.layout == "editor"
+    setup = prompt_setup(term.shell, term.prompt, None if editor else exit_log)
+    steps += [Type(setup, 1), Press("Enter", 1), Sleep(500)]
+    if editor:
         start = _module(
             python, "editor", "start", "--shell", term.shell, "--prompt", _shell_quote(term.prompt)
         )
+        if exit_log:
+            start += f" --exit-log {_shell_quote(str(exit_log))}"
         steps += [
             Type(start, 1),
             Press("Enter", 1),
@@ -316,13 +331,16 @@ def teardown_steps(spec: Spec) -> list[Step]:
     return hidden(tmux_command("kill-server"), 500)
 
 
-def build_script(spec: Spec, timeline: Timeline, *, python: str | None = None) -> list[Step]:
+def build_script(
+    spec: Spec, timeline: Timeline, *, python: str | None = None, exit_log: Path | None = None
+) -> list[Step]:
     """Every step of the recording, from prompt setup to the end card.
 
-    ``python`` is the interpreter that draws the end card (default: the running one).
+    ``python`` is the interpreter that draws the end card (default: the running one);
+    ``exit_log`` receives the commands' exit codes (see ``narratty.render.exits``).
     """
     python = python or sys.executable
-    steps = setup_steps(spec, python)
+    steps = setup_steps(spec, python, exit_log)
     if timeline.lead_in_ms:
         steps.append(Sleep(timeline.lead_in_ms))
     for scene in spec.scenes:

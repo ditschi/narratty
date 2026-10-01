@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from narratty.build import WorkspaceOptions, build
 from narratty.cli.app import app
+from narratty.errors import CommandError
 from narratty.render import media
 from tests.helpers import plain
 
@@ -99,3 +100,27 @@ def test_end_card_shows_the_qr_code(tmp_path: Path) -> None:
     assert result.expected_ms - plain_result.expected_ms == 2000
     assert _last_frame_white_share(plain_result.output) < 0.01
     assert "end card" not in (work / "scene.tape").read_text(encoding="utf-8")
+
+
+EXITS = """\
+terminal: {{width: 600, height: 300}}
+end_card: false
+scenes:
+  - id: missing
+    narration: This file does not exist.
+    expect_exit: {expect}
+    actions: [{{type_command: "cat missing.txt"}}, enter]
+"""
+
+
+@pytest.mark.parametrize(("expect", "fails"), [("success", True), ("failure", False), ("any", False)])
+def test_build_checks_exit_codes(tmp_path: Path, expect: str, fails: bool) -> None:
+    spec = tmp_path / "exits.narratty.yaml"
+    spec.write_text(EXITS.format(expect=expect), encoding="utf-8")
+    options = WorkspaceOptions(mode="rw")
+    if fails:
+        with pytest.raises(CommandError, match="`cat missing.txt` exited with 1"):
+            build(spec, draft=True, workspace=options)
+        assert (tmp_path / "exits.draft.mp4").is_file(), "the video is kept for inspection"
+    else:
+        build(spec, draft=True, workspace=options)

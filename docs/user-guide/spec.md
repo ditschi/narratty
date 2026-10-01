@@ -163,6 +163,7 @@ wins over the config.
 | `pause_ms` | `timing.pause_ms` | Per-scene pause after each `key` and `ctrl_sequence` |
 | `narration_start` | `with_actions` | Or `after_actions` |
 | `timelapse` | none | Show the scene this many times faster (greater than 1) |
+| `expect_exit` | `success` | Exit codes of the scene's commands: `success`, `failure` or `any` |
 
 A scene lasts as long as its actions or its narration plus `narration_buffer_ms`,
 whichever is longer.
@@ -223,3 +224,30 @@ kept outside the workspace (its own `.git` is not touched). It honours `.gitigno
 and leaves out `__pycache__`. The output is coloured with `delta`, else `bat`, else
 git. In the plain layout the screen is cleared and the diff is printed; in the editor
 layout it opens in a popup that stays until the next key press of the scene or its end.
+
+### Exit codes
+
+narratty logs the exit code of every command line run at the shell prompt and checks
+it against the scene's `expect_exit` after recording:
+
+| Value | Build fails when |
+|---|---|
+| `success` (default) | a command exits non-zero |
+| `failure` | no command exits non-zero, e.g. an error demo that suddenly works |
+| `any` | never; exit codes are not checked |
+
+```yaml
+- id: typo
+  narration: A typo gives a helpful error.
+  expect_exit: failure
+  actions:
+    - run: git stauts
+```
+
+The build exits with code 7 and names each offending command; the video is still
+written so you can inspect it. A line's exit code is that of its last command
+(`a; b` reports `b`). Commands stopped with `C-c` or `C-z` do not count as failures.
+Commands inside programs (a REPL, an editor, a nested shell) are not checked, nor is
+anything with `shell: sh`. In the editor layout, the terminal pane's commands are
+checked. With bash 3.2 (macOS's default) narratty turns on shell history to read the
+command lines, so `key: Up` recalls earlier commands there.

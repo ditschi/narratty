@@ -632,7 +632,8 @@ Global options: `--runtime`, `--image`, `--cache-dir`, `--jobs`, `-v/-q`, `--jso
 | `narratty cache {info,prune}` | Inspect or prune the audio cache, snapshots and build-cache volumes |
 
 Exit codes: 0 ok, 1 unexpected error, 2 usage error, 3 validation error, 4 missing
-dependency (doctor), 5 render/mux failure, 6 sync verification failure.
+dependency (doctor), 5 render/mux failure, 6 sync verification failure, 7 a recorded
+command exited contrary to its scene's `expect_exit`.
 
 ---
 

@@ -270,6 +270,11 @@ class Scene(_Model):
         le=1000,
         description="Show the scene this many times faster (e.g. a long download).",
     )
+    expect_exit: Literal["success", "failure", "any"] = Field(
+        "success",
+        description="Exit codes of the scene's commands: success (all exit 0), "
+        "failure (at least one fails) or any (not checked).",
+    )
 
     @field_validator("actions", mode="before")
     @classmethod

@@ -42,3 +42,4 @@ and `--image`.
 | 4 | missing dependency (tool, voice or container runtime) |
 | 5 | render or mux failure |
 | 6 | sync verification failure |
+| 7 | a recorded command exited contrary to its scene's `expect_exit` |
