@@ -15,6 +15,7 @@ from narratty.render.script import (
     Show,
     Sleep,
     Step,
+    TimelapseEnd,
     Type,
     WaitScreen,
     end_card_steps,
@@ -58,8 +59,21 @@ def quote_chunks(text: str) -> list[str]:
     return chunks
 
 
-def step_lines(step: Step) -> list[str]:
-    """VHS commands for one step."""
+def marker_path(marks: Path, label: str) -> Path:
+    """The screenshot that marks ``label`` (see ``narratty.render.timelapse``)."""
+    return marks / f"{label}.png"
+
+
+def _marker(marks: Path | None, label: str) -> list[str]:
+    return [] if marks is None else [f"Screenshot {json.dumps(str(marker_path(marks, label)))}"]
+
+
+def step_lines(step: Step, marks: Path | None = None) -> list[str]:
+    """VHS commands for one step.
+
+    With ``marks``, visible scene starts and timelapse ends take a screenshot there;
+    VHS logs it as it happens, which locates it in the video.
+    """
     match step:
         case Type(text, speed):
             return [f"Type@{speed}ms {literal}" for literal in quote_chunks(text)]
@@ -75,23 +89,42 @@ def step_lines(step: Step) -> list[str]:
             return ["Hide"]
         case Show():
             return ["Show"]
-        case Mark(None):
-            return ["# end card"]
-        case Mark(scene_id, hidden):
-            return [f"# scene: {scene_id}" + (" (hidden)" if hidden else "")]
+        case Mark() | TimelapseEnd():
+            return _section_lines(step, marks)
     raise AssertionError(step)  # pragma: no cover
 
 
-def _lines(steps: Iterable[Step]) -> list[str]:
-    return [line for step in steps for line in step_lines(step)]
+def _section_lines(step: Mark | TimelapseEnd, marks: Path | None) -> list[str]:
+    match step:
+        case Mark(None):
+            return ["# end card"]
+        case Mark(scene_id, True):
+            return [f"# scene: {scene_id} (hidden)"]
+        case Mark(scene_id, False, timelapse):
+            comment = f"# scene: {scene_id}" + (f" (timelapse ×{timelapse:g})" if timelapse else "")
+            return [comment, *_marker(marks, f"scene-{scene_id}")]
+        case TimelapseEnd(scene_id):
+            return [f"# timelapse end: {scene_id}", *_marker(marks, f"end-{scene_id}")]
+    raise AssertionError(step)  # pragma: no cover
+
+
+def _lines(steps: Iterable[Step], marks: Path | None = None) -> list[str]:
+    return [line for step in steps for line in step_lines(step, marks)]
 
 
 def generate_tape(
-    spec: Spec, timeline: Timeline, output: Path, *, python: str | None = None, framerate: int = FRAMERATE
+    spec: Spec,
+    timeline: Timeline,
+    output: Path,
+    *,
+    python: str | None = None,
+    framerate: int = FRAMERATE,
+    marks: Path | None = None,
 ) -> str:
     """The complete tape rendering ``spec`` into ``output``.
 
     ``python`` is the interpreter that draws the end card (default: the running one).
+    ``marks`` is where scene markers go (needed to speed up timelapse scenes).
     """
     term = spec.terminal
     lines = [
@@ -111,7 +144,7 @@ def generate_tape(
     if timeline.lead_in_ms:
         lines.append(f"Sleep {timeline.lead_in_ms}ms")
     for scene in spec.scenes:
-        lines += ["", *_lines(scene_steps(spec, scene, timeline.scene(scene.id)))]
+        lines += ["", *_lines(scene_steps(spec, scene, timeline.scene(scene.id)), marks)]
     lines.append("")
     if timeline.tail_ms:
         lines.append(f"Sleep {timeline.tail_ms}ms")

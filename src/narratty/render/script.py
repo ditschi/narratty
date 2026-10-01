@@ -65,13 +65,30 @@ class Show:
 
 @dataclass(frozen=True)
 class Mark:
-    """Start of a section: a scene (``scene_id``) or the end card (``None``)."""
+    """Start of a section: a scene (``scene_id``) or the end card (``None``).
+
+    With ``timelapse``, the scene is shown that many times faster until its
+    :class:`TimelapseEnd`.
+    """
 
     scene_id: str | None
     hidden: bool = False
+    timelapse: float | None = None
 
 
-Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark
+@dataclass(frozen=True)
+class TimelapseEnd:
+    """End of a timelapse scene; its last frame is held for the narration.
+
+    See :func:`narratty.timeline.timelapse_layout` for ``hold_ms`` and ``narration_after``.
+    """
+
+    scene_id: str
+    hold_ms: int
+    narration_after: bool = False
+
+
+Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark | TimelapseEnd
 
 END_CARD_TIMEOUT_MS = 30_000
 
@@ -108,6 +125,10 @@ def action_steps(action: Action, speed: int) -> list[Step]:
 def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming) -> list[Step]:
     """Steps for one scene, with its fill pause at ``hold: auto`` or at the end."""
     speed = typing_speed(spec, scene)
+    if timing.timelapse:
+        actions = [step for action in scene.actions for step in action_steps(action, speed)]
+        end = TimelapseEnd(scene.id, timing.hold_ms, timing.narration_after)
+        return [Mark(scene.id, timelapse=timing.timelapse), *actions, end]
     fill_at_hold = scene.narration_start == "with_actions"
     steps: list[Step] = [Mark(scene.id, scene.hidden)]
     if scene.hidden:

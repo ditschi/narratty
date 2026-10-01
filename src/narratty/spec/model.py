@@ -159,6 +159,12 @@ class Scene(_Model):
     hidden: bool = False
     typing_speed_ms: PositiveInt | None = None
     narration_start: Literal["with_actions", "after_actions"] = "with_actions"
+    timelapse: float | None = Field(
+        None,
+        gt=1,
+        le=1000,
+        description="Show the scene this many times faster (e.g. a long download).",
+    )
 
     @field_validator("actions", mode="before")
     @classmethod
@@ -182,6 +188,11 @@ class Scene(_Model):
             raise ValueError("only one 'hold: auto' is allowed per scene")
         if auto_holds and not self.narration:
             raise ValueError("'hold: auto' needs narration to take its length from")
+        if self.timelapse is not None:
+            if self.hidden:
+                raise ValueError("a hidden scene cannot have a timelapse")
+            if auto_holds:
+                raise ValueError("a timelapse scene cannot use 'hold: auto'; narration is waited for anyway")
         return self
 
 

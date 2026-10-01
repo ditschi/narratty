@@ -122,3 +122,25 @@ def test_end_card_without_qr() -> None:
 @pytest.mark.parametrize("end_card", ["false", "{duration_ms: 3000}"])
 def test_no_end_card_unless_enabled(end_card: str) -> None:
     assert "end card" not in _card_tape(end_card)
+
+
+def test_timelapse_scenes_get_markers() -> None:
+    spec = parse_spec(
+        """\
+scenes:
+  - id: setup
+    hidden: true
+    actions: [{type_command: "cd /srv"}, enter]
+  - id: pull
+    timelapse: 8
+    actions: [{wait: {screen: done, timeout_ms: 600000}}]
+""",
+        Path("t.narratty.yaml"),
+    )
+    timeline = build_timeline(spec, {})
+    tape = generate_tape(spec, timeline, Path("/out/v.mp4"), marks=Path("/w/marks"))
+    assert "# scene: pull (timelapse ×8)" in tape
+    assert 'Screenshot "/w/marks/scene-pull.png"' in tape
+    assert 'Screenshot "/w/marks/end-pull.png"' in tape
+    assert "scene-setup" not in tape, "hidden scenes are not recorded, so get no marker"
+    assert "Screenshot" not in generate_tape(spec, timeline, Path("/out/v.mp4"))

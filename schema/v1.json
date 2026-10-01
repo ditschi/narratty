@@ -335,6 +335,21 @@
           ],
           "title": "Narration Start",
           "type": "string"
+        },
+        "timelapse": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 1,
+              "maximum": 1000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Show the scene this many times faster (e.g. a long download).",
+          "title": "Timelapse"
         }
       },
       "required": [

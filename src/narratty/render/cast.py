@@ -25,8 +25,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from narratty.errors import RenderError
-from narratty.render.script import Ctrl, Hide, Mark, Press, Show, Sleep, Step, Type, WaitScreen
+from narratty.render.script import (
+    Ctrl,
+    Hide,
+    Mark,
+    Press,
+    Show,
+    Sleep,
+    Step,
+    TimelapseEnd,
+    Type,
+    WaitScreen,
+)
 from narratty.spec.model import Terminal
+from narratty.timeline import timelapse_layout
 
 # VHS's defaults: 60 px padding; a monospace cell is about 0.6 × 1.2 font sizes.
 _PADDING_PX = 60
@@ -131,6 +143,9 @@ class Recorder:
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self._hidden_total = 0.0
         self._hidden_since: float | None = None
+        self._skipped = 0.0  # recorded time saved by timelapse scenes so far
+        self._fast: tuple[float, float] | None = None  # (shown seconds at its start, factor)
+        self.narration_offsets: dict[str, float] = {}
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
         try:
@@ -154,10 +169,28 @@ class Recorder:
 
     # ── clock ────────────────────────────────────────────────────────────────
 
-    def now(self) -> float:
-        """Seconds of recorded time so far (hidden time does not count)."""
+    def _shown(self) -> float:
         current = self._hidden_since if self._hidden_since is not None else self._clock()
         return current - self._start - self._hidden_total
+
+    def now(self) -> float:
+        """Seconds of recorded time so far (hidden time does not count, timelapse time less)."""
+        shown = self._shown()
+        if self._fast is None:
+            return shown - self._skipped
+        start, factor = self._fast
+        return start - self._skipped + (shown - start) / factor
+
+    def speed_up(self, factor: float) -> None:
+        """Let recorded time run ``factor`` times faster than real time."""
+        self._fast = (self._shown(), factor)
+
+    def normal_speed(self) -> None:
+        """Back to real time."""
+        if self._fast is not None:
+            start, factor = self._fast
+            self._skipped += (self._shown() - start) * (1 - 1 / factor)
+            self._fast = None
 
     def hide(self) -> None:
         """Stop the recording clock; output keeps being recorded, at this moment."""
@@ -247,8 +280,23 @@ class Recorder:
                 self.hide()
             case Show():
                 self.show()
-            case Mark(scene_id, hidden) if scene_id is not None and not hidden:
-                self.mark(scene_id)
+            case Mark(scene_id, False, timelapse) if scene_id is not None:
+                self._start_scene(scene_id, timelapse)
+            case TimelapseEnd():
+                self._end_timelapse(step)
+
+    def _start_scene(self, scene_id: str, timelapse: float | None) -> None:
+        self.mark(scene_id)
+        if timelapse:
+            self.speed_up(timelapse)
+
+    def _end_timelapse(self, end: TimelapseEnd) -> None:
+        """Back to real time; hold the last frame until the scene's narration is done."""
+        self.normal_speed()
+        sped_ms = round((self.now() - self.marks[end.scene_id]) * 1000)
+        offset, freeze = timelapse_layout(sped_ms, end.hold_ms, narration_after=end.narration_after)
+        self.narration_offsets[end.scene_id] = offset / 1000
+        self.pump(freeze / 1000)
 
     def _keys(self, keys: Sequence[str], speed_ms: int) -> None:
         for key in keys:
@@ -276,6 +324,7 @@ class Recording:
     cast: str
     duration_ms: int
     scene_starts_ms: dict[str, int]
+    narration_offsets_ms: dict[str, int] = field(default_factory=dict)  # timelapse scenes
 
 
 def record(
@@ -308,4 +357,5 @@ def record(
         "\n".join(lines) + "\n",
         round(duration * 1000),
         {label: round(start * 1000) for label, start in recorder.marks.items()},
+        {label: round(offset * 1000) for label, offset in recorder.narration_offsets.items()},
     )

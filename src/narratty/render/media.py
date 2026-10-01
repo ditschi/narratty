@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
-from collections.abc import Callable, Mapping, Sequence
+import time
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -45,16 +48,52 @@ def vhs_env(base: Mapping[str, str] | None = None) -> dict[str, str]:
     return env
 
 
+@dataclass(frozen=True)
+class LogLine:
+    """A line VHS printed, and when (seconds after it started).
+
+    VHS prints each command as it starts it, so the times locate markers in the video.
+    """
+
+    at: float
+    text: str
+
+
+_ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+@contextmanager
+def _stream(argv: Sequence[str], *, cwd: Path, env: Mapping[str, str]) -> Iterator[Iterator[str]]:
+    with subprocess.Popen(  # noqa: S603
+        list(argv), cwd=cwd, env=dict(env), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    ) as proc:
+        assert proc.stdout is not None  # noqa: S101
+        yield proc.stdout
+        if proc.wait() != 0:
+            raise subprocess.CalledProcessError(proc.returncode, argv)
+
+
 def run_vhs(
-    tape: Path, cwd: Path, *, extra_env: Mapping[str, str] | None = None, runner: Runner = _run
-) -> None:
-    """Render ``tape`` with VHS, running the recorded shell in ``cwd``."""
+    tape: Path,
+    cwd: Path,
+    *,
+    extra_env: Mapping[str, str] | None = None,
+    stream: Callable[..., AbstractContextManager[Iterator[str]]] = _stream,
+    clock: Callable[[], float] = time.monotonic,
+) -> list[LogLine]:
+    """Render ``tape`` with VHS, running the recorded shell in ``cwd``; returns its log."""
     env = {**vhs_env(), **(extra_env or {})}
-    result = runner([require("vhs"), str(tape)], cwd=cwd, env=env)
-    if result.returncode != 0:
+    log: list[LogLine] = []
+    start = clock()
+    try:
+        with stream([require("vhs"), str(tape)], cwd=cwd, env=env) as lines:
+            log.extend(LogLine(clock() - start, _ANSI.sub("", line).rstrip()) for line in lines)
+    except (subprocess.CalledProcessError, OSError):
+        tail = "\n".join(line.text for line in log[-5:] if line.text) or "no output"
         raise RenderError(
-            f"VHS failed:\n{_tail(result)}", hint=f"The tape is at {tape}; run `vhs {tape}` to debug."
-        )
+            f"VHS failed:\n{tail}", hint=f"The tape is at {tape}; run `vhs {tape}` to debug."
+        ) from None
+    return log
 
 
 @dataclass(frozen=True)

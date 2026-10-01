@@ -90,9 +90,8 @@ class FakeMedia:
         monkeypatch.setattr(media, "mux", self._mux)
 
     @staticmethod
-    def _render(planned: Plan, video: Path, work: Path, workspace: Path) -> Path:
+    def _render(planned: Plan, video: Path, work: Path, workspace: Path) -> None:
         video.write_bytes(b"mp4")
-        return video
 
     def _mux(self, video: Path, audio: Path, out: Path, **kwargs: object) -> None:
         self.mux_kwargs = kwargs

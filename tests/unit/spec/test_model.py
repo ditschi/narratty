@@ -64,6 +64,9 @@ def test_narration_whitespace_is_collapsed() -> None:
         ({"id": "a", "actions": [{"ctrl_sequence": "C-cc"}]}, "String should match pattern"),
         ({"id": "a", "actions": [{"wait": {"screen": "("}}]}, "regular expression"),
         ({"id": "a", "actions": [{"type_command": "ls", "enter": True}]}, "exactly one"),
+        ({"id": "a", "hidden": True, "timelapse": 8}, "hidden scene cannot have a timelapse"),
+        ({"id": "a", "narration": "x", "timelapse": 8, "actions": [{"hold": "auto"}]}, "timelapse"),
+        ({"id": "a", "timelapse": 1}, "greater than 1"),
     ],
 )
 def test_invalid_scenes(scene: dict[str, Any], message: str) -> None:
