@@ -36,8 +36,7 @@ if TYPE_CHECKING:
 
 
 def _environment(spec: Path, request: SandboxRequest) -> tuple[Spec, Environment]:
-    """The spec and its environment (a devcontainer.json read into what it describes)."""
-    from narratty.env_devcontainer import expand
+    """The spec and its environment."""
     from narratty.environment import resolve
     from narratty.errors import UsageError
     from narratty.spec import load_spec
@@ -48,7 +47,7 @@ def _environment(spec: Path, request: SandboxRequest) -> tuple[Spec, Environment
         raise UsageError(
             f"{spec} has no environment", hint="Add an `environment` block, or pass --env-image."
         )
-    return loaded, expand(environment, spec.resolve().parent, log=log)
+    return loaded, environment
 
 
 def log(message: str) -> None:
@@ -65,15 +64,21 @@ def build_command(
     rebuild_env: bool = RebuildEnvOption,
     yes: bool = YesOption,
 ) -> None:
-    """Build the environment's image (Dockerfile, packages, setup) ahead of a recording."""
+    """Build the environment's image (packages, setup) ahead of a recording."""
     from narratty.container import approved_sandbox
     from narratty.environment import EnvironmentOptions, prepare_image
+    from narratty.errors import UsageError
     from narratty.runtime import container_engine
     from narratty.ui.console import out
 
     env = EnvironmentOptions(image=env_image, rebuild=rebuild_env)
     request = sandbox_request(None, False, False, None, None, yes, env)
     loaded, environment = _environment(spec, request)
+    if environment.image is None:
+        raise UsageError(
+            "env build only applies to environment.image",
+            hint="A Compose service is built by `docker compose build`, or on its first run.",
+        )
     approved_sandbox(spec, loaded, request)
     image = prepare_image(
         environment, spec_dir=spec.resolve().parent, engine=container_engine(), rebuild=rebuild_env, log=log

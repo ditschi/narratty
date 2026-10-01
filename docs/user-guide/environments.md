@@ -1,9 +1,9 @@
 # Project environments
 
 By default the demo shell runs in the narratty image. When the demo needs your
-project's own toolchain, run the shell in the project's image, Compose service or dev
-container instead. Only the shell moves: VHS, Chromium, the voices and ffmpeg stay in
-narratty, and the project's image needs no change.
+project's own toolchain, run the shell in the project's image or Compose service
+instead. Only the shell moves: VHS, Chromium, the voices and ffmpeg stay in narratty,
+and the project's image needs no change.
 
 ```yaml
 environment:
@@ -13,22 +13,16 @@ environment:
 ```
 
 The image needs Linux (amd64 or arm64) and the [`terminal.shell`](spec.md#terminal).
-Without `environment`, nothing changes. Set exactly one source: `image`, `build`,
-`compose`, `container` or `devcontainer`.
+Without `environment`, nothing changes. Set exactly one source:
 
-## Build from a Dockerfile
+| Source | Use it for |
+|---|---|
+| `image` | A ready image, nothing else to configure |
+| `compose` | Everything else: a Dockerfile, mounts, networks, users, several services |
+| `container` | A container that is already running |
 
-Instead of `image`, `build` builds the project's own Dockerfile (paths relative to the
-spec). The build uses the normal build cache, so an unchanged Dockerfile is quick.
-
-```yaml
-environment:
-  build:
-    context: .
-    dockerfile: docker/dev.Dockerfile   # default: <context>/Dockerfile
-    target: dev
-    args: {PY: "3.12"}
-```
+A Dockerfile, a `docker run` command or a dev container all become a few lines of
+Compose; see [From Dockerfile, docker run or dev container](#from-dockerfile-docker-run-or-dev-container).
 
 ## Run in a Compose service
 
@@ -49,48 +43,47 @@ Compose file, including `network_mode: host`; the sandbox rules do not apply to 
 `file` also takes a list (`[compose.yaml, compose.dev.yaml]`), merged in order like
 repeated `docker compose -f`.
 
-## Use your dev container
+## From Dockerfile, docker run or dev container
 
-`devcontainer` reads the project's `devcontainer.json` and runs what it describes:
-its `image`, its Dockerfile (`build`) or its Compose service (`dockerComposeFile` and
-`service`). VHS, the voices and ffmpeg stay in narratty; the dev container needs no
-change.
+Compose describes how to build and start a container, so narratty needs nothing else.
 
-```yaml
-environment:
-  devcontainer: .devcontainer   # the folder or the devcontainer.json, relative to the spec
-```
-
-| From `devcontainer.json` | Becomes |
-|---|---|
-| `image`, `build` (`dockerfile`, `context`, `args`, `target`), `dockerComposeFile` + `service` | the source |
-| `workspaceFolder` | `workdir` (default `/workspaces/<folder>`) |
-| `remoteUser`, `containerUser` | `user` |
-| `containerEnv`, `remoteEnv` | `env` |
-| `${localEnv:NAME}`, `${localWorkspaceFolder}`, `${containerWorkspaceFolder}` | their values |
-
-Keys set in the spec win, so `user: host` keeps files the demo writes yours. JSON
-with comments and trailing commas is fine.
-
-Dev container `features`, lifecycle commands (`postCreateCommand`, ...), `runArgs`
-and `mounts` need the [Dev Container CLI](https://github.com/devcontainers/cli);
-narratty skips them with a note. When the container depends on them, build it once
-with the CLI and record that image:
-
-```bash
-devcontainer build --workspace-folder . --image-name acme/dev:recording
-```
+A Dockerfile:
 
 ```yaml
-environment:
-  image: acme/dev:recording
-  workdir: /workspaces/app
+# compose.yaml
+services:
+  dev:
+    build: {context: ., dockerfile: docker/dev.Dockerfile, target: dev, args: {PY: "3.12"}}
+    command: sleep infinity
+    volumes: [".:/src"]
+    working_dir: /src
 ```
+
+A `docker run --network host -v .:/src -w /src -u 1000 -e TZ=UTC acme/dev sleep infinity`:
+
+```yaml
+services:
+  dev:
+    image: acme/dev
+    command: sleep infinity
+    network_mode: host
+    volumes: [".:/src"]
+    working_dir: /src
+    user: "1000"
+    environment: {TZ: UTC}
+```
+
+A dev container with `dockerComposeFile` already has one: point `environment.compose`
+at it. For one with only `image` or `build`, write the Compose file as above with its
+`workspaceFolder` as `working_dir`. Editor extensions, `features` and lifecycle
+commands (`postCreateCommand`, ...) are not used; put what the demo needs into the
+Dockerfile, or into `packages` and `setup` (see [Extra tools](#extra-tools-for-the-demo)).
 
 ### Example: record a build in the dev container
 
 `examples/devcontainer` is a small project whose dev container is a Compose
-service. The video runs its real build inside that container:
+service. The spec points at that Compose file; the video runs the real build inside
+the container:
 
 === "devcontainer.json"
 
@@ -142,7 +135,7 @@ package manager and `setup` runs further commands:
 
 ```yaml
 environment:
-  image: ghcr.io/acme/toolchain:2.3   # or build
+  image: ghcr.io/acme/toolchain:2.3   # or compose
   packages: [bat, jq, tree]
   package_manager: auto               # auto | apt | apk | dnf | microdnf | yum | zypper
   setup:
@@ -153,12 +146,12 @@ narratty builds a small image on top: root and network access only while buildin
 then the image's own user again. It is tagged `narratty-env:<hash>` of the base image,
 the packages and the commands, so a second run builds nothing. `auto` detects the
 package manager once per image; an image without one (distroless, scratch) needs
-`setup` or `build`. `narratty env build SPEC` builds ahead of time, `--rebuild-env`
-forces a rebuild.
+`setup` or its own Dockerfile. `narratty env build SPEC` builds ahead of time (for
+`image`), `--rebuild-env` forces a rebuild.
 
 Because the build runs as root with network access, the first run asks for approval,
 like [sandbox permissions](container.md#you-stay-in-control). `packages` and `setup`
-work with `image`, `build` and `compose`, not with a running container.
+work with `image` and `compose`, not with a running container.
 
 ## Demo toolkit
 
@@ -222,7 +215,7 @@ may use:
 
 ```toml
 [sandbox]
-allow_environment = ["image", "build"]   # also "compose", "container", "devcontainer"; [] forbids all
+allow_environment = ["image"]   # also "compose", "container"; [] forbids all
 allow_packages = false                   # no packages or setup commands
 ```
 

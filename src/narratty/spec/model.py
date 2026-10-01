@@ -550,7 +550,7 @@ class Sandbox(_Model):
         )
 
 
-ENV_SOURCES = ("image", "build", "compose", "container", "devcontainer")
+ENV_SOURCES = ("image", "compose", "container")
 PACKAGE_MANAGERS = ("apt", "apk", "dnf", "microdnf", "yum", "zypper")
 PACKAGE_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9.+_:=~<>*-]*$"
 
@@ -562,31 +562,16 @@ class EnvCompose(_Model):
     service: str = Field(min_length=1, description="Service the demo shell runs in.")
 
 
-class EnvBuild(_Model):
-    """Build the environment's image from a Dockerfile (paths relative to the spec)."""
-
-    context: str = Field(".", description="Build context.")
-    dockerfile: str | None = Field(None, description="Dockerfile; defaults to <context>/Dockerfile.")
-    target: str | None = Field(None, description="Build stage to stop at.")
-    args: dict[str, str] = Field({}, description="Build arguments.")
-
-
 class Environment(_Model):
     """A project container the demo shell runs in; the rest of narratty stays outside it."""
 
     image: str | None = Field(None, min_length=1, description="Image to run the demo shell in.")
-    build: EnvBuild | None = Field(None, description="Build the image from a Dockerfile instead.")
     compose: EnvCompose | None = Field(None, description="Run in a service of a Compose file.")
     container: str | None = Field(None, min_length=1, description="Run in this running container.")
-    devcontainer: str | None = Field(
-        None,
-        min_length=1,
-        description="Run as this devcontainer.json describes (image, Dockerfile or Compose service).",
-    )
     workdir: str | None = Field(
         None,
         pattern=r"^/",
-        description="Where the shell starts; for image and build also where the workspace is mounted "
+        description="Where the shell starts; for image also where the workspace is mounted "
         "(default /work). compose and container default to the container's working directory.",
     )
     user: str = Field(
@@ -624,7 +609,7 @@ class Environment(_Model):
 
     @property
     def mount_point(self) -> str:
-        """Where image and build environments mount the workspace."""
+        """Where image environments mount the workspace."""
         return self.workdir or "/work"
 
     @property

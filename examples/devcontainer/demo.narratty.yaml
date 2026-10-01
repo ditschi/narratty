@@ -1,10 +1,12 @@
 meta: {title: Build in the dev container}
 terminal: {height: 600}
 environment:
-  devcontainer: .devcontainer   # the project's own devcontainer.json
+  compose:                      # the Compose file the dev container uses
+    file: .devcontainer/compose.yaml
+    service: dev
 scenes:
   - id: intro
-    narration: This shell runs in the project's dev container, started from its devcontainer file.
+    narration: This shell runs in the project's dev container, started from its Compose file.
     actions:
       - run: python --version && echo "APP_ENV=$APP_ENV"
   - id: tree

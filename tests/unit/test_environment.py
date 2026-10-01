@@ -52,10 +52,10 @@ class FakeEngine:
 
 def test_spec_needs_exactly_one_source() -> None:
     assert Environment(image="acme/dev:1").source == "image"
-    with pytest.raises(ValueError, match="exactly one of: image, build"):
+    with pytest.raises(ValueError, match="exactly one of: image, compose, container"):
         Environment()
     with pytest.raises(ValueError, match="exactly one of"):
-        Environment(image="x", build={"context": "."})
+        Environment(image="x", container="dev")
     with pytest.raises(ValueError, match="packages"):
         Environment(image="x", packages=["jq; rm -rf /"])
     with pytest.raises(ValueError, match="user"):

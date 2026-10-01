@@ -24,7 +24,7 @@ allow_env = ["LM_LICENSE_FILE"]    # env_passthrough names a spec may use
 allow_mounts = true
 allow_ssh_agent = false
 allow_docker = false               # no spec gets your Docker/Podman engine
-allow_environment = ["image", "build", "compose", "container", "devcontainer"]
+allow_environment = ["image", "compose", "container"]
 allow_packages = true              # environment.packages and setup
 ```
 

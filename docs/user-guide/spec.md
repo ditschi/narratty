@@ -137,10 +137,8 @@ Runs the demo shell in your project's image, Compose service or container; see
 | Key | Default | Meaning |
 |---|---|---|
 | `image` | | Image to run the shell in |
-| `build` | | `{context, dockerfile, target, args}`: build the image instead |
 | `compose` | | `{file, service}`: run in a Compose service (`file`: one file or a list, default `compose.yaml`) |
 | `container` | | Run in this running container (needs `workspace.mode: rw`) |
-| `devcontainer` | | Run what this `devcontainer.json` (or its folder) describes |
 | `workdir` | `/work` | Where the workspace is mounted and the shell starts; for `compose` and `container` the container's working directory |
 | `user` | `host` | `host` (your user id), `image` (the image's user), a user name or `UID[:GID]` |
 | `env` | `{}` | Variables set in the environment's container |
@@ -150,7 +148,7 @@ Runs the demo shell in your project's image, Compose service or container; see
 | `setup` | `[]` | Commands run as root when the image is built |
 | `toolkit` | `prefer` | Mount the demo toolkit first (`prefer`) or last (`fallback`) on `PATH`, or not (`off`) |
 
-Set exactly one of `image`, `build`, `compose`, `container` and `devcontainer`.
+Set exactly one of `image`, `compose` and `container`.
 
 ## `end_card`
 

@@ -83,11 +83,12 @@ def test_video_from_the_container(tmp_path: Path) -> None:
     assert (tmp_path / "made-in-env").is_file()
 
 
-def test_packages_and_build(tmp_path: Path) -> None:
+def test_packages_and_setup(tmp_path: Path) -> None:
     (tmp_path / "Dockerfile").write_text(f"FROM {IMAGE}\nRUN useradd -u 1500 dev\nUSER dev\n")
+    subprocess.run(["docker", "build", "--quiet", "--tag", "narratty-test-dev", str(tmp_path)], check=True)
     spec = tmp_path / "demo.narratty.yaml"
     spec.write_text(
-        "environment:\n  build: {context: .}\n  packages: [jq]\n  setup: ['echo made > /etc/demo']\n"
+        "environment:\n  image: narratty-test-dev\n  packages: [jq]\n  setup: ['echo made > /etc/demo']\n"
         "scenes: [{id: a}]\n",
         encoding="utf-8",
     )

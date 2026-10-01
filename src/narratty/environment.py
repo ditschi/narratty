@@ -156,18 +156,13 @@ def prepare_image(
     run: Engine = _engine,
     log: Log | None = None,
 ) -> ImageInfo:
-    """Pull or build the environment's image, and add its packages and setup."""
-    from narratty.env_image import build_layer, build_project_image
+    """Pull the environment's image, and add its packages and setup."""
+    from narratty.env_image import build_layer
     from narratty.paths import cache_dir
 
-    if environment.build is not None:
-        ref = build_project_image(
-            environment.build, spec_dir=spec_dir, engine=engine, run=run, rebuild=rebuild, log=log
-        )
-    elif environment.image is not None:
-        ref = environment.image
-    else:
+    if environment.image is None:
         raise AssertionError(environment)
+    ref = environment.image
     image = inspect_image(engine, ref, run=run, log=log)
     if not environment.layered:
         return image
@@ -245,7 +240,7 @@ class Session:
     engine: str
     container: str
     workdir: str | None = None
-    volume: str | None = None  # holds the agent's socket (image, build, compose)
+    volume: str | None = None  # holds the agent's socket (image, compose)
     socket: str | None = None  # an abstract socket in the container's network (container)
     user: str | None = None  # for exec, when the container runs as someone else
 
@@ -360,7 +355,7 @@ def run_argv(
     network: str,
     keep: bool,
 ) -> list[str]:
-    """``run`` command for an image or build environment.
+    """``run`` command for an image environment.
 
     The container idles in an interactive ``shell`` (it only has to stay up); demo
     shells are started next to it with ``exec``.
@@ -406,7 +401,7 @@ def start(
     run: Engine = _engine,
     log: Log | None = None,
 ) -> Iterator[Session]:
-    """Start an image or build environment; with an agent, serve demo shells on a socket.
+    """Start an image environment; with an agent, serve demo shells on a socket.
 
     Everything is removed afterwards unless ``keep``.
     """

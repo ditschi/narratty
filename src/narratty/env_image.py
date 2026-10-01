@@ -1,4 +1,4 @@
-"""The environment's image: pulled or built from the project's Dockerfile, plus a layer
+"""The environment's image, plus a layer
 with the demo's ``packages`` and ``setup`` commands.
 
 The layer is built from a generated Dockerfile. It runs as root only while building,
@@ -18,7 +18,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from narratty.errors import NarrattyError, UsageError
-from narratty.spec.model import PACKAGE_MANAGERS, EnvBuild, Environment
+from narratty.spec.model import PACKAGE_MANAGERS, Environment
 
 Engine = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
 Log = Callable[[str], None]
@@ -43,37 +43,6 @@ def _tail(result: subprocess.CompletedProcess[str], lines: int = 15) -> str:
     return "\n".join((result.stderr or result.stdout or "").strip().splitlines()[-lines:])
 
 
-def build_project_image(
-    build: EnvBuild,
-    *,
-    spec_dir: Path,
-    engine: str,
-    run: Engine,
-    rebuild: bool = False,
-    log: Log | None = None,
-) -> str:
-    """Build the project's Dockerfile; returns the image tag (stable per context and file)."""
-    context = (spec_dir / build.context).resolve()
-    dockerfile = (spec_dir / build.dockerfile).resolve() if build.dockerfile else context / "Dockerfile"
-    if not dockerfile.is_file():
-        raise UsageError(f"environment.build: {dockerfile} does not exist")
-    key = hashlib.sha256(f"{context}\0{dockerfile}\0{build.target}".encode()).hexdigest()[:12]
-    tag = f"narratty-build:{key}"
-    argv = [engine, "build", "--tag", tag, "--file", str(dockerfile)]
-    if build.target:
-        argv += ["--target", build.target]
-    for name, value in sorted(build.args.items()):
-        argv += ["--build-arg", f"{name}={value}"]
-    if rebuild:
-        argv.append("--no-cache")
-    if log:
-        log(f"building the environment from {dockerfile.name}")
-    result = run([*argv, str(context)])
-    if result.returncode != 0:
-        raise NarrattyError(f"building {dockerfile} failed:\n{_tail(result)}")
-    return tag
-
-
 def detect_package_manager(engine: str, ref: str, image_id: str, *, cache: Path, run: Engine) -> str:
     """The package manager in ``ref``, remembered per image id."""
     store = cache / "env-package-managers.json"
@@ -89,7 +58,7 @@ def detect_package_manager(engine: str, ref: str, image_id: str, *, cache: Path,
         raise UsageError(
             f"{ref} has no package manager narratty knows ({', '.join(PACKAGE_MANAGERS)})",
             hint="Set environment.package_manager, install tools with environment.setup, "
-            "or use environment.build with your own Dockerfile.",
+            "or build your own image in a Compose service.",
         )
     known[image_id] = found
     store.parent.mkdir(parents=True, exist_ok=True)

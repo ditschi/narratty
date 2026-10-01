@@ -7,3 +7,5 @@ services:
     volumes:
       - ..:/workspace
     working_dir: /workspace
+    environment:
+      APP_ENV: demo

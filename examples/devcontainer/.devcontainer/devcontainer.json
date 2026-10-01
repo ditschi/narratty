@@ -4,5 +4,4 @@
   "dockerComposeFile": "compose.yaml",
   "service": "dev",
   "workspaceFolder": "/workspace",
-  "containerEnv": {"APP_ENV": "demo"},
 }

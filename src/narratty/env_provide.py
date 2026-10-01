@@ -61,11 +61,8 @@ def provide(
     ``narratty_image`` supplies the agent (``with_agent``) and the allowlist forwarders.
     ``labels`` and ``name`` mark an environment kept for later runs (``env up``).
     """
-    from narratty.env_devcontainer import expand
     from narratty.paths import cache_dir
     from narratty.sandbox import ContainerAccess, allowlist_network, container_access
-
-    environment = expand(environment, spec_dir, log=log)
 
     def agent_for(architecture: str) -> Path | None:
         if not with_agent:

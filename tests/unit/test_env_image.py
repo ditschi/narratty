@@ -9,42 +9,15 @@ import pytest
 
 from narratty.env_image import (
     build_layer,
-    build_project_image,
     detect_package_manager,
     grants,
     layer_dockerfile,
     layer_tag,
 )
 from narratty.environment import prepare_image
-from narratty.errors import NarrattyError, UsageError
-from narratty.spec.model import EnvBuild, Environment
+from narratty.errors import UsageError
+from narratty.spec.model import Environment
 from tests.unit.test_environment import IMAGE, FakeEngine
-
-
-def test_project_image_is_built_with_its_options(tmp_path: Path) -> None:
-    (tmp_path / "docker").mkdir()
-    (tmp_path / "docker" / "dev.Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
-    engine = FakeEngine()
-    build = EnvBuild(dockerfile="docker/dev.Dockerfile", target="dev", args={"PY": "3.12"})
-    tag = build_project_image(build, spec_dir=tmp_path, engine="docker", run=engine, rebuild=True)
-    assert tag.startswith("narratty-build:")
-    argv = engine.calls[0]
-    assert argv[:4] == ["docker", "build", "--tag", tag]
-    assert argv[argv.index("--file") + 1] == str(tmp_path / "docker" / "dev.Dockerfile")
-    assert argv[argv.index("--target") + 1] == "dev"
-    assert "PY=3.12" in argv and "--no-cache" in argv
-    assert argv[-1] == str(tmp_path)
-    again = build_project_image(build, spec_dir=tmp_path, engine="docker", run=engine)
-    assert again == tag, "stable per context and Dockerfile"
-
-
-def test_project_image_errors(tmp_path: Path) -> None:
-    with pytest.raises(UsageError, match="does not exist"):
-        build_project_image(EnvBuild(), spec_dir=tmp_path, engine="docker", run=FakeEngine())
-    (tmp_path / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
-    failing = FakeEngine({("docker", "build"): (1, "")})
-    with pytest.raises(NarrattyError, match="failed"):
-        build_project_image(EnvBuild(), spec_dir=tmp_path, engine="docker", run=failing)
 
 
 def test_package_manager_is_detected_once(tmp_path: Path) -> None:

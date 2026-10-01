@@ -180,55 +180,6 @@
       "deprecated": true,
       "deprecationMessage": "Write `key: Enter` instead."
     },
-    "EnvBuild": {
-      "additionalProperties": false,
-      "description": "Build the environment's image from a Dockerfile (paths relative to the spec).",
-      "properties": {
-        "context": {
-          "default": ".",
-          "description": "Build context.",
-          "title": "Context",
-          "type": "string"
-        },
-        "dockerfile": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Dockerfile; defaults to <context>/Dockerfile.",
-          "title": "Dockerfile"
-        },
-        "target": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Build stage to stop at.",
-          "title": "Target"
-        },
-        "args": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "default": {},
-          "description": "Build arguments.",
-          "title": "Args",
-          "type": "object"
-        }
-      },
-      "title": "EnvBuild",
-      "type": "object"
-    },
     "EnvCompose": {
       "additionalProperties": false,
       "description": "A service of the project's Compose file (path relative to the spec).",
@@ -280,18 +231,6 @@
           "description": "Image to run the demo shell in.",
           "title": "Image"
         },
-        "build": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/EnvBuild"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Build the image from a Dockerfile instead."
-        },
         "compose": {
           "anyOf": [
             {
@@ -318,20 +257,6 @@
           "description": "Run in this running container.",
           "title": "Container"
         },
-        "devcontainer": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Run as this devcontainer.json describes (image, Dockerfile or Compose service).",
-          "title": "Devcontainer"
-        },
         "workdir": {
           "anyOf": [
             {
@@ -343,7 +268,7 @@
             }
           ],
           "default": null,
-          "description": "Where the shell starts; for image and build also where the workspace is mounted (default /work). compose and container default to the container's working directory.",
+          "description": "Where the shell starts; for image also where the workspace is mounted (default /work). compose and container default to the container's working directory.",
           "title": "Workdir"
         },
         "user": {
