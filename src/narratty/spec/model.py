@@ -209,6 +209,10 @@ class Scene(_Model):
     actions: list[Action] = []
     hidden: bool = False
     typing_speed_ms: Annotated[Duration, Field(gt=0)] | None = None
+    pause_ms: Annotated[Duration, Field(ge=0)] | None = Field(
+        None,
+        description="Pause after each `key` and `ctrl_sequence` in this scene; defaults to timing.pause_ms.",
+    )
     narration_start: Literal["with_actions", "after_actions"] = "with_actions"
 
     @field_validator("actions", mode="before")
@@ -295,6 +299,7 @@ class Timing(_Model):
     lead_in_ms: Duration = Field(300, ge=0)
     tail_ms: Duration = Field(1000, ge=0)
     run_hold_ms: Duration = Field(500, ge=0, description="Pause after each `run` action.")
+    pause_ms: Duration = Field(100, ge=0, description="Pause after each `key` and `ctrl_sequence`.")
 
 
 class Terminal(_Model):

@@ -34,14 +34,12 @@ scenes:
     narration: >-
       Switch to the explorer and open the source folder. The preview shows the
       selected file with syntax highlighting.
+    pause_ms: 600ms     # give the preview time after each key
     actions:
       - ctrl_sequence: C-b
       - key: Up
-      - hold: 600
       - key: Right
-      - hold: 600
       - key: Right
-      - hold: 600
       - key: Down
 
   - id: run

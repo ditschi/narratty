@@ -14,25 +14,40 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from narratty.spec.model import Action, Enter, Hold, Key, Run, Scene, Spec, TypeCommand
+from narratty.spec.model import Action, CtrlSequence, Enter, Hold, Key, Run, Scene, Spec, TypeCommand
 
 
-def typing_speed(spec: Spec, scene: Scene) -> int:
-    """Milliseconds per typed key in ``scene``."""
-    return scene.typing_speed_ms or spec.terminal.typing_speed_ms
+@dataclass(frozen=True)
+class Pacing:
+    """How fast one scene types and how long it pauses after keys and commands."""
+
+    speed: int
+    run_hold_ms: int = 0
+    pause_ms: int = 0
 
 
-def action_ms(action: Action, speed: int, run_hold_ms: int = 0) -> int:
+def pacing(spec: Spec, scene: Scene) -> Pacing:
+    """The pacing of ``scene``: its own values where set, else the spec's."""
+    return Pacing(
+        speed=scene.typing_speed_ms or spec.terminal.typing_speed_ms,
+        run_hold_ms=spec.timing.run_hold_ms,
+        pause_ms=spec.timing.pause_ms if scene.pause_ms is None else scene.pause_ms,
+    )
+
+
+def action_ms(action: Action, pace: Pacing) -> int:
     """Deterministic duration of one action (``wait`` and ``hold: auto`` count as 0)."""
     if isinstance(action, Run):
-        return (len(action.run) + 1) * speed + run_hold_ms
+        return (len(action.run) + 1) * pace.speed + pace.run_hold_ms
     if isinstance(action, TypeCommand):
-        return len(action.type_command) * speed
+        return len(action.type_command) * pace.speed
     if isinstance(action, Enter):
-        return speed
+        return pace.speed + pace.pause_ms
     if isinstance(action, Key):
         _, _, count = action.key.partition(" ")
-        return speed * int(count or 1)
+        return pace.speed * int(count or 1) + pace.pause_ms
+    if isinstance(action, CtrlSequence):
+        return pace.pause_ms
     if isinstance(action, Hold) and action.hold != "auto":
         return int(action.hold)
     return 0
@@ -86,8 +101,8 @@ def build_timeline(spec: Spec, audio_ms: Mapping[str, int]) -> Timeline:
     cursor = spec.timing.lead_in_ms
     timings: list[SceneTiming] = []
     for scene in spec.scenes:
-        speed = typing_speed(spec, scene)
-        actions = sum(action_ms(action, speed, spec.timing.run_hold_ms) for action in scene.actions)
+        pace = pacing(spec, scene)
+        actions = sum(action_ms(action, pace) for action in scene.actions)
         audio = audio_ms.get(scene.id, 0) if scene.narration else 0
         if scene.hidden:
             timings.append(SceneTiming(scene.id, True, cursor, actions, 0, 0, 0))

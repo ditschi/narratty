@@ -88,6 +88,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `lead_in_ms` | `300` | Silence before the first scene |
 | `tail_ms` | `1000` | Time the last frame stays on screen |
 | `run_hold_ms` | `500` | Pause after each `run` action |
+| `pause_ms` | `100` | Pause after each `key` and `ctrl_sequence` |
 
 ## `terminal`
 
@@ -157,6 +158,7 @@ wins over the config.
 | `actions` | `[]` | What happens in the terminal |
 | `hidden` | `false` | Run without recording (setup); cannot have narration |
 | `typing_speed_ms` | terminal's | Per-scene typing speed |
+| `pause_ms` | `timing.pause_ms` | Per-scene pause after each `key` and `ctrl_sequence` |
 | `narration_start` | `with_actions` | Or `after_actions` |
 
 A scene lasts as long as its actions or its narration plus `narration_buffer_ms`,

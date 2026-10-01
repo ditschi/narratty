@@ -116,6 +116,20 @@ scenes:
       - run: docker run --rm -v "$PWD:/work" -w /work ghcr.io/acme/tool:latest check
 ```
 
+The same goes for pauses. Every `key` and `ctrl_sequence` is followed by
+`timing.pause_ms` (100 ms). A scene that steps through a menu sets its own pause
+instead of a `hold` after every key:
+
+```yaml
+# instead of a hold after every key
+- id: explore
+  pause_ms: 600ms
+  actions:
+    - key: Right
+    - key: Right
+    - key: Down
+```
+
 ## YAML pitfalls
 
 - List items start with `- `. `* item` is Markdown, not YAML (`*` starts an alias),

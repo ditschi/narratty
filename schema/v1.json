@@ -376,6 +376,26 @@
           "default": null,
           "title": "Typing Speed Ms"
         },
+        "pause_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pause after each `key` and `ctrl_sequence` in this scene; defaults to timing.pause_ms.",
+          "title": "Pause Ms"
+        },
         "narration_start": {
           "default": "with_actions",
           "enum": [
@@ -521,6 +541,23 @@
           "default": 500,
           "description": "Pause after each `run` action.",
           "title": "Run Hold Ms"
+        },
+        "pause_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            }
+          ],
+          "default": 100,
+          "description": "Pause after each `key` and `ctrl_sequence`.",
+          "title": "Pause Ms"
         }
       },
       "title": "Timing",
@@ -722,7 +759,8 @@
         "narration_buffer_ms": 500,
         "lead_in_ms": 300,
         "tail_ms": 1000,
-        "run_hold_ms": 500
+        "run_hold_ms": 500,
+        "pause_ms": 100
       }
     },
     "terminal": {

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from narratty.end_card import CREDIT
 from narratty.spec.model import Action, CtrlSequence, Enter, Hold, Key, Run, Scene, Spec, TypeCommand, Wait
-from narratty.timeline import SceneTiming, Timeline, typing_speed
+from narratty.timeline import Pacing, SceneTiming, Timeline, pacing
 
 
 @dataclass(frozen=True)
@@ -87,20 +87,24 @@ def prompt_setup(shell: str, prompt: str) -> str:
     return f"PS1={_shell_quote(prompt)}; clear"
 
 
-def action_steps(action: Action, speed: int, run_hold_ms: int = 0) -> list[Step]:
+def _then_sleep(steps: list[Step], ms: int) -> list[Step]:
+    return [*steps, Sleep(ms)] if ms else steps
+
+
+def action_steps(action: Action, pace: Pacing) -> list[Step]:
     """Steps for one action (``hold: auto`` is placed by the caller)."""
+    speed = pace.speed
     if isinstance(action, Run):
-        steps: list[Step] = [Type(action.run, speed), Press("Enter", speed)]
-        return [*steps, Sleep(run_hold_ms)] if run_hold_ms else steps
+        return _then_sleep([Type(action.run, speed), Press("Enter", speed)], pace.run_hold_ms)
     if isinstance(action, TypeCommand):
         return [Type(action.type_command, speed)]
     if isinstance(action, Enter):
-        return [Press("Enter", speed)]
+        return _then_sleep([Press("Enter", speed)], pace.pause_ms)
     if isinstance(action, Key):
         name, _, count = action.key.partition(" ")
-        return [Press(name, speed, int(count) if count else None)]
+        return _then_sleep([Press(name, speed, int(count) if count else None)], pace.pause_ms)
     if isinstance(action, CtrlSequence):
-        return [Ctrl(action.ctrl_sequence.removeprefix("C-").upper())]
+        return _then_sleep([Ctrl(action.ctrl_sequence.removeprefix("C-").upper())], pace.pause_ms)
     if isinstance(action, Wait):
         return [WaitScreen(action.wait.screen, action.wait.timeout_ms)]
     if isinstance(action, Hold) and action.hold != "auto":
@@ -110,7 +114,7 @@ def action_steps(action: Action, speed: int, run_hold_ms: int = 0) -> list[Step]
 
 def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming) -> list[Step]:
     """Steps for one scene, with its fill pause at ``hold: auto`` or at the end."""
-    speed = typing_speed(spec, scene)
+    pace = pacing(spec, scene)
     fill_at_hold = scene.narration_start == "with_actions"
     steps: list[Step] = [Mark(scene.id, scene.hidden)]
     if scene.hidden:
@@ -122,7 +126,7 @@ def scene_steps(spec: Spec, scene: Scene, timing: SceneTiming) -> list[Step]:
                 steps.append(Sleep(timing.fill_ms))
             filled = True
             continue
-        steps += action_steps(action, speed, spec.timing.run_hold_ms)
+        steps += action_steps(action, pace)
     if not filled and timing.fill_ms:
         steps.append(Sleep(timing.fill_ms))
     if scene.hidden:
