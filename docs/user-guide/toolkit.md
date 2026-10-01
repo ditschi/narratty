@@ -11,6 +11,7 @@ Alpine, UBI, even busybox), as any user, without a package manager.
 | `fd`, `rg` | Find files and text |
 | `jq` | Pretty-print JSON |
 | `yazi` | File explorer with a preview |
+| `file` | File type detection (`yazi` needs it for previews) |
 | `tmux` | Split the terminal into panes |
 | `zsh` | Alternative shell (`terminal.shell: zsh`) |
 

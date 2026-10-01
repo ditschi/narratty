@@ -48,8 +48,8 @@ tools native mode needs.
   narration; `--draft` previews timing in seconds, without TTS.
 - **Scripting:** hidden setup scenes, waits for screen output, key presses and
   per-scene typing speed.
-- **Demo toolkit:** bat, eza, fd, ripgrep, jq, yazi, tmux and zsh as static binaries,
-  for the narratty image and, with one `COPY` line, for any dev container.
+- **Demo toolkit:** bat, eza, fd, ripgrep, jq, yazi, file, tmux and zsh as static
+  binaries, for the narratty image and, with one `COPY` line, for any dev container.
 - **Editor support:** a JSON Schema for completion and inline errors, `validate` with
   line numbers, and shell completion.
 

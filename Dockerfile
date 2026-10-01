@@ -9,10 +9,10 @@ ARG PYTHON_IMAGE=docker.io/library/python:3.12-slim-trixie
 ARG RUST_IMAGE=docker.io/library/rust:1-trixie
 
 # ── toolkit ───────────────────────────────────────────────────────────────────
-# Statically linked demo tools (bat, eza, fd, ripgrep, jq, yazi, zsh, tmux), a Nerd
+# Statically linked demo tools (bat, eza, fd, ripgrep, jq, yazi, file, zsh, tmux), a Nerd
 # Font for icons and recording defaults, for any Linux image:
 #   COPY --from=ghcr.io/ditschi/narratty-toolkit:<version> / /usr/local/
-# Built on the build platform; tmux and eza are cross-compiled, nothing is emulated.
+# Built on the build platform; tmux, file and eza are cross-compiled, nothing is emulated.
 FROM --platform=$BUILDPLATFORM ${RUST_IMAGE} AS toolkit-build
 ARG TARGETARCH
 RUN apt-get update \

@@ -9,6 +9,7 @@
 | jq | MIT | https://github.com/jqlang/jq |
 | yazi | MIT | https://github.com/sxyazi/yazi |
 | zsh (zsh-bin build) | MIT-style (zsh licence) | https://github.com/romkatv/zsh-bin |
+| file (with libmagic) | BSD-2-Clause | https://github.com/file/file |
 | tmux | ISC | https://github.com/tmux/tmux |
 | libevent (linked into tmux) | BSD-3-Clause | https://github.com/libevent/libevent |
 | ncurses (linked into tmux) | MIT-style (X11) | https://invisible-island.net/ncurses/ |

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Assemble the narratty toolkit: statically linked demo tools for any Linux image.
-# Prebuilt musl binaries are downloaded; tmux and eza (no static arm64 release) are
-# cross-compiled with zig, so no emulation is needed. Every download is pinned by
-# sha256. Output: /toolkit, laid out to be copied to /usr/local (zsh and tmux expect
-# that prefix).
+# Prebuilt musl binaries are downloaded; tmux, file and eza (no static arm64 release)
+# are cross-compiled with zig, so no emulation is needed. Every download is pinned by
+# sha256. Output: /toolkit, laid out to be copied to /usr/local (zsh, tmux and file
+# expect that prefix).
 #
 #   build.sh <amd64|arm64> [share-dir]
 set -euo pipefail
@@ -78,6 +78,9 @@ TMUX=3.7c LIBEVENT=2.1.12 EZA=0.23.5
 NCURSES=${NCURSES:-6.5}
 NCURSES_URL=${NCURSES_URL:-https://ftp.gnu.org/gnu/ncurses/ncurses-$NCURSES.tar.gz}
 NCURSES_SHA256=${NCURSES_SHA256:-136d91bc269a9a5785e5f9e980bc76ab57428f604ce3e5a5a90cebc767971cc6}
+FILE=${FILE:-5.48}
+FILE_URL=${FILE_URL:-https://astron.com/pub/file/file-$FILE.tar.gz}
+FILE_SHA256=${FILE_SHA256:-ed14656883b23a364b4057c05595d93252da9bc473d30106519519d0da141283}
 
 if [ "$host" = x86_64 ]; then uv_sha=3665ffb6c429c31ad6c778ac0489b7746e691acf025cf530b3510b2f9b1660ff
 else uv_sha=42b9b83933a289fe9c0e48f4973dee49ce0dfb95e19ea0b525ca0dbca3bce71f; fi
@@ -126,6 +129,19 @@ tar -xzf tmux.tar.gz -C tmux --strip-components=1
   && make -s -j"$(nproc)")
 install -m 0755 tmux/tmux "$out/bin/tmux"
 mkdir "$licenses/tmux" && cp tmux/COPYING "$licenses/tmux/"
+
+# file: yazi detects MIME types with it; without it, yazi shows no previews.
+fetch "$FILE_URL" "$FILE_SHA256" file.tar.gz
+mkdir file && tar -xzf file.tar.gz -C file --strip-components=1 && cp -a file file-host
+no_libs=(--disable-shared --enable-static --disable-zlib --disable-bzlib --disable-xzlib
+  --disable-zstdlib --disable-lzlib --disable-lrziplib --disable-libseccomp)
+# The magic database is compiled by a file of the same version that runs on the build host.
+(cd file-host && ./configure -q CC=zig-host-cc "${no_libs[@]}" && make -s -j"$(nproc)" -C src)
+(cd file && ./configure -q "${cross[@]}" "${no_libs[@]}" --prefix=/usr/local --datadir=/usr/local/share \
+  LDFLAGS=-s && make -s -j"$(nproc)" FILE_COMPILE="$src/file-host/src/file")
+install -m 0755 file/src/file "$out/bin/file"
+install -D -m 0644 file/magic/magic.mgc "$out/share/misc/magic.mgc"
+mkdir "$licenses/file" && cp file/COPYING "$licenses/file/"
 
 rust_target=$triple-unknown-linux-musl
 rustup target add "$rust_target" >/dev/null
