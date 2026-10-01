@@ -107,6 +107,7 @@ you for approval before the first run.
 | `env` | `{}` | Fixed environment variables |
 | `extra_mounts` | `[]` | `{host, container, mode: ro\|rw}` |
 | `ssh_agent` | `false` | Forward the host SSH agent |
+| `docker` | `false` | Give the demo your Docker or Podman engine; [full host access](container.md#docker-in-the-demo) |
 
 ## `end_card`
 

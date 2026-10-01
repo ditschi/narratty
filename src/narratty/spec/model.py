@@ -291,6 +291,10 @@ class Sandbox(_Model):
     env: dict[str, str] = {}
     extra_mounts: list[Mount] = []
     ssh_agent: bool = False
+    docker: bool = Field(
+        False,
+        description="Give the demo your Docker or Podman engine. This is full control of the host.",
+    )
 
     @model_validator(mode="after")
     def _hosts_need_allowlist(self) -> Sandbox:
@@ -303,7 +307,13 @@ class Sandbox(_Model):
     @property
     def elevated(self) -> bool:
         """True when the sandbox asks for more than the locked-down default."""
-        return bool(self.network != "none" or self.env_passthrough or self.extra_mounts or self.ssh_agent)
+        return bool(
+            self.network != "none"
+            or self.env_passthrough
+            or self.extra_mounts
+            or self.ssh_agent
+            or self.docker
+        )
 
 
 class EndCard(_Model):

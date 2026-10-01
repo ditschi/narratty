@@ -72,6 +72,7 @@ class ContainerSpec:
     network: str = "none"
     tty: bool = False
     volumes: Sequence[str] = ()
+    groups: Sequence[str] = ()
 
 
 def _user_flags(engine: Runtime) -> list[str]:
@@ -98,6 +99,8 @@ def run_argv(spec: ContainerSpec) -> list[str]:
     ]  # fmt: skip
     if spec.tty:
         argv += ["--tty"]
+    for group in spec.groups:
+        argv += ["--group-add", group]
     for mount in spec.mounts:
         argv += ["--volume", mount.flag()]
     for volume in spec.volumes:
@@ -213,6 +216,7 @@ class _Invocation:
             Mount(data.resolve(), "/data", read_only=True),
         ]
         self.volumes: list[str] = []
+        self.groups: list[str] = []
         self.args = [command, f"/spec/{spec_file.name}", "--runtime", "native", "--offline", *extra]
         self.env = {"NARRATTY_DATA_DIR": "/data", "NARRATTY_CACHE_DIR": "/cache"}
         # The user's and the project's lexicon files are not mounted; hand over their merged entries.
@@ -241,6 +245,7 @@ class _Invocation:
             self.network,
             stdout_is_tty(),
             self.volumes,
+            self.groups,
         )
 
 
@@ -278,7 +283,8 @@ def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runn
     invocation.env.update(access.env)
     invocation.volumes += access.volumes
     invocation.network = access.network
-    invocation.env["NARRATTY_WORKSPACE"] = CONTAINER_WORKSPACE
+    if sandbox.docker:
+        _add_engine(invocation)
 
     def log(message: str) -> None:
         err.print(f"[dim]{message}[/]", highlight=False, soft_wrap=True)
@@ -294,12 +300,25 @@ def _run_demo(invocation: _Invocation, spec: Spec, request: SandboxRequest, runn
         in_container=True,
         log=log,
     ) as workspace:
-        invocation.mounts.append(Mount(workspace.path, CONTAINER_WORKSPACE, read_only=workspace.read_only))
+        # With the engine, the workspace keeps its host path: bind mounts the demo
+        # passes to the engine (`docker run -v .:/app`, Compose volumes) are host paths.
+        target = str(workspace.path) if sandbox.docker else CONTAINER_WORKSPACE
+        invocation.env["NARRATTY_WORKSPACE"] = target
+        invocation.mounts.append(Mount(workspace.path, target, read_only=workspace.read_only))
         if sandbox.network != "allowlist":
             return run(invocation.container(), runner=runner)
         with allowlist_network(invocation.engine.value, invocation.image, sandbox.allow_hosts) as network:
             invocation.network = network
             return run(invocation.container(), runner=runner)
+
+
+def _add_engine(invocation: _Invocation) -> None:
+    from narratty.engine_access import engine_access
+
+    access = engine_access(invocation.engine)
+    invocation.volumes.append(access.volume)
+    invocation.groups += access.groups
+    invocation.env.update(access.env)
 
 
 def _which(name: str) -> str | None:

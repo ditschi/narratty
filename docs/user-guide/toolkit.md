@@ -112,10 +112,15 @@ The dev container keeps its user; nothing runs as root at run time.
 ## Onboarding videos
 
 A video that clones a repository, starts its dev container and works inside it needs
-Docker during the recording. Run it with `--runtime native`, so the demo uses Docker
-on your machine:
+Docker during the recording. Either give the sandboxed demo your engine with
+`sandbox.docker: true` ([full host access](container.md#docker-in-the-demo), you
+approve it once), or run with `--runtime native`:
 
 ```yaml
+sandbox:
+  docker: true
+  network: allowlist                   # for git clone
+  allow_hosts: [github.com:443]
 scenes:
   - id: clone
     narration: Clone the repository.
@@ -170,6 +175,8 @@ Things to watch:
   container builds an earlier stage (`target:`), add it there.
 - Viewers who follow the video do not have that line. Use the toolkit to show the
   project, not for steps they are meant to repeat.
+- The dev container keeps running after the render. End with a hidden scene that
+  leaves it (`exit`) and runs `docker compose down`.
 
 ## Example: an editor-like layout
 

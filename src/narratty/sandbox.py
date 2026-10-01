@@ -36,6 +36,7 @@ class Policy:
     allow_env: tuple[str, ...] | None = None  # None = any name
     allow_mounts: bool = True
     allow_ssh_agent: bool = True
+    allow_docker: bool = True
 
 
 def load_policy(directory: Path | None = None) -> Policy:
@@ -51,6 +52,7 @@ def load_policy(directory: Path | None = None) -> Policy:
         allow_env=tuple(allow_env) if allow_env is not None else None,
         allow_mounts=bool(raw.get("allow_mounts", True)),
         allow_ssh_agent=bool(raw.get("allow_ssh_agent", True)),
+        allow_docker=bool(raw.get("allow_docker", True)),
     )
 
 
@@ -87,6 +89,8 @@ def check_policy(sandbox: Sandbox, policy: Policy) -> None:
         problems.append("extra_mounts (your policy sets allow_mounts = false)")
     if sandbox.ssh_agent and not policy.allow_ssh_agent:
         problems.append("ssh_agent (your policy sets allow_ssh_agent = false)")
+    if sandbox.docker and not policy.allow_docker:
+        problems.append("docker (your policy sets allow_docker = false)")
     if problems:
         raise UsageError(
             "the spec's sandbox needs more than your policy allows: " + "; ".join(problems),
@@ -107,6 +111,8 @@ def describe(sandbox: Sandbox) -> list[str]:
         lines.append(f"{mount.host} mounted at {mount.container} ({mount.mode})")
     if sandbox.ssh_agent:
         lines.append("your SSH agent")
+    if sandbox.docker:
+        lines.append("your Docker/Podman engine: full control of this machine, like root")
     return lines
 
 
