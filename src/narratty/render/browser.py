@@ -45,6 +45,7 @@ ROD_BROWSERS = "~/.cache/rod/browser/*/chrome"
 MAX_SCREENS = 4
 SCROLL_PAUSE_MS = 1000
 SETTLE_MS = 500
+STARTUP_S = 90
 PAGE_HEIGHT_JS = "Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0)"
 
 
@@ -209,7 +210,7 @@ def capture(
             argv,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,  # chatty; an undrained pipe would block it
             pass_fds=(3, 4),
             preexec_fn=lambda: _pipe_fds(to_chromium, from_chromium),  # noqa: PLW1509
         )
@@ -217,7 +218,8 @@ def capture(
         os.close(from_chromium)
         tools = _DevTools(process, chromium_in, chromium_out)
         try:
-            target = tools.call("Target.createTarget", url="about:blank")["targetId"]
+            # The first start of a fresh profile can take a while on slow machines.
+            target = tools.call("Target.createTarget", timeout_s=STARTUP_S, url="about:blank")["targetId"]
             session = tools.call("Target.attachToTarget", targetId=target, flatten=True)["sessionId"]
             tools.call(
                 "Emulation.setDeviceMetricsOverride",
