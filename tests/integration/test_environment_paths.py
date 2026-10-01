@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import uuid
@@ -196,20 +197,21 @@ def test_user(tmp_path: Path, user: str, expected: str) -> None:
     assert f"uid-{expected}" in _cast(spec).replace("\r", "").split("uid-$(id -u)")[-1]
 
 
-def test_env_read_only_and_workdir(tmp_path: Path) -> None:
-    settings = "user: image, workdir: /project, read_only: true, env: {GREETING: hi}"
-    environment = f'{{image: "{IMAGE}", {settings}}}'
-    spec = _write(tmp_path, _spec_text(environment))
-    spec.write_text(
-        spec.read_text().replace(
-            "made-in-env; echo",
-            "made-in-env; echo $GREETING $PWD > env-seen; "
-            "touch /etc/x 2>/dev/null || echo ro >> env-seen; echo",
-        ),
-        encoding="utf-8",
-    )
-    _cast(spec)
-    assert (tmp_path / "env-seen").read_text().split() == ["hi", "/project", "ro"]
+def _inject(spec: Path, command: str) -> None:
+    """Run ``command`` in the demo shell before it prints ``in-42``."""
+    text = spec.read_text().replace("made-in-env; echo", f"made-in-env; {command}; echo")
+    spec.write_text(text, encoding="utf-8")
+
+
+def test_env_workdir_and_read_only(tmp_path: Path) -> None:
+    """The container runs without capabilities, so what the demo shows is read from the screen."""
+    probe = 'echo "env-$GREETING-$(pwd)-$(touch /etc/x 2>/dev/null && echo rw || echo ro)"'
+    settings = "user: image, workdir: /project, env: {GREETING: hi}"
+    spec = _write(tmp_path, _spec_text(f'{{image: "{IMAGE}", {settings}}}'))
+    _inject(spec, probe)
+    assert "env-hi-/project-rw" in _cast(spec), "root in the image may write to its root filesystem"
+    spec.write_text(spec.read_text().replace(settings, settings + ", read_only: true"), encoding="utf-8")
+    assert "env-hi-/project-ro" in _cast(spec), "read_only: true mounts it read-only"
 
 
 def test_network_is_off_by_default(tmp_path: Path) -> None:
@@ -226,14 +228,12 @@ def test_network_is_off_by_default(tmp_path: Path) -> None:
 
 def test_caches_survive_runs(tmp_path: Path) -> None:
     head = "workspace: {caches: {demo: /var/cache/demo}}\n"
-    spec = _write(tmp_path, _spec_text(f'{{image: "{IMAGE}", user: image}}', head=head))
-    keep = "cat /var/cache/demo/n > seen 2>/dev/null; date +%s%N > /var/cache/demo/n"
-    text = spec.read_text().replace("made-in-env; echo", f"made-in-env; {keep}; echo")
-    spec.write_text(text, encoding="utf-8")
-    _cast(spec)
-    assert not (tmp_path / "seen").read_text().strip(), "empty on the first run"
-    _cast(spec)
-    assert (tmp_path / "seen").read_text().strip(), "the second run sees what the first left"
+    spec = _write(tmp_path, _spec_text(f'{{image: "{IMAGE}"}}', head=head))
+    _inject(spec, "echo cache-$(cat /var/cache/demo/n 2>/dev/null | wc -c); date > /var/cache/demo/n")
+    first = re.search(r"cache-(\d+)", _cast(spec))
+    second = re.search(r"cache-(\d+)", _cast(spec))
+    assert first and second
+    assert first.group(1) == "0" and int(second.group(1)) > 0, "the second run sees what the first left"
 
 
 @pytest.mark.parametrize("source", ["image", "compose"])
@@ -242,11 +242,11 @@ def test_packages_setup_and_diff(tmp_path: Path, source: str) -> None:
     with _source(tmp_path, source) as (environment, head):
         layered = environment[:-1] + ", packages: [git], setup: ['echo made > /etc/demo']}"
         spec = _write(tmp_path, _spec_text(layered, head=head))
-        text = spec.read_text().replace("made-in-env; echo", "made-in-env; cat /etc/demo > setup-ran; echo")
-        spec.write_text(text.replace("      - wait:", "      - diff\n      - wait:", 1), encoding="utf-8")
-        output = _cast(spec)
+        _inject(spec, "cat /etc/demo > setup-ran")
+        shows = '      - wait: {screen: "\\\\+container", timeout_ms: 20000}\n'
+        spec.write_text(spec.read_text() + "      - diff\n" + shows, encoding="utf-8")
+        _cast(spec)
     assert (tmp_path / "setup-ran").read_text().strip() == "made"
-    assert "+container" in output, "the diff, run in the environment, shows the new file"
 
 
 @pytest.mark.parametrize(("mode", "first"), [("prefer", True), ("fallback", True), ("off", False)])
