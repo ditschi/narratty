@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/main/schema/v1.json
+# A web page in the video: the project's GitHub page, captured by Chromium.
+version: 1
+meta:
+  title: Show a web page
+tts:
+  provider: kokoro
+  voice: af_heart
+terminal:
+  width: 1280
+  height: 720
+  font_size: 20
+sandbox:
+  network: full       # the page is loaded from GitHub
+scenes:
+  - id: clone
+    narration: Everything starts on the project's GitHub page.
+    actions:
+      - type_command: git clone https://github.com/ditschi/narratty
+      - hold: 300
+  - id: page
+    narration: >-
+      This is the page you should see. The readme explains what narratty does, and
+      further down you find the quick start.
+    actions:
+      - browser: {url: "https://github.com/ditschi/narratty", scroll: 1400}
+  - id: back
+    narration: Back in the terminal, copy the clone command and press Enter.
+    actions:
+      - enter
+      - hold: 500

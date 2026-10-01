@@ -48,6 +48,8 @@ tools native mode needs.
   narration; `--draft` previews timing in seconds, without TTS.
 - **Overlays:** chapter titles, file names and notes in a rounded box over the video,
   with reusable styles.
+- **Browser views:** a web page or local HTML file as Chromium renders it, scrolling
+  while the narration talks about it.
 - **Scripting:** hidden setup scenes, waits for screen output, key presses and
   per-scene typing speed.
 - **Demo toolkit:** bat, eza, fd, ripgrep, jq, yazi, tmux and zsh as static binaries,
