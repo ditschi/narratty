@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from narratty.render.tape import FONT_FAMILY, generate_tape, prompt_setup, quote_chunks
+from narratty.render.script import HelperPlacement
+from narratty.render.tape import FONT_FAMILY, VHS_SHELLS, generate_tape, prompt_setup, quote_chunks
 from narratty.spec.loader import parse_spec
 from narratty.timeline import build_timeline
 
@@ -211,3 +212,47 @@ def test_a_scene_overrides_fast(fast: bool, slow: str, quick: str, shortened: li
     tape = build_tape(spec, timeline, Path("/out/v.mp4"), fast=fast)
     assert [pause.scene_id for pause in tape.pauses] == shortened
     assert ("Set CursorBlink false" in tape.text) == bool(shortened)
+
+
+# VHS's `Set Shell` accepts only these (charmbracelet/vhs shell.go); kept separate from
+# VHS_SHELLS so a change there does not silently pass.
+VHS_ACCEPTS = {"bash", "zsh", "fish", "powershell", "pwsh", "cmd", "nu", "osh", "xonsh"}
+LAYOUTS = ["plain", "editor"]
+PLACEMENTS = {
+    "local": HelperPlacement(),
+    "bridged": HelperPlacement(bridged=True),
+    "editor-bridge": HelperPlacement(terminal="docker exec -it env bash"),
+}
+
+
+def _set_shell(tape: str) -> str:
+    return next(line for line in tape.splitlines() if line.startswith("Set Shell "))[len("Set Shell ") :]
+
+
+def _terminal_tape(shell: str, layout: str, placement: HelperPlacement) -> str:
+    terminal = f"terminal: {{shell: {shell}, layout: {layout}}}\n"
+    text = f"meta: {{title: Demo}}\n{terminal}scenes: [{{id: a, narration: Hi.}}]\n"
+    spec = parse_spec(text, Path("t.narratty.yaml"))
+    return generate_tape(spec, build_timeline(spec, {"a": 1000}), Path("/out/v.mp4"), placement=placement)
+
+
+@pytest.mark.parametrize("shell", ["bash", "zsh", "fish", "sh"])
+@pytest.mark.parametrize("layout", LAYOUTS)
+@pytest.mark.parametrize("where", PLACEMENTS)
+def test_vhs_accepts_the_shell(shell: str, layout: str, where: str) -> None:
+    assert _set_shell(_terminal_tape(shell, layout, PLACEMENTS[where])) in VHS_ACCEPTS
+    assert VHS_SHELLS == VHS_ACCEPTS
+
+
+def test_editor_bridge_records_from_bash() -> None:
+    tape = _terminal_tape("zsh", "editor", PLACEMENTS["editor-bridge"])
+    assert _set_shell(tape) == "bash"
+    assert 'Type@1ms "exec ' not in tape
+
+
+def test_sh_starts_from_bash() -> None:
+    tape = _tape(SPEC.replace("shell: zsh", "shell: sh"))
+    lines = tape.splitlines()
+    assert _set_shell(tape) == "bash"
+    start = lines.index('Type@1ms "exec sh"')
+    assert lines[start - 1] == "Hide" and start < lines.index("Type@1ms \"PS1='demo> '; clear\"")

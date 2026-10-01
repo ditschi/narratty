@@ -189,9 +189,10 @@ class HelperPlacement:
     where: str = "on this machine"
 
     def shell(self, spec: Spec) -> str:
-        """The recorder's own shell: ``sh`` when the terminal pane is a bridge (the
-        spec's shell may only exist in the environment), else the spec's."""
-        return "sh" if self.terminal else spec.terminal.shell
+        """The recorder's own shell: ``bash`` when the terminal pane is a bridge (the
+        spec's shell may only exist in the environment), else the spec's. VHS's
+        ``Set Shell`` rejects ``sh``; ``bash`` is on the narratty image."""
+        return "bash" if self.terminal else spec.terminal.shell
 
 
 @dataclass(frozen=True)

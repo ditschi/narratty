@@ -24,6 +24,7 @@ from narratty.render.script import (
     Type,
     WaitScreen,
     end_card_steps,
+    hidden,
     prompt_setup,
     scene_steps,
     setup_steps,
@@ -35,6 +36,9 @@ from narratty.timeline import Timeline
 __all__ = ["FRAMERATE", "Tape", "build_tape", "generate_tape", "prompt_setup", "quote_chunks", "uses_fast"]
 
 FRAMERATE = 30
+# The shells VHS's `Set Shell` accepts (charmbracelet/vhs shell.go). Any other shell
+# (``sh``) is started from bash.
+VHS_SHELLS = frozenset({"bash", "zsh", "fish", "powershell", "pwsh", "cmd", "nu", "osh", "xonsh"})
 FAIL_CHECK_MS = 1000
 # VHS's default font list plus a Nerd Font fallback, so icons (yazi, eza --icons) render
 # when the toolkit's Symbols Nerd Font is installed. Chromium does not fall back to it
@@ -241,10 +245,13 @@ def build_tape(
     """
     term = spec.terminal
     tape = _Writer(fast, marks)
+    placement = placement or HelperPlacement()
+    shell = placement.shell(spec)
+    vhs_shell = shell if shell in VHS_SHELLS else "bash"
     tape.raw(
         f"# narratty tape for {json.dumps(spec.meta.title)}",
         f"Output {json.dumps(str(output))}",
-        f"Set Shell {(placement or HelperPlacement()).shell(spec)}",
+        f"Set Shell {vhs_shell}",
         f"Set Width {term.width}",
         f"Set Height {term.height}",
         f"Set FontSize {term.font_size}",
@@ -257,7 +264,8 @@ def build_tape(
         tape.raw("Set CursorBlink false")  # a repeated frame would stop the blinking
     tape.raw("")
     python = python or sys.executable
-    placement = placement or HelperPlacement()
+    if shell != vhs_shell:
+        tape.steps(hidden([Type(f"exec {shell}", 1), Press("Enter", 1)]))
     tape.steps(setup_steps(spec, placement, exit_log))
     if timeline.lead_in_ms:
         tape.steps([Sleep(timeline.lead_in_ms)])
