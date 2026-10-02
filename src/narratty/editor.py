@@ -22,6 +22,9 @@ ROOT_ENV, YAZI_ID_ENV = "NARRATTY_EDITOR_ROOT", "NARRATTY_YAZI_ID"
 # Pane titles of the layout; the setup waits for the terminal's.
 EXPLORER_TITLE, TERMINAL_TITLE = "Explorer", "Terminal"
 TOOLS = ["tmux", "yazi", "ya"]
+# A no-op word at the start of the start command. The shell it is typed into logs the
+# command's exit code when tmux ends, which says nothing about the demo's commands.
+MARK = "narratty-layout"
 
 # tmux settings: quiet status line, titled panes, no delays. `-q`: options an older
 # tmux does not know are skipped instead of shown as errors.
@@ -77,6 +80,7 @@ def start_command(
     titles = [(":.1", EXPLORER_TITLE), (":.2", TERMINAL_TITLE)]
     script = "; ".join(
         [
+            f": {MARK}",
             sh.need(TOOLS, "the editor layout", where),
             "unset TMUX",  # never nest in a caller's tmux
             f'export {ROOT_ENV}="$PWD" {YAZI_ID_ENV}={yazi_id}',

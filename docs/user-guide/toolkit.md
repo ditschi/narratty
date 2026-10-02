@@ -220,4 +220,40 @@ scenes:
   not change the recording.
 - Both also work with an [`environment`](environments.md#editor-layout-and-diff).
 
-The [editor layout example](../examples/editor-layout.md) shows all of it.
+### Layout per scene
+
+`terminal.layout` is the layout the recording starts in. A scene that wants another
+sets `layout`, and every later scene keeps it until one sets a different one. So
+list only the scenes where the layout changes, including the one that goes back:
+
+```yaml
+terminal:
+  layout: plain          # the default, can be left out
+scenes:
+  - id: docs             # plain shell
+    narration: First, the docs.
+    actions: [{run: ls docs}]
+  - id: open-editor
+    layout: editor       # from here on: explorer and shell
+    narration: Open the project in the editor.
+    actions: [{reveal: src/app.py}, {focus: terminal}]
+  - id: edit             # still the editor, nothing to repeat
+    narration: Still in the editor.
+    actions: [{run: git status}]
+  - id: back
+    layout: plain        # from here on: plain shell again
+    narration: And back to the shell.
+    actions: [{run: make test}]
+```
+
+- narratty starts and stops its own `tmux` session at the switch, while recording is
+  hidden. The spec needs no nested `tmux` and no `expect_exit: any`.
+- `layout` as an action switches in the middle of a scene, e.g. after a command that
+  "opens the editor": `- layout: editor`. A scene's `layout` is the same switch at its
+  start.
+- `focus` and `reveal` are rejected when the layout at that point is `plain`.
+- Whatever layout the last scene is in is left before the end card.
+- With an `environment` of `image` or `compose`, a spec uses either the editor or the plain
+  layout throughout; switching needs `environment.container` or no environment.
+
+The [editor layout example](../examples/editor-layout.md) shows the editor itself.

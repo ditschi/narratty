@@ -82,7 +82,8 @@ def test_setup_records_the_baseline_and_builds_the_layout() -> None:
     ]
     assert Type("PS1='> '; clear", 1) in setup
     start = next(s.text for s in setup if isinstance(s, Type) and "exec tmux" in s.text)
-    assert start.startswith(f"sh -c '{sh.need(editor.TOOLS, 'the editor layout', 'on this machine')}; ")
+    marked = f"sh -c ': {editor.MARK}; {sh.need(editor.TOOLS, 'the editor layout', 'on this machine')}; "
+    assert start.startswith(marked)
     assert "bash --noprofile --norc +o history" in start and "PS1=" in start
     assert setup[-3:-1] == [Press("Enter", 1), WaitScreen("Terminal", 15_000, fail=sh.ERROR)]
 
@@ -141,6 +142,93 @@ def test_the_terminal_pane_can_be_a_bridge_while_the_recorder_shell_stays_local(
     start = next(s.text for s in setup if isinstance(s, Type) and "exec tmux" in s.text)
     assert "docker exec -it env bash" in start
     assert Type("PS1='> '; clear", 1) in setup, "the local shell's prompt, set before tmux starts"
+
+
+MIXED = """\
+terminal: {prompt: "> "}
+end_card: {enabled: true}
+scenes:
+  - id: before
+    narration: Plain.
+  - id: open
+    narration: Editor.
+    layout: editor
+    actions: [{reveal: src}, {focus: terminal}]
+  - id: still
+    narration: Still the editor.
+    actions: [{focus: explorer}]
+  - id: mid
+    narration: Switch in the middle.
+    actions:
+      - run: ls
+      - layout: plain
+      - run: pwd
+      - layout: editor
+      - focus: explorer
+  - id: after
+    narration: Plain again.
+    layout: plain
+    actions: [{run: ls}]
+"""
+
+AUDIO = {"before": 1000, "open": 1000, "still": 1000, "mid": 1000, "after": 1000}
+
+
+def _starts(steps: list[Step]) -> list[Step]:
+    return [s for s in steps if isinstance(s, Type) and "exec tmux" in s.text]
+
+
+def test_a_scene_layout_starts_the_editor_there_and_it_stays_for_later_scenes() -> None:
+    steps = _script(MIXED, AUDIO)
+    assert Type("PS1='> '; clear", 1) in steps[: steps.index(Show())], "the setup stays a plain shell"
+    assert len(_starts(steps)) == 2, "once for `open`, once for the switch back in `mid`"
+    open_scene = _scene(steps, "open")
+    start = _starts(open_scene)[0]
+    assert start.text.startswith(f"{sh.CLEAR}; sh -c ': {editor.MARK}; ")
+    assert open_scene[0] == Hide() and open_scene.index(start) == 1
+    assert WaitScreen("Terminal", 15_000, fail=sh.ERROR) in open_scene
+    still = _scene(steps, "still")
+    assert still[:7] == [Hide(), *_tmux("select-pane -t :.1"), Sleep(100), Show()]
+    assert not _starts(still) and Type("kill-server", 1) not in still
+
+
+def test_a_layout_action_switches_between_actions() -> None:
+    mid = _scene(_script(MIXED, AUDIO), "mid")
+    stop = mid.index(Type("kill-server", 1))
+    assert Type("ls", 40) in mid[:stop] and Type("pwd", 40) in mid[stop:]
+    assert mid[stop - 3 : stop + 5] == [
+        Hide(),
+        Ctrl("B"),
+        Type(":", 1),
+        Type("kill-server", 1),
+        Press("Enter", 1),
+        Sleep(500),
+        Type("clear", 1),
+        Press("Enter", 1),
+    ]
+    assert len(_starts(mid)) == 1 and mid.index(_starts(mid)[0]) > stop
+
+
+def test_going_back_to_plain_clears_the_screen_and_drops_the_tmux_session() -> None:
+    steps = _script(MIXED, AUDIO)
+    after = _scene(steps, "after")
+    assert after[:3] == [Hide(), Ctrl("B"), Type(":", 1)]
+    assert Type("kill-server", 1) in after
+    assert Type("kill-server", 1) not in steps[steps.index(Mark(None)) :], "no tmux left for the end card"
+
+
+def test_a_layout_that_is_already_in_use_changes_nothing() -> None:
+    text = (
+        "terminal: {layout: editor}\nscenes:\n  - id: a\n    layout: editor\n    actions: [{layout: editor}]"
+    )
+    assert len(_starts(_script(text, {"a": 1000}))) == 1
+
+
+def test_the_end_card_leaves_the_editor_only_when_the_last_scene_is_in_it() -> None:
+    text = "end_card: {enabled: true}\nscenes:\n  - id: a\n    layout: editor\n"
+    steps = _script(text, {"a": 1000})
+    card = steps.index(Mark(None))
+    assert steps[card - 7 : card] == [Hide(), *_tmux("kill-server"), Sleep(500), Show()]
 
 
 def test_a_helper_error_ends_the_waits() -> None:

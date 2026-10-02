@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from narratty.cache import AudioCache
 from narratty.end_card import with_end_card
-from narratty.errors import RenderError, SyncError
+from narratty.errors import RenderError, SyncError, ValidationError
 from narratty.paths import cache_dir, data_dir
 from narratty.render import media, timelapse
 from narratty.render.narration import Placement, build_track
@@ -190,7 +190,14 @@ def placement_for(
         return HelperPlacement(diff_base=str(work / "diff-base"))
     environment = _environment(spec, request)
     where = "in the project environment"
-    if spec.terminal.layout == "editor" and environment is not None and environment.source != "container":
+    if "editor" in spec.layouts_used and environment is not None and environment.source != "container":
+        if "plain" in spec.layouts_used:
+            raise ValidationError(
+                "the editor layout and the plain layout cannot be mixed in a spec with an "
+                f"image or compose environment ({', '.join(sorted(spec.layouts_used))} are used)",
+                hint="Use the editor layout throughout (terminal.layout: editor), or set "
+                "environment.container, or drop the environment.",
+            )
         terminal = shlex.join([*bridge, *SHELL_ARGV[spec.terminal.shell]])
         return HelperPlacement(diff_base=str(work / "diff-base"), terminal=terminal, where="on this machine")
     return HelperPlacement(diff_base=f"/tmp/narratty-diff-{uuid.uuid4().hex[:12]}", bridged=True, where=where)  # noqa: S108

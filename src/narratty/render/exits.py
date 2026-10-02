@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from narratty.editor import MARK
 from narratty.errors import CommandError
 from narratty.render.script import Ctrl, Press, Type, action_steps
 from narratty.spec.model import ExpectExit, Run, Scene, Spec
@@ -29,11 +30,11 @@ class Exit:
 
 
 def parse_log(text: str) -> list[Exit]:
-    """Entries of an exit log; malformed lines are skipped."""
+    """Entries of an exit log; malformed lines are skipped, and so are the editor layout's."""
     entries = []
     for row in text.splitlines():
         status, sep, line = row.partition("\t")
-        if sep and status.isdigit():
+        if sep and status.isdigit() and MARK not in line:
             entries.append(Exit(int(status), line.strip()))
     return entries
 

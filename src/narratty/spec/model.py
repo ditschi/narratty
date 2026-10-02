@@ -192,6 +192,15 @@ class Key(_Model):
         return f"{_KEY_NAMES[name.lower()]} {count}" if count else _KEY_NAMES[name.lower()]
 
 
+LayoutName = Literal["plain", "editor"]
+
+
+class SetLayout(_Model):
+    """Switch the terminal layout from here on, until another scene or action switches it."""
+
+    layout: LayoutName
+
+
 class Focus(_Model):
     """Move the keyboard to a pane of the editor layout."""
 
@@ -324,6 +333,7 @@ ACTION_KEYS = (
     "key",
     "focus",
     "reveal",
+    "layout",
     "diff",
     "overlay",
     "browser",
@@ -357,6 +367,7 @@ Action = Annotated[
     | Annotated[Key, Tag("key")]
     | Annotated[Focus, Tag("focus")]
     | Annotated[Reveal, Tag("reveal")]
+    | Annotated[SetLayout, Tag("layout")]
     | Annotated[Diff, Tag("diff")]
     | Annotated[ShowOverlay, Tag("overlay")]
     | Annotated[ShowBrowser, Tag("browser")],
@@ -377,6 +388,11 @@ class Scene(_Model):
     narration: str | None = None
     actions: list[Action] = []
     hidden: bool = False
+    layout: LayoutName | None = Field(
+        None,
+        description="Terminal layout from the start of this scene on, for this and all later scenes "
+        "until one sets another; defaults to the previous scene's (the first: terminal.layout).",
+    )
     typing_speed_ms: Annotated[Duration, Field(gt=0)] | None = None
     pause_ms: Annotated[Duration, Field(ge=0)] | None = Field(
         None,
@@ -417,6 +433,21 @@ class Scene(_Model):
             return None
         text = " ".join(value.split())
         return text or None
+
+    def layout_after(self, before: LayoutName) -> LayoutName:
+        """The layout when the scene ends, given the one when it starts."""
+        for action in reversed(self.actions):
+            if isinstance(action, SetLayout):
+                return action.layout
+        return self.layout or before
+
+    def layout_of_actions(self, before: LayoutName) -> list[LayoutName]:
+        """The layout each action runs in (a ``layout`` action already in its new one)."""
+        current, layouts = self.layout or before, []
+        for action in self.actions:
+            current = action.layout if isinstance(action, SetLayout) else current
+            layouts.append(current)
+        return layouts
 
     @model_validator(mode="after")
     def _consistent(self) -> Scene:
@@ -509,8 +540,10 @@ class Terminal(_Model):
     typing_speed_ms: Duration = Field(40, gt=0)
     shell: Literal["bash", "zsh", "fish", "sh"] = "bash"
     prompt: str = "$ "
-    layout: Literal["plain", "editor"] = Field(
-        "plain", description="`editor`: a file explorer with preview on top, the shell below (tmux + yazi)."
+    layout: LayoutName = Field(
+        "plain",
+        description="Layout at the start; scenes and `layout` actions can switch it. "
+        "`editor`: a file explorer with preview on top, the shell below (tmux + yazi).",
     )
 
 
@@ -731,14 +764,41 @@ class Spec(_Model):
 
     @model_validator(mode="after")
     def _editor_actions_need_the_layout(self) -> Spec:
-        if self.terminal.layout == "editor":
-            return self
-        for scene in self.scenes:
-            for action in scene.actions:
+        for scene, before in zip(self.scenes, self._layout_chain(), strict=False):
+            for action, layout in zip(scene.actions, scene.layout_of_actions(before), strict=True):
                 name = next(iter(type(action).model_fields))
-                if name in EDITOR_ACTIONS:
-                    raise ValueError(f"scene {scene.id!r}: '{name}' needs 'terminal.layout: editor'")
+                if name in EDITOR_ACTIONS and layout != "editor":
+                    raise ValueError(
+                        f"scene {scene.id!r}: '{name}' needs the editor layout; set 'layout: editor' "
+                        "on this scene or an earlier one (or 'terminal.layout: editor')"
+                    )
         return self
+
+    def _layout_chain(self) -> list[LayoutName]:
+        """The layout before each scene, then the one after the last."""
+        chain = [self.terminal.layout]
+        for scene in self.scenes:
+            chain.append(scene.layout_after(chain[-1]))
+        return chain
+
+    @property
+    def layouts_before(self) -> dict[str, LayoutName]:
+        """The layout each scene starts in, by scene id (before the scene's own switch)."""
+        return {scene.id: layout for scene, layout in zip(self.scenes, self._layout_chain(), strict=False)}
+
+    @property
+    def final_layout(self) -> LayoutName:
+        """The layout after the last scene."""
+        return self._layout_chain()[-1]
+
+    @property
+    def layouts_used(self) -> set[LayoutName]:
+        """Every layout the recording is in at some point."""
+        used = {self.terminal.layout}
+        for scene in self.scenes:
+            used |= {scene.layout} if scene.layout else set()
+            used |= {action.layout for action in scene.actions if isinstance(action, SetLayout)}
+        return used
 
     @property
     def uses_diff(self) -> bool:

@@ -104,7 +104,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `typing_speed_ms` | `40` | Time per typed key |
 | `shell` | `bash` | `bash`, `zsh`, `fish` or `sh` |
 | `prompt` | `"$ "` | Prompt shown in the recording |
-| `layout` | `plain` | `plain` or `editor`: an explorer with preview above the shell, see [Editor layout](toolkit.md#editor-layout) (since 0.3) |
+| `layout` | `plain` | `plain` or `editor`: an explorer with preview above the shell, see [Editor layout](toolkit.md#editor-layout). The layout the recording starts in; scenes can change it, see [Layout per scene](toolkit.md#layout-per-scene) (since 0.3) |
 
 ## `workspace`
 
@@ -205,6 +205,7 @@ For other changes outside the spec, build with `--clean`.
 | `narration` | none | Text spoken while the scene plays |
 | `actions` | `[]` | What happens in the terminal |
 | `hidden` | `false` | Run without recording (setup); cannot have narration |
+| `layout` | previous scene's | `plain` or `editor` from the start of this scene on, for it and all later scenes until one sets another; see [Layout per scene](toolkit.md#layout-per-scene) (since 0.5) |
 | `typing_speed_ms` | terminal's | Per-scene typing speed |
 | `pause_ms` | `timing.pause_ms` | Per-scene pause after each `key` and `ctrl_sequence` (since 0.3) |
 | `narration_start` | `with_actions` | Or `after_actions` |
@@ -256,6 +257,7 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 | `diff` | `- diff` or `- diff: [src, README.md]` | Shows what changed since the recording started, optionally only for some paths (since 0.3) |
 | `focus` | `- focus: explorer` | Moves the keyboard to `explorer` or `terminal` (editor layout) (since 0.3) |
 | `reveal` | `- reveal: src/app.py` | Selects a path, relative to the workspace, in the explorer (editor layout) (since 0.3) |
+| `layout` | `- layout: plain` | Switches to `plain` or `editor` at this point of the scene, for the rest of the recording until another switch; prefer the scene's `layout` key when the switch is at its start (since 0.5) |
 | `overlay` | `- overlay: "Open src/main.py"` | Shows text over the video; see [Overlays](#overlays) (since 0.3) |
 | `browser` | `- browser: docs/site/index.html` | Shows a web page over the terminal; see [Browser views](#browser-views) (since 0.3) |
 
@@ -267,7 +269,7 @@ Every list item starts with `- `. A scene always waits for its narration after i
 last action, so `hold: auto` is only needed in the middle of a scene; a scene has at
 most one. See [Writing specs](writing-specs.md) for when to use which action.
 
-`diff`, `focus` and `reveal` take no time in the video: they run while recording is
+`diff`, `focus`, `reveal` and `layout` take no time in the video: they run while recording is
 hidden, and the screen changes at once. Add a `hold` after them for a pause.
 
 `diff` compares against a copy of the workspace taken when the recording starts,
@@ -424,4 +426,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 | Release | Added to `version: 1` |
 |---|---|
 | 0.3 | `run` action, `key: Enter` (the bare `- enter` still works), durations like `1.5s`, `wait: "pattern"`, `wait: {prompt: true}`, `timing.run_hold_ms`, `timing.pause_ms` and scene `pause_ms`, `tts.lexicon`, `subtitles`, `environment`, `sandbox.docker`, `terminal.layout`, overlays (`overlay`, `overlay_styles`), `browser`, `diff`, `focus`, `reveal`, scene `timelapse`, `expect_exit` and `fast` |
-| 0.5 | `requires.narratty` |
+| 0.5 | `requires.narratty`, scene `layout` and the `layout` action |

@@ -998,6 +998,9 @@
                 "$ref": "#/$defs/Reveal"
               },
               {
+                "$ref": "#/$defs/SetLayout"
+              },
+              {
                 "$ref": "#/$defs/Diff"
               },
               {
@@ -1025,6 +1028,23 @@
           "default": false,
           "title": "Hidden",
           "type": "boolean"
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "enum": [
+                "plain",
+                "editor"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Terminal layout from the start of this scene on, for this and all later scenes until one sets another; defaults to the previous scene's (the first: terminal.layout).",
+          "title": "Layout"
         },
         "typing_speed_ms": {
           "anyOf": [
@@ -1137,6 +1157,25 @@
       "title": "Scene",
       "type": "object"
     },
+    "SetLayout": {
+      "additionalProperties": false,
+      "description": "Switch the terminal layout from here on, until another scene or action switches it.",
+      "properties": {
+        "layout": {
+          "enum": [
+            "plain",
+            "editor"
+          ],
+          "title": "Layout",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layout"
+      ],
+      "title": "SetLayout",
+      "type": "object"
+    },
     "ShowBrowser": {
       "additionalProperties": false,
       "description": "Show a web page over the terminal from this point, as Chromium renders it.",
@@ -1243,7 +1282,7 @@
         },
         "layout": {
           "default": "plain",
-          "description": "`editor`: a file explorer with preview on top, the shell below (tmux + yazi).",
+          "description": "Layout at the start; scenes and `layout` actions can switch it. `editor`: a file explorer with preview on top, the shell below (tmux + yazi).",
           "enum": [
             "plain",
             "editor"

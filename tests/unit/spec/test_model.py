@@ -92,8 +92,55 @@ def test_diff_paths(value: object, paths: list[str]) -> None:
 
 @pytest.mark.parametrize("action", [{"focus": "terminal"}, {"reveal": "README.md"}])
 def test_editor_actions_need_the_editor_layout(action: dict[str, str]) -> None:
-    with pytest.raises(ValidationError, match="needs 'terminal.layout: editor'"):
+    with pytest.raises(ValidationError, match="needs the editor layout"):
         Spec.model_validate(_spec(scenes=[{"id": "a", "actions": [action]}]))
+
+
+def _scenes(*layouts: str | None) -> list[dict[str, Any]]:
+    return [
+        {"id": f"s{i}", "layout": layout} if layout else {"id": f"s{i}"} for i, layout in enumerate(layouts)
+    ]
+
+
+def test_a_scene_layout_holds_for_the_scenes_after_it() -> None:
+    spec = Spec.model_validate(_spec(scenes=_scenes(None, "editor", None, "plain", None)))
+    assert list(spec.layouts_before.values()) == ["plain", "plain", "editor", "editor", "plain"]
+    assert spec.final_layout == "plain"
+    assert spec.layouts_used == {"plain", "editor"}
+
+
+def test_the_terminal_layout_is_the_default_until_a_scene_sets_one() -> None:
+    spec = Spec.model_validate(_spec(terminal={"layout": "editor"}, scenes=_scenes(None, "plain", None)))
+    assert list(spec.layouts_before.values()) == ["editor", "editor", "plain"]
+    assert spec.final_layout == "plain"
+
+
+def test_a_layout_action_switches_in_the_middle_of_a_scene() -> None:
+    scenes = [
+        {"id": "a", "actions": [{"run": "x"}, {"layout": "editor"}, {"focus": "explorer"}]},
+        {"id": "b", "actions": [{"reveal": "x"}, {"layout": "plain"}]},
+        {"id": "c"},
+    ]
+    spec = Spec.model_validate(_spec(scenes=scenes))
+    assert list(spec.layouts_before.values()) == ["plain", "editor", "plain"]
+    assert spec.scenes[0].layout_of_actions("plain") == ["plain", "editor", "editor"]
+    assert spec.final_layout == "plain"
+
+
+def test_editor_actions_work_after_a_scene_switched_to_the_editor() -> None:
+    scenes = [
+        {"id": "a", "layout": "editor", "actions": [{"focus": "explorer"}]},
+        {"id": "b", "actions": [{"reveal": "x"}]},
+    ]
+    Spec.model_validate(_spec(scenes=scenes))
+    scenes[1]["layout"] = "plain"
+    with pytest.raises(ValidationError, match="scene 'b': 'reveal' needs the editor layout"):
+        Spec.model_validate(_spec(scenes=scenes))
+
+
+def test_an_unknown_layout_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="plain"):
+        Spec.model_validate(_spec(scenes=[{"id": "a", "layout": "tiled"}]))
 
 
 def test_diff_works_in_the_plain_layout() -> None:

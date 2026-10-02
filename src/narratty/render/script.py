@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from narratty import diff, editor, sh
@@ -28,6 +28,7 @@ from narratty.spec.model import (
     Reveal,
     Run,
     Scene,
+    SetLayout,
     ShowBrowser,
     ShowOverlay,
     Spec,
@@ -204,12 +205,59 @@ class HelperPlacement:
 
 @dataclass(frozen=True)
 class Context:
-    """What action steps depend on beyond the action: the layout, where its helpers run
-    and the prompt (``wait: {prompt: true}`` waits for it)."""
+    """What action steps depend on beyond the action: the layout they run in, where its
+    helpers run, the prompt (``wait: {prompt: true}`` waits for it) and what starting the
+    editor layout needs (the shell, and the exit log its terminal pane writes)."""
 
     editor: bool
     placement: HelperPlacement = field(default_factory=HelperPlacement)
     prompt: str = "$ "
+    shell: str = "bash"
+    exit_log: Path | None = None
+
+
+def context_for(spec: Spec, placement: HelperPlacement | None, exit_log: Path | None, layout: str) -> Context:
+    """The context of steps that run in ``layout``."""
+    return Context(
+        layout == "editor",
+        placement or HelperPlacement(),
+        spec.terminal.prompt,
+        spec.terminal.shell,
+        exit_log,
+    )
+
+
+def _start_editor(context: Context, *, clear: bool = False) -> list[Step]:
+    """Build the editor layout from the shell prompt and wait until it is up.
+
+    ``clear``: wipe the screen first, so the wait for the pane title cannot match older output.
+    """
+    start = editor.start_command(
+        context.shell,
+        prompt_setup(context.shell, context.prompt, context.exit_log),
+        terminal=context.placement.terminal,
+        where=context.placement.where,
+    )
+    line = f"{sh.CLEAR}; {start}" if clear else start
+    return [Type(line, 1), Press("Enter", 1), *_wait_or_fail(TERMINAL_TITLE, LAYOUT_TIMEOUT_MS), Sleep(1500)]
+
+
+def _stop_editor() -> list[Step]:
+    """Leave the editor layout: tmux ends, and the shell gets a clean screen."""
+    return [*tmux_command("kill-server"), Sleep(500), Type("clear", 1), Press("Enter", 1)]
+
+
+def switch_layout(layout: str | None, context: Context) -> tuple[list[Step], Context]:
+    """Steps that move the recording to ``layout`` (unrecorded) and the context after them.
+
+    None, or the layout already in use, changes nothing.
+    """
+    if layout is None or (layout == "editor") == context.editor:
+        return [], context
+    after = replace(context, editor=layout == "editor")
+    if layout == "editor":
+        return hidden(_start_editor(context, clear=True)), after
+    return hidden(_stop_editor()), after
 
 
 def diff_steps(action: Diff, context: Context) -> list[Step]:
@@ -297,37 +345,57 @@ def _end_hidden(steps: list[Step], context: Context) -> list[Step]:
 
 def _timelapse_steps(scene: Scene, timing: SceneTiming, pace: Pacing, context: Context) -> list[Step]:
     """A timelapse scene: its actions between markers, the end holds for the narration."""
-    actions = [
-        step
-        for index, action in enumerate(scene.actions)
-        for step in (
-            [Cue(overlay_cue(scene.id, index))]
-            if isinstance(action, ShowOverlay | ShowBrowser)
-            else action_steps(action, pace, context)
-        )
-    ]
+    actions, context = switch_layout(scene.layout, context)
+    for index, action in enumerate(scene.actions):
+        if isinstance(action, ShowOverlay | ShowBrowser):
+            actions.append(Cue(overlay_cue(scene.id, index)))
+        elif isinstance(action, SetLayout):
+            switch, context = switch_layout(action.layout, context)
+            actions += switch
+        else:
+            actions += action_steps(action, pace, context)
     if context.editor and any(isinstance(action, Diff) for action in scene.actions):
         actions += close_popup()
     end = TimelapseEnd(scene.id, timing.hold_ms, timing.narration_after)
     return [Mark(scene.id, timelapse=timing.timelapse), *actions, end]
 
 
+def _act(action: Action, pace: Pacing, context: Context, popup: bool) -> tuple[list[Step], Context, bool]:
+    """Steps for an action that runs in a visible scene, the context and whether a diff popup is
+    open after it; a popup still open is closed first when the action sends keys."""
+    steps = close_popup() if popup and _sends_keys(action) else []
+    popup = popup and not steps
+    if isinstance(action, SetLayout):
+        switch, context = switch_layout(action.layout, context)
+        return [*steps, *switch], context, popup
+    steps += action_steps(action, pace, context)
+    return steps, context, popup or (context.editor and isinstance(action, Diff))
+
+
 def scene_steps(
-    spec: Spec, scene: Scene, timing: SceneTiming, *, placement: HelperPlacement | None = None
+    spec: Spec,
+    scene: Scene,
+    timing: SceneTiming,
+    *,
+    placement: HelperPlacement | None = None,
+    exit_log: Path | None = None,
 ) -> list[Step]:
     """Steps for one scene, with its fill pause at ``hold: auto`` or at the end.
 
-    In the editor layout a diff popup stays open until the next action that sends
-    keys, or the end of the scene.
+    The scene starts in the layout the previous one left, switched first when it has a
+    ``layout`` of its own; ``layout`` actions switch in between. In the editor layout a
+    diff popup stays open until the next action that sends keys, or the end of the scene.
     """
     pace = pacing(spec, scene)
-    context = Context(spec.terminal.layout == "editor", placement or HelperPlacement(), spec.terminal.prompt)
+    context = context_for(spec, placement, exit_log, spec.layouts_before[scene.id])
     if timing.timelapse:
         return _timelapse_steps(scene, timing, pace, context)
     fill_at_hold = scene.narration_start == "with_actions"
     steps: list[Step] = [Mark(scene.id, scene.hidden, fast=scene.fast)]
     if scene.hidden:
         steps.append(Hide())
+    switch, context = switch_layout(scene.layout, context)
+    steps += switch
     filled = popup = False
     for index, action in enumerate(scene.actions):
         if isinstance(action, ShowOverlay | ShowBrowser):
@@ -338,11 +406,8 @@ def scene_steps(
                 steps.append(Sleep(timing.fill_ms))
             filled = True
             continue
-        if popup and _sends_keys(action):
-            steps += close_popup()
-            popup = False
-        steps += action_steps(action, pace, context)
-        popup = popup or (context.editor and isinstance(action, Diff))
+        done, context, popup = _act(action, pace, context, popup)
+        steps += done
     if not filled and timing.fill_ms:
         steps.append(Sleep(timing.fill_ms))
     if popup:
@@ -390,19 +455,16 @@ def setup_steps(
     if spec.uses_diff:
         steps += [Type(diff.start_command(placement.diff_base, placement.where), 1), Press("Enter", 1)]
         steps += _wait_or_fail(diff.READY, BASELINE_TIMEOUT_MS)
-    # The pause is hidden, so it costs no time; it lets `clear` finish.
-    in_editor = term.layout == "editor"
-    setup = prompt_setup(placement.shell(spec), term.prompt, None if in_editor else exit_log)
-    steps += [Type(setup, 1), Press("Enter", 1), Sleep(500)]
-    if in_editor:
-        start = editor.start_command(
-            term.shell,
-            prompt_setup(term.shell, term.prompt, exit_log),
-            terminal=placement.terminal,
-            where=placement.where,
-        )
-        steps += [Type(start, 1), Press("Enter", 1), *_wait_or_fail(TERMINAL_TITLE, LAYOUT_TIMEOUT_MS)]
-        steps.append(Sleep(1500))
+    # The pause is hidden, so it costs no time; it lets `clear` finish. The shell that
+    # starts the editor layout only needs the hook when it is a demo shell at some point.
+    outer_log = exit_log if "plain" in spec.layouts_used else None
+    steps += [
+        Type(prompt_setup(placement.shell(spec), term.prompt, outer_log), 1),
+        Press("Enter", 1),
+        Sleep(500),
+    ]
+    if term.layout == "editor":
+        steps += _start_editor(context_for(spec, placement, exit_log, term.layout))
     return [*steps, Show()]
 
 
@@ -413,7 +475,7 @@ def _wait_or_fail(pattern: str, timeout_ms: int) -> list[Step]:
 
 def teardown_steps(spec: Spec) -> list[Step]:
     """Unrecorded: leave the editor layout, so the end card gets the whole terminal."""
-    if spec.terminal.layout != "editor":
+    if spec.final_layout != "editor":
         return []
     return hidden(tmux_command("kill-server"), 500)
 
@@ -469,7 +531,11 @@ def _full_sections(
         parts.append((HEAD, [Sleep(timeline.lead_in_ms)], None))
     for scene in spec.scenes:
         parts.append(
-            (scene.id, scene_steps(spec, scene, timeline.scene(scene.id), placement=placement), scene)
+            (
+                scene.id,
+                scene_steps(spec, scene, timeline.scene(scene.id), placement=placement, exit_log=exit_log),
+                scene,
+            )
         )
     parts.append((TAIL, [Cue(END_CUE), *([Sleep(timeline.tail_ms)] if timeline.tail_ms else [])], None))
     if timeline.end_card_ms:

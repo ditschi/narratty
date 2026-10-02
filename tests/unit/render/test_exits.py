@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from narratty.editor import MARK
 from narratty.errors import CommandError, ExitCode
 from narratty.render.cast import record
 from narratty.render.exits import Exit, Typed, assign, check, parse_log, problems, typed_commands
@@ -53,6 +54,11 @@ def test_typed_commands_are_the_lines_submitted_with_enter() -> None:
         Typed("broken", "cat missing"),
         Typed("flaky", "curl example.org"),
     ]
+
+
+def test_parse_log_skips_the_editor_layouts_start_command() -> None:
+    log = f"0\tls\n1\tsh -c ': {MARK}; exec tmux'\n0\tpwd\n"
+    assert parse_log(log) == [Exit(0, "ls"), Exit(0, "pwd")]
 
 
 def test_parse_log_skips_malformed_rows() -> None:

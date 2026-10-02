@@ -169,6 +169,8 @@ Both are plain shell commands, so they need no narratty in the container.
   narratty (they are in the narratty image and the native install's `PATH`); only the
   terminal pane opens the shell in the environment. `reveal` and `diff` see the same
   workspace on both sides.
+  With these two, a spec cannot switch between the editor and the plain layout
+  (see [Layout per scene](toolkit.md#layout-per-scene)).
 - With `container`, narratty shares no workspace with the container, so the whole
   layout runs in it. It needs `tmux`, `yazi` and `ya` there. To use the
   [toolkit](toolkit.md), start the container from a Compose file instead.
