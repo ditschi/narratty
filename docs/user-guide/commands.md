@@ -10,13 +10,16 @@
 | `narratty tts SPEC [--offline]` | Synthesize all narration clips and print their lengths |
 | `narratty lexicon show SPEC` | List the [pronunciation lexicon](voices.md#pronunciation) entries and where each comes from |
 | `narratty lexicon check SPEC` | List narration words that look hard to pronounce and have no entry |
-| `narratty cache info` / `prune [--older-than 30d] [--all]` | Inspect or prune the audio cache |
-| `narratty plan SPEC [--draft]` | Print the timeline and total length |
+| `narratty cache info` / `prune [--older-than 30d] [--all]` | Inspect or prune the audio and scene recording caches |
+| `narratty plan SPEC [--draft] [--fast]` | Print the timeline, total length and which scenes the next build records |
 | `narratty tape SPEC [-o VIDEO]` | Print the VHS tape |
 | `narratty render SPEC [-o VIDEO]` | Record the silent video |
 | `narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]` | Build the narrated video |
 | `narratty build SPEC --subtitles MODE` | Add [subtitles](building.md#subtitles): `none`, `files`, `track` or `burn` |
 | `narratty build SPEC --draft` | Build a fast [draft](building.md#draft) (`demo.draft.mp4`) |
+| `narratty build SPEC --scenes ID:ID,...` | Build only these scenes, as `demo.scenes.mp4` ([scene ranges](building.md#scene-ranges)) |
+| `narratty build SPEC --clean` | Record every scene again instead of reusing recordings ([faster rebuilds](building.md#faster-rebuilds)) |
+| `narratty build SPEC --watch` | Build again whenever the spec or a file it uses changes |
 | `narratty build SPEC --fast` | Fill long pauses with still frames instead of recording them ([fast pauses](building.md#fast-pauses)) |
 | `narratty build SPEC --ignore-exit` | Don't check exit codes, except where the spec sets `expect_exit` ([exit codes](spec.md#exit-codes)) |
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |

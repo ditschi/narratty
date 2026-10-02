@@ -67,6 +67,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `sandbox` | | Permissions of the container |
 | `environment` | | Run the demo shell in a project image, Compose service or container (since 0.3) |
 | `end_card` | on | Closing card, see below |
+| `cache.inputs` | `[]` | Files whose content changes the recording; see [`cache`](#cache) (since 0.5) |
 | `subtitles` | `none` | `none`, `files`, `track` or `burn`; see [Subtitles](building.md#subtitles) (since 0.3) |
 | `overlay_styles` | `{}` | Named overlay styles; see [Overlays](#overlays) (since 0.3) |
 | `scenes` | required | At least one scene |
@@ -178,6 +179,24 @@ enabled = false
 `--end-card` / `--no-end-card` on the command line win over the spec, and the spec
 wins over the config.
 
+## `cache`
+
+Scene recordings are cached (see [faster rebuilds](building.md#faster-rebuilds)). The
+cache key covers the spec but not the files of your workspace, because hashing the
+whole repository would make every edit, even to the spec itself, record everything
+again.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `inputs` | `[]` | Globs, relative to `workspace.source`, of files the commands print or build from; when one changes, every scene is recorded again (since 0.5) |
+
+```yaml
+cache:
+  inputs: ["src/**/*.py", "pyproject.toml"]
+```
+
+For other changes outside the spec, build with `--clean`.
+
 ## Scenes
 
 | Key | Default | Meaning |
@@ -192,6 +211,7 @@ wins over the config.
 | `timelapse` | none | Show the scene this many times faster (greater than 1) (since 0.3) |
 | `expect_exit` | `success` | Exit codes of the scene's commands: `success`, `failure` or `any`; see [Exit codes](#exit-codes) (since 0.3) |
 | `fast` | `--fast` | `true`/`false`: fill long pauses with still frames or not; see [Fast pauses](building.md#fast-pauses) (since 0.3) |
+| `replay` | `fast` | How the scene runs, unrecorded, before a later scene is recorded with `--scenes`: `fast` or `realtime` (at its own pace); see [scene ranges](building.md#scene-ranges) (since 0.5) |
 
 A scene lasts as long as its actions or its narration plus `narration_buffer_ms`,
 whichever is longer.

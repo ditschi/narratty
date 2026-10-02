@@ -1,4 +1,4 @@
-# narratty: setup & implementation plan (rev 2.3)
+# narratty: setup & implementation plan (rev 2.4)
 
 !!! note "Planning document"
     This is the original plan. Some of it is not built yet: chapters, the
@@ -44,6 +44,8 @@ combined tutorial file.
 >    See [Pronunciation lexicon](#pronunciation-lexicon).
 > 11. **Tooling aligned with repo-env** (rev 2.2), plus the decisions confirmed so far.
 >    See [Decisions](#decisions-confirmed).
+> 12. **Incremental builds** (rev 2.4): per-scene recording cache, scene ranges and a
+>    watch loop. See [Incremental builds](#incremental-builds).
 
 ---
 
@@ -623,9 +625,9 @@ Global options: `--runtime`, `--image`, `--cache-dir`, `--jobs`, `-v/-q`, `--jso
 | `narratty tts <spec>` | Synthesize or cache-hit all clips; print durations and the timeline |
 | `narratty tape <spec>` | Print the generated `.tape` |
 | `narratty render <spec>` | TTS + tape + VHS → silent video |
-| `narratty build <spec> -o out.mp4` | Full pipeline + verify; `--scene`, `--draft`, `--workspace-mode`, `--keep-workspace`, `--network`, `--var k=v` |
+| `narratty build <spec> -o out.mp4` | Full pipeline + verify, incremental; `--scenes`, `--clean`, `--watch`, `--draft`, `--fast`, `--workspace-mode`, `--keep-workspace`, `--network`, `--var k=v` |
 | `narratty doctor [<spec>]` | Preflight for the chosen runtime: tools and versions, voices, mounts, container runtime, image availability |
-| `narratty cache {info,prune}` | Inspect or prune the audio cache, snapshots and build-cache volumes |
+| `narratty cache {info,prune}` | Inspect or prune the audio cache, scene recordings, snapshots and build-cache volumes |
 
 Exit codes: 0 ok, 1 unexpected error, 2 usage error, 3 validation error, 4 missing
 dependency (doctor), 5 render/mux failure, 6 sync verification failure, 7 a recorded
@@ -636,12 +638,241 @@ command exited contrary to its `expect_exit`.
 ## Determinism & caching
 
 - Content-addressed audio cache (key above), shared between native and sandboxed runs.
+- Content-addressed scene recordings, chained by key; see [Incremental builds](#incremental-builds).
 - Byte-stable `.tape` for a given spec + audio set.
 - Pinned: base image digest, Python lockfile, Piper and Kokoro model files (sha256 in
   `voices.toml`), VHS, ttyd, ffmpeg, font.
 - `build --check`: rebuild and compare sampled frames (one per scene, at scene
   midpoint) against a golden set, like demo-machine's golden frames. Only meaningful in
   sandboxed mode.
+
+---
+
+## Incremental builds
+
+!!! note "Status"
+    Implemented (B + C below, `--watch`, scene ranges for `--format cast`). Where the
+    code differs from the first proposal, a note says so.
+
+### How authors work
+
+Getting a video ready is a loop with a few kinds of edits, roughly in order of
+frequency:
+
+| Edit | Example | Re-recorded today | Needs re-recording |
+|---|---|---|---|
+| Narration text, voice, lexicon | reword a sentence, fix a pronunciation | whole tape | no: only the scene's length changes |
+| Overlays, browser views, subtitles, end card | move a note, change a style | whole tape | no: composited after recording |
+| Timing (`hold`, typing speed, `fast`) | slow down one command | whole tape | that scene, or none if only pauses change |
+| Commands of one scene | change a flag, add a `wait` | whole tape | that scene, and later scenes if they depend on its effects |
+| Hidden setup, `terminal`, `workspace`, `sandbox` | new theme, different font size | whole tape | everything |
+
+The slow stage is VHS: it records in real time, so a six-minute video takes at least
+six minutes to record, even when only a word of narration changed. TTS is already
+cached per clip. The goal is to make the first two rows free, the middle rows cost
+only the scenes involved, and to let authors look at just the part they work on.
+
+### What carries between scenes
+
+All scenes run in one shell. Scene *n* can depend on earlier scenes in two ways:
+
+1. **State**: cwd, env vars, shell functions, files, running processes (`tmux`).
+2. **Screen**: whatever earlier output is still visible when scene *n* starts.
+
+Any scheme that records a scene without first running the earlier ones gets both
+wrong. Snapshotting the shell (CRIU, `docker commit`) does not cover processes,
+ttyd and the terminal emulator, so it is out. The earlier scenes have to run again;
+the question is only how fast, and which recordings can be reused.
+
+### Options
+
+Common building block for B to D: **fast replay**. Scenes before the first one that
+needs recording run inside `Hide`, typed with `Type@0ms`, without narration sleeps
+and holds, but keeping `wait` and a wait for the prompt after each command. A
+replayed scene costs the run time of its commands, not its video time.
+
+- **A. Status quo**: record the whole tape on every build.
+- **B. Scene range** (`--scenes`): fast-replay the scenes before the range, record
+  the range, stop. The output shows the range only. No cache.
+- **C. Chained segment cache**: cut the recording at scene markers into per-scene
+  segments and cache them. A segment's key contains the key of the scene before it,
+  so a change in scene *k* re-records *k* to the end and reuses 1 to *k*-1. Narration
+  and everything composited later are not part of the key.
+- **D. Independent segment cache**: like C, but a segment's key contains only its
+  own scene. A change in scene *k* re-records *k* alone and reuses all others.
+
+Example: 12 visible scenes of 30 s each (6 min of video), replay cost 2 s per scene.
+
+| Edit | A | B (range = edited scene) | C | D |
+|---|---|---|---|---|
+| Narration of any scene | 6 min | 32 s to 52 s, range only | ~0 s (stitch + mux) | ~0 s |
+| Commands of scene 2 | 6 min | 32 s, range only | 5.5 min | 32 s |
+| Commands of scene 8 | 6 min | 44 s, range only | 2.7 min | 44 s |
+| Commands of scene 12 | 6 min | 52 s, range only | 52 s | 52 s |
+| Result matches a clean build | yes | yes, for the range | yes | **no**, see below |
+| Relative complexity | none | small | medium | medium, plus failure modes |
+
+A wrong result from D is likely, not exotic:
+
+- scene *k* creates, edits or deletes a file that *k*+1 lists, prints or builds;
+- scene *k* changes cwd, an env var or a shell function used later;
+- scene *k*'s last screen differs, so the cached first frame of *k*+1 jumps (every
+  scene that does not start with `clear` shows the previous output).
+
+None of these can be detected from the spec, and a stale video looks plausible, so
+the error tends to surface only when someone watches the final video. Asking authors
+to mark scenes as independent moves that risk onto them.
+
+### Recommendation
+
+**B + C**, not D. *(confirmed, implemented)*
+
+- C makes the most frequent edits (narration, overlays, subtitles, timing that only
+  moves pauses) cost no recording at all, and is always exact.
+- B covers what D would win for command edits: while working on scene 8, record
+  scene 8 (after fast replay), watch that, and leave the full build for later. A
+  range recording also fills C's cache, because the keys come from the spec, so the
+  next full build only records what the range did not cover.
+- D's extra speed only matters for full builds after command edits early in the
+  video, and it pays for that with silently wrong videos.
+
+### C in detail
+
+**Recording key** of scene *n*:
+
+```text
+key(n) = sha256(key(n-1), scene n's recorded content, render settings)
+key(0) = sha256(narratty version, VHS/ttyd versions, image digest or "native",
+                terminal block, workspace mode, sandbox block, env, cache.inputs files)
+```
+
+- *Recorded content*: actions as typed and pressed, `wait` patterns, `hidden`,
+  `fast`, `timelapse`, typing speed and literal `hold` values.
+- *Not in the key*: narration, voice, TTS options, lexicon, `narration_buffer_ms`,
+  the `hold: auto` fill, overlays, browser views, subtitles, end card, scene titles.
+  These only change pause lengths or are composited after recording.
+- *Render settings*: frame rate and size, so draft and full segments never mix.
+- Hidden scenes take part in the chain like any other scene; their segment is empty.
+
+**Narration-only changes.** Segments are stored the way `--fast` records them: pauses
+shortened, their positions noted. At stitch time each pause is expanded to the
+length the current timeline asks for by repeating its last frame (the existing
+`plan_stills`/`repeat_frames` path).
+
+*As built:* this only holds when pauses are shortened, i.e. with `--fast` or
+`--draft`, or in scenes with `fast: true`. A build without them records pauses in
+full, so a pause's length is part of its scene's key and a narration change that
+alters it records that scene and the ones after it. Making every incremental build
+shorten pauses would turn the "screen was not still" failure on for everyone, so
+the default stays exact and the fast loop is opt-in. A pause up to 1 s is not
+shortened either, so a narration edit that moves a pause across that limit changes
+the key once.
+
+**Cutting and stitching.**
+
+- The tape always records with scene markers (the screenshots the timelapse path
+  already takes), so scene starts in the recording are known to the frame.
+- The tape is split into sections: lead-in, each visible scene, tail and end card
+  (hidden scenes and setup produce no frames and are only part of the key chain).
+  Each recorded section is cut from the recording with a key frame at its start and
+  stored with metadata: duration, where its shortened pauses end, and the positions
+  of its markers (cues for overlays and browser views, timelapse ends).
+- The silent video is the concat (stream copy) of all sections in order, then pauses
+  are filled and timelapse scenes sped up as before. Clips are placed at the
+  measured section starts instead of the global scale factor in `place_clips`,
+  which also removes the scaling error. The frame rate used for the fills is the one
+  ffprobe reports (VHS writes 25 fps whatever `Set Framerate` says).
+- Exit codes are checked from the exit log of the recording that ran. Scenes taken
+  from the cache are not checked again; they were when they were recorded.
+- Sections are stored only after the build succeeded, so a failed build leaves
+  nothing half-trusted behind.
+- Overlays, browser views, subtitles and the narration track are built from the
+  stitched layout as now.
+
+**Storage.** `~/.cache/narratty/segments/<key[:2]>/<key>.mp4` plus `<key>.json`,
+pruned by `narratty cache prune` like audio clips; `cache info` reports both.
+
+**Workspace content.** Command output depends on the repository, but hashing the
+workspace would invalidate everything on every edit, including edits to the spec
+itself when it lives in the repo. The key therefore ignores the workspace, except for
+files matched by an optional `cache.inputs` list of globs in the spec. *(confirmed)*
+When the repo changed in a way that matters, `--clean` re-records.
+
+**Asciicast.** Same keys; a segment is a slice of events with relative times, and
+stitching concatenates them with offsets. Second step, after mp4.
+
+### CLI
+
+- `narratty build` is incremental by default. *(confirmed)*
+- `--clean`: ignore cached segments and record the whole tape in one run (the cache
+  is still written). For release videos, after repo changes outside `cache.inputs`,
+  or when a video looks wrong.
+- `--scenes RANGES` (`-s`): build only these scenes. `RANGES` is a comma-separated list of
+  `id`, `from:to` (inclusive), `from:` (to the end) or `:to`; the option can be
+  repeated. Scenes before and between the ranges are fast-replayed hidden. The output
+  is `<name>.scenes.mp4` (`.scenes.draft.mp4` with `--draft`), with lead-in and tail,
+  without the end card unless the last range reaches the end. *(confirmed: the output
+  contains only the selected scenes)*
+- Completion for `--scenes` lists the spec's scene ids, also after `,` and `:`. The
+  completer reads ids with a line scan of the spec (no Pydantic, no ruamel model) to
+  stay inside the completion budget.
+- `--watch` (`-w`): build, then rebuild whenever the spec, its lexicon files, files
+  under `cache.inputs` or local pages shown in a browser view change. Polls
+  modification times (no new dependency) and debounces 300 ms. *As built:* a change
+  during a build does not cancel it; the next build starts when it ends. Cancelling
+  would need the whole pipeline (VHS, ffmpeg, containers) to be interruptible, and
+  sections finished before the cancel are only stored after success anyway. Works with
+  `--scenes` and `--draft`. A failed build is reported and waited out.
+- `narratty plan` gets a `recording` column: `cached` or `record`, so the cost of the
+  next build is visible before it starts (`--fast` plans for a fast build).
+- `cache info` and `cache prune` cover the section recordings too.
+- *Not built:* `build --json` / `manifest.json` output about cached scenes; neither
+  exists yet. The build logs `recording 3 of 7 scenes with VHS (4 from the cache)`.
+
+### Typical session
+
+```bash
+narratty build demo.narratty.yaml --draft --watch --scenes clone:cloned
+# edit the commands of clone and cloned; each save re-records only those scenes
+narratty build demo.narratty.yaml --watch
+# reword narration, move overlays; each save re-stitches without recording
+narratty build demo.narratty.yaml --clean
+# final, exact video
+```
+
+### Risks
+
+- **Fast replay differs from real time.** A TUI may need time between keys, or a
+  command may behave differently when typed instantly. Replay keeps `wait`s, types at
+  5 ms per key and cuts pauses over 1 s to 1 s. Two safety nets: a scene with
+  `replay: realtime` runs at its own pace, and when a command a replayed scene started
+  is still running at the end of a cut pause (the same `/proc` check `--fast` uses),
+  the build remembers that scene (by the hash of its tape lines, in the cache), builds
+  again with that scene at its own pace, and does so from then on. That costs one
+  extra recording the first time.
+- **Slow commands make replay slow.** A `bazel build` in scene 3 runs again for every
+  range after it; `workspace.caches` keeps the repeat fast.
+- **Time-dependent output** (dates, durations) differs between segments recorded at
+  different times. Same as across clean builds; the deterministic session helps.
+- **Stale cache after repo changes** outside `cache.inputs`. Mitigated by `--clean`
+  and by `plan` showing which scenes come from the cache.
+
+### Implementation order
+
+1. `--scenes` with fast replay and id completion (B).
+2. Segment cutting at markers, measured clip placement, segment cache and `--clean`,
+   with narration kept out of the key through pause expansion (C).
+3. `plan` cache column, `cache info`/`prune` for segments.
+4. `--watch`.
+5. `--format cast`: `--scenes` only. A section cache would need cast events cut and
+   offset like video, and `--fast` already skips the waiting in a cast, so it stays
+   without one for now.
+
+Spec additions (`cache.inputs`, `replay`) are additive and keep `version: 1`.
+
+The drift check also got an absolute floor: a build fails only when the video is more
+than `--max-drift` off *and* more than 250 ms, because VHS ends a recording a few
+frames early or late and that is a large share of a one-scene range.
 
 ---
 
@@ -673,6 +904,7 @@ release; the rest are cheap to add later if the design leaves room now.
   (words ÷ speaking rate) instead of TTS. Lets you iterate on actions in seconds.
 - **v1 `--scene intro --scene wrap`** and `--from-scene`: render a subset. The shell
   state still needs earlier scenes, so skipped scenes run `hidden`, not dropped.
+  Superseded by `--scenes` in [Incremental builds](#incremental-builds).
 - **v1 `narratty plan <spec>`**: prints the timeline table (scene, narration length,
   action length, total) and the total video length before anything renders.
 - `narratty preview`: play the result (or open the draft) when done.

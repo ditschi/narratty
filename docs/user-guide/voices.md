@@ -111,6 +111,8 @@ narratty cache prune --older-than 30d     # clips not used for 30 days
 narratty cache prune --all
 ```
 
+`cache info` and `prune` also cover the cache of [scene recordings](building.md#faster-rebuilds).
+
 ## Licences
 
 Piper (`piper-tts`) is GPL-3.0; narratty only runs it as a separate process, so
