@@ -3,19 +3,20 @@
 from __future__ import annotations
 
 import json
-import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 from narratty.render.pauses import SETTLE_MS, Pause, command_keyword
 from narratty.render.script import (
-    END_CUE,
+    HEAD,
+    SETUP,
     Ctrl,
     Cue,
     HelperPlacement,
     Hide,
     Mark,
+    Partial,
     Press,
     Show,
     Sleep,
@@ -23,12 +24,9 @@ from narratty.render.script import (
     TimelapseEnd,
     Type,
     WaitScreen,
-    end_card_steps,
     hidden,
     prompt_setup,
-    scene_steps,
-    setup_steps,
-    teardown_steps,
+    sections,
 )
 from narratty.spec.model import Spec
 from narratty.timeline import Timeline
@@ -107,7 +105,7 @@ def step_lines(step: Step, marks: Path | None = None) -> list[str]:
             return [f"{key}@{speed}ms" + (f" {count}" if count else "")]
         case Ctrl(char):
             return [f"Ctrl+{char}"]
-        case Sleep(ms):
+        case Sleep(ms, _):
             return [f"Sleep {ms}ms"]
         case WaitScreen():
             return _wait_lines(step)
@@ -125,7 +123,7 @@ def step_lines(step: Step, marks: Path | None = None) -> list[str]:
 def _section_lines(step: Mark | TimelapseEnd, marks: Path | None) -> list[str]:
     match step:
         case Mark(None):
-            return ["# end card"]
+            return ["# end card", *_marker(marks, "card")]
         case Mark(scene_id, True):
             return [f"# scene: {scene_id} (hidden)"]
         case Mark(scene_id, False, timelapse):
@@ -140,7 +138,9 @@ class _Writer:
     """Tape lines, the commands among them and, with ``fast``, the shortened pauses.
 
     A scene's own ``fast`` overrides the build's. Pauses in timelapse scenes are not
-    shortened; those scenes are sped up anyway.
+    shortened; those scenes are sped up anyway. Lines and pauses are also kept by
+    section (see :func:`narratty.render.script.sections`), and replayed scenes' cut
+    pauses separately.
     """
 
     def __init__(self, fast: bool, marks: Path | None = None) -> None:
@@ -149,15 +149,22 @@ class _Writer:
         self.lines: list[str] = []
         self.commands: list[str] = []
         self.pauses: list[Pause] = []
+        self.replays: list[Pause] = []
+        self.sections: dict[str, list[str]] = {}
+        self._section = SETUP
         self._hidden = False
         self._scene_fast = fast
         self._timelapse = False
         self._scene: str | None = None
         self._scene_command = 0
 
+    def begin(self, label: str) -> None:
+        self._section = label
+
     def raw(self, *lines: str) -> None:
         for line in lines:
             self.lines.append(line)
+            self.sections.setdefault(self._section, []).append(line)
             if line and not line.startswith("#"):
                 self.commands.append(command_keyword(line))
 
@@ -172,10 +179,15 @@ class _Writer:
                     self._scene_fast = self.fast if scene_fast is None else scene_fast
                 case TimelapseEnd():
                     self._timelapse = False
-                case Sleep(ms) if self._shortens(ms):
-                    self.pauses.append(Pause(len(self.commands), ms, self._scene, self._scene_command))
+                case Sleep(_, replayed) if replayed:
+                    self.replays.append(self._pause(replayed))
+                case Sleep(ms, _) if self._shortens(ms):
+                    self.pauses.append(self._pause(ms))
                     step = Sleep(SETTLE_MS)
             self.raw(*step_lines(step, self.marks))
+
+    def _pause(self, ms: int) -> Pause:
+        return Pause(len(self.commands), ms, self._scene, self._scene_command, self._section)
 
     def _shortens(self, ms: int) -> bool:
         return self._scene_fast and not self._hidden and not self._timelapse and ms > SETTLE_MS
@@ -183,11 +195,17 @@ class _Writer:
 
 @dataclass(frozen=True)
 class Tape:
-    """A tape, its commands' keywords (as VHS prints them) and its shortened pauses."""
+    """A tape, its commands' keywords (as VHS prints them) and its shortened pauses.
+
+    ``sections`` are the tape's lines by section label, in order; ``replays`` the cut
+    pauses of replayed scenes.
+    """
 
     text: str
     commands: tuple[str, ...]
     pauses: tuple[Pause, ...]
+    sections: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    replays: tuple[Pause, ...] = ()
 
 
 def uses_fast(spec: Spec, fast: bool) -> bool:
@@ -237,11 +255,12 @@ def build_tape(
     exit_log: Path | None = None,
     placement: HelperPlacement | None = None,
     fast: bool = False,
+    partial: Partial | None = None,
 ) -> Tape:
     """The tape rendering ``spec`` into ``output`` (see :func:`generate_tape`).
 
     ``fast`` shortens long pauses (see ``narratty.render.pauses``); a scene's own
-    ``fast`` overrides it.
+    ``fast`` overrides it. ``partial`` records only some sections.
     """
     term = spec.terminal
     tape = _Writer(fast, marks)
@@ -263,23 +282,19 @@ def build_tape(
     if uses_fast(spec, fast):
         tape.raw("Set CursorBlink false")  # a repeated frame would stop the blinking
     tape.raw("")
-    python = python or sys.executable
     if shell != vhs_shell:
-        tape.steps(hidden([Type(f"exec {shell}", 1), Press("Enter", 1)]))
-    tape.steps(setup_steps(spec, placement, exit_log))
-    if timeline.lead_in_ms:
-        tape.steps([Sleep(timeline.lead_in_ms)])
-    for scene in spec.scenes:
-        tape.raw("")
-        tape.steps(scene_steps(spec, scene, timeline.scene(scene.id), placement=placement))
-    tape.raw("")
-    tape.steps([Cue(END_CUE)])
-    if timeline.tail_ms:
-        tape.steps([Sleep(timeline.tail_ms)])
-    if timeline.end_card_ms:
-        tape.raw("")
-        card = end_card_steps(
-            spec, timeline, python, remote=placement.bridged, local_shell=placement.shell(spec)
-        )
-        tape.steps(teardown_steps(spec) + card)
-    return Tape("\n".join(tape.lines) + "\n", tuple(tape.commands), tuple(tape.pauses))
+        steps = hidden([Type(f"exec {shell}", 1), Press("Enter", 1)])
+        tape.steps(steps[:-1] if partial is not None else steps)
+    parts = sections(spec, timeline, python=python, exit_log=exit_log, placement=placement, partial=partial)
+    for label, steps in parts:
+        tape.begin(label)
+        if label not in (SETUP, HEAD):
+            tape.raw("")
+        tape.steps(steps)
+    return Tape(
+        "\n".join(tape.lines) + "\n",
+        tuple(tape.commands),
+        tuple(tape.pauses),
+        tuple((label, tuple(lines)) for label, lines in tape.sections.items()),
+        tuple(tape.replays),
+    )

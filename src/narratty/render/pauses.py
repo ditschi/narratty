@@ -35,13 +35,14 @@ class Pause:
     """A pause recorded as ``SETTLE_MS``.
 
     ``command`` is its index among the tape's commands, ``scene_command`` that of its
-    scene's first command.
+    scene's first command, ``section`` the label of the tape section it is in.
     """
 
     command: int
     planned_ms: int
     scene_id: str | None
     scene_command: int = 0
+    section: str | None = None
 
 
 @dataclass(frozen=True)

@@ -96,7 +96,7 @@ def test_end_card_shows_the_qr_code(tmp_path: Path) -> None:
     assert abs(result.drift) < 0.05
     assert _last_frame_white_share(result.output) > 0.1, "the white QR code fills the last frame"
     work = tmp_path / "plain"
-    plain_result = build(spec, tmp_path / "plain.mp4", work_dir=work, end_card=False)
+    plain_result = build(spec, tmp_path / "plain.mp4", work_dir=work, end_card=False, clean=True)
     assert result.expected_ms - plain_result.expected_ms == 2000
     assert _last_frame_white_share(plain_result.output) < 0.01
     assert "end card" not in (work / "scene.tape").read_text(encoding="utf-8")
@@ -124,3 +124,39 @@ def test_build_checks_exit_codes(tmp_path: Path, expect: str, fails: bool) -> No
         assert (tmp_path / "exits.draft.mp4").is_file(), "the video is kept for inspection"
     else:
         build(spec, draft=True, workspace=options)
+
+
+def test_scenes_come_from_the_cache_and_ranges_replay_earlier_scenes(spec: Path) -> None:
+    options = WorkspaceOptions(mode="rw")
+    first_log: list[str] = []
+    first = build(spec, draft=True, workspace=options, log=first_log.append)
+    assert "recording 3 of 3 scenes with VHS" in first_log
+    again_log: list[str] = []
+    again = build(spec, draft=True, workspace=options, log=again_log.append)
+    assert "every scene is cached, nothing to record" in again_log
+    assert abs(again.video_ms - first.video_ms) < 100
+
+    ranged_log: list[str] = []
+    ranged = build(spec, draft=True, workspace=options, scenes=["quiet:wrap"], log=ranged_log.append)
+    assert ranged.output.name == "demo.scenes.draft.mp4"
+    assert [p.scene_id for p in ranged.placements] == []  # a draft has no clips
+    assert media.probe(ranged.output).duration_ms < first.video_ms
+    assert "every scene is cached, nothing to record" in ranged_log
+
+    clean_log: list[str] = []
+    build(spec, draft=True, workspace=options, clean=True, scenes=["wrap"], log=clean_log.append)
+    assert "recording 1 of 1 scenes with VHS" in clean_log
+
+
+def test_a_replayed_scene_leaves_its_effects_for_the_recorded_one(spec: Path) -> None:
+    options = WorkspaceOptions(mode="rw")
+    text = spec.read_text(encoding="utf-8").replace(
+        "  - id: wrap\n",
+        "  - id: files\n    actions: [{type_command: 'ls | wc -l'}, enter, {hold: 300}]\n  - id: wrap\n",
+    )
+    spec.write_text(text, encoding="utf-8")
+    work = spec.parent / "work"
+    build(spec, draft=True, workspace=options, scenes=["files"], work_dir=work)
+    tape = (work / "scene.tape").read_text(encoding="utf-8")
+    assert "# scene: setup (hidden)" in tape and "# scene: list (hidden)" in tape
+    assert "mkdir -p demo" in tape and "# scene: files\n" in tape and "# scene: wrap" not in tape

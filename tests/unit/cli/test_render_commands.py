@@ -192,3 +192,71 @@ def test_build_cast_writes_subtitle_files(spec: Path, monkeypatch: pytest.Monkey
     result = runner.invoke(app, ["build", str(spec), "-f", "cast", "--no-end-card", "--subtitles", "burn"])
     assert result.exit_code == 0, result.output
     assert "Hello there my friend." in spec.with_name("demo.vtt").read_text(encoding="utf-8")
+
+
+def test_plan_says_what_the_next_build_records(spec: Path) -> None:
+    text = plain(runner.invoke(app, ["plan", str(spec), "--draft"], env={"COLUMNS": "200"}).output)
+    assert "recording" in text and "record" in text and "cached" not in text
+
+
+def test_build_passes_scenes_and_clean(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_build(spec_path: Path, output: Path | None, **kwargs: object) -> BuildResult:
+        seen.update(kwargs, output=output)
+        return BuildResult(spec_path.with_name("demo.scenes.mp4"), 10000, 10000, ())
+
+    monkeypatch.setattr("narratty.build.build", fake_build)
+    result = runner.invoke(app, ["build", str(spec), "--scenes", "intro", "-s", "a:b,c", "--clean"])
+    assert result.exit_code == 0, result.output
+    assert seen["scenes"] == ["intro", "a:b,c"] and seen["clean"] is True
+    assert seen["output"] == spec.with_name("demo.scenes.mp4")
+
+
+def test_build_scenes_and_clean_reach_the_container(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_delegate(command: str, spec_path: Path, **kwargs: object) -> int:
+        calls.append(kwargs)
+        return 0
+
+    monkeypatch.setattr("narratty.container.delegate", fake_delegate)
+    result = runner.invoke(
+        app, ["build", str(spec), "--draft", "--clean", "--scenes", "intro", "--runtime", "docker"]
+    )
+    assert result.exit_code == 0, result.output
+    assert calls[0]["output"] == spec.with_name("demo.scenes.draft.mp4")
+    extra = calls[0]["extra_args"]
+    assert isinstance(extra, list) and extra[-3:] == ["--clean", "--scenes", "intro"]
+
+
+def test_build_watch_runs_the_watch_loop(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    builds: list[Path] = []
+
+    def fake_watch(spec_path: Path, build: object, **kwargs: object) -> None:
+        assert callable(build)
+        builds.append(spec_path)
+        build()
+
+    def fake_build(spec_path: Path, output: Path | None, **kwargs: object) -> BuildResult:
+        return BuildResult(spec_path.with_name("demo.mp4"), 10000, 10000, ())
+
+    monkeypatch.setattr("narratty.watch.watch", fake_watch)
+    monkeypatch.setattr("narratty.build.build", fake_build)
+    result = runner.invoke(app, ["build", str(spec), "--watch"])
+    assert result.exit_code == 0, result.output
+    assert builds == [spec]
+
+
+def test_build_cast_scenes_records_only_those(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("narratty.render.media.encode_mp3", lambda audio, out: out.write_bytes(b"ID3"))
+    result = runner.invoke(app, ["build", str(spec), "-f", "cast", "--no-end-card", "--scenes", "intro"])
+    assert result.exit_code == 0, result.output
+    cast = spec.with_name("demo.scenes.cast").read_text(encoding="utf-8")
+    assert '"m", "intro"' in cast
+    assert spec.with_name("demo.scenes.html").is_file()
+
+
+def test_build_unknown_scene_is_a_usage_error(spec: Path) -> None:
+    result = runner.invoke(app, ["build", str(spec), "--scenes", "intor"])
+    assert isinstance(result.exception, UsageError) and "intro" in (result.exception.hint or "")

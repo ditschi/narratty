@@ -148,16 +148,30 @@ class FakeMedia:
     def __init__(self, monkeypatch: pytest.MonkeyPatch, video_ms: int) -> None:
         self.mux_kwargs: dict[str, object] = {}
         self.render_kwargs: dict[str, object] = {}
+        self.recorded: list[str] = []
         self.srt = ""
-        monkeypatch.setattr("narratty.build.render_silent", self._render)
+        self.video_ms = video_ms
+        monkeypatch.setattr("narratty.build.record_sections", self._record)
         monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(video_ms, True, True))
+        monkeypatch.setattr(media, "concat", lambda videos, out: out.write_bytes(b"mp4"))
+        monkeypatch.setattr(media, "repeat_frames", lambda video, inserts, out, **kw: out.write_bytes(b"mp4"))
         monkeypatch.setattr(media, "mux", self._mux)
 
-    def _render(
-        self, planned: Plan, video: Path, work: Path, workspace: Path, bridge: object = None, **kwargs: object
-    ) -> None:
+    def _record(
+        self, planned: Plan, links: Any, job: Any, work: Path, *args: object, **kwargs: object
+    ) -> Any:
+        from narratty.cache import Segment, SegmentMeta
+
         self.render_kwargs = kwargs
-        video.write_bytes(b"mp4")
+        self.recorded = list(job.recorded)
+        pauses = {link.label: link.pauses_ms for link in links}
+        segments = {}
+        for label in job.recorded:
+            video = work / f"{label.strip(':')}.mp4"
+            video.write_bytes(b"mp4")
+            meta = SegmentMeta(self.video_ms // len(job.recorded), tuple(1500 for _ in pauses[label]))
+            segments[label] = Segment(video, meta)
+        return segments
 
     def _mux(self, video: Path, audio: Path, out: Path, **kwargs: object) -> None:
         self.mux_kwargs = kwargs
@@ -395,3 +409,131 @@ def test_a_scene_can_opt_in_to_fast(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     (tmp_path / "work").mkdir()
     render_silent(planned, tmp_path / "v.mp4", tmp_path / "work", tmp_path)
     assert fake.repeated, "filled without --fast"
+
+
+INCREMENTAL_SPEC = """\
+end_card: false
+timing: {lead_in_ms: 0, tail_ms: 0}
+scenes:
+  - id: a
+    narration: This first scene explains what its command does in a few words.
+    actions: [{run: ls}]
+  - id: b
+    narration: This second scene explains what its command does in a few words.
+    actions: [{run: pwd}]
+  - id: c
+    narration: This third scene explains what its command does in a few words.
+    actions: [{run: date}]
+"""
+
+
+def _incremental(tmp_path: Path) -> Path:
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(INCREMENTAL_SPEC, encoding="utf-8")
+    return spec
+
+
+def _draft(spec: Path, **kwargs: Any) -> BuildResult:
+    from narratty.build import WorkspaceOptions, build
+
+    options = WorkspaceOptions("rw", allow_dirty=True)
+    return build(
+        spec, draft=True, workspace=options, max_drift=10.0, **kwargs
+    )  # the fake video has any length
+
+
+def test_a_second_build_records_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = _incremental(tmp_path)
+    fake = FakeMedia(monkeypatch, 3000)
+    _draft(spec)
+    assert fake.recorded == ["a", "b", "c"]
+    fake.recorded = ["untouched"]
+    _draft(spec)
+    assert fake.recorded == ["untouched"], "everything came from the cache"
+
+
+def test_a_changed_command_records_that_scene_and_the_ones_after(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spec = _incremental(tmp_path)
+    fake = FakeMedia(monkeypatch, 3000)
+    _draft(spec)
+    spec.write_text(INCREMENTAL_SPEC.replace("run: pwd", "run: pwd -P"), encoding="utf-8")
+    _draft(spec)
+    assert fake.recorded == ["b", "c"]
+
+
+def test_a_changed_narration_records_nothing_with_fast_pauses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spec = _incremental(tmp_path)
+    fake = FakeMedia(monkeypatch, 3000)
+    _draft(spec)
+    spec.write_text(
+        INCREMENTAL_SPEC.replace("second scene explains", "second scene explains at much greater length"),
+        encoding="utf-8",
+    )
+    fake.recorded = ["untouched"]
+    _draft(spec)
+    assert fake.recorded == ["untouched"]
+
+
+def test_clean_records_everything_again(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = _incremental(tmp_path)
+    fake = FakeMedia(monkeypatch, 3000)
+    _draft(spec)
+    fake.recorded = []
+    _draft(spec, clean=True)
+    assert fake.recorded == ["a", "b", "c"]
+
+
+def test_scenes_make_a_video_of_only_those_scenes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = _incremental(tmp_path)
+    fake = FakeMedia(monkeypatch, 1000)
+    result = _draft(spec, scenes=["b"])
+    assert result.output == tmp_path / "demo.scenes.draft.mp4"
+    assert fake.recorded == ["b"]
+    fake.recorded = []
+    _draft(spec, scenes=["b:c"])
+    assert fake.recorded == ["c"], "b was recorded by the first build"
+
+
+def test_a_replay_that_ran_ahead_is_recorded_again_at_its_own_pace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.incremental import UnsafeReplay
+
+    spec = _incremental(tmp_path)
+    fake = FakeMedia(monkeypatch, 1000)
+    attempts: list[frozenset[str]] = []
+    record = fake._record  # noqa: SLF001
+
+    def flaky(planned: Plan, links: Any, job: Any, *args: Any, **kwargs: Any) -> Any:
+        attempts.append(job.partial.realtime)
+        if len(attempts) == 1:
+            raise UnsafeReplay(["a"])
+        return record(planned, links, job, *args, **kwargs)
+
+    monkeypatch.setattr("narratty.build.record_sections", flaky)
+    _draft(spec, scenes=["c"])
+    assert len(attempts) == 2
+
+
+def test_video_suffix() -> None:
+    from narratty.build import video_suffix
+
+    assert [video_suffix(), video_suffix(draft=True), video_suffix(scenes=True)] == [
+        ".mp4",
+        ".draft.mp4",
+        ".scenes.mp4",
+    ]
+    assert video_suffix(draft=True, scenes=True) == ".scenes.draft.mp4"
+
+
+def test_verify_ignores_a_small_absolute_drift_of_a_short_video(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(1200, True, True))
+    verify(BuildResult(tmp_path / "o.mp4", 1400, 1200, ()), max_drift=0.1)  # -14%, but 200 ms
+    with pytest.raises(SyncError):
+        verify(BuildResult(tmp_path / "o.mp4", 1600, 1200, ()), max_drift=0.1)

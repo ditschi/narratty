@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import typer
 
+from narratty.cli.completion import complete_scenes
 from narratty.runtime import Runtime
 
 if TYPE_CHECKING:
@@ -122,4 +123,19 @@ EndCardOption = typer.Option(
     "--end-card/--no-end-card",
     help='Show the closing "Created with narratty" card (default: the spec, then your config, then on).',
     show_default=False,
+)
+
+ScenesOption = typer.Option(
+    None,
+    "--scenes",
+    "-s",
+    autocompletion=complete_scenes,
+    help="Only these scenes, as a video of their own: ID, FROM:TO, FROM: or :TO, "
+    "comma-separated or repeated. Earlier scenes still run, unrecorded.",
+    show_default=False,
+)
+CleanOption = typer.Option(
+    False,
+    "--clean",
+    help="Record every scene again instead of reusing earlier recordings (the cache is refreshed).",
 )

@@ -7,6 +7,7 @@ import shutil
 import statistics
 import subprocess
 import time
+from pathlib import Path
 
 import pytest
 
@@ -40,5 +41,16 @@ def test_completion_budget() -> None:
         "_NARRATTY_COMPLETE": "complete_bash",
         "COMP_WORDS": "narratty doctor --runtime ",
         "COMP_CWORD": "3",
+    }
+    assert _median([], env) < COMPLETION_BUDGET_S
+
+
+def test_scene_completion_budget(tmp_path: Path) -> None:
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text("scenes:\n" + "".join(f"  - id: scene-{n}\n" for n in range(200)), encoding="utf-8")
+    env = {
+        "_NARRATTY_COMPLETE": "complete_bash",
+        "COMP_WORDS": f"narratty build {spec} --scenes scene-1",
+        "COMP_CWORD": "4",
     }
     assert _median([], env) < COMPLETION_BUDGET_S

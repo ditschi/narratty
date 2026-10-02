@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 
@@ -11,6 +12,7 @@ from narratty.cli.arguments import SpecArgument
 from narratty.cli.options import (
     AllowDirtyOption,
     AllowHostOption,
+    CleanOption,
     EndCardOption,
     EnvImageOption,
     IgnoreExitOption,
@@ -23,12 +25,16 @@ from narratty.cli.options import (
     OfflineOption,
     RebuildEnvOption,
     RuntimeOption,
+    ScenesOption,
     WorkspaceMode,
     WorkspaceModeOption,
     YesOption,
     sandbox_request,
 )
 from narratty.runtime import Runtime
+
+if TYPE_CHECKING:
+    from narratty.container import SandboxRequest
 
 
 class OutputFormat(StrEnum):
@@ -91,6 +97,14 @@ def build_command(
         "last frame. Fails if a pause ends while the screen is still changing.",
     ),
     ignore_exit: bool = IgnoreExitOption,
+    scenes: list[str] | None = ScenesOption,
+    clean: bool = CleanOption,
+    watch: bool = typer.Option(
+        False,
+        "--watch",
+        "-w",
+        help="Build again whenever the spec, its lexicon or files it uses change (Ctrl+C stops).",
+    ),
     workspace_mode: WorkspaceMode | None = WorkspaceModeOption,
     keep_workspace: bool = KeepWorkspaceOption,
     allow_dirty: bool = AllowDirtyOption,
@@ -107,25 +121,77 @@ def build_command(
     image: str | None = ImageOption,
 ) -> None:
     """Build the narrated video (or asciicast)."""
-    from narratty.build import build, build_cast, default_output
-    from narratty.container import delegate
-    from narratty.end_card import container_flag
+    from narratty.build import default_output, video_suffix
     from narratty.environment import EnvironmentOptions
     from narratty.errors import UsageError
-    from narratty.ui.console import err, out
+    from narratty.ui.console import err
 
     cast = output_format is OutputFormat.CAST
     if draft and cast:
         raise UsageError("--draft only applies to --format mp4")
-    suffix = ".html" if cast else ".draft.mp4" if draft else ".mp4"
+    ranges = scenes or []
+    suffix = (
+        (".scenes" if ranges else "") + ".html" if cast else video_suffix(draft=draft, scenes=bool(ranges))
+    )
     env = EnvironmentOptions(no_env, env_image, keep_env, rebuild_env)
     request = sandbox_request(workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env)
+
+    def once() -> int:
+        return _build_once(
+            spec, output or default_output(spec, suffix), cast, request, ranges,
+            output_format=output_format, work_dir=work_dir, max_drift=max_drift, subtitles=subtitles,
+            draft=draft, fast=fast, ignore_exit=ignore_exit, clean=clean, end_card=end_card,
+            offline=offline, runtime=runtime, image=image,
+        )  # fmt: skip
+
+    if not watch:
+        if code := once():
+            raise typer.Exit(code)
+        return
+
+    from narratty.watch import watch as watch_loop
+
+    def say(message: str) -> None:
+        err.print(f"[dim]{message}[/]", highlight=False)
+
+    def build_once() -> None:
+        once()  # a failed container run already printed why; wait for the next change
+
+    watch_loop(spec, build_once, say=say)
+
+
+def _build_once(  # noqa: PLR0913 - the command's options
+    spec: Path,
+    output: Path,
+    cast: bool,
+    request: SandboxRequest,
+    ranges: list[str],
+    *,
+    output_format: OutputFormat,
+    work_dir: Path | None,
+    max_drift: float,
+    subtitles: SubtitleMode | None,
+    draft: bool,
+    fast: bool,
+    ignore_exit: bool,
+    clean: bool,
+    end_card: bool | None,
+    offline: bool,
+    runtime: Runtime,
+    image: str | None,
+) -> int:
+    """Build once; the exit code of a container run that failed, else 0."""
+    from narratty.build import build, build_cast
+    from narratty.container import delegate
+    from narratty.end_card import container_flag
+    from narratty.ui.console import err, out
+
     code = delegate(
         "build",
         spec,
         runtime=runtime,
         image=image,
-        output=output or default_output(spec, suffix),
+        output=output,
         work_dir=work_dir,
         extra_args=[
             "--format",
@@ -137,12 +203,14 @@ def build_command(
             *(["--draft"] if draft else []),
             *(["--fast"] if fast else []),
             *(["--ignore-exit"] if ignore_exit else []),
+            *(["--clean"] if clean else []),
+            *(arg for value in ranges for arg in ("--scenes", value)),
         ],
         sandbox=request,
         ignore_exit=ignore_exit,
     )
     if code is not None:
-        raise typer.Exit(code)
+        return code
 
     with err.status("building") as status:
 
@@ -162,6 +230,7 @@ def build_command(
                 fast=fast,
                 ignore_exit=ignore_exit,
                 sandbox=request,
+                scenes=ranges,
                 log=log,
             )
         else:
@@ -178,6 +247,8 @@ def build_command(
                 fast=fast,
                 ignore_exit=ignore_exit,
                 sandbox=request,
+                clean=clean,
+                scenes=ranges,
                 log=log,
             )
     err.print(
@@ -186,3 +257,4 @@ def build_command(
         highlight=False,
     )
     out.print(str(result.output), highlight=False, soft_wrap=True)
+    return 0

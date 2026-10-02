@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import dataclasses
+import itertools
 import os
 import shlex
+import shutil
 import subprocess
 import tempfile
 import uuid
 from collections.abc import Callable, Iterator, Sequence
-from contextlib import AbstractContextManager, contextmanager, nullcontext
+from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -19,6 +22,7 @@ from narratty.errors import RenderError, SyncError
 from narratty.paths import cache_dir, data_dir
 from narratty.render import media, timelapse
 from narratty.render.narration import Placement, build_track
+from narratty.render.script import CARD, END_CUE, HEAD, TAIL
 from narratty.render.subtitles import Narrated, SubtitleFiles, cues_for, to_srt
 from narratty.spec import load_spec
 from narratty.spec.model import ShowBrowser, ShowOverlay, Spec
@@ -29,15 +33,19 @@ from narratty.tts.synth import Clip, synthesize_spec
 from narratty.workspace import PreparedWorkspace, export_artifacts, prepare_workspace
 
 if TYPE_CHECKING:
+    from narratty.cache import Segment, SegmentCache
     from narratty.container import SandboxRequest
+    from narratty.incremental import Job, Link
     from narratty.render.overlays import OverlayImage
-    from narratty.render.pauses import Insert, JobWatch
+    from narratty.render.pauses import Insert, JobWatch, Pause
     from narratty.render.script import HelperPlacement
     from narratty.render.tape import Tape
     from narratty.spec.model import Environment
 
 SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml", ".yaml", ".yml")
 DEFAULT_MAX_DRIFT = 0.10
+# VHS ends a recording a little early or late; on a short video (one scene) that is a large share.
+MIN_DRIFT_MS = 250
 
 Log = Callable[[str], None]
 
@@ -49,6 +57,11 @@ def default_output(spec_path: Path, suffix: str = ".mp4") -> Path:
         if name.endswith(known):
             return spec_path.with_name(name.removesuffix(known) + suffix)
     return spec_path.with_suffix(suffix)
+
+
+def video_suffix(*, draft: bool = False, scenes: bool = False) -> str:
+    """Suffix of the default output: ``.mp4``, ``.draft.mp4``, ``.scenes.mp4`` or ``.scenes.draft.mp4``."""
+    return (".scenes" if scenes else "") + (".draft.mp4" if draft else ".mp4")
 
 
 @dataclass(frozen=True)
@@ -421,16 +434,7 @@ def _fill_pauses(
     ends = pause_ends_ms(tape.commands, tape.pauses, printed, info.duration_ms)
     inserts, moving = plan_stills(tape.pauses, ends, media.freezes(recorded), info.frame_rate)
     moving += [pause for pause in tape.pauses if jobs.busy(pause) and pause not in moving]
-    if moving:
-        scenes = ", ".join(sorted({pause.scene_id or "end card" for pause in moving}))
-        message = f"the screen was not still at the end of a pause in: {scenes}"
-        if not planned.draft:
-            raise RenderError(
-                message,
-                hint="Let the scene `wait` for the command's last output before the pause, "
-                "or set `fast: false` on the scene.",
-            )
-        say(f"{message}; the draft freezes the picture there anyway")
+    _check_still(planned, moving, say)
     media.repeat_frames(
         recorded,
         [(insert.frame, insert.count) for insert in inserts],
@@ -438,6 +442,121 @@ def _fill_pauses(
         fast=planned.draft,
     )
     return inserts
+
+
+def _check_still(planned: Plan, moving: Sequence[Pause], say: Log) -> None:
+    """Fail (a draft: only log) when a shortened pause ended while the screen changed."""
+    if not moving:
+        return
+    scenes = ", ".join(sorted({pause.scene_id or "end card" for pause in moving}))
+    message = f"the screen was not still at the end of a pause in: {scenes}"
+    if not planned.draft:
+        raise RenderError(
+            message,
+            hint="Let the scene `wait` for the command's last output before the pause, "
+            "or set `fast: false` on the scene.",
+        )
+    say(f"{message}; the draft freezes the picture there anyway")
+
+
+def record_sections(
+    planned: Plan,
+    links: Sequence[Link],
+    job: Job,
+    work: Path,
+    workspace: Path,
+    bridge: Sequence[str] | None = None,
+    *,
+    fast: bool,
+    cache: SegmentCache,
+    log: Log,
+    request: SandboxRequest | None = None,
+) -> dict[str, Segment]:
+    """Record the sections ``job`` names with VHS in ``workspace``; one video each in ``work``.
+
+    Earlier scenes are replayed unrecorded (see ``narratty.incremental``). When a quick
+    replay left a command running, the scene is remembered to replay at its own pace
+    and :class:`~narratty.incremental.UnsafeReplay` is raised.
+    """
+    from narratty.bridge import shim_env
+    from narratty.cache import Segment, SegmentMeta
+    from narratty.draft import FRAMERATE as DRAFT_FRAMERATE
+    from narratty.incremental import UnsafeReplay, owner
+    from narratty.render.pauses import JobWatch, pause_ends_ms, plan_stills
+    from narratty.render.tape import FRAMERATE, build_tape
+
+    if job.partial is None:
+        return {}
+    framerate = DRAFT_FRAMERATE if planned.draft else FRAMERATE
+    marks = (work / "marks").resolve()
+    shutil.rmtree(marks, ignore_errors=True)
+    marks.mkdir(parents=True)
+    recording = work / "recording.mp4"
+    tape = build_tape(
+        planned.spec,
+        planned.timeline,
+        recording.resolve(),
+        framerate=framerate,
+        marks=marks,
+        exit_log=(exit_log := fresh_exit_log(work, bridge)),
+        placement=(placement := placement_for(planned, work, bridge, request)),
+        fast=fast,
+        partial=job.partial,
+    )
+    tape_path = work / "scene.tape"
+    tape_path.write_text(tape.text, encoding="utf-8")
+    watched = [*tape.pauses, *tape.replays]
+    jobs = JobWatch(watched) if watched else None
+    extra_env = recording_env(planned.spec)
+    if placement.bridged:
+        extra_env["PATH"] = shim_env(work / "shims", bridge or [], os.environ)["PATH"]
+    vhs_log = media.run_vhs(
+        tape_path, workspace, extra_env=extra_env, on_line=_progress_watch(jobs) if jobs else None
+    )
+    collect_exit_log(bridge, exit_log, work)
+    if jobs is not None and (unsafe := [p.section for p in tape.replays if p.section and jobs.busy(p)]):
+        contents = {link.label: link.content for link in links}
+        for label in dict.fromkeys(unsafe):
+            cache.mark_realtime(contents[label])
+        raise UnsafeReplay(list(dict.fromkeys(unsafe)))
+    if not recording.is_file():
+        raise RenderError(f"VHS finished but wrote no video to {recording}")
+    info = media.probe(recording)
+    positions: dict[str, int] = {}
+    if any(label != HEAD for label in job.recorded):
+        positions = timelapse.marker_positions(vhs_log, marks, info.duration_ms)
+    pause_ends: list[tuple[str | None, int]] = []
+    if tape.pauses and jobs is not None:
+        printed = [(line.at, line.text.strip()) for line in vhs_log if media.is_progress(line)]
+        ends = pause_ends_ms(tape.commands, tape.pauses, printed, info.duration_ms)
+        _, moving = plan_stills(tape.pauses, ends, media.freezes(recording), info.frame_rate)
+        moving += [pause for pause in tape.pauses if jobs.busy(pause) and pause not in moving]
+        _check_still(planned, moving, log)
+        pause_ends = [(pause.section, end) for pause, end in zip(tape.pauses, ends, strict=True)]
+    starts = [_section_start(positions, label) for label in job.recorded]
+    segments: dict[str, Segment] = {}
+    for index, label in enumerate(job.recorded):
+        start = starts[index]
+        end = max(start, starts[index + 1] if index + 1 < len(starts) else info.duration_ms)
+        pauses = tuple(max(0, ms - start) for section, ms in pause_ends if section == label)
+        marked = {name: max(0, ms - start) for name, ms in positions.items() if owner(name) == label}
+        if (end - start) * framerate < 500:  # under half a frame: nothing was shown
+            segments[label] = Segment(None, SegmentMeta(0, pauses, marked))
+            continue
+        piece = work / "sections" / f"{index:03d}.mp4"
+        media.cut(recording, start, end, piece, fast=planned.draft)
+        segments[label] = Segment(piece, SegmentMeta(media.probe(piece).duration_ms, pauses, marked))
+    return segments
+
+
+def _section_start(positions: dict[str, int], label: str) -> int:
+    """Where a recorded section starts: the lead-in at once, the others at their marker."""
+    if label == HEAD:
+        return 0
+    marker = {TAIL: f"cue-{END_CUE}", CARD: "card"}.get(label, f"scene-{label}")
+    if marker not in positions:
+        raise RenderError(f"VHS did not log the marker {marker!r}")
+    return positions[marker]
 
 
 @dataclass(frozen=True)
@@ -537,6 +656,8 @@ def build(
     fast: bool = False,
     ignore_exit: bool = False,
     sandbox: SandboxRequest | None = None,
+    clean: bool = False,
+    scenes: Sequence[str] = (),
     log: Log | None = None,
 ) -> BuildResult:
     """Run the full pipeline and verify the result.
@@ -545,53 +666,135 @@ def build(
     ``fast`` fills long pauses with still frames instead of recording them (a draft
     always does). ``ignore_exit`` stops checking exit codes where the spec sets no
     ``expect_exit``. ``sandbox`` carries the command line's sandbox and environment choices.
+
+    Scenes recorded before are taken from the cache unless ``clean`` (see
+    ``narratty.incremental``). ``scenes`` (ranges, see
+    :func:`~narratty.incremental.select_scenes`) builds a video of only those scenes.
     """
+    from narratty.incremental import UnsafeReplay, select_scenes
+
     say = log or (lambda _message: None)
-    output = (output or default_output(spec_path, ".draft.mp4" if draft else ".mp4")).resolve()
     say("estimating narration" if draft else "synthesizing narration")
     planned = plan(spec_path, offline=offline, end_card=end_card, draft=draft, log=say)
-    mode = subtitle_mode(planned, subtitles)
+    selected = select_scenes(planned.spec, scenes) if scenes else None
+    output = (output or default_output(spec_path, video_suffix(draft=draft, scenes=bool(selected)))).resolve()
+    options = _BuildOptions(
+        work_dir, max_drift, workspace, subtitles, fast or draft, ignore_exit, sandbox, clean
+    )
+    for attempt in itertools.count():
+        try:
+            return _build(planned, output, selected, options, say)
+        except UnsafeReplay as unsafe:
+            if attempt >= len(planned.spec.scenes):
+                raise
+            say(
+                f"{unsafe}; recording again, replaying {', '.join(unsafe.scenes)} at its own pace from now on"
+            )
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+@dataclass(frozen=True)
+class _BuildOptions:
+    work_dir: Path | None
+    max_drift: float
+    workspace: WorkspaceOptions | None
+    subtitles: str | None
+    fast: bool
+    ignore_exit: bool
+    sandbox: SandboxRequest | None
+    clean: bool
+
+
+def _build(
+    planned: Plan, output: Path, selected: Sequence[str] | None, options: _BuildOptions, say: Log
+) -> BuildResult:
+    """One attempt of :func:`build`: record what the cache lacks, join, mix and verify."""
+    from narratty import incremental
+    from narratty.cache import SegmentCache
+    from narratty.draft import FRAMERATE as DRAFT_FRAMERATE
+    from narratty.render.tape import FRAMERATE
+
+    out = planned if selected is None else incremental.select_plan(planned, selected)
+    mode = subtitle_mode(out, options.subtitles)
+    sandbox = options.sandbox
     warn_unenforced_sandbox(planned.spec, say, sandbox)
-    with (
-        work_directory(work_dir) as work,
-        workspace_for(planned, workspace or WorkspaceOptions(), sandbox, log=say) as ws,
-        environment_bridge(planned, ws, sandbox, say) as bridge,
-    ):
-        say(f"recording {len(planned.timeline.scenes)} scenes with VHS")
-        silent = work / "silent.mp4"
-        layout = render_silent(
-            planned, silent, work, ws.path, bridge, fast=fast or draft, log=say, request=sandbox
-        )
-        video_ms = media.probe(silent).duration_ms
-        if layout is None or not layout.segments:
-            expected_ms, placements = planned.timeline.total_ms, place_clips(planned, video_ms)
+    framerate = DRAFT_FRAMERATE if planned.draft else FRAMERATE
+    cache = SegmentCache(cache_dir())
+    links = incremental.chain(planned, fast=options.fast, framerate=framerate)
+    labels = incremental.needed(planned, selected)
+    run_all = incremental.runs_everything(out.spec)
+    job = incremental.schedule(planned, links, labels, cache, clean=options.clean, run_all=run_all)
+    keyed = {link.label: link for link in links}
+    with ExitStack() as stack:
+        work = stack.enter_context(work_directory(options.work_dir))
+        ws = None
+        if job.partial is not None or has_browsers(out.spec):
+            ws = stack.enter_context(
+                workspace_for(planned, options.workspace or WorkspaceOptions(), sandbox, log=say)
+            )
+        recorded: dict[str, Segment] = {}
+        if job.partial is not None and ws is not None:
+            bridge = stack.enter_context(environment_bridge(planned, ws, sandbox, say))
+            say(_recording_message(job, labels))
+            recorded = record_sections(
+                planned,
+                links,
+                job,
+                work,
+                ws.path,
+                bridge,
+                fast=options.fast,
+                cache=cache,
+                log=say,
+                request=sandbox,
+            )
         else:
-            expected_ms = layout.expected_ms(planned.timeline)
-            placements = place_clips_at(planned, layout.scene_starts_ms, layout.narration_offsets_ms)
+            say("every scene is cached, nothing to record")
+        silent = work / "silent.mp4"
+        parts = [(keyed[label], recorded.get(label) or job.cached[label]) for label in labels]
+        layout = incremental.stitch(out, parts, silent, work, framerate=framerate)
+        video_ms = media.probe(silent).duration_ms
+        expected_ms = layout.expected_ms(out.timeline)
+        placements = place_clips_at(out, layout.scene_starts_ms, layout.narration_offsets_ms)
         say("mixing narration")
         track = work / "narration.wav"
         used = build_track(placements, video_ms, track)
-        starts = scaled_starts(planned, video_ms) | {p.scene_id: p.start_ms for p in used}
-        cues = cues_for(narrations(planned, starts))
+        starts = scaled_starts(out, video_ms) | {p.scene_id: p.start_ms for p in used}
+        cues = cues_for(narrations(out, starts))
         srt: Path | None = None
         if mode in ("track", "burn") and cues:
             srt = work / "subtitles.srt"
             srt.write_text(to_srt(cues), encoding="utf-8")
-        if has_browsers(planned.spec):
+        if has_browsers(out.spec):
             say("capturing browser views")
-        overlays = overlay_images(planned, video_ms, work, ws.path, layout)
+        overlays = overlay_images(out, video_ms, work, ws.path if ws else work, layout)
         if overlays:
             say(f"drawing {len(overlays)} overlays")
         media.mux(
-            silent, track, output, subtitles=srt, burn=mode == "burn", overlays=overlays, fast=planned.draft
+            silent, track, output, subtitles=srt, burn=mode == "burn", overlays=overlays, fast=out.draft
         )
         if mode == "files":
             SubtitleFiles.beside(output).write(cues)
-        _export_artifacts(planned, ws.path, output, say)
-        check_exits(planned, work, output, ignore_exit=ignore_exit)
-    result = BuildResult(output, expected_ms, video_ms, tuple(used))
-    verify(result, max_drift=max_drift)
+        if ws is not None:
+            _export_artifacts(out, ws.path, output, say)
+        if job.partial is not None:
+            ran = dataclasses.replace(planned, spec=incremental.ran_spec(planned.spec, job.partial))
+            check_exits(ran, work, output, ignore_exit=options.ignore_exit)
+        result = BuildResult(output, expected_ms, video_ms, tuple(used))
+        verify(result, max_drift=options.max_drift)
+        for label, segment in recorded.items():
+            cache.put(keyed[label].key, segment.video, segment.meta)
     return result
+
+
+def _recording_message(job: Job, labels: Sequence[str]) -> str:
+    """``recording 3 of 7 scenes with VHS (4 from the cache)``."""
+    shown = [label for label in labels if label not in (HEAD, TAIL, CARD)]
+    recorded = [label for label in job.recorded if label not in (HEAD, TAIL, CARD)]
+    cached = len(shown) - len(recorded)
+    return f"recording {len(recorded)} of {len(shown)} scenes with VHS" + (
+        f" ({cached} from the cache)" if cached else ""
+    )
 
 
 def _export_artifacts(planned: Plan, workspace: Path, output: Path, say: Log) -> None:
@@ -649,6 +852,7 @@ def build_cast(
     fast: bool = False,
     ignore_exit: bool = False,
     sandbox: SandboxRequest | None = None,
+    scenes: Sequence[str] = (),
     log: Log | None = None,
 ) -> BuildResult:
     """Record an asciicast with a narration track and a page that plays both.
@@ -657,35 +861,45 @@ def build_cast(
     with any ``subtitles`` mode but ``none`` also the ``.srt`` and ``.vtt``.
     Clips are placed at the recorded start of their scene, so there is no drift to check.
     ``fast`` skips the rest of a long pause once the output has been quiet for a moment.
-    ``ignore_exit`` as in :func:`build`.
+    ``ignore_exit`` as in :func:`build`. ``scenes`` records only those scenes (ranges,
+    see :func:`~narratty.incremental.select_scenes`); the earlier ones run unrecorded.
     """
     from narratty.bridge import shim_env
+    from narratty.incremental import needed, ran_spec, select_plan, select_scenes
     from narratty.render.cast import record
     from narratty.render.player import player_page, player_theme
-    from narratty.render.script import build_script
+    from narratty.render.script import Partial, build_script
 
     say = log or (lambda _message: None)
-    outputs = CastOutputs((output or default_output(spec_path, ".html")).resolve())
     say("synthesizing narration")
     planned = plan(spec_path, offline=offline, end_card=end_card, log=say)
+    selected = select_scenes(planned.spec, scenes) if scenes else None
+    suffix = ".scenes.html" if selected else ".html"
+    outputs = CastOutputs((output or default_output(spec_path, suffix)).resolve())
+    out, partial = planned, None
+    if selected is not None:
+        out, labels = select_plan(planned, selected), needed(planned, selected)
+        realtime = frozenset(scene.id for scene in planned.spec.scenes if scene.replay == "realtime")
+        partial = Partial(frozenset(labels), labels[-1], realtime)
     warn_unenforced_sandbox(planned.spec, say, sandbox)
-    spec = planned.spec
+    spec = out.spec
     with (
         work_directory(work_dir) as work,
         workspace_for(planned, workspace or WorkspaceOptions(), sandbox, log=say) as ws,
         environment_bridge(planned, ws, sandbox, say) as bridge,
     ):
-        say(f"recording {len(planned.timeline.scenes)} scenes as an asciicast")
+        say(f"recording {len(out.timeline.scenes)} scenes as an asciicast")
         env = {**os.environ, **recording_env(spec)}
         placement = placement_for(planned, work, bridge, sandbox)
         if placement.bridged:
             env = shim_env(work / "shims", bridge or [], env)
         recording = record(
             build_script(
-                spec,
+                planned.spec,
                 planned.timeline,
                 exit_log=(exit_log := fresh_exit_log(work, bridge)),
                 placement=placement,
+                partial=partial,
             ),
             terminal=spec.terminal,
             cwd=ws.path,
@@ -699,14 +913,14 @@ def build_cast(
         outputs.cast.write_text(recording.cast, encoding="utf-8")
         say("mixing narration")
         track = work / "narration.wav"
-        placements = place_clips_at(planned, recording.scene_starts_ms, recording.narration_offsets_ms)
+        placements = place_clips_at(out, recording.scene_starts_ms, recording.narration_offsets_ms)
         used = build_track(placements, recording.duration_ms, track)
         media.encode_mp3(track, outputs.audio)
-        if subtitle_mode(planned, subtitles) != "none":
+        if subtitle_mode(out, subtitles) != "none":
             starts = {p.scene_id: p.start_ms for p in used}
-            SubtitleFiles.beside(outputs.page).write(cues_for(narrations(planned, starts)))
+            SubtitleFiles.beside(outputs.page).write(cues_for(narrations(out, starts)))
         overlays: list[dict[str, Any]] = []
-        times = recording.scene_starts_ms | recording.cues_ms
+        times = {END_CUE: recording.duration_ms} | recording.scene_starts_ms | recording.cues_ms
         if has_overlays(spec):
             from narratty.render.overlays import page_overlays, schedule
 
@@ -727,9 +941,12 @@ def build_cast(
             browsers=views,
         )
         outputs.page.write_text(page, encoding="utf-8")
-        _export_artifacts(planned, ws.path, outputs.page, say)
-        check_exits(planned, work, outputs.page, ignore_exit=ignore_exit)
-    return BuildResult(outputs.page, planned.timeline.total_ms, recording.duration_ms, tuple(used))
+        _export_artifacts(out, ws.path, outputs.page, say)
+        ran = (
+            planned if partial is None else dataclasses.replace(planned, spec=ran_spec(planned.spec, partial))
+        )
+        check_exits(ran, work, outputs.page, ignore_exit=ignore_exit)
+    return BuildResult(outputs.page, out.timeline.total_ms, recording.duration_ms, tuple(used))
 
 
 def verify(result: BuildResult, *, max_drift: float) -> None:
@@ -737,7 +954,7 @@ def verify(result: BuildResult, *, max_drift: float) -> None:
     info = media.probe(result.output)
     if not (info.has_video and info.has_audio):
         raise RenderError(f"{result.output} is missing its {'audio' if info.has_video else 'video'} stream")
-    if abs(result.drift) > max_drift:
+    if abs(result.drift) > max_drift and abs(result.video_ms - result.expected_ms) > MIN_DRIFT_MS:
         raise SyncError(
             f"the video is {result.video_ms / 1000:.2f}s long but the timeline planned "
             f"{result.expected_ms / 1000:.2f}s ({result.drift:+.0%})",

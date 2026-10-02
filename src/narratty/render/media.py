@@ -295,3 +295,43 @@ def repeat_frames(
     result = runner(argv)
     if result.returncode != 0:
         raise RenderError(f"ffmpeg failed to fill the pauses of {video}:\n{_tail(result)}")
+
+
+def cut(
+    video: Path, start_ms: int, end_ms: int, out: Path, *, fast: bool = False, runner: Runner = _run
+) -> None:
+    """Write the part of ``video`` from ``start_ms`` to ``end_ms`` to ``out``, re-encoded.
+
+    Re-encoding starts ``out`` with a key frame, so the parts can be joined without
+    encoding again (:func:`concat`). ``fast``: quicker, larger.
+    """
+    out.parent.mkdir(parents=True, exist_ok=True)
+    argv = [
+        require("ffmpeg"), "-y", "-v", "error",
+        "-ss", f"{start_ms / 1000:.3f}", "-i", str(video), "-t", f"{(end_ms - start_ms) / 1000:.3f}",
+        "-c:v", "libx264", "-preset", "ultrafast" if fast else "veryfast",
+        "-crf", "23" if fast else "16", "-pix_fmt", "yuv420p", "-an",
+        str(out),
+    ]  # fmt: skip
+    result = runner(argv)
+    if result.returncode != 0:
+        raise RenderError(f"ffmpeg failed to cut {video}:\n{_tail(result)}")
+
+
+def concat(videos: Sequence[Path], out: Path, *, runner: Runner = _run) -> None:
+    """Join ``videos`` (same size, frame rate and codec) into ``out`` without re-encoding."""
+    if len(videos) == 1:
+        shutil.copyfile(videos[0], out)
+        return
+    listing = out.with_suffix(".txt")
+    listing.write_text(
+        "".join("file '" + str(video.resolve()).replace("'", "'\\''") + "'\n" for video in videos),
+        encoding="utf-8",
+    )
+    argv = [
+        require("ffmpeg"), "-y", "-v", "error",
+        "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy", str(out),
+    ]  # fmt: skip
+    result = runner(argv)
+    if result.returncode != 0:
+        raise RenderError(f"ffmpeg failed to join the recorded scenes:\n{_tail(result)}")

@@ -8,7 +8,7 @@ import typer
 
 from narratty.errors import UsageError
 
-cache_app = typer.Typer(help="Inspect or prune the audio cache.", no_args_is_help=True)
+cache_app = typer.Typer(help="Inspect or prune the audio and scene recording caches.", no_args_is_help=True)
 
 _UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
 _AGE = re.compile(r"^(\d+)([smhdw])$")
@@ -33,25 +33,36 @@ def _size(num: int) -> str:
 
 @cache_app.command("info")
 def info_command() -> None:
-    """Show where the audio cache is and how big it is."""
-    from narratty.cache import AudioCache
+    """Show where the caches are and how big they are."""
+    from narratty.cache import AudioCache, SegmentCache
     from narratty.paths import cache_dir
     from narratty.ui.console import out
 
-    stats = AudioCache(cache_dir()).stats()
-    out.print(f"{stats.path}\n{stats.clips} clips, {_size(stats.bytes)}", highlight=False, soft_wrap=True)
+    audio = AudioCache(cache_dir()).stats()
+    scenes = SegmentCache(cache_dir()).stats()
+    out.print(
+        f"{audio.path}\n{audio.clips} clips, {_size(audio.bytes)}\n"
+        f"{scenes.path}\n{scenes.clips} scene recordings, {_size(scenes.bytes)}",
+        highlight=False,
+        soft_wrap=True,
+    )
 
 
 @cache_app.command("prune")
 def prune_command(
-    older_than: str = typer.Option("30d", "--older-than", help="Remove clips unused for this long."),
-    remove_all: bool = typer.Option(False, "--all", help="Remove every cached clip."),
+    older_than: str = typer.Option("30d", "--older-than", help="Remove entries unused for this long."),
+    remove_all: bool = typer.Option(False, "--all", help="Remove every cached clip and scene recording."),
 ) -> None:
-    """Remove cached clips that have not been used recently."""
-    from narratty.cache import AudioCache
+    """Remove cached clips and scene recordings that have not been used recently."""
+    from narratty.cache import AudioCache, SegmentCache
     from narratty.paths import cache_dir
     from narratty.ui.console import out
 
     age = -1 if remove_all else parse_age(older_than)
-    removed = AudioCache(cache_dir()).prune(age)
-    out.print(f"removed {removed.clips} clips, {_size(removed.bytes)}", highlight=False)
+    clips = AudioCache(cache_dir()).prune(age)
+    scenes = SegmentCache(cache_dir()).prune(age)
+    out.print(
+        f"removed {clips.clips} clips, {_size(clips.bytes)}; "
+        f"{scenes.clips} scene recordings, {_size(scenes.bytes)}",
+        highlight=False,
+    )

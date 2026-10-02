@@ -6,17 +6,25 @@ from pathlib import Path
 
 from narratty import diff, editor, sh
 from narratty.render.script import (
+    CARD,
+    HEAD,
+    SETUP,
+    TAIL,
     Ctrl,
+    Cue,
     HelperPlacement,
     Hide,
     Mark,
+    Partial,
     Press,
     Show,
     Sleep,
     Step,
+    TimelapseEnd,
     Type,
     WaitScreen,
     build_script,
+    sections,
 )
 from narratty.spec.loader import parse_spec
 from narratty.timeline import build_timeline
@@ -138,3 +146,80 @@ def test_the_terminal_pane_can_be_a_bridge_while_the_recorder_shell_stays_local(
 def test_a_helper_error_ends_the_waits() -> None:
     waits = [s for s in _script(EDITOR) if isinstance(s, WaitScreen) and s.pattern != "Created with narratty"]
     assert len(waits) == 2 and all(w.fail == sh.ERROR for w in waits)
+
+
+PARTIAL = """\
+end_card: {enabled: true}
+timing: {lead_in_ms: 300, tail_ms: 500}
+scenes:
+  - id: prep
+    hidden: true
+    actions: [{run: mkdir demo}]
+  - id: one
+    narration: One.
+    actions: [{run: ls}, {overlay: Note}]
+  - id: two
+    narration: Two.
+    actions: [{run: pwd}]
+  - id: three
+    narration: Three.
+    actions: [{run: date}]
+"""
+
+
+def _sections(partial: Partial | None = None) -> dict[str, list[Step]]:
+    spec = parse_spec(PARTIAL, Path("t.narratty.yaml"))
+    timeline = build_timeline(spec, {"one": 8000, "two": 8000, "three": 8000})
+    parts = sections(spec, timeline, python="python", partial=partial)
+    return dict(parts)
+
+
+def test_sections_cover_the_whole_script() -> None:
+    spec = parse_spec(PARTIAL, Path("t.narratty.yaml"))
+    timeline = build_timeline(spec, {"one": 8000, "two": 8000, "three": 8000})
+    parts = _sections()
+    assert list(parts) == [SETUP, HEAD, "prep", "one", "two", "three", TAIL, CARD]
+    assert [step for steps in parts.values() for step in steps] == build_script(
+        spec, timeline, python="python"
+    )
+
+
+def test_a_partial_script_replays_the_scenes_before_the_recorded_one() -> None:
+    parts = _sections(Partial(frozenset({"three"}), "three"))
+    assert list(parts) == [SETUP, "prep", "one", "two", "three"]
+    assert Show() not in parts[SETUP] and parts[SETUP][0] == Hide()
+    for label in ("prep", "one", "two"):
+        assert not any(isinstance(step, Hide | Show | Cue | TimelapseEnd) for step in parts[label]), label
+    replayed = parts["one"]
+    assert Mark("one", True) in replayed and not any(isinstance(s, WaitScreen) for s in replayed)
+    assert Type("ls", 5) in replayed, "typing is quick"
+    assert any(isinstance(s, Sleep) and s.replayed and s.ms == 1000 for s in replayed), "a long pause is cut"
+    assert parts["three"][:2] == [Sleep(300), Show()] and Mark("three") in parts["three"]
+
+
+def test_a_realtime_replay_keeps_the_pace() -> None:
+    quick = _sections(Partial(frozenset({"two"}), "two"))["one"]
+    slow = _sections(Partial(frozenset({"two"}), "two", frozenset({"one"})))["one"]
+    assert Type("ls", 40) in slow and Type("ls", 5) in quick
+    assert not any(isinstance(s, Sleep) and s.replayed for s in slow)
+    assert any(isinstance(s, Sleep) and s.ms > 1000 for s in slow)
+
+
+def test_recorded_sections_between_replayed_ones_show_again() -> None:
+    parts = _sections(Partial(frozenset({"one", "three"}), "three"))
+    assert parts["one"][:2] == [Sleep(300), Show()]
+    assert parts["two"][0] == Hide(), "recording stops while a scene is replayed"
+    assert parts["three"][:2] == [Sleep(300), Show()]
+
+
+def test_a_head_only_script_stops_after_the_lead_in() -> None:
+    parts = _sections(Partial(frozenset({HEAD}), HEAD))
+    assert list(parts) == [SETUP, HEAD]
+    assert parts[HEAD] == [Sleep(300), Show(), Sleep(300)]
+
+
+def test_the_end_card_is_recorded_after_a_replayed_tail() -> None:
+    parts = _sections(Partial(frozenset({CARD}), CARD))
+    assert list(parts) == [SETUP, "prep", "one", "two", "three", TAIL, CARD]
+    assert parts[TAIL] == [], "the tail is not recorded and recording is still off"
+    assert parts[CARD][:2] == [Sleep(300), Show()]

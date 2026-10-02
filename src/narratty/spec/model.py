@@ -399,6 +399,11 @@ class Scene(_Model):
         description="Fill long pauses with still frames (true) or record them in full (false); "
         "overrides --fast.",
     )
+    replay: Literal["fast", "realtime"] = Field(
+        "fast",
+        description="How the scene runs unrecorded before a later scene is recorded: "
+        "fast (quick typing, long pauses cut short) or realtime (at its own pace).",
+    )
 
     @field_validator("actions", mode="before")
     @classmethod
@@ -653,6 +658,16 @@ class EndCard(_Model):
     qr: bool = Field(True, description="Show a QR code of the docs link when the terminal is large enough.")
 
 
+class Cache(_Model):
+    """What the cached scene recordings depend on besides the spec."""
+
+    inputs: list[Annotated[str, Field(min_length=1)]] = Field(
+        [],
+        description="Globs, relative to workspace.source, of files the recording depends on; "
+        "a change re-records every scene. Other workspace changes need --clean.",
+    )
+
+
 class Spec(_Model):
     """A complete ``.narratty.yaml`` document."""
 
@@ -666,6 +681,7 @@ class Spec(_Model):
     sandbox: Sandbox = Sandbox()
     environment: Environment | None = None
     end_card: EndCard = EndCard()
+    cache: Cache = Cache()
     subtitles: Literal["none", "files", "track", "burn"] = Field(
         "none",
         description="Subtitles from the narration: files (.srt/.vtt beside the output), "

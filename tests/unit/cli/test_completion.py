@@ -55,3 +55,36 @@ def test_validate_completes_spec_argument(tmp_path: Path, monkeypatch: pytest.Mo
     (tmp_path / "demo.narratty.yaml").write_text("", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     assert "demo.narratty.yaml" in _complete_bash("narratty validate ", 2)
+
+
+SCENES_SPEC = """\
+meta: {title: Demo}
+scenes:
+  - id: intro
+    narration: Hi.
+  - {id: setup-env, hidden: true}
+  - id: "wrap_up"
+    actions:
+      - overlay: {text: x}
+"""
+
+
+def test_scene_ids_are_read_without_parsing_yaml(tmp_path: Path) -> None:
+    from narratty.cli.completion import scene_ids
+
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(SCENES_SPEC, encoding="utf-8")
+    assert scene_ids(spec) == ["intro", "setup-env", "wrap_up"]
+    assert scene_ids(tmp_path / "missing.yaml") == []
+
+
+def test_completes_scene_ranges(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(SCENES_SPEC, encoding="utf-8")
+    words = f"narratty build {spec} --scenes "
+    assert _complete_bash(words, 4) == ["intro", "setup-env", "wrap_up"]
+    assert _complete_bash(words + "se", 4) == ["setup-env"]
+    assert _complete_bash(words + "intro:", 4) == ["intro:intro", "intro:setup-env", "intro:wrap_up"]
+    assert _complete_bash(words + "intro:setup-env,w", 4) == ["intro:setup-env,wrap_up"]
+    monkeypatch.chdir(tmp_path)
+    assert _complete_bash("narratty build --scenes w", 3) == ["wrap_up"]

@@ -15,6 +15,7 @@ from pathlib import Path
 from narratty import diff, editor, sh
 from narratty.editor import TERMINAL_TITLE
 from narratty.end_card import CREDIT
+from narratty.render.pauses import SETTLE_MS
 from narratty.render.shell_hooks import exit_hook
 from narratty.spec.model import (
     Action,
@@ -62,9 +63,10 @@ class Ctrl:
 
 @dataclass(frozen=True)
 class Sleep:
-    """Pause."""
+    """Pause. ``replayed``: a replayed scene's pause of that length, cut short."""
 
     ms: int
+    replayed: int = 0
 
 
 @dataclass(frozen=True)
@@ -128,6 +130,11 @@ class Cue:
 Step = Type | Press | Ctrl | Sleep | WaitScreen | Hide | Show | Mark | TimelapseEnd | Cue
 
 END_CUE = "end"
+
+# Section labels besides the scene ids (which cannot contain a colon).
+SETUP, HEAD, TAIL, CARD = ":setup", ":head", ":tail", ":card"
+REPLAY_TYPING_MS = 5
+REPLAY_SETTLE_MS = 300
 
 END_CARD_TIMEOUT_MS = 30_000
 LAYOUT_TIMEOUT_MS = 15_000
@@ -411,6 +418,113 @@ def teardown_steps(spec: Spec) -> list[Step]:
     return hidden(tmux_command("kill-server"), 500)
 
 
+@dataclass(frozen=True)
+class Partial:
+    """Record only some sections; see ``narratty.incremental``.
+
+    ``record`` holds the labels recorded as usual: ``HEAD`` (the lead-in), visible scene
+    ids, ``TAIL`` (the tail) and ``CARD`` (the end card). The other visible scenes up to ``last`` are
+    replayed (:func:`replay_steps`), those in ``realtime`` at their own pace. Hidden
+    scenes run as usual. Nothing after ``last`` runs.
+    """
+
+    record: frozenset[str]
+    last: str
+    realtime: frozenset[str] = frozenset()
+
+
+def replay_steps(steps: list[Step], *, realtime: bool = False) -> list[Step]:
+    """A visible scene's steps run unrecorded (the caller hides them) and without markers.
+
+    Unless ``realtime``, typing is quick and long pauses are cut to ``SETTLE_MS``; the
+    cut pauses are marked so the recorder can check nothing was still running then.
+    """
+    kept: list[Step] = [step for step in steps if not isinstance(step, Hide | Show | Cue | TimelapseEnd)]
+    kept = [Mark(step.scene_id, True, fast=step.fast) if isinstance(step, Mark) else step for step in kept]
+    return kept if realtime else quick(kept)
+
+
+def quick(steps: list[Step]) -> list[Step]:
+    """``steps`` with quick typing and long pauses cut short (see :func:`replay_steps`)."""
+    quickened: list[Step] = []
+    for step in steps:
+        match step:
+            case Type(text, speed):
+                step = Type(text, min(speed, REPLAY_TYPING_MS))
+            case Press(key, speed, count):
+                step = Press(key, min(speed, REPLAY_TYPING_MS), count)
+            case Sleep(ms, 0) if ms > SETTLE_MS:
+                step = Sleep(SETTLE_MS, replayed=ms)
+        quickened.append(step)
+    return quickened
+
+
+def _full_sections(
+    spec: Spec, timeline: Timeline, python: str, exit_log: Path | None, placement: HelperPlacement
+) -> list[tuple[str, list[Step], Scene | None]]:
+    parts: list[tuple[str, list[Step], Scene | None]] = [
+        (SETUP, setup_steps(spec, placement, exit_log), None)
+    ]
+    if timeline.lead_in_ms:
+        parts.append((HEAD, [Sleep(timeline.lead_in_ms)], None))
+    for scene in spec.scenes:
+        parts.append(
+            (scene.id, scene_steps(spec, scene, timeline.scene(scene.id), placement=placement), scene)
+        )
+    parts.append((TAIL, [Cue(END_CUE), *([Sleep(timeline.tail_ms)] if timeline.tail_ms else [])], None))
+    if timeline.end_card_ms:
+        card = end_card_steps(
+            spec, timeline, python, remote=placement.bridged, local_shell=placement.shell(spec)
+        )
+        parts.append((CARD, teardown_steps(spec) + card, None))
+    return parts
+
+
+def sections(
+    spec: Spec,
+    timeline: Timeline,
+    *,
+    python: str | None = None,
+    exit_log: Path | None = None,
+    placement: HelperPlacement | None = None,
+    partial: Partial | None = None,
+) -> list[tuple[str, list[Step]]]:
+    """The script's steps by section: ``SETUP``, ``HEAD``, each scene, ``TAIL``, ``CARD``.
+
+    With ``partial``, only some sections are recorded and the script ends after the last
+    of them (see :class:`Partial`); recording stays off until the first.
+    """
+    full = _full_sections(spec, timeline, python or sys.executable, exit_log, placement or HelperPlacement())
+    if partial is None:
+        return [(label, steps) for label, steps, _ in full]
+    parts: list[tuple[str, list[Step]]] = []
+    hiding = True
+    for label, steps, scene in full:
+        if label == SETUP:
+            parts.append((label, steps[:-1]))  # its closing Show waits for the first recorded section
+        elif label in partial.record:
+            parts.append((label, [Sleep(REPLAY_SETTLE_MS), Show(), *steps] if hiding else steps))
+            hiding = False
+        elif scene is not None:
+            parts.append((label, _unrecorded(scene, steps, partial, hiding=hiding)))
+            hiding = hiding or not scene.hidden
+        elif label == TAIL:
+            parts.append((label, [] if hiding else [Hide()]))
+            hiding = True
+        if label == partial.last:
+            break
+    return parts
+
+
+def _unrecorded(scene: Scene, steps: list[Step], partial: Partial, *, hiding: bool) -> list[Step]:
+    """A scene that runs without being recorded: hidden ones as usual, visible ones replayed."""
+    if scene.hidden:
+        steps = steps if scene.id in partial.realtime else quick(steps)
+        return _unhide(steps) if hiding else steps
+    replayed = replay_steps(steps, realtime=scene.id in partial.realtime)
+    return replayed if hiding else [Hide(), *replayed]
+
+
 def build_script(
     spec: Spec,
     timeline: Timeline,
@@ -418,25 +532,14 @@ def build_script(
     python: str | None = None,
     exit_log: Path | None = None,
     placement: HelperPlacement | None = None,
+    partial: Partial | None = None,
 ) -> list[Step]:
     """Every step of the recording, from prompt setup to the end card.
 
     ``python`` is the interpreter that draws the end card (default: the running one);
     ``exit_log`` receives the commands' exit codes (see ``narratty.render.exits``);
-    ``placement`` says where the shell and the helpers run.
+    ``placement`` says where the shell and the helpers run; ``partial`` records only
+    some sections.
     """
-    python = python or sys.executable
-    placement = placement or HelperPlacement()
-    steps = setup_steps(spec, placement, exit_log)
-    if timeline.lead_in_ms:
-        steps.append(Sleep(timeline.lead_in_ms))
-    for scene in spec.scenes:
-        steps += scene_steps(spec, scene, timeline.scene(scene.id), placement=placement)
-    steps.append(Cue(END_CUE))
-    if timeline.tail_ms:
-        steps.append(Sleep(timeline.tail_ms))
-    if timeline.end_card_ms:
-        steps += teardown_steps(spec) + end_card_steps(
-            spec, timeline, python, remote=placement.bridged, local_shell=placement.shell(spec)
-        )
-    return steps
+    parts = sections(spec, timeline, python=python, exit_log=exit_log, placement=placement, partial=partial)
+    return [step for _, steps in parts for step in steps]
