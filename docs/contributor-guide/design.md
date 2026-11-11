@@ -811,6 +811,9 @@ scenes:
 - `sections` match the mkdocs TOC slug, with the title as a fallback. A missing section
   is an error with "did you mean". Duplicate headings are addressed by a list path.
 - `narration`: `all` speaks every paragraph, `none` only the `say` comments.
+- `tabs` lists preferred tab labels, e.g. `tabs: [macOS]`; in each tab set the first
+  listed label that exists is used, otherwise the first tab.
+- `id_prefix` replaces the file stem in generated scene ids.
 - `defaults` takes scene keys (`typing_speed_ms`, `pause_ms`, `fast`, `timelapse`,
   `narration_start`, `expect_exit`) for every scene of the entry.
 - `overrides` is keyed by block id and takes the same scene keys plus `narration` and
@@ -834,14 +837,25 @@ repo's own `docs/` as the corpus.
 | Other language without a title | Skipped |
 | Inline code, links, emphasis | Read as plain text |
 | Tables, images, raw HTML, footnotes | Not spoken |
-| Lists, admonitions, content tabs | One fixed rule each, to be defined |
+| List items | Each item read as a sentence; a code block inside an item is a scene like any other |
+| Blockquotes | Read like paragraphs |
+| GitHub alerts (`> [!NOTE]`) | Read like paragraphs; the `[!NOTE]` marker is dropped |
+| Admonitions `!!!` and open `???+` | Body read without the title; code blocks inside run as usual |
+| Collapsed `???` and `<details>` | Skipped with everything inside; `say` comments or `overrides` bring parts back |
+| Content tabs `=== "…"` | One tab per tab set: the first label listed in the entry's `tabs`, else the first tab |
+| `--8<-- "path[:start:end]"` snippets | Inserted, relative to the snippets `base_path` in `mkdocs.yml` (else the repo root), before parsing |
 
 - Every command is followed by `wait: {prompt: true}`, because `run` does not wait for
   the command to finish.
 - The parser is markdown-it-py (already installed through Rich). Plain CommonMark reads
   `!!! note` as a paragraph and a `=== "Linux"` tab as a paragraph plus an indented code
   block, so admonitions need the mdit-py-plugins `admon` rule and tabs a small rule of
-  our own. Unsupported constructs such as `--8<--` snippets are an error with a hint.
+  our own. The plugin reads `!!! info inline end` as the title `inline end`; we drop
+  the `inline` and `end` modifiers ourselves. mdit-py-plugins becomes a dependency (Rich
+  only brings markdown-it-py). Other snippet forms (`--8<--` blocks, URLs, sections) are an
+  error with a hint.
+- Headings with an `attr_list` id (`## Title {#custom}`) are matched by that id; other
+  slugs follow `pymdownx.slugs.slugify(case="lower")`, like this repo's TOC.
 - Scene ids are `<prefix>-<heading-slug>-<n>`: the prefix defaults to the file stem,
   `n` counts within the section, and non-ASCII headings are transliterated. A block with
   an id uses `<prefix>-<id>`, which survives edits around it.
@@ -971,10 +985,12 @@ shows its own video:
 - Narration rules `lead` and `code`, `skip rest`, configurable admonitions.
 - Highlighting the current part of a breadcrumb, and overlays synced to a spoken word.
 
-### Still open
-- The fixed rules for lists, admonitions and content tabs (which tab is used).
-- Whether `narratty` itself is available in the recorded shell, so the docs page can
-  run `narratty plan` or `narratty compile` on screen.
+### narratty in the recorded shell
+The default sandbox records in the narratty image, which has `narratty` on `PATH`. Only
+the spec is mounted (at `/spec`), so a docs page that runs `narratty plan` or
+`narratty compile` on screen first writes its files into `/work` with a `hidden` comment.
+`narratty build` blocks stay `no-run`. Project environments record in the project's
+image, which has no `narratty`.
 
 ---
 
