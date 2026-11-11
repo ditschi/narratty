@@ -45,7 +45,14 @@ BUILTIN_STYLES: dict[str, OverlayStyle] = {
         keep=False,
     ),
     # Top right: command lines rarely reach it.
-    "chapter": OverlayStyle(position="top-right", size="large", bold=True, keep=True),
+    "chapter": OverlayStyle(position="top-right", size="large", bold=True, duration_ms=3000),
+    # Headings of Markdown input (heading_overlays), the breadcrumb and file block titles.
+    "heading-1": OverlayStyle(position="center", size="large", bold=True, duration_ms=2500),
+    "heading-2": OverlayStyle(position="top-right", size="large", bold=True, duration_ms=3000),
+    "heading-3": OverlayStyle(position="top-right", size="medium", duration_ms=3000),
+    "heading-4": OverlayStyle(position="top-right", size="small", duration_ms=2500),
+    "breadcrumb": OverlayStyle(position="top-right", size="small"),
+    "file": OverlayStyle(position="top", size="small"),
 }
 SIZES = {"small": 1.0, "medium": 1.3, "large": 1.8}
 FADE_MS = 200
@@ -147,6 +154,9 @@ def schedule(spec: Spec, times: Mapping[str, int]) -> list[Shown]:
             stop = end if look.keep else scene_end
             if look.duration_ms is not None:
                 stop = min(stop, start + look.duration_ms)
+            if (previous := _continued(shown, action.overlay.text, look, start)) is not None:
+                shown[previous] = Shown(action.overlay.text, look, shown[previous].start_ms, stop)
+                continue
             shown.append(Shown(action.overlay.text, look, start, stop))
     # A later overlay at the same position replaces an earlier one.
     for number, item in enumerate(shown):
@@ -155,6 +165,15 @@ def schedule(spec: Spec, times: Mapping[str, int]) -> list[Shown]:
                 shown[number] = item = Shown(item.text, item.look, item.start_ms, later.start_ms)
                 break
     return [item for item in shown if item.end_ms > item.start_ms]
+
+
+def _continued(shown: list[Shown], text: str, look: Look, start: int) -> int | None:
+    """The index of the same overlay still showing when this one starts (repeated per scene)."""
+    for index in range(len(shown) - 1, -1, -1):
+        item = shown[index]
+        if item.look.position == look.position:
+            return index if (item.text, item.look) == (text, look) and item.end_ms >= start else None
+    return None
 
 
 def scaled(shown: Sequence[Shown], factor: float) -> list[Shown]:

@@ -224,6 +224,16 @@ class Diff(_Model):
         return [self.diff] if isinstance(self.diff, str) else list(self.diff)
 
 
+BUILTIN_OVERLAY_STYLES = (
+    "default",
+    "chapter",
+    "heading-1",
+    "heading-2",
+    "heading-3",
+    "heading-4",
+    "breadcrumb",
+    "file",
+)
 OverlayPosition = Literal[
     "top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"
 ]
@@ -256,7 +266,10 @@ class Overlay(OverlayStyle):
     """Text shown over the video. ``overlay: "text"`` is short for ``overlay: {text: "text"}``."""
 
     text: str = Field(min_length=1)
-    style: str = Field("default", description="Named style from overlay_styles (built in: default, chapter).")
+    style: str = Field(
+        "default",
+        description="Named style from overlay_styles (built in: " + ", ".join(BUILTIN_OVERLAY_STYLES) + ").",
+    )
 
 
 def _or_text(schema: dict[str, Any]) -> None:
@@ -755,7 +768,8 @@ class Spec(_Model):
     overlay_styles: dict[Annotated[str, Field(pattern=SCENE_ID_PATTERN)], OverlayStyle] = Field(
         {},
         description="Named overlay styles, used as `overlay: {text: ..., style: <name>}`. "
-        "`default` and `chapter` are built in and can be changed here.",
+        "The built-in styles (default, chapter, heading-1 to heading-4, breadcrumb, file) "
+        "can be changed here.",
     )
     narration: MarkdownNarration = Field(
         "all", description="Default narration rule of `markdown` entries in scenes."
@@ -787,7 +801,7 @@ class Spec(_Model):
 
     @model_validator(mode="after")
     def _known_overlay_styles(self) -> Spec:
-        known = {"default", "chapter", *self.overlay_styles}
+        known = {*BUILTIN_OVERLAY_STYLES, *self.overlay_styles}
         for scene in self.scenes:
             for action in scene.actions:
                 if isinstance(action, ShowOverlay) and action.overlay.style not in known:

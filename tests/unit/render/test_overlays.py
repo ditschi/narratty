@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from narratty.render.overlays import (
+    BUILTIN_STYLES,
     OverlayImage,
     draw,
     filter_graph,
@@ -19,7 +20,7 @@ from narratty.render.overlays import (
 )
 from narratty.render.script import build_script
 from narratty.spec.loader import parse_spec
-from narratty.spec.model import Overlay, Spec
+from narratty.spec.model import BUILTIN_OVERLAY_STYLES, Overlay, Spec
 from narratty.timeline import build_timeline
 
 SPEC = """\
@@ -28,6 +29,7 @@ terminal: {typing_speed_ms: 10}
 end_card: false
 overlay_styles:
   file: {position: top, size: small}
+  chapter: {keep: true}  # the default before 0.5
 scenes:
   - id: setup
     hidden: true
@@ -63,7 +65,8 @@ def test_styles_layer_from_builtin_to_overlay() -> None:
     plain = resolve(spec, Overlay(text="x"))
     assert (plain.position, plain.color, plain.box, plain.keep) == ("bottom-right", "#ff0000", True, False)
     chapter = resolve(spec, Overlay(text="x", style="chapter", box=False))
-    assert (chapter.position, chapter.scale, chapter.bold, chapter.keep) == ("top-right", 2.0, True, True)
+    assert (chapter.position, chapter.scale, chapter.bold, chapter.keep) == ("top-right", 2.0, True, False)
+    assert chapter.duration_ms == 3000
     assert (chapter.color, chapter.box) == ("#ff0000", False)
 
 
@@ -103,6 +106,23 @@ def test_schedule_ends_at_scene_duration_replacement_or_end() -> None:
     assert shown["main.py"] == (230, 430)  # duration_ms
     assert shown["Build"] == (two + 300, end)
     assert shown["2 · Build"] == (two + 300, end)
+
+
+def test_builtin_styles_are_the_ones_the_spec_accepts() -> None:
+    assert tuple(BUILTIN_STYLES) == BUILTIN_OVERLAY_STYLES
+
+
+def test_the_same_overlay_in_consecutive_scenes_is_shown_once() -> None:
+    crumb = '{overlay: {text: "A › B", style: breadcrumb}}'
+    spec = _spec(
+        "end_card: false\nscenes:\n"
+        f"  - {{id: one, narration: First., actions: [{crumb}]}}\n"
+        f"  - {{id: two, narration: Second., actions: [{crumb}]}}\n"
+        '  - {id: three, narration: Third., actions: [{overlay: {text: "A › C", style: breadcrumb}}]}\n'
+    )
+    times = planned_times(build_script(spec, build_timeline(spec, {"one": 1000, "two": 1000, "three": 1000})))
+    shown = [(item.text, item.start_ms, item.end_ms) for item in schedule(spec, times)]
+    assert shown == [("A › B", times["one"], times["three"]), ("A › C", times["three"], times["end"])]
 
 
 def test_placement() -> None:

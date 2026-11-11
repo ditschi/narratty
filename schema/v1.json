@@ -616,7 +616,7 @@
         },
         "style": {
           "default": "default",
-          "description": "Named style from overlay_styles (built in: default, chapter).",
+          "description": "Named style from overlay_styles (built in: default, chapter, heading-1, heading-2, heading-3, heading-4, breadcrumb, file).",
           "title": "Style",
           "type": "string"
         }
@@ -2117,7 +2117,7 @@
     },
     "overlay_styles": {
       "default": {},
-      "description": "Named overlay styles, used as `overlay: {text: ..., style: <name>}`. `default` and `chapter` are built in and can be changed here.",
+      "description": "Named overlay styles, used as `overlay: {text: ..., style: <name>}`. The built-in styles (default, chapter, heading-1 to heading-4, breadcrumb, file) can be changed here.",
       "patternProperties": {
         "^[a-z0-9][a-z0-9_-]*$": {
           "$ref": "#/$defs/OverlayStyle"
