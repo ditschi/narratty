@@ -226,7 +226,7 @@ def _expand_scenes(
     raw_scenes: list[Any], data: dict[Any, Any], file: Path
 ) -> tuple[list[Any], list[int | ExpandedScene]]:
     """``raw_scenes`` with each ``markdown`` entry replaced by its scenes."""
-    from narratty.spec.markdown import expand_entry
+    from narratty.spec.markdown import EntryError, expand_entry
 
     default: MarkdownNarration = "none" if data.get("narration") == "none" else "all"
     scenes: list[Any] = []
@@ -244,13 +244,17 @@ def _expand_scenes(
             continue
         path = file.parent / entry.markdown
         if not path.is_file():
-            loc = ("scenes", index, "markdown")
-            issues.append(Issue(format_path(loc), f"no such file: {path}", *position(data, loc)))
+            at: tuple[int | str, ...] = ("scenes", index, "markdown")
+            issues.append(Issue(format_path(at), f"no such file: {path}", *position(data, at)))
             continue
         try:
             expanded = expand_entry(entry, path, entry.narration or default)
         except SpecError as error:
             issues += [issue if issue.file else _in_file(issue, error.file) for issue in error.issues]
+            continue
+        except EntryError as error:
+            at = ("scenes", index, *error.loc)
+            issues.append(Issue(format_path(at), error.message, *position(data, at)))
             continue
         scenes += [scene.data for scene in expanded]
         origins += expanded

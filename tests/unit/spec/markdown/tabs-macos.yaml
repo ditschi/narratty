@@ -1,0 +1,22 @@
+- source: tabs.md:13
+  id: tabs-tabs-1
+  narration: Pick your system.
+  actions:
+  - run: brew install demo
+  - wait:
+      prompt: true
+- source: tabs.md:19
+  id: tabs-snippets-1
+  actions:
+  - run: echo one
+  - wait:
+      prompt: true
+  - run: echo two
+  - wait:
+      prompt: true
+  - run: echo three
+  - wait:
+      prompt: true
+- source: snippets/nested.md:1
+  id: tabs-snippets-2
+  narration: Nested text from a snippet. echo two --8<-- "escaped.md"

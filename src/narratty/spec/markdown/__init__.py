@@ -3,6 +3,10 @@
 The rules are in the design notes ("Markdown input"). The loader validates the entry,
 checks that the file exists and validates the scenes returned here with the rest of the
 spec, reporting their problems at the Markdown file and line.
+
+The work is split in three passes: :mod:`.source` inserts snippets and picks content
+tabs line by line, :mod:`.parse` turns the text into headings, text and code blocks, and
+:mod:`.scenes` turns those into scenes.
 """
 
 from __future__ import annotations
@@ -11,7 +15,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from narratty.spec.loader import Issue, SpecError
 from narratty.spec.model import MarkdownEntry, MarkdownNarration
 
 
@@ -24,6 +27,20 @@ class ExpandedScene:
     line: int
 
 
+class EntryError(Exception):
+    """A problem with the entry's keys, reported at ``loc`` inside the entry in the YAML."""
+
+    def __init__(self, loc: tuple[int | str, ...], message: str) -> None:
+        super().__init__(message)
+        self.loc = loc
+        self.message = message
+
+
 def expand_entry(entry: MarkdownEntry, path: Path, narration: MarkdownNarration) -> list[ExpandedScene]:
     """The scenes of the Markdown file at ``path`` for ``entry``, in order."""
-    raise SpecError(path, [Issue("", "Markdown input is not implemented yet", 1, 1, file=path)])
+    from narratty.spec.markdown.parse import parse_blocks
+    from narratty.spec.markdown.scenes import build_scenes
+    from narratty.spec.markdown.source import read_source
+
+    blocks = parse_blocks(read_source(path, entry.tabs))
+    return build_scenes(blocks, entry, path, narration)

@@ -1,6 +1,6 @@
 # Handoff: Markdown as video input
 
-Status on 2026-11-11: design agreed, step 1 done. The design is the section
+Status on 2026-11-11: design agreed, steps 1 and 2 done. The design is the section
 "Markdown input (planned)" in `docs/contributor-guide/design.md`; read it and
 `AGENTS.md` first. Treat the decisions there as settled unless the user reopens them.
 
@@ -42,11 +42,29 @@ the `tabs` key, "narratty in the recorded shell"). Nothing open before implement
 - `parse_document` returns `Document(spec, data, origins)`: each scene's index in the
   YAML, or the `ExpandedScene` (file, line) it came from. Errors in expanded scenes point
   at the Markdown line; hints skip them.
-- `spec/markdown.py:expand_entry` is the hook for step 2 and still raises "not
-  implemented yet". Loader tests replace it with a fake.
+- `spec/markdown/__init__.py:expand_entry` is the hook the loader calls; loader tests
+  replace it with a fake.
 - The schema picks `MarkdownEntry` or `Scene` with `if`/`then`/`else` on the `markdown`
   key, so editors keep precise errors for scenes.
 - `tests/unit/test_diff.py` fails locally with a delta git pager; unrelated, also on main.
+
+## Step 2 (done)
+- `spec/markdown/source.py`: snippets (`path[:start[:end]]`, nested, base from the
+  nearest `mkdocs.yml`, else the git root) and content tabs, on lines that keep their
+  file and line number. Unpicked tabs become blank lines, so numbering stays.
+- `spec/markdown/parse.py`: markdown-it-py + `admon` to `Heading`, `Text`, `Code`,
+  `Comment` blocks. Slugs replicate `pymdownx.slugs` plus the TOC's `_1` suffixes.
+  `Code.id`/`title`/`options` and `Comment` are parsed but not used yet (step 4).
+- `spec/markdown/scenes.py`: section selection (`EntryError` is positioned in the YAML),
+  narration joining, ids `<prefix>-<section>-<n>` (`<prefix>-<n>` before the first
+  heading; `n` counts generated ids only) and entry `defaults`.
+- Already in step 2: `wait: {prompt: true}` after every command and `console` parsing.
+  Left for step 3: `bash`/`sh` blocks are split per line (comments skipped, `\`
+  continuations joined) as a stand-in; titled non-shell blocks are skipped instead of
+  written as files; multi-line commands (`> ` lines, `\`) still need checking in VHS.
+- Tests: `tests/unit/spec/test_markdown.py` with golden fixtures in
+  `tests/unit/spec/markdown/` (regenerate with `NARRATTY_UPDATE_GOLDEN=1`) and a test
+  that every page under `docs/` expands to a valid spec.
 
 ## Verification already done
 Fence syntax, HTML comments and the copy button were checked against this repo's mkdocs

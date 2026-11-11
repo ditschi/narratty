@@ -35,6 +35,8 @@ dependencies = [
     "piper-tts>=1.8",
     "pillow>=10.1",
     "packaging>=23.0",
+    "markdown-it-py>=3.0",
+    "mdit-py-plugins>=0.5",  # admon with collapsible ??? blocks
 ]
 
 [project.urls]

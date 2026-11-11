@@ -1,0 +1,27 @@
+- source: constructs.md:6
+  id: constructs-constructs-1
+  actions:
+  - run: echo hello
+  - wait:
+      prompt: true
+  - run: "printf '%s\\n' \\\na b"
+  - wait:
+      prompt: true
+  typing_speed_ms: 20
+- source: constructs.md:22
+  id: constructs-lists-1
+  actions:
+  - run: mkdir demo
+  - wait:
+      prompt: true
+  - run: cd demo
+  - wait:
+      prompt: true
+  typing_speed_ms: 20
+- source: constructs.md:73
+  id: constructs-install
+  actions:
+  - run: uv tool install narratty
+  - wait:
+      prompt: true
+  typing_speed_ms: 20
