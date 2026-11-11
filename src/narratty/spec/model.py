@@ -434,6 +434,87 @@ class Scene(_Model):
         return self
 
 
+# ── markdown entries ──────────────────────────────────────────────────────────
+
+MarkdownNarration = Literal["all", "none"]
+
+
+class SceneDefaults(_Model):
+    """Scene keys applied to every scene a markdown entry produces."""
+
+    typing_speed_ms: Annotated[Duration, Field(gt=0)] | None = None
+    pause_ms: Annotated[Duration, Field(ge=0)] | None = None
+    narration_start: Literal["with_actions", "after_actions"] | None = None
+    timelapse: float | None = Field(None, gt=1, le=1000)
+    expect_exit: ExpectExit | None = None
+    fast: bool | None = None
+
+
+class BlockOverride(SceneDefaults):
+    """How one video words or decorates a block of the doc, keyed by the block's id."""
+
+    narration: str | None = Field(None, description="Replaces the narration taken from the doc.")
+    before: list[Action] = Field([], description="Actions before the block's own.")
+    after: list[Action] = Field([], description="Actions after the block's own.")
+
+    @field_validator("before", "after", mode="before")
+    @classmethod
+    def _shorthand(cls, value: Any) -> Any:
+        return [_expand_shorthand(item) for item in value] if isinstance(value, list) else value
+
+
+class HeadingOverlays(_Model):
+    """Headings shown as overlays. ``heading_overlays: 3`` is short for ``{levels: 3}``."""
+
+    levels: int = Field(ge=1, le=6, description="Show headings down to this level.")
+    breadcrumb: bool = Field(False, description="Show levels 2 and deeper as one overlay.")
+    separator: str = Field(" › ", min_length=1, description="Between breadcrumb parts.")
+    max_length: int = Field(50, ge=10, description="Breadcrumbs longer than this are shortened.")
+
+
+def _or_levels(schema: dict[str, Any]) -> None:
+    """Let the schema accept the level shorthand next to the mapping."""
+    schema["anyOf"] = [
+        {"type": "integer", "minimum": 1, "maximum": 6, "description": "Short for {levels: ...}."},
+        *schema.pop("anyOf"),
+    ]
+
+
+SectionPath = Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)]
+
+
+class MarkdownEntry(_Model):
+    """A Markdown doc expanded into scenes where it stands in ``scenes``."""
+
+    markdown: str = Field(min_length=1, description="The Markdown file, relative to the spec.")
+    sections: list[Annotated[str, Field(min_length=1)] | SectionPath] | None = Field(
+        None,
+        min_length=1,
+        description="Sections to use, by TOC slug or title, with their nested headings; "
+        "a list path picks one of several equal headings. Unset: the whole doc.",
+    )
+    id_prefix: str | None = Field(
+        None, pattern=SCENE_ID_PATTERN, description="Start of the scene ids; defaults to the file stem."
+    )
+    narration: MarkdownNarration | None = Field(
+        None, description="all: speak every paragraph; none: only `say` comments. Defaults to the spec's."
+    )
+    heading_overlays: HeadingOverlays | None = Field(None, json_schema_extra=_or_levels)
+    file_titles: bool = Field(True, description="Show the title of a file block as an overlay.")
+    tabs: list[Annotated[str, Field(min_length=1)]] = Field(
+        [], description="Preferred content tab labels; otherwise each tab set's first tab is used."
+    )
+    defaults: SceneDefaults = SceneDefaults()
+    overrides: dict[Annotated[str, Field(pattern=SCENE_ID_PATTERN)], BlockOverride] = Field(
+        {}, description="Per-block changes, keyed by the id in the block's attributes."
+    )
+
+    @field_validator("heading_overlays", mode="before")
+    @classmethod
+    def _levels_shorthand(cls, value: Any) -> Any:
+        return {"levels": value} if isinstance(value, int) and not isinstance(value, bool) else value
+
+
 # ── top-level sections ────────────────────────────────────────────────────────
 
 
@@ -675,6 +756,9 @@ class Spec(_Model):
         {},
         description="Named overlay styles, used as `overlay: {text: ..., style: <name>}`. "
         "`default` and `chapter` are built in and can be changed here.",
+    )
+    narration: MarkdownNarration = Field(
+        "all", description="Default narration rule of `markdown` entries in scenes."
     )
     scenes: list[Scene] = Field(min_length=1)
 

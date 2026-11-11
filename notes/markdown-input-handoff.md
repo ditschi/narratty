@@ -1,6 +1,6 @@
 # Handoff: Markdown as video input
 
-Status on 2026-11-11: design agreed, step 1 in progress. The design is the section
+Status on 2026-11-11: design agreed, step 1 done. The design is the section
 "Markdown input (planned)" in `docs/contributor-guide/design.md`; read it and
 `AGENTS.md` first. Treat the decisions there as settled unless the user reopens them.
 
@@ -35,6 +35,18 @@ the `tabs` key, "narratty in the recorded shell"). Nothing open before implement
      `examples/markdown/markdown.narratty.yaml` and a line in `examples/render-docs.sh`;
    - the copy-button CSS from the design as `extra_css`;
    - a nav entry in `mkdocs.yml`.
+
+## Step 1 (done)
+- `MarkdownEntry`, `SceneDefaults`, `BlockOverride`, `HeadingOverlays` and the top-level
+  `narration` in `spec/model.py`; `Spec.scenes` stays `list[Scene]`.
+- `parse_document` returns `Document(spec, data, origins)`: each scene's index in the
+  YAML, or the `ExpandedScene` (file, line) it came from. Errors in expanded scenes point
+  at the Markdown line; hints skip them.
+- `spec/markdown.py:expand_entry` is the hook for step 2 and still raises "not
+  implemented yet". Loader tests replace it with a fake.
+- The schema picks `MarkdownEntry` or `Scene` with `if`/`then`/`else` on the `markdown`
+  key, so editors keep precise errors for scenes.
+- `tests/unit/test_diff.py` fails locally with a delta git pager; unrelated, also on main.
 
 ## Verification already done
 Fence syntax, HTML comments and the copy button were checked against this repo's mkdocs

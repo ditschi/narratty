@@ -18,8 +18,7 @@ EXAMPLES = sorted((Path(__file__).parents[3] / "examples").glob("**/*.narratty.y
 
 
 def _hints(text: str) -> list[str]:
-    spec, data = parse_document(text, FILE)
-    return [issue.render(FILE) for issue in find_hints(spec, data)]
+    return [issue.render(FILE) for issue in find_hints(*parse_document(text, FILE))]
 
 
 def test_defaults_written_out() -> None:
