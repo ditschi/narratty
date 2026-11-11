@@ -232,6 +232,7 @@ def delegate(
         _ensure_voice(spec.tts.provider, spec.tts.voice)
     chosen_image = image_ref(override=image)
     base = _Invocation(command, spec_path.resolve(), resolved.runtime, chosen_image, extra_args)
+    base.use_compiled_spec()
     if output is not None:
         base.add_output(output)
     if work_dir is not None:
@@ -276,6 +277,16 @@ class _Invocation:
         lexicon = export_host_entries(spec_file, cache / "lexicons")
         self.env[ENV_OVERRIDE] = f"/cache/lexicons/{lexicon.name}"
         self.network = "none"
+
+    def use_compiled_spec(self) -> None:
+        """Mount the expanded spec when it has Markdown entries; their docs are not mounted."""
+        from narratty.paths import cache_dir
+        from narratty.spec.compile import container_spec
+
+        spec = self.mounts[0]
+        compiled = container_spec(spec.host, cache_dir())
+        if compiled is not None:
+            self.mounts[0] = Mount(compiled, spec.container, read_only=True)
 
     def add_output(self, output: Path) -> None:
         output = output.resolve()

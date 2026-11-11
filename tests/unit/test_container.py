@@ -132,6 +132,25 @@ def test_draft_fetches_no_voice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert code == 0
 
 
+def test_markdown_specs_are_mounted_expanded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The container gets no Markdown docs, so it gets the compiled spec instead."""
+    monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
+    (tmp_path / "doc.md").write_text("# Doc\n\nHello.\n", encoding="utf-8")
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text("scenes:\n  - markdown: doc.md\n", encoding="utf-8")
+    calls: list[list[str]] = []
+    delegate(
+        "plan", spec, runtime=Runtime.DOCKER, image="img:test", extra_args=["--draft"], runner=calls.append
+    )
+    argv = calls[0]
+    mounted = next(argv[i + 1] for i, arg in enumerate(argv) if arg == "--volume" and "/spec/" in argv[i + 1])
+    host, target, _ = mounted.rsplit(":", 2)
+    assert target == "/spec/demo.narratty.yaml"
+    assert Path(host).parent == tmp_path / "cache" / "compiled"
+    assert "id: doc-doc-1" in Path(host).read_text(encoding="utf-8")
+
+
 @pytest.fixture
 def docker_calls(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")

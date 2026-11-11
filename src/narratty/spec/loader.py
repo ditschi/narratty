@@ -146,11 +146,11 @@ def _strip_union_tags(loc: tuple[int | str, ...]) -> tuple[int | str, ...]:
     return tuple(out)
 
 
-def _to_plain(value: Any) -> Any:
+def to_plain(value: Any) -> Any:
     if isinstance(value, dict):
-        return {str(k): _to_plain(v) for k, v in value.items()}
+        return {str(k): to_plain(v) for k, v in value.items()}
     if isinstance(value, list):
-        return [_to_plain(v) for v in value]
+        return [to_plain(v) for v in value]
     if isinstance(value, str):
         return str(value)
     return value
@@ -234,11 +234,11 @@ def _expand_scenes(
     issues: list[Issue] = []
     for index, raw in enumerate(raw_scenes):
         if not (isinstance(raw, dict) and "markdown" in raw):
-            scenes.append(_to_plain(raw))
+            scenes.append(to_plain(raw))
             origins.append(index)
             continue
         try:
-            entry = MarkdownEntry.model_validate(_to_plain(raw))
+            entry = MarkdownEntry.model_validate(to_plain(raw))
         except ValidationError as error:
             issues += _validation_issues(error, data, ("scenes", index))
             continue
@@ -288,7 +288,7 @@ def parse_document(text: str, file: Path) -> Document:
     """
     data = _load_yaml(text, file)
     check_required_version(data, file)
-    plain = _to_plain(data)
+    plain = to_plain(data)
     origins: list[int | ExpandedScene] = []
     if isinstance(data.get("scenes"), list):
         plain["scenes"], origins = _expand_scenes(data["scenes"], data, file)

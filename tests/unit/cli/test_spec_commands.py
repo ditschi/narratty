@@ -52,3 +52,35 @@ def test_schema_prints_json() -> None:
     result = runner.invoke(app, ["schema"])
     assert result.exit_code == 0
     assert json.loads(result.output)["title"] == "narratty spec"
+
+
+def _markdown_spec(tmp_path: Path) -> Path:
+    (tmp_path / "doc.md").write_text(
+        "# Doc\n\nSay this.\n\n```bash\nls\n```\n\n```yaml\na: 1\n```\n", encoding="utf-8"
+    )
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text("scenes:\n  - id: intro  # kept\n  - markdown: doc.md\n", encoding="utf-8")
+    return spec
+
+
+def test_compile_expands_markdown_entries(tmp_path: Path) -> None:
+    spec = _markdown_spec(tmp_path)
+    result = runner.invoke(app, ["compile", str(spec)])
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith("scenes:\n  - id: intro  # kept\n  # from doc.md:5\n  - id: doc-doc-1\n")
+    compiled = tmp_path / "compiled.narratty.yaml"
+    assert runner.invoke(app, ["compile", str(spec), "-o", str(compiled)]).exit_code == 0
+    assert runner.invoke(app, ["validate", str(compiled)]).exit_code == 0
+
+
+def test_plan_sources(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["plan", "--sources", str(_markdown_spec(tmp_path))])
+    assert result.exit_code == 0, result.output
+    text = plain(result.output)
+    for expected in (
+        "YAML scene",
+        "paragraph: spoken",
+        "bash block: 1 command(s), run",
+        "yaml block",
+    ):
+        assert expected in text

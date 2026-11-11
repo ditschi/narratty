@@ -19,12 +19,19 @@ def plan_command(
     spec: Path = SpecArgument,
     end_card: bool | None = EndCardOption,
     draft: bool = typer.Option(False, "--draft", help="Estimate narration lengths instead of running TTS."),
+    sources: bool = typer.Option(
+        False, "--sources", help="List where each scene comes from (Markdown file and line) instead."
+    ),
     offline: bool = OfflineOption,
     runtime: Runtime = RuntimeOption,
     image: str | None = ImageOption,
 ) -> None:
     """Show when each scene starts, how long it lasts and the total video length."""
     from rich.table import Table
+
+    if sources:
+        _print_sources(spec)
+        return
 
     from narratty.build import plan
     from narratty.container import delegate
@@ -59,3 +66,28 @@ def plan_command(
     out.print(
         f"total: {_seconds(planned.timeline.total_ms)}" + (" (estimated)" if draft else ""), highlight=False
     )
+
+
+def _print_sources(spec: Path) -> None:
+    """Where each scene comes from, and what of the Markdown was left out and why."""
+    from rich.markup import escape
+    from rich.table import Table
+
+    from narratty.spec.compile import sources
+    from narratty.ui.console import out
+
+    table = Table(show_header=True, header_style="bold")
+    for column in ("source", "scene", "what"):
+        table.add_column(column)
+    for source in sources(spec):
+        where = _shown(source.file) + (f":{source.line}" if source.line else "")
+        table.add_row(escape(where), source.scene or "[dim]-[/]", escape(source.what))
+    out.print(table)
+
+
+def _shown(path: Path) -> str:
+    """``path`` relative to the working directory when it is below it."""
+    try:
+        return str(path.resolve().relative_to(Path.cwd()))
+    except ValueError:
+        return str(path)
