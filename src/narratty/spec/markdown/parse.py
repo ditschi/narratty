@@ -40,6 +40,8 @@ class Text(Block):
     """A paragraph, list item or quote, as plain text."""
 
     text: str
+    links: tuple[tuple[str, str], ...] = ()
+    """``(text, href)`` of each link, in order."""
 
 
 @dataclass(frozen=True)
@@ -164,7 +166,8 @@ class _Walker:
             return
         if item and not text.endswith(_SENTENCE_END):
             text += "."
-        self.blocks.append(Text(*self.at(node), text))
+        links = tuple(_links(node.children[0])) if node.children else ()
+        self.blocks.append(Text(*self.at(node), text, links))
 
     def code(self, node: SyntaxTreeNode) -> Code:
         lang, attrs = parse_info(node.info)
@@ -204,6 +207,16 @@ def _only_image(inline: SyntaxTreeNode) -> SyntaxTreeNode | None:
     if len(images) == 1 and not others and (not rest or _HEADING_ATTRS.fullmatch(rest)):
         return images[0]
     return None
+
+
+def _links(node: SyntaxTreeNode) -> list[tuple[str, str]]:
+    found: list[tuple[str, str]] = []
+    for child in node.children:
+        if child.type == "link":
+            found.append((_plain(child), str(child.attrs.get("href", ""))))
+        elif child.children:
+            found += _links(child)
+    return found
 
 
 def _plain(node: SyntaxTreeNode) -> str:

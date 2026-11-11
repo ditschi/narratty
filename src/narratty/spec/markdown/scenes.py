@@ -354,7 +354,8 @@ class _Builder:
         if block is not None and block.id:
             return f"{self.prefix}-{id_part(block.id)}"
         self.count += 1
-        return "-".join(part for part in (self.prefix, self.section, str(self.count)) if part)
+        section = "" if self.section == self.prefix else self.section  # no "install-install-1"
+        return "-".join(part for part in (self.prefix, section, str(self.count)) if part)
 
     def note(self, block: Block, scene_id: str | None, what: str) -> None:
         self.notes.append(Note(block.file, block.line, scene_id, what))

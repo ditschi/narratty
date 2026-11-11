@@ -1,5 +1,5 @@
 - source: constructs.md:6
-  id: constructs-constructs-1
+  id: constructs-1
   narration: Intro with inline code, a link and emphasis. It spans two lines.
   actions:
   - run: echo hello
@@ -9,7 +9,7 @@
   - wait:
       prompt: true
 - source: constructs.md:15
-  id: constructs-constructs-2
+  id: constructs-2
   narration: A paragraph after the last block stays on screen.
 - source: constructs.md:22
   id: constructs-lists-1

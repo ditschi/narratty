@@ -1,12 +1,12 @@
 - source: features.md:3
-  id: features-features-1
+  id: features-1
   hidden: true
   actions:
   - run: mkdir -p demo && cd demo
   - wait:
       prompt: true
 - source: features.md:9
-  id: features-features-2
+  id: features-2
   narration: Shell blocks split where the shell would run a command.
   actions:
   - run: export NAME=demo

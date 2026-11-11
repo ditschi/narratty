@@ -10,6 +10,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from narratty.spec.loader import Issue, SpecError
 
@@ -58,8 +59,8 @@ def _read(path: Path, at: Line | None) -> list[Line]:
 # ── snippets ──────────────────────────────────────────────────────────────────
 
 
-def _snippet_bases(path: Path) -> list[Path]:
-    """Where snippet paths are looked up: ``base_path`` from mkdocs.yml, else the repo root."""
+def mkdocs_config(path: Path) -> tuple[Path, dict[Any, Any]] | None:
+    """The folder and contents of the ``mkdocs.yml`` nearest above ``path`` (within the repo)."""
     from ruamel.yaml import YAML
     from ruamel.yaml.error import YAMLError
 
@@ -69,8 +70,20 @@ def _snippet_bases(path: Path) -> list[Path]:
             try:
                 data = YAML(typ="rt").load(config.read_text(encoding="utf-8"))
             except (OSError, YAMLError):
-                return [folder]
-            return [folder / base for base in _configured_bases(data)] or [folder]
+                data = None
+            return folder, data if isinstance(data, dict) else {}
+        if (folder / ".git").exists():
+            return None
+    return None
+
+
+def _snippet_bases(path: Path) -> list[Path]:
+    """Where snippet paths are looked up: ``base_path`` from mkdocs.yml, else the repo root."""
+    found = mkdocs_config(path)
+    if found is not None:
+        folder, data = found
+        return [folder / base for base in _configured_bases(data)] or [folder]
+    for folder in path.resolve().parents:
         if (folder / ".git").exists():
             return [folder]
     return [path.parent]

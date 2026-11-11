@@ -148,7 +148,7 @@ def test_markdown_specs_are_mounted_expanded(tmp_path: Path, monkeypatch: pytest
     host, target, _ = mounted.rsplit(":", 2)
     assert target == "/spec/demo.narratty.yaml"
     assert Path(host).parent == tmp_path / "cache" / "compiled"
-    assert "id: doc-doc-1" in Path(host).read_text(encoding="utf-8")
+    assert "id: doc-1" in Path(host).read_text(encoding="utf-8")
 
     calls.clear()
     monkeypatch.setattr(container, "_ensure_voice", lambda provider, voice: None)

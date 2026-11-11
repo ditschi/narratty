@@ -341,7 +341,7 @@ def test_notes_explain_every_part(tmp_path: Path) -> None:
     entry = MarkdownEntry(markdown=doc.name)
     notes = [(note.line, note.scene, note.what) for note in explain_entry(entry, doc, "all").notes]
     assert notes == [
-        (3, "doc-doc-1", "paragraph: spoken"),
+        (3, "doc-1", "paragraph: spoken"),
         (5, None, "table: not part of the video"),
         (9, None, "yaml block: left out (no title)"),
     ]

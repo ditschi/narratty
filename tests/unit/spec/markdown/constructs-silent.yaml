@@ -1,5 +1,5 @@
 - source: constructs.md:6
-  id: constructs-constructs-1
+  id: constructs-1
   actions:
   - run: echo hello
   - wait:

@@ -1,5 +1,5 @@
 - source: tabs.md:7
-  id: tabs-tabs-1
+  id: tabs-1
   narration: Pick your system.
   actions:
   - run: apt install demo

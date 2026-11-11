@@ -67,7 +67,7 @@ def test_compile_expands_markdown_entries(tmp_path: Path) -> None:
     spec = _markdown_spec(tmp_path)
     result = runner.invoke(app, ["compile", str(spec)])
     assert result.exit_code == 0, result.output
-    assert result.output.startswith("scenes:\n  - id: intro  # kept\n  # from doc.md:5\n  - id: doc-doc-1\n")
+    assert result.output.startswith("scenes:\n  - id: intro  # kept\n  # from doc.md:5\n  - id: doc-1\n")
     compiled = tmp_path / "compiled.narratty.yaml"
     assert runner.invoke(app, ["compile", str(spec), "-o", str(compiled)]).exit_code == 0
     assert runner.invoke(app, ["validate", str(compiled)]).exit_code == 0
