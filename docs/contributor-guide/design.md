@@ -771,6 +771,213 @@ out/<spec-name>/
 
 ---
 
+## Markdown input (planned)
+
+Agreed on 2026-11-11. A Markdown doc can be the source of a video, so one file is
+both read and watched. Plain docs need no markup.
+
+### Principles
+- The YAML spec stays the entry point. A `scenes` item `markdown: <path>` expands into
+  ordinary scenes and mixes with hand-written YAML scenes.
+- The loader expands it into plain `Scene`s, so timeline, render, cache and exit checks
+  are unchanged. Sandboxed runs get the expanded spec, because only the spec file is
+  mounted into the container.
+- The YAML decides everything at section level and above: which docs, which sections,
+  their order, the narration rule and heading overlays. The doc only carries
+  paragraph-level comments.
+- Several videos from one doc are several YAML files.
+- Additive: stays `version: 1`, gets "(since X.Y)" in the spec docs and a regenerated
+  `schema/v1.json`.
+
+### The `markdown` entry
+```yaml
+narration: all                      # default for every markdown entry
+scenes:
+  - markdown: docs/user-guide/environments.md
+    sections: [images, compose]     # nested headings included; omitted = whole doc
+    heading_overlays: 3
+  - id: outro
+    narration: That's all you need to get started.
+  - markdown: docs/user-guide/building.md
+    narration: none                 # only `say` comments are spoken
+    heading_overlays: {levels: 3, breadcrumb: true}
+    defaults: {typing_speed_ms: 40, pause_ms: 200}
+    overrides:
+      install:                      # block id from the fence, see Code blocks
+        narration: Install it with uv.
+        fast: true
+        before: [{overlay: "pipx works too"}]
+```
+- `sections` match the mkdocs TOC slug, with the title as a fallback. A missing section
+  is an error with "did you mean". Duplicate headings are addressed by a list path.
+- `narration`: `all` speaks every paragraph, `none` only the `say` comments.
+- `defaults` takes scene keys (`typing_speed_ms`, `pause_ms`, `fast`, `timelapse`,
+  `narration_start`, `expect_exit`) for every scene of the entry.
+- `overrides` is keyed by block id and takes the same scene keys plus `narration` and
+  `before` / `after` action lists. This is how one video words or decorates a block
+  differently from another. An id that is not in the doc is an error.
+- Transitions between docs are normal scenes, e.g. a hidden `run: cd x && clear`
+  followed by a scene with an overlay. There is no transition feature.
+
+### How a doc becomes scenes
+To be pinned down with golden tests (Markdown fixture → expanded YAML), using this
+repo's own `docs/` as the corpus.
+
+| Markdown | Result |
+|---|---|
+| Paragraphs before a code block, same section | Joined into the narration of the scene that runs the block |
+| Paragraphs after the last block of a section | Scene without actions; the output stays on screen |
+| Block without a paragraph before it | Silent scene |
+| `console` block | `$ ` lines run, `> ` continues them; other lines are output |
+| `bash` / `sh` block | Commands split by complete shell syntax (heredocs, `if`, `for`); trailing `# …` is not typed |
+| Other language with a `title` | Writes the file and shows it, with a `file` overlay |
+| Other language without a title | Skipped |
+| Inline code, links, emphasis | Read as plain text |
+| Tables, images, raw HTML, footnotes | Not spoken |
+| Lists, admonitions, content tabs | One fixed rule each, to be defined |
+
+- Every command is followed by `wait: {prompt: true}`, because `run` does not wait for
+  the command to finish.
+- The parser is markdown-it-py (already installed through Rich). Plain CommonMark reads
+  `!!! note` as a paragraph and a `=== "Linux"` tab as a paragraph plus an indented code
+  block, so admonitions need the mdit-py-plugins `admon` rule and tabs a small rule of
+  our own. Unsupported constructs such as `--8<--` snippets are an error with a hint.
+- Scene ids are `<prefix>-<heading-slug>-<n>`: the prefix defaults to the file stem,
+  `n` counts within the section, and non-ASCII headings are transliterated. A block with
+  an id uses `<prefix>-<id>`, which survives edits around it.
+
+### Doc comments
+```markdown
+<!-- narratty: skip -->
+<!-- narratty: say
+Narration only the video has; it may span lines.
+-->
+<!-- narratty: overlay {text: compose.yaml, style: file} -->
+<!-- narratty: hidden
+git init demo && cd demo
+-->
+```
+- `skip` leaves the next paragraph or block out of the video.
+- `say` adds narration at its position; `skip` plus `say` replaces a paragraph.
+- `overlay` takes the same value as the [overlay action](../user-guide/spec.md#overlays)
+  and appears where the comment stands.
+- `hidden` runs setup commands in the recorded shell without showing them.
+- HTML comments cannot contain `--`; such text goes into a YAML scene.
+
+### Code blocks
+An id and per-block options go in one attribute list after the language:
+
+````markdown
+```console {#install narratty="no-run"}
+$ uv tool install narratty
+```
+
+```yaml {#spec title="demo.narratty.yaml"}
+scenes: []
+```
+````
+
+- `#id` names the block for `overrides` and the scene id; mkdocs also makes it a link
+  anchor.
+- `narratty="…"` takes space-separated options: `no-run` (typed, not run), `hidden`
+  (run, not shown) and `expect-failure`. Leaving a block out entirely is the `skip`
+  comment.
+- Comments hold what the video adds (narration, overlays, setup); attributes describe
+  the block they sit on.
+
+### Placeholders
+No substitution feature. Docs write placeholders as environment variables, which
+readers can set and copy:
+
+```console
+$ narratty build "$SPEC" --var target="$TARGET"
+```
+
+- The video types `$SPEC` as written, so values, including secrets, never appear on
+  screen.
+- The value comes from `sandbox.env`, `sandbox.env_passthrough` (the user sets it on the
+  host) or a `hidden` comment with an `export`. A value the doc itself sets, such as
+  `export PROJECT=demo` in a block, runs like any other command.
+- A command to be run that still contains an `<angle>` placeholder is an error with the
+  hint to write it as `$NAME`.
+
+### Verified rendering
+Checked on 2026-11-11 with this repo's `markdown_extensions`, GitHub's Markdown API
+(`gh api /markdown`, gfm) and markdown-it-py 4.2:
+
+| Fence line | mkdocs | GitHub |
+|---|---|---|
+| `console narratty="no-run"`, `console no-run`, `console id="x"` | **Broken**: the block renders as inline text in a paragraph | Fine |
+| `console title="Install"` | Fine, filename header | Fine |
+| `console title="Install" {#x}` | **Broken** | Fine |
+| `console {#x title="Install" narratty="no-run"}` | Fine: `id` on the block, `narratty` dropped | Fine, highlighted as `console` |
+
+- HTML comments, including multi-line ones with blank lines, are invisible in mkdocs
+  and on GitHub. markdown-it-py returns them as `html_block` tokens with line numbers.
+- markdown-it-py keeps the whole info string (`console {#x …}`), so we parse the braces
+  ourselves. VS Code's preview is markdown-it too and uses the first word as language.
+- Material's copy button copies `$ `, `> ` and output lines of `console` blocks. A short
+  `extra_css` rule fixes it, checked in a browser:
+
+    ```css
+    .highlight code[data-md-copying] .gp,
+    .highlight code[data-md-copying] .go { display: none; }
+    ```
+
+### Documentation page
+The user-guide page on Markdown input is written as a Markdown-input video source and
+shows its own video:
+
+- `docs/user-guide/markdown.md` explains the feature in plain docs prose.
+- `examples/markdown/markdown.narratty.yaml` is a `markdown:` entry pointing at that
+  page, plus the `overrides` and hidden setup the video needs.
+- `examples/render-docs.sh` renders it to `docs/assets/examples/markdown.mp4`, which the
+  page embeds with `<video>` (raw HTML, so not spoken).
+- The page's blocks must run in the default sandbox; `narratty build` blocks are
+  `no-run`.
+- The docs switch to `console` only where output helps the reader, and get the copy CSS
+  above.
+
+### Overlays
+- The `chapter` style changes its default to `keep: false`, `duration_ms: 3s`. The
+  changelog names `overlay_styles: {chapter: {keep: true}}` for the old behaviour.
+- `heading_overlays: N` shows headings down to level `N`, each level in its own
+  built-in style. Users change them through `overlay_styles`.
+- `breadcrumb: true` shows levels 2 to `N` as one overlay, `Environments › Compose ›
+  Services`, in the built-in style `breadcrumb` (`top-right`, `small`); the `#` heading
+  stays a title card. `separator` defaults to ` › ` and `max_length` to 50: middle parts
+  become `…` first, then the last part is cut. Every scene in the section repeats the
+  overlay and the renderer merges identical overlays at the same position in consecutive
+  scenes, so the breadcrumb ends with the entry without `keep`.
+- A block with `title="file"` gets an overlay in the new built-in `file` style (`top`,
+  `small`); `file_titles: false` turns this off.
+
+| Style | `position` | `size` | `bold` | `duration_ms` |
+|---|---|---|---|---|
+| `heading-1` | `center` | `large` | yes | `2.5s` |
+| `heading-2` | `top-right` | `large` | yes | `3s` |
+| `heading-3` | `top-right` | `medium` | no | `3s` |
+| `heading-4` and deeper | `top-right` | `small` | no | `2.5s` |
+
+### Tooling
+- `narratty plan --sources` lists the derived scenes with the Markdown file and line,
+  and why each paragraph is spoken or skipped.
+- `narratty compile` writes the expanded YAML, as a way out and for frozen builds.
+- Errors name the Markdown file and line; `Issue` gets a file next to its line.
+
+### Not in v1
+- Checking command output against the doc (`check_output`, `...` wildcards,
+  `normalize`): narratty does not capture output yet. Exit codes are checked.
+- Narration rules `lead` and `code`, `skip rest`, configurable admonitions.
+- Highlighting the current part of a breadcrumb, and overlays synced to a spoken word.
+
+### Still open
+- The fixed rules for lists, admonitions and content tabs (which tab is used).
+- Whether `narratty` itself is available in the recorded shell, so the docs page can
+  run `narratty plan` or `narratty compile` on screen.
+
+---
+
 ## Milestones
 
 0. **Scaffold**: uv project with repo-env's layout (hatch-vcs, nox, ruff, mypy, pytest,
