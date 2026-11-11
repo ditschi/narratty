@@ -20,8 +20,9 @@
   typing_speed_ms: 20
 - source: constructs.md:73
   id: constructs-install
+  narration: Kept for step 4.
   actions:
-  - run: uv tool install narratty
-  - wait:
-      prompt: true
+  - type_command: uv tool install narratty
+  - hold: 1000
+  - ctrl_sequence: C-c
   typing_speed_ms: 20

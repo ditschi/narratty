@@ -13,9 +13,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from narratty.spec.model import MarkdownEntry, MarkdownNarration
+
+if TYPE_CHECKING:
+    from narratty.spec.markdown.scenes import Expansion
 
 
 @dataclass(frozen=True)
@@ -38,6 +41,11 @@ class EntryError(Exception):
 
 def expand_entry(entry: MarkdownEntry, path: Path, narration: MarkdownNarration) -> list[ExpandedScene]:
     """The scenes of the Markdown file at ``path`` for ``entry``, in order."""
+    return explain_entry(entry, path, narration).scenes
+
+
+def explain_entry(entry: MarkdownEntry, path: Path, narration: MarkdownNarration) -> Expansion:
+    """The scenes for ``entry`` plus a note on what became of each part of the doc."""
     from narratty.spec.markdown.parse import parse_blocks
     from narratty.spec.markdown.scenes import build_scenes
     from narratty.spec.markdown.source import read_source

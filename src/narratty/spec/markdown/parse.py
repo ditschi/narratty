@@ -59,6 +59,13 @@ class Comment(Block):
     text: str
 
 
+@dataclass(frozen=True)
+class Dropped(Block):
+    """Something left out of the video, kept so ``plan --sources`` can say why."""
+
+    what: str
+
+
 _HEADING_ATTRS = re.compile(r"\s*\{:?\s*(?P<attrs>[^}]*)\}\s*$")
 _ATTR = re.compile(r"#(?P<id>[\w-]+)|\.[\w-]+|(?P<key>[\w-]+)=(?P<value>\"[^\"]*\"|'[^']*'|[^\s}]+)")
 _ALERT = re.compile(r"^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*", re.IGNORECASE)
@@ -67,6 +74,7 @@ _SENTENCE_END = (".", "!", "?", ":", ";", "…")
 _COMMENT = re.compile(r"^\s*<!--(?P<text>.*?)-->\s*$", re.DOTALL)
 _DETAILS_OPEN = re.compile(r"<details\b", re.IGNORECASE)
 _DETAILS_CLOSE = re.compile(r"</details\s*>", re.IGNORECASE)
+_DROPPED = {"table": "table", "code_block": "indented code block"}
 
 
 def parse_blocks(lines: list[Line]) -> list[Block]:
@@ -110,17 +118,22 @@ class _Walker:
         elif node.type == "blockquote":
             self.walk(node.children, quote=True)
         elif node.type == "admonition":
-            if node.markup != "???":  # collapsed: left out with everything inside
+            if node.markup == "???":  # collapsed: left out with everything inside
+                self.blocks.append(Dropped(*self.at(node), "collapsed admonition"))
+            else:
                 self.walk([child for child in node.children if child.type != "admonition_title"])
         elif node.type == "fence":
             self.blocks.append(self.code(node))
-        # code_block (indented), table, hr: not part of the video
+        elif node.type in _DROPPED:
+            self.blocks.append(Dropped(*self.at(node), _DROPPED[node.type]))
 
     def html(self, node: SyntaxTreeNode, details: int) -> int:
         """Record a comment; return the number of ``<details>`` open after ``node``."""
+        opened = len(_DETAILS_OPEN.findall(node.content)) - len(_DETAILS_CLOSE.findall(node.content))
         if details == 0 and (comment := _COMMENT.match(node.content)):
             self.blocks.append(Comment(*self.at(node), comment["text"]))
-        opened = len(_DETAILS_OPEN.findall(node.content)) - len(_DETAILS_CLOSE.findall(node.content))
+        elif details == 0:
+            self.blocks.append(Dropped(*self.at(node), "<details> block" if opened > 0 else "raw HTML"))
         return max(0, details + opened)
 
     def heading(self, node: SyntaxTreeNode) -> None:

@@ -29,10 +29,11 @@
   narration: A GitHub alert. The note body is spoken. An open collapsible is spoken.
 - source: constructs.md:73
   id: constructs-install
+  narration: Kept for step 4.
   actions:
-  - run: uv tool install narratty
-  - wait:
-      prompt: true
+  - type_command: uv tool install narratty
+  - hold: 1000
+  - ctrl_sequence: C-c
 - source: constructs.md:79
   id: constructs-callouts_1-1
   narration: The second "Callouts" heading gets the slug callouts_1.

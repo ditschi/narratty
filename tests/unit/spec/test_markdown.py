@@ -15,10 +15,12 @@ from ruamel.yaml import YAML
 
 from narratty.spec import SpecError
 from narratty.spec.loader import parse_document
-from narratty.spec.markdown import EntryError, expand_entry
+from narratty.spec.markdown import EntryError, expand_entry, explain_entry
 from narratty.spec.markdown.parse import Heading, parse_blocks, parse_info, slugify
+from narratty.spec.markdown.scenes import breadcrumb_text, write_file
+from narratty.spec.markdown.shell import split_commands
 from narratty.spec.markdown.source import Line, read_source, select_tabs
-from narratty.spec.model import MarkdownEntry
+from narratty.spec.model import HeadingOverlays, MarkdownEntry
 
 FIXTURES = Path(__file__).parent / "markdown"
 ROOT = Path(__file__).parents[3]
@@ -28,7 +30,7 @@ DOCS = sorted((ROOT / "docs").rglob("*.md"))
 def _expand(path: Path, **keys: object) -> list[dict[str, object]]:
     entry = MarkdownEntry.model_validate({"markdown": path.name, **keys})
     return [
-        {"source": f"{scene.file.relative_to(FIXTURES)}:{scene.line}", **scene.data}
+        {"source": f"{scene.file.relative_to(path.parent)}:{scene.line}", **scene.data}
         for scene in expand_entry(entry, path, entry.narration or "all")
     ]
 
@@ -48,6 +50,15 @@ def _dump(data: object) -> str:
         ("tabs", {}),
         ("tabs-macos", {"tabs": ["Windows", "macOS"]}),
         ("constructs-silent", {"narration": "none", "defaults": {"typing_speed_ms": 20}}),
+        ("features", {"heading_overlays": 3}),
+        (
+            "features-breadcrumb",
+            {"heading_overlays": {"levels": 3, "breadcrumb": True}, "file_titles": False},
+        ),
+        (
+            "features-overrides",
+            {"overrides": {"typed": {"narration": "Run it like this.", "before": ["enter"], "fast": True}}},
+        ),
     ],
 )
 def test_golden(name: str, keys: dict[str, object]) -> None:
@@ -200,3 +211,137 @@ def test_snippet_errors(tmp_path: Path, text: str, message: str) -> None:
     (issue,) = info.value.issues
     assert message in issue.message
     assert (issue.file, issue.line) == (doc, 3)
+
+
+# ── commands, comments and options ────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        ("ls\npwd\n", ["ls", "pwd"]),
+        ("# only a comment\nls  # list\n", ["ls"]),
+        ("echo 'a # b' \"c # d\" e#f\n", ["echo 'a # b' \"c # d\" e#f"]),
+        ("cat <<-END\n\tx\n\tEND\nls\n", ["cat <<-END\n\tx\n\tEND", "ls"]),
+        ("cat <<< here\nls\n", ["cat <<< here", "ls"]),
+        ("while true; do\n  break\ndone\n", ["while true; do\n  break\ndone"]),
+        ("{\n  echo a\n}\n", ["{\n  echo a\n}"]),
+        ("echo ${HOME} $(pwd\n)\n", ["echo ${HOME} $(pwd\n)"]),
+        ("make &&\n  make test\n", ["make &&\n  make test"]),
+        ("echo 'multi\nline'\n", ["echo 'multi\nline'"]),
+        (
+            "case $1 in\n  a) echo a ;;\n  *) echo b ;;\nesac\n",
+            ["case $1 in\n  a) echo a ;;\n  *) echo b ;;\nesac"],
+        ),
+        ("echo done\necho fi\n", ["echo done", "echo fi"]),
+    ],
+)
+def test_shell_blocks_split_into_commands(code: str, expected: list[str]) -> None:
+    assert [command.text for command in split_commands(code)] == expected
+
+
+@pytest.mark.parametrize(
+    ("code", "found"),
+    [
+        ("git clone <url>", ["<url>"]),
+        ('git commit -m "<message>"', ["<message>"]),
+        ("echo '<b>'", []),
+        ("sort < input.txt", []),
+        ("cat <<EOF\n<html>\nEOF", []),
+    ],
+)
+def test_placeholders(code: str, found: list[str]) -> None:
+    assert [name for command in split_commands(code) for name in command.placeholders] == found
+
+
+def _doc(tmp_path: Path, body: str) -> Path:
+    doc = tmp_path / "doc.md"
+    doc.write_text(body, encoding="utf-8")
+    return doc
+
+
+def _error(tmp_path: Path, body: str, **keys: object) -> tuple[str, int | None]:
+    doc = _doc(tmp_path, body)
+    entry = MarkdownEntry.model_validate({"markdown": doc.name, **keys})
+    with pytest.raises(SpecError) as info:
+        expand_entry(entry, doc, "all")
+    (issue,) = info.value.issues
+    assert issue.file == doc
+    return issue.message, issue.line
+
+
+def test_placeholder_in_a_command_to_run_is_an_error(tmp_path: Path) -> None:
+    message, line = _error(tmp_path, "# Doc\n\n```bash\nls\ngit clone <repo-url>\n```\n")
+    assert line == 5
+    assert message.startswith("<repo-url> is a placeholder; write it as $REPO_URL")
+    no_run = '# Doc\n\n```bash {narratty="no-run"}\ngit clone <repo-url>\n```\n'
+    assert _expand(_doc(tmp_path, no_run))[0]["actions"][0] == {"type_command": "git clone <repo-url>"}
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ("<!-- narratty: speak hi -->\n", "unknown narratty comment 'speak'"),
+        ('```bash {narratty="norun"}\nls\n```\n', "unknown narratty option 'norun'"),
+        ('```yaml {title="a.yaml" narratty="no-run"}\na: 1\n```\n', "'no-run' only applies to shell"),
+        ("<!-- narratty: overlay {text: [ -->\n", "overlay comment: invalid YAML"),
+    ],
+)
+def test_comment_and_option_errors(tmp_path: Path, body: str, message: str) -> None:
+    assert message in _error(tmp_path, "# Doc\n\n" + body)[0]
+
+
+def test_unknown_override_id(tmp_path: Path) -> None:
+    doc = _doc(
+        tmp_path,
+        "# Doc\n\n## Setup\n\n```bash {#install}\nls\n```\n\n## Other\n\n```bash {#other}\npwd\n```\n",
+    )
+    with pytest.raises(EntryError) as info:
+        _expand(doc, overrides={"instal": {"fast": True}})
+    assert (info.value.loc, info.value.message) == (
+        ("overrides", "instal"),
+        "no block 'instal' in the doc (did you mean 'install'?)",
+    )
+    with pytest.raises(EntryError, match="no block 'other' in the selected sections"):
+        _expand(doc, sections=["setup"], overrides={"other": {"fast": True}})
+
+
+def test_override_on_a_file_block_changes_its_visible_scene(tmp_path: Path) -> None:
+    doc = _doc(tmp_path, '# Doc\n\n```toml {#cfg title="a.toml"}\nx = 1\n```\n')
+    scenes = _expand(doc, overrides={"cfg": {"narration": "The config."}})
+    assert [(scene["id"], scene.get("narration")) for scene in scenes] == [
+        ("doc-cfg-write", None),
+        ("doc-cfg", "The config."),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("parts", "max_length", "expected"),
+    [
+        (["Environments", "Compose"], 50, "Environments › Compose"),
+        (["Environments", "Compose files", "Services"], 30, "Environments › … › Services"),
+        (["A", "B", "C", "D"], 9, "A › … › D"),
+        (["Environments", "A very long section name"], 20, "Environments › A ve…"),
+    ],
+)
+def test_breadcrumb_text(parts: list[str], max_length: int, expected: str) -> None:
+    settings = HeadingOverlays(levels=4, breadcrumb=True, max_length=max(max_length, 10))
+    assert breadcrumb_text(parts, settings.model_copy(update={"max_length": max_length})) == expected
+
+
+def test_write_file_picks_a_free_delimiter() -> None:
+    command = write_file("dir/my file.txt", "a\nNARRATTY_EOF\n")
+    assert (
+        command == "mkdir -p dir && cat > 'dir/my file.txt' <<'NARRATTY_EOF_'\na\nNARRATTY_EOF\nNARRATTY_EOF_"
+    )
+
+
+def test_notes_explain_every_part(tmp_path: Path) -> None:
+    doc = _doc(tmp_path, "# Doc\n\nSpoken.\n\n| a |\n|---|\n| b |\n\n```yaml\na: 1\n```\n")
+    entry = MarkdownEntry(markdown=doc.name)
+    notes = [(note.line, note.scene, note.what) for note in explain_entry(entry, doc, "all").notes]
+    assert notes == [
+        (3, "doc-doc-1", "paragraph: spoken"),
+        (5, None, "table: not part of the video"),
+        (9, None, "yaml block: left out (no title)"),
+    ]
