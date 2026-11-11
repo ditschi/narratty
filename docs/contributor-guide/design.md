@@ -771,9 +771,10 @@ out/<spec-name>/
 
 ---
 
-## Markdown input (planned)
+## Markdown input
 
-Agreed on 2026-11-11. A Markdown doc can be the source of a video, so one file is
+Agreed on 2026-11-11, implemented for 0.5 (`src/narratty/spec/markdown/`; the user
+guide is `docs/user-guide/markdown.md`). A Markdown doc can be the source of a video, so one file is
 both read and watched. Plain docs need no markup.
 
 ### Principles
@@ -823,8 +824,8 @@ scenes:
   followed by a scene with an overlay. There is no transition feature.
 
 ### How a doc becomes scenes
-To be pinned down with golden tests (Markdown fixture → expanded YAML), using this
-repo's own `docs/` as the corpus.
+Pinned down with golden tests (`tests/unit/spec/markdown/`, Markdown fixture →
+expanded YAML); every page of this repo's `docs/` must expand to a valid spec.
 
 | Markdown | Result |
 |---|---|
@@ -833,7 +834,7 @@ repo's own `docs/` as the corpus.
 | Block without a paragraph before it | Silent scene |
 | `console` block | `$ ` lines run, `> ` continues them; other lines are output |
 | `bash` / `sh` block | Commands split by complete shell syntax (heredocs, `if`, `for`); trailing `# …` is not typed |
-| Other language with a `title` | Writes the file and shows it, with a `file` overlay |
+| Other language with a `title` | A hidden scene writes the file (heredoc), then `cat` shows it, with a `file` overlay |
 | Other language without a title | Skipped |
 | Inline code, links, emphasis | Read as plain text |
 | Tables, images, raw HTML, footnotes | Not spoken |
@@ -893,7 +894,8 @@ scenes: []
 
 - `#id` names the block for `overrides` and the scene id; mkdocs also makes it a link
   anchor.
-- `narratty="…"` takes space-separated options: `no-run` (typed, not run), `hidden`
+- `narratty="…"` takes space-separated options: `no-run` (typed, then cancelled with
+  Ctrl+C), `hidden`
   (run, not shown) and `expect-failure`. Leaving a block out entirely is the `skip`
   comment.
 - Comments hold what the video adds (narration, overlays, setup); attributes describe

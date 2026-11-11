@@ -5,6 +5,7 @@
 | `narratty init [FILE] [--force]` | Write a commented starter spec (default `demo.narratty.yaml`) |
 | `narratty validate SPEC` | Check a spec; report every problem, and hints for redundant lines, with line and column |
 | `narratty schema` | Print the spec's JSON Schema |
+| `narratty compile SPEC [-o FILE]` | Print the spec with its [Markdown entries](markdown.md) expanded (since 0.5) |
 | `narratty voices [--provider P] [--installed]` | List curated and installed voices |
 | `narratty voices pull VOICE` | Download a voice (and the Kokoro model) |
 | `narratty tts SPEC [--offline]` | Synthesize all narration clips and print their lengths |
@@ -12,6 +13,7 @@
 | `narratty lexicon check SPEC` | List narration words that look hard to pronounce and have no entry |
 | `narratty cache info` / `prune [--older-than 30d] [--all]` | Inspect or prune the audio cache |
 | `narratty plan SPEC [--draft]` | Print the timeline and total length |
+| `narratty plan SPEC --sources` | List where each scene comes from (Markdown file and line) and what was left out (since 0.5) |
 | `narratty tape SPEC [-o VIDEO]` | Print the VHS tape |
 | `narratty render SPEC [-o VIDEO]` | Record the silent video |
 | `narratty build SPEC [-o VIDEO] [--work-dir DIR] [--max-drift 0.10]` | Build the narrated video |

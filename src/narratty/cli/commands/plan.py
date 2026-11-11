@@ -77,8 +77,9 @@ def _print_sources(spec: Path) -> None:
     from narratty.ui.console import out
 
     table = Table(show_header=True, header_style="bold")
-    for column in ("source", "scene", "what"):
-        table.add_column(column)
+    table.add_column("source", overflow="fold")
+    table.add_column("scene", overflow="fold")
+    table.add_column("what")
     for source in sources(spec):
         where = _shown(source.file) + (f":{source.line}" if source.line else "")
         table.add_row(escape(where), source.scene or "[dim]-[/]", escape(source.what))

@@ -26,4 +26,5 @@ build examples/terminal-look/terminal-look.narratty.yaml -o "$out/terminal-look.
 build examples/cast/cast.narratty.yaml --format cast -o "$out/cast/cast.html" "$@"
 narratty build examples/end-card/end-card.narratty.yaml -o "$out/end-card.mp4" "$@"
 build examples/editor-layout/editor.narratty.yaml -o "$out/editor-layout.mp4" "$@"
+build examples/markdown/markdown.narratty.yaml -o "$out/markdown.mp4" "$@"
 build examples/browser/browser.narratty.yaml -o "$out/browser.mp4" --yes "$@"   # needs network
