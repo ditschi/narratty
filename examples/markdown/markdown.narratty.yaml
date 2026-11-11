@@ -10,6 +10,6 @@ scenes:
     actions:
       - overlay: {text: Markdown input, style: heading-1}
   - markdown: ../../docs/user-guide/markdown.md
-    sections: [quick-start, callouts-collapsible-blocks-and-tabs]
+    sections: [quick-start, callouts-and-tabs]
     tabs: [bash]
     heading_overlays: 2

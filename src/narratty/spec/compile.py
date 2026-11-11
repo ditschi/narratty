@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -37,7 +38,7 @@ def compile_document(document: Document, spec_file: Path) -> str:
     Markdown line they came from.
     """
     from ruamel.yaml import YAML
-    from ruamel.yaml.comments import CommentedMap, CommentedSeq
+    from ruamel.yaml.comments import CommentedSeq
 
     data = document.data
     raw_scenes = data["scenes"]
@@ -46,7 +47,7 @@ def compile_document(document: Document, spec_file: Path) -> str:
         if isinstance(origin, int):
             scenes.append(raw_scenes[origin])
             continue
-        scenes.append(CommentedMap(origin.data))
+        scenes.append(_flow_leaves(origin.data))
         scenes.yaml_set_comment_before_after_key(
             number, before=f"from {_relative(origin.file, spec_file)}:{origin.line}", indent=2
         )
@@ -98,8 +99,22 @@ def sources(spec_file: Path) -> list[Source]:
     return found
 
 
+def _flow_leaves(value: Any, depth: int = 0) -> Any:
+    """``value`` with an action's inner mappings in flow style: ``wait: {prompt: true}``.
+
+    ``depth`` counts from the scene (0): its actions list (1), an action (2), its options (3).
+    """
+    from ruamel.yaml.comments import CommentedMap, CommentedSeq
+
+    if isinstance(value, list):
+        return CommentedSeq(_flow_leaves(item, depth + 1) for item in value)
+    if not isinstance(value, dict):
+        return value
+    mapping = CommentedMap((key, _flow_leaves(item, depth + 1)) for key, item in value.items())
+    if depth >= 3 and not any(isinstance(item, (dict, list)) for item in value.values()):
+        mapping.fa.set_flow_style()
+    return mapping
+
+
 def _relative(path: Path, spec_file: Path) -> str:
-    try:
-        return str(path.resolve().relative_to(spec_file.resolve().parent))
-    except ValueError:
-        return str(path)
+    return os.path.relpath(path.resolve(), spec_file.resolve().parent)

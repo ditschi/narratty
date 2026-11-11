@@ -78,7 +78,7 @@ the narration of the scene that runs it.
 | Quotes and GitHub alerts (`> [!NOTE]`) | Read like paragraphs, without the `[!NOTE]` marker |
 | Admonitions `!!!` and open collapsible blocks `???+` | Read without their title; code blocks inside run as usual |
 | Collapsed blocks `???` and `<details>` | Left out, with everything inside |
-| Content tabs `=== "…"` | One tab per tab set, see [below](#callouts-collapsible-blocks-and-tabs) |
+| Content tabs `=== "…"` | One tab per tab set, see [below](#callouts-and-tabs) |
 | Tables, images, raw HTML | Left out |
 
 Every command waits until the prompt is back, so the next one starts after it has
@@ -89,7 +89,7 @@ Scene ids are `<file stem>-<heading>-<n>`, for example `install-uv-2`. A block w
 an id uses `<file stem>-<id>`, which survives edits around it. `id_prefix` replaces
 the file stem.
 
-## Callouts, collapsible blocks and tabs
+## Callouts and tabs
 
 Admonitions are spoken without their title, so a tip reads as part of the text.
 

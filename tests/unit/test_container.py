@@ -150,6 +150,13 @@ def test_markdown_specs_are_mounted_expanded(tmp_path: Path, monkeypatch: pytest
     assert Path(host).parent == tmp_path / "cache" / "compiled"
     assert "id: doc-doc-1" in Path(host).read_text(encoding="utf-8")
 
+    calls.clear()
+    monkeypatch.setattr(container, "_ensure_voice", lambda provider, voice: None)
+    sandbox = SandboxRequest(WorkspaceOptions(mode="rw"))
+    delegate("render", spec, runtime=Runtime.DOCKER, image="img:test", sandbox=sandbox, runner=calls.append)
+    volumes = {calls[0][i + 1] for i, arg in enumerate(calls[0]) if arg == "--volume"}
+    assert f"{tmp_path}:/work" in volumes, "the workspace is relative to the spec, not its compiled copy"
+
 
 @pytest.fixture
 def docker_calls(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:

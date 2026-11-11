@@ -264,6 +264,7 @@ class _Invocation:
         for directory in (cache, data):
             directory.mkdir(parents=True, exist_ok=True)
         self.engine, self.image = engine, image
+        self.spec_file = spec_file  # the mounted spec may be a compiled copy elsewhere
         self.mounts = [
             Mount(spec_file, f"/spec/{spec_file.name}", read_only=True),
             Mount(cache.resolve(), "/cache"),
@@ -349,7 +350,7 @@ def _run_demo(
     from narratty.ui.console import err
     from narratty.workspace import prepare_workspace
 
-    spec_file = invocation.mounts[0].host
+    spec_file = invocation.spec_file
     sandbox = approved_sandbox(spec_file, spec, request)
     environment = resolve(spec.environment, request.environment)
     if environment is None:
