@@ -79,7 +79,8 @@ the narration of the scene that runs it.
 | Admonitions `!!!` and open collapsible blocks `???+` | Read without their title; code blocks inside run as usual |
 | Collapsed blocks `???` and `<details>` | Left out, with everything inside |
 | Content tabs `=== "…"` | One tab per tab set, see [below](#callouts-and-tabs) |
-| Tables, images, raw HTML | Left out |
+| An image on a line of its own | Shown in a [browser view](spec.md#browser-views) while the text around it is spoken, see [Images](#images) |
+| Tables, images within text, raw HTML | Left out |
 
 Every command waits until the prompt is back, so the next one starts after it has
 finished. A command that fails stops the build, as in a YAML spec; mark the block
@@ -133,6 +134,19 @@ lists in `tabs`. This video picks the bash tab.
 
 Collapsible blocks that start open are spoken like admonitions. HTML `details` blocks
 are left out like collapsed ones.
+
+## Images
+
+An image on a line of its own is shown while the text around it is spoken.
+
+![Overlays in a narratty video: a chapter title, a file name and a note](../assets/overlays.png)
+
+The image stays until the next command or heading, so it never covers what is typed.
+It is embedded in the spec, which keeps it working in the sandbox without network.
+
+Images within a sentence, remote images and formats other than PNG, JPEG, GIF, SVG
+and WebP are left out. `images: false` in the entry leaves out all images, and a
+`skip` comment a single one.
 
 ## Doc comments
 
@@ -237,6 +251,7 @@ scenes:
 | `tabs` | `[]` | Preferred content tab labels; otherwise each tab set's first tab |
 | `heading_overlays` | none | Show headings down to this level, see [Heading overlays](#heading-overlays) |
 | `file_titles` | `true` | Show a file block's title as an overlay |
+| `images` | `true` | Show images on a line of their own, see [Images](#images) |
 | `id_prefix` | file stem | Start of the generated scene ids |
 | `defaults` | `{}` | Scene keys for every scene: `typing_speed_ms`, `pause_ms`, `fast`, `timelapse`, `narration_start`, `expect_exit` |
 | `overrides` | `{}` | Per block id: the same scene keys plus `narration` and `before` / `after` action lists |

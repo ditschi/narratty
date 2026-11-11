@@ -379,7 +379,8 @@ scenes:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `url` | required | An `http(s)` URL, or an HTML file in the workspace |
+| `url` | required | An `http(s)` URL, an HTML file in the workspace, or a `data:` URL (since 0.5) |
+| `address` | the URL | Text in the address bar (since 0.5) |
 | `scroll` | `none` | `auto` scrolls to the end of the page (at most 4 screens), a number scrolls that many pixels |
 | `duration_ms` | unset | Hide after this long |
 | `load_ms` | `5000` | How long the page may load before it is captured |

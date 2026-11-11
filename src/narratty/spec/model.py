@@ -294,7 +294,12 @@ class ShowOverlay(_Model):
 class Browser(_Model):
     """A web page or local HTML file. ``browser: URL`` is short for ``browser: {url: URL}``."""
 
-    url: str = Field(min_length=1, description="An http(s) URL, or an HTML file in the workspace.")
+    url: str = Field(
+        min_length=1, description="An http(s) URL, an HTML file in the workspace, or a data: URL."
+    )
+    address: str | None = Field(
+        None, min_length=1, description="Text in the address bar; defaults to the URL."
+    )
     scroll: Literal["none", "auto"] | NonNegativeInt = Field(
         "none",
         description="Scroll down while shown: auto (to the end of the page, at most 4 screens) "
@@ -514,6 +519,7 @@ class MarkdownEntry(_Model):
     )
     heading_overlays: HeadingOverlays | None = Field(None, json_schema_extra=_or_levels)
     file_titles: bool = Field(True, description="Show the title of a file block as an overlay.")
+    images: bool = Field(True, description="Show images that stand on their own line in a browser view.")
     tabs: list[Annotated[str, Field(min_length=1)]] = Field(
         [], description="Preferred content tab labels; otherwise each tab set's first tab is used."
     )

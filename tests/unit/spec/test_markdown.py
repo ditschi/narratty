@@ -345,3 +345,56 @@ def test_notes_explain_every_part(tmp_path: Path) -> None:
         (5, None, "table: not part of the video"),
         (9, None, "yaml block: left out (no title)"),
     ]
+
+
+# ── images ────────────────────────────────────────────────────────────────────
+
+
+def _image_doc(tmp_path: Path, body: str) -> Path:
+    (tmp_path / "pic.png").write_bytes((FIXTURES / "image.png").read_bytes())
+    return _doc(tmp_path, "# Doc\n\n" + body)
+
+
+def test_an_image_shows_with_the_text_around_it(tmp_path: Path) -> None:
+    doc = _image_doc(tmp_path, "Before.\n\n![A picture](pic.png)\n\nAfter.\n\n## Next\n\nNext text.\n")
+    first, second = _expand(doc)
+    assert first["narration"] == "Before. After."
+    (browser,) = first["actions"]
+    assert browser["browser"]["address"] == "pic.png"
+    assert browser["browser"]["url"].startswith("data:text/html;base64,")
+    assert "actions" not in second
+
+
+def test_an_image_never_covers_commands(tmp_path: Path) -> None:
+    doc = _image_doc(tmp_path, "Look.\n\n![A picture](pic.png)\n\n```bash\nls\n```\n")
+    image, command = _expand(doc)
+    assert [next(iter(action)) for action in image["actions"]] == ["browser"]
+    assert command["actions"][0] == {"run": "ls"}
+    assert "narration" not in command
+
+
+def test_an_image_without_text_is_held(tmp_path: Path) -> None:
+    (scene,) = _expand(_image_doc(tmp_path, "![A picture](pic.png)\n"))
+    assert scene["actions"][-1] == {"hold": 3000}
+
+
+@pytest.mark.parametrize(
+    ("body", "keys", "what"),
+    [
+        ("![x](pic.png)\n", {"images": False}, "image: left out (images: false)"),
+        ("![x](https://example.com/a.png)\n", {}, "image: left out (not a local file)"),
+        ("![x](notes.pdf)\n", {}, "image: left out (.pdf files are not shown)"),
+        ("<!-- narratty: skip -->\n![x](pic.png)\n", {}, "image: left out by a skip comment"),
+    ],
+)
+def test_images_left_out(tmp_path: Path, body: str, keys: dict[str, object], what: str) -> None:
+    doc = _image_doc(tmp_path, body)
+    entry = MarkdownEntry.model_validate({"markdown": doc.name, **keys})
+    expansion = explain_entry(entry, doc, "all")
+    assert expansion.scenes == []
+    assert what in [note.what for note in expansion.notes]
+
+
+def test_missing_image_is_an_error(tmp_path: Path) -> None:
+    message, line = _error(tmp_path, "# Doc\n\n![x](missing.png)\n")
+    assert (message, line) == ("image not found: missing.png", 3)

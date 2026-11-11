@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import difflib
+import html
 import posixpath
 import re
 import shlex
@@ -13,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from narratty.spec.markdown import EntryError, ExpandedScene
-from narratty.spec.markdown.parse import Block, Code, Comment, Dropped, Heading, Text
+from narratty.spec.markdown.parse import Block, Code, Comment, Dropped, Heading, Image, Text
 from narratty.spec.markdown.shell import Command, clean_command, split_commands
 from narratty.spec.markdown.source import fail
 from narratty.spec.model import HeadingOverlays, MarkdownEntry, MarkdownNarration
@@ -22,6 +24,15 @@ SHELL_LANGS = ("bash", "sh", "shell")
 BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure")
 COMMENT_KINDS = ("skip", "say", "overlay", "hidden")
 NO_RUN_HOLD_MS = 1000
+IMAGE_HOLD_MS = 3000  # an image scene without narration
+IMAGE_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".webp": "image/webp",
+}
 _COMMENT = re.compile(r"^\s*narratty:\s*(?P<kind>[\w-]*)(?P<body>.*)$", re.DOTALL)
 
 
@@ -131,6 +142,7 @@ class _Builder:
         self.overlays: list[tuple[int | None, dict[str, Any]]] = []  # (heading level, action)
         self.trail: dict[int, str] = {}  # breadcrumb: level → heading
         self.skip = False
+        self.image = False  # an image waits for its scene
         self.used: set[str] = set()
 
     def add(self, blocks: list[Block]) -> None:
@@ -148,6 +160,8 @@ class _Builder:
                 self.text(block)
             elif isinstance(block, Code):
                 self.code(block)
+            elif isinstance(block, Image):
+                self.show_image(block)
         self.flush()
 
     # ── blocks ──
@@ -202,6 +216,26 @@ class _Builder:
                 f"unknown narratty comment {kind!r}; expected one of {', '.join(COMMENT_KINDS)}",
             )
 
+    def show_image(self, block: Image) -> None:
+        """Show the image while the text around it is spoken, up to the next block."""
+        if not self.entry.images:
+            self.note(block, None, "image: left out (images: false)")
+            return
+        if "://" in block.src or block.src.startswith("data:"):
+            self.note(block, None, "image: left out (not a local file)")
+            return
+        path = block.file.parent / block.src.split("#")[0].split("?")[0]
+        mime = IMAGE_TYPES.get(path.suffix.lower())
+        if mime is None:
+            self.note(block, None, f"image: left out ({path.suffix or 'no'} files are not shown)")
+            return
+        if not path.is_file():
+            raise fail(block.file, block.line, f"image not found: {block.src}")
+        url = image_page(path.read_bytes(), mime, block.alt)
+        self.overlays.append((None, {"browser": {"url": url, "address": block.src}}))
+        self.unassigned.append((block, "image: shown in a browser view"))
+        self.image = True
+
     def code(self, block: Code) -> None:
         options = set(block.options)
         if unknown := sorted(options - set(BLOCK_OPTIONS)):
@@ -210,6 +244,8 @@ class _Builder:
                 block.line,
                 f"unknown narratty option {unknown[0]!r}; expected one of {', '.join(BLOCK_OPTIONS)}",
             )
+        if self.image and (block.lang == "console" or block.lang in SHELL_LANGS or block.title):
+            self.flush()  # an image never covers commands
         if block.lang == "console" or block.lang in SHELL_LANGS:
             self.commands(block, options)
         elif block.title:
@@ -260,10 +296,11 @@ class _Builder:
 
     def flush(self) -> None:
         """Narration after the last block of a section: a scene without actions."""
-        if self.spoken:
+        if self.spoken or self.image:
             first = self.unassigned[0][0] if self.unassigned else None
             assert first is not None
-            self.scene(first, self.next_id(None), [], {})
+            hold = [] if self.spoken else [{"hold": IMAGE_HOLD_MS}]
+            self.scene(first, self.next_id(None), hold, {})
 
     def scene(
         self, block: Block, scene_id: str, actions: list[dict[str, Any]], extra: dict[str, Any]
@@ -279,7 +316,7 @@ class _Builder:
         data |= self.defaults | extra
         for source, what in self.unassigned:
             self.note(source, scene_id, what)
-        self.spoken, self.unassigned, self.overlays = [], [], []
+        self.spoken, self.unassigned, self.overlays, self.image = [], [], [], False
         self.emit(block, data, lead)
 
     def emit(self, block: Block, data: dict[str, Any], lead: Sequence[dict[str, Any]] = ()) -> None:
@@ -333,6 +370,8 @@ class _Builder:
 
 
 def _kind(block: Block) -> str:
+    if isinstance(block, Image):
+        return "image"
     return "paragraph" if isinstance(block, Text) else f"{getattr(block, 'lang', '') or 'code'} block"
 
 
@@ -396,6 +435,21 @@ def console_commands(content: str) -> list[Command]:
         if command.text.strip():
             commands.append(Command(command.text, offset, command.placeholders))
     return commands
+
+
+def image_page(data: bytes, mime: str, alt: str) -> str:
+    """A ``data:`` URL of a page that shows the image centred, for a browser view.
+
+    Embedded, so it needs neither network nor a file in the workspace or container.
+    """
+    image = f"data:{mime};base64,{base64.b64encode(data).decode()}"
+    page = (
+        '<!doctype html><html><body style="margin:0;height:100vh;display:flex;'
+        'align-items:center;justify-content:center;background:#282a36">'
+        f'<img alt="{html.escape(alt)}" src="{image}" style="max-width:96%;max-height:96%">'
+        "</body></html>"
+    )
+    return f"data:text/html;base64,{base64.b64encode(page.encode()).decode()}"
 
 
 def write_file(path: str, content: str) -> str:

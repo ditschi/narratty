@@ -7,10 +7,24 @@
       "description": "A web page or local HTML file. ``browser: URL`` is short for ``browser: {url: URL}``.",
       "properties": {
         "url": {
-          "description": "An http(s) URL, or an HTML file in the workspace.",
+          "description": "An http(s) URL, an HTML file in the workspace, or a data: URL.",
           "minLength": 1,
           "title": "Url",
           "type": "string"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text in the address bar; defaults to the URL.",
+          "title": "Address"
         },
         "scroll": {
           "anyOf": [
@@ -1951,6 +1965,12 @@
           "default": true,
           "description": "Show the title of a file block as an overlay.",
           "title": "File Titles",
+          "type": "boolean"
+        },
+        "images": {
+          "default": true,
+          "description": "Show images that stand on their own line in a browser view.",
+          "title": "Images",
           "type": "boolean"
         },
         "tabs": {

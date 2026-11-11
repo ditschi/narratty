@@ -18,9 +18,17 @@
   - wait:
       prompt: true
   typing_speed_ms: 20
+- source: constructs.md:61
+  id: constructs-left-out-1
+  narration: Kept for step 4.
+  actions:
+  - browser:
+      url: 
+        data:text/html;base64,PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGJvZHkgc3R5bGU9Im1hcmdpbjowO2hlaWdodDoxMDB2aDtkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2p1c3RpZnktY29udGVudDpjZW50ZXI7YmFja2dyb3VuZDojMjgyYTM2Ij48aW1nIGFsdD0iQW4gaW1hZ2UiIHNyYz0iZGF0YTppbWFnZS9wbmc7YmFzZTY0LGlWQk9SdzBLR2dvQUFBQU5TVWhFVWdBQUFBSUFBQUFDQ0FJQUFBRDkxSnB6QUFBQUZrbEVRVlI0Mm1NTStGWE53TURBeE1EQXdNREFBQUFWT3dISm11L1dPQUFBQUFCSlJVNUVya0pnZ2c9PSIgc3R5bGU9Im1heC13aWR0aDo5NiU7bWF4LWhlaWdodDo5NiUiPjwvYm9keT48L2h0bWw+
+      address: image.png
+  typing_speed_ms: 20
 - source: constructs.md:73
   id: constructs-install
-  narration: Kept for step 4.
   actions:
   - type_command: uv tool install narratty
   - hold: 1000

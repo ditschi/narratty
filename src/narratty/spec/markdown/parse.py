@@ -60,6 +60,14 @@ class Comment(Block):
 
 
 @dataclass(frozen=True)
+class Image(Block):
+    """An image that stands alone in its paragraph."""
+
+    src: str
+    alt: str
+
+
+@dataclass(frozen=True)
 class Dropped(Block):
     """Something left out of the video, kept so ``plan --sources`` can say why."""
 
@@ -146,6 +154,9 @@ class _Walker:
         self.blocks.append(Heading(*self.at(node), int(node.tag[1]), title, slug))
 
     def text(self, node: SyntaxTreeNode, *, item: bool, quote: bool) -> None:
+        if node.children and (image := _only_image(node.children[0])) is not None:
+            self.blocks.append(Image(*self.at(node), str(image.attrs.get("src", "")), _plain(image)))
+            return
         text = _plain(node.children[0]) if node.children else ""
         if quote:
             text = _ALERT.sub("", text)
@@ -183,6 +194,16 @@ def parse_info(info: str) -> tuple[str, dict[str, str]]:
             value = match["value"]
             attrs[match["key"]] = value[1:-1] if value[:1] in "\"'" else value
     return lang.lower(), attrs
+
+
+def _only_image(inline: SyntaxTreeNode) -> SyntaxTreeNode | None:
+    """The image when it is all there is in the paragraph (an attr_list may follow)."""
+    images = [child for child in inline.children if child.type == "image"]
+    rest = "".join(child.content for child in inline.children if child.type == "text").strip()
+    others = [child for child in inline.children if child.type not in ("image", "text", "softbreak")]
+    if len(images) == 1 and not others and (not rest or _HEADING_ATTRS.fullmatch(rest)):
+        return images[0]
+    return None
 
 
 def _plain(node: SyntaxTreeNode) -> str:
