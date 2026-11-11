@@ -37,6 +37,8 @@ tools native mode needs.
 
 - **Spec to video:** a `.narratty.yaml` file becomes an MP4, or an asciicast with
   narration and a player page (`--format cast`).
+- **Markdown input:** a Markdown doc becomes the video; its paragraphs are the
+  narration and its code blocks run in the terminal.
 - **Local voices:** Kokoro (natural sounding, the default) or Piper
   (many languages), no cloud service. Narration and typing stay in sync, and audio is
   cached.
