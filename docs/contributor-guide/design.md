@@ -877,6 +877,9 @@ git init demo && cd demo
 - `overlay` takes the same value as the [overlay action](../user-guide/spec.md#overlays)
   and appears where the comment stands.
 - `hidden` runs setup commands in the recorded shell without showing them.
+- `browser` opens a link of the next paragraph (the first, `link: N` or `link: "text"`)
+  or a given URL in a browser view; the paragraph starts a new scene. Relative doc links
+  map to `site_url`.
 - HTML comments cannot contain `--`; such text goes into a YAML scene.
 
 ### Code blocks

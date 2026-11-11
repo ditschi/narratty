@@ -398,3 +398,73 @@ def test_images_left_out(tmp_path: Path, body: str, keys: dict[str, object], wha
 def test_missing_image_is_an_error(tmp_path: Path) -> None:
     message, line = _error(tmp_path, "# Doc\n\n![x](missing.png)\n")
     assert (message, line) == ("image not found: missing.png", 3)
+
+
+# ── browser comments ──────────────────────────────────────────────────────────
+
+COMPOSE = (
+    "Intro text.\n\n"
+    "<!-- narratty: browser {scroll: auto, duration_ms: 6s} -->\n"
+    "The [Compose file reference](https://docs.docker.com/compose/) lists every key.\n\n"
+    "More about it.\n\n"
+    "```bash\nls\n```\n"
+)
+
+
+def test_browser_comment_opens_the_first_link(tmp_path: Path) -> None:
+    intro, page, command = _expand(_doc(tmp_path, "# Doc\n\n" + COMPOSE))
+    assert intro["narration"] == "Intro text."
+    assert page["narration"] == "The Compose file reference lists every key. More about it."
+    assert page["actions"] == [
+        {"browser": {"url": "https://docs.docker.com/compose/", "scroll": "auto", "duration_ms": "6s"}}
+    ]
+    assert command["actions"][0] == {"run": "ls"}, "the page never covers commands"
+
+
+@pytest.mark.parametrize(
+    ("options", "url"),
+    [
+        ("{link: 2}", "https://b.example/"),
+        ('{link: "First"}', "https://a.example/"),
+        ("https://c.example/", "https://c.example/"),
+    ],
+)
+def test_browser_comment_picks_a_link(tmp_path: Path, options: str, url: str) -> None:
+    body = f"# Doc\n\n<!-- narratty: browser {options} -->\nSee [First](https://a.example/) and [Second](https://b.example/).\n"
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert scene["actions"][0]["browser"]["url"] == url
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ("<!-- narratty: browser -->\nNo link here.\n", "the next paragraph has no link"),
+        ("<!-- narratty: browser -->\n## Heading\n", "the next paragraph has no link"),
+        ("<!-- narratty: browser {link: 3} -->\n[a](https://a.example/)\n", "the paragraph has 1 link(s)"),
+        (
+            "<!-- narratty: browser {link: Fist} -->\n[First](https://a.example/)\n",
+            "no link 'Fist' (did you mean 'First'?)",
+        ),
+        ("<!-- narratty: browser -->\nSee [spec](spec.md).\n", "set site_url in mkdocs.yml"),
+    ],
+)
+def test_browser_comment_errors(tmp_path: Path, body: str, message: str) -> None:
+    (tmp_path / ".git").mkdir()
+    text, line = _error(tmp_path, "# Doc\n\n" + body)
+    assert message in text
+    assert line == 3
+
+
+def test_relative_links_open_the_published_page(tmp_path: Path) -> None:
+    (tmp_path / "mkdocs.yml").write_text("site_url: https://example.org/docs/\n", encoding="utf-8")
+    guide = tmp_path / "docs" / "guide"
+    guide.mkdir(parents=True)
+    doc = guide / "intro.md"
+    doc.write_text(
+        "# Intro\n\n<!-- narratty: browser -->\nSee [overlays](../spec.md#overlays).\n\n"
+        "<!-- narratty: browser -->\nOr [home](../index.md) and [here](#intro).\n",
+        encoding="utf-8",
+    )
+    first, second = _expand(doc)
+    assert first["actions"][0]["browser"]["url"] == "https://example.org/docs/spec/#overlays"
+    assert second["actions"][0]["browser"]["url"] == "https://example.org/docs/"

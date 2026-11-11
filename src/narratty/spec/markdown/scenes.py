@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from narratty.spec.markdown import EntryError, ExpandedScene
+from narratty.spec.markdown.links import LinkError, resolve_link
 from narratty.spec.markdown.parse import Block, Code, Comment, Dropped, Heading, Image, Text
 from narratty.spec.markdown.shell import Command, clean_command, split_commands
 from narratty.spec.markdown.source import fail
@@ -22,7 +23,7 @@ from narratty.spec.model import HeadingOverlays, MarkdownEntry, MarkdownNarratio
 
 SHELL_LANGS = ("bash", "sh", "shell")
 BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure")
-COMMENT_KINDS = ("skip", "say", "overlay", "hidden")
+COMMENT_KINDS = ("skip", "say", "overlay", "hidden", "browser")
 NO_RUN_HOLD_MS = 1000
 IMAGE_HOLD_MS = 3000  # an image scene without narration
 IMAGE_TYPES = {
@@ -142,11 +143,14 @@ class _Builder:
         self.overlays: list[tuple[int | None, dict[str, Any]]] = []  # (heading level, action)
         self.trail: dict[int, str] = {}  # breadcrumb: level → heading
         self.skip = False
-        self.image = False  # an image waits for its scene
+        self.image = False  # an image or web page waits for its scene
+        self.link: tuple[Comment, dict[str, Any]] | None = None  # a browser comment's options
         self.used: set[str] = set()
 
     def add(self, blocks: list[Block]) -> None:
         for block in blocks:
+            if self.link is not None and not isinstance(block, (Comment, Dropped)):
+                self.open_link(block)
             if isinstance(block, Heading):
                 self.heading(block)
             elif isinstance(block, Comment):
@@ -203,6 +207,8 @@ class _Builder:
         elif kind == "overlay":
             self.overlays.append((None, {"overlay": _yaml_value(body, block)}))
             self.unassigned.append((block, "overlay comment"))
+        elif kind == "browser":
+            self.browser_comment(block, body)
         elif kind == "hidden":
             commands = split_commands(body)
             _check_placeholders(commands, block, 0)
@@ -215,6 +221,53 @@ class _Builder:
                 block.line,
                 f"unknown narratty comment {kind!r}; expected one of {', '.join(COMMENT_KINDS)}",
             )
+
+    def browser_comment(self, block: Comment, body: str) -> None:
+        """Open a page from where the next paragraph starts: a URL, or one of its links."""
+        value = _yaml_value(body, block) if body else {}
+        options = {"url": value} if isinstance(value, str) else value
+        if not isinstance(options, dict):
+            raise fail(block.file, block.line, "browser comment: expected a URL or a mapping")
+        if "url" in options:
+            self.show_view(block, options, f"browser comment: opens {options['url']}")
+        else:
+            self.link = (block, options)
+
+    def open_link(self, block: Block) -> None:
+        """Apply the pending browser comment to ``block``, which must be a paragraph with a link."""
+        assert self.link is not None
+        comment, options = self.link
+        self.link = None
+        links = block.links if isinstance(block, Text) else ()
+        choice = options.pop("link", None)
+        if not links:
+            raise fail(comment.file, comment.line, "browser comment: the next paragraph has no link")
+        if choice is None:
+            text, href = links[0]
+        elif isinstance(choice, int) and not isinstance(choice, bool):
+            if not 1 <= choice <= len(links):
+                raise fail(
+                    comment.file, comment.line, f"browser comment: the paragraph has {len(links)} link(s)"
+                )
+            text, href = links[choice - 1]
+        else:
+            named = [link for link in links if link[0].casefold() == str(choice).casefold()]
+            if not named:
+                hint = _did_you_mean(str(choice), [link[0] for link in links])
+                raise fail(comment.file, comment.line, f"browser comment: no link {choice!r}{hint}")
+            text, href = named[0]
+        try:
+            url = resolve_link(href, block.file)
+        except LinkError as error:
+            raise fail(comment.file, comment.line, f"browser comment: {error}") from error
+        self.show_view(comment, {"url": url, **options}, f"browser comment: opens {text!r} ({url})")
+
+    def show_view(self, block: Block, browser: dict[str, Any], what: str) -> None:
+        """A browser view from the next paragraph on, until the next command or heading."""
+        self.flush()  # the page appears with its paragraph, not with the narration before
+        self.overlays.append((None, {"browser": browser}))
+        self.unassigned.append((block, what))
+        self.image = True
 
     def show_image(self, block: Image) -> None:
         """Show the image while the text around it is spoken, up to the next block."""

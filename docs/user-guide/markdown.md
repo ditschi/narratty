@@ -86,9 +86,10 @@ Every command waits until the prompt is back, so the next one starts after it ha
 finished. A command that fails stops the build, as in a YAML spec; mark the block
 `expect-failure` when that is the point (see [Code block attributes](#code-block-attributes)).
 
-Scene ids are `<file stem>-<heading>-<n>`, for example `install-uv-2`. A block with
-an id uses `<file stem>-<id>`, which survives edits around it. `id_prefix` replaces
-the file stem.
+Scene ids are `<file stem>-<heading>-<n>`, for example `install-uv-2`; a heading
+whose slug is the file stem is left out (`install-1`, not `install-install-1`). A
+block with an id uses `<file stem>-<id>`, which survives edits around it.
+`id_prefix` replaces the file stem.
 
 ## Callouts and tabs
 
@@ -166,6 +167,9 @@ Narration only the video has. It may span lines.
 <!-- narratty: hidden
 git init demo && cd demo
 -->
+
+<!-- narratty: browser {scroll: auto, duration_ms: 6s} -->
+The [Compose file reference](https://docs.docker.com/compose/) lists every key.
 ```
 
 | Comment | Does |
@@ -174,8 +178,31 @@ git init demo && cd demo
 | `say` | Adds narration where it stands; `skip` plus `say` replaces a paragraph |
 | `overlay` | Shows an [overlay](spec.md#overlays) in the next scene; takes the same value as the action |
 | `hidden` | Runs setup commands in the recorded shell without showing them |
+| `browser` | Opens a link of the next paragraph in a [browser view](spec.md#browser-views), see [Opening links](#opening-links) |
 
 HTML comments cannot contain `--`; put such text into a YAML scene instead.
+
+## Opening links
+
+Links are read as plain text. A `browser` comment opens one of them in a
+[browser view](spec.md#browser-views) while its paragraph is spoken:
+
+```markdown
+<!-- narratty: browser {scroll: auto, duration_ms: 6s} -->
+The [Compose file reference](https://docs.docker.com/compose/) lists every key.
+```
+
+- Without `link` it opens the first link of the next paragraph; `link: 2` opens the
+  second, `link: "Compose file reference"` the one with that text. A URL instead of
+  the mapping, `<!-- narratty: browser https://example.com -->`, opens that page.
+- The other keys are those of the [browser action](spec.md#browser-views): `scroll`,
+  `duration_ms` and `load_ms`.
+- The paragraph starts a new scene, so the page appears with it. Like an image, the
+  page stays until the next command or heading at the latest.
+- A relative link to another page of the docs (`../user-guide/spec.md#overlays`)
+  opens the published page: `site_url` from `mkdocs.yml` plus the page's path.
+- Web pages need network access: in the container that is
+  `sandbox: {network: full}` or an allowlist.
 
 ## Code block attributes
 
