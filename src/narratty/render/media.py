@@ -175,6 +175,23 @@ def vhs_timeout(tape: Path, log: str) -> RenderError | None:
     return wait_timeout(timeout_ms, pattern, failed_scene(tape, log))
 
 
+def drift_hint(drift: float) -> str:
+    """What to do about a video ``drift`` (relative) longer or shorter than planned."""
+    if drift >= 0:
+        return (
+            "A command or `wait` took longer than its scene; add a `hold` or move slow "
+            "commands into a hidden scene."
+        )
+    try:
+        average = f" (load average {os.getloadavg()[0]:.1f})"
+    except OSError:
+        average = ""
+    return (
+        f"VHS dropped frames; the machine may be overloaded{average}. Build again when it is idle, "
+        "or check the timing with a lower frame rate (--draft)."
+    )
+
+
 @dataclass(frozen=True)
 class MediaInfo:
     """What ffprobe reports about a media file."""

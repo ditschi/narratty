@@ -1060,6 +1060,5 @@ def verify(result: BuildResult, *, max_drift: float) -> None:
         raise SyncError(
             f"the video is {result.video_ms / 1000:.2f}s long but the timeline planned "
             f"{result.expected_ms / 1000:.2f}s ({result.drift:+.0%})",
-            hint="A command or `wait` took longer than its scene; add a `hold` or move slow "
-            "commands into a hidden scene.",
+            hint=media.drift_hint(result.drift),
         )

@@ -72,8 +72,19 @@ def test_verify_accepts_small_drift(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
 def test_verify_rejects_large_drift(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(13000, True, True))
-    with pytest.raises(SyncError, match=r"\+30%"):
+    with pytest.raises(SyncError, match=r"\+30%") as raised:
         verify(_result(tmp_path, 13000), max_drift=0.1)
+    assert raised.value.hint and "took longer" in raised.value.hint
+
+
+def test_a_shorter_video_blames_dropped_frames(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(8000, True, True))
+    monkeypatch.setattr(media.os, "getloadavg", lambda: (7.25, 5.0, 3.0))
+    with pytest.raises(SyncError, match=r"-20%") as raised:
+        verify(_result(tmp_path, 8000), max_drift=0.1)
+    hint = raised.value.hint or ""
+    assert "took longer" not in hint
+    assert "dropped frames" in hint and "load average 7.2" in hint
 
 
 def test_verify_needs_both_streams(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
