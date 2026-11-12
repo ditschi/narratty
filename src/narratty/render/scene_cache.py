@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -221,10 +222,17 @@ class SceneCache:
     def __init__(self, root: Path) -> None:
         self.root = root / "scenes"
 
+    def _entry(self, key: str) -> Path:
+        return self.root / "keys" / f"{key}.json"
+
+    def has(self, key: str) -> bool:
+        """Whether an entry exists for ``key``, usable or not."""
+        return self._entry(key).is_file()
+
     def get(self, key: str) -> SceneRecording | None:
         """Return a complete cache entry, or None for a missing or damaged entry."""
         try:
-            data = json.loads((self.root / "keys" / f"{key}.json").read_text(encoding="utf-8"))
+            data = json.loads(self._entry(key).read_text(encoding="utf-8"))
             parts, starts, cut = data["parts"], data["starts_ms"], data["cut_ms"]
             if not isinstance(parts, list) or not parts:
                 return None
@@ -244,12 +252,13 @@ class SceneCache:
                 return None
             if not all(part.video.is_file() for part in footage):
                 return None
-            (self.root / "keys" / f"{key}.json").touch()
-            for part in footage:
-                part.video.touch()
-            return SceneRecording(tuple(footage), starts, cut)
         except (OSError, ValueError, TypeError, KeyError):
             return None
+        # Marks the entry as used for `cache prune`; a read-only cache is still usable.
+        for used in (self._entry(key), *(part.video for part in footage)):
+            with contextlib.suppress(OSError):
+                used.touch()
+        return SceneRecording(tuple(footage), starts, cut)
 
     def put(
         self,
@@ -281,8 +290,11 @@ class SceneCache:
         entries.mkdir(parents=True, exist_ok=True)
         name = f"{uuid.uuid4().hex}.mp4"
         staged = videos / f"{name}.part"
-        shutil.copyfile(video, staged)
-        os.replace(staged, videos / name)
+        try:
+            shutil.copyfile(video, staged)
+            os.replace(staged, videos / name)
+        finally:
+            staged.unlink(missing_ok=True)
         prefix = [asdict(part) | {"video": part.video.name} for part in base.parts] if base else []
         first = own_starts[fresh[0]] if base else 0
         scenes = list(keys)
@@ -304,8 +316,11 @@ class SceneCache:
             )
             entry = entries / f"{keys[scene]}.json"
             pending = entry.with_name(f"{entry.name}.{uuid.uuid4().hex}.part")
-            pending.write_text(data, encoding="utf-8")
-            os.replace(pending, entry)
+            try:
+                pending.write_text(data, encoding="utf-8")
+                os.replace(pending, entry)
+            finally:
+                pending.unlink(missing_ok=True)
 
     def stats(self) -> SceneCacheStats:
         entries = list((self.root / "keys").glob("*.json"))

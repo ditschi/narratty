@@ -243,6 +243,42 @@ def test_build_scene_cache_reuses_prefix_and_invalidates_changed_input(
     assert fake.mux_kwargs["burn"] is False
 
 
+def test_build_survives_a_scene_cache_it_cannot_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.build import WorkspaceOptions, build
+    from narratty.render.scene_cache import SceneCache
+    from narratty.render.timelapse import Layout
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    planned = _plan(workspace)
+    monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr("narratty.build.plan", lambda *args, **kwargs: planned)
+    monkeypatch.setattr("narratty.build.build_track", lambda placements, *_: placements)
+    FakeMedia(monkeypatch, 3000)
+    monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(3000, True, True, 30))
+
+    def render(plan: Plan, video: Path, *args: Any, **kwargs: Any) -> Layout:
+        video.write_bytes(b"video")
+        return Layout((), {"a": 0, "b": 2000}, {"a": 0, "b": 0}, {"end": 3000})
+
+    def read_only(*args: Any, **kwargs: Any) -> None:
+        raise PermissionError(13, "Permission denied", "/cache/scenes/videos")
+
+    monkeypatch.setattr("narratty.build.render_silent", render)
+    monkeypatch.setattr(SceneCache, "put", read_only)
+    logs: list[str] = []
+    result = build(
+        planned.spec_path,
+        scene_cache=True,
+        workspace=WorkspaceOptions("rw", allow_dirty=True),
+        log=logs.append,
+    )
+    assert result.output.name.endswith(".mp4")
+    assert any(line.startswith("scene cache not updated: ") for line in logs), logs
+
+
 def test_subtitle_files_show_the_spec_text(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from narratty.build import WorkspaceOptions, build
     from narratty.draft import estimate_ms

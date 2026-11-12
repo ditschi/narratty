@@ -681,7 +681,8 @@ def _scene_cache_plan(
             candidate = cache.get(keys[scene_id])
             prefix = visible[: index + 1]
             if candidate is None:
-                log(f"scene cache miss through {scene_id}: no matching entry")
+                missing = "unreadable entry" if cache.has(keys[scene_id]) else "no matching entry"
+                log(f"scene cache miss through {scene_id}: {missing}")
                 continue
             if any(name not in candidate.starts_ms for name in prefix):
                 log(f"scene cache entry through {scene_id} is missing a scene boundary")
@@ -811,7 +812,10 @@ def build(
         check_exits(planned, work, output, ignore_exit=ignore_exit)
         if cache is not None and layout is not None:
             verify(BuildResult(output, expected_ms, video_ms, tuple(used)), max_drift=max_drift)
-            _store_scenes(cache, planned, silent, layout, fresh)
+            try:
+                _store_scenes(cache, planned, silent, layout, fresh)
+            except OSError as error:  # a full disk or read-only cache must not fail the build
+                say(f"scene cache not updated: {error}")
     result = BuildResult(output, expected_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
     return result

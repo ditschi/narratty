@@ -232,3 +232,39 @@ def test_workspace_digest_ignores_commits_that_change_no_file(tmp_path: Path) ->
     before = workspace_digest(tmp_path)
     git("commit", "-q", "--allow-empty", "-m", "second")
     assert workspace_digest(tmp_path) == before
+
+
+def test_a_read_only_cache_still_returns_hits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache = SceneCache(tmp_path)
+    video = tmp_path / "recording.mp4"
+    video.write_bytes(b"video")
+    cache.put({"first": "first", "second": "second"}, video, {"first": 0, "second": 2000}, 4000)
+
+    def read_only(self: Path, *args: object, **kwargs: object) -> None:
+        raise PermissionError(13, "Read-only file system", str(self))
+
+    monkeypatch.setattr(Path, "touch", read_only)
+    assert cache.get("first") is not None
+
+
+def test_entries_that_exist_but_cannot_be_used_are_told_apart(tmp_path: Path) -> None:
+    cache = SceneCache(tmp_path)
+    (cache.root / "keys").mkdir(parents=True)
+    (cache.root / "keys" / "broken.json").write_text("{", encoding="utf-8")
+    assert cache.has("broken") and cache.get("broken") is None
+    assert not cache.has("missing")
+
+
+def test_a_failed_write_leaves_no_partial_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache = SceneCache(tmp_path)
+    video = tmp_path / "recording.mp4"
+    video.write_bytes(b"video")
+
+    def full_disk(source: Path, target: Path) -> None:
+        Path(target).write_bytes(b"vi")
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(scene_cache.shutil, "copyfile", full_disk)
+    with pytest.raises(OSError, match="No space"):
+        cache.put({"first": "first", "second": "second"}, video, {"first": 0, "second": 2000}, 4000)
+    assert list((cache.root / "videos").iterdir()) == []
