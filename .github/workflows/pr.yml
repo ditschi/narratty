@@ -328,7 +328,7 @@ jobs:
             }
   # ── Required status check (with "Lint PR title" from pr-title.yml): skipped jobs pass ──
   ci-ok:
-    name: CI OK
+    name: ci-ok # the required status check in the "default branch" ruleset; it matches the name
     if: always()
     needs: [changes, quality, agent, tests, package, integration, performance, docs-build, docs-check, docker]
     runs-on: ubuntu-latest
