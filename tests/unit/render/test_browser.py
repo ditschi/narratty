@@ -71,6 +71,8 @@ def test_schedule_until_scene_end_duration_or_next_view() -> None:
     assert second.end_ms == second.start_ms + 200
     assert third.start_ms == second.start_ms + 300
     assert third.end_ms == times["end"]
+    assert [v.scene_id for v in views] == ["one", "two", "two"]
+    assert [v.scene_id for v in browser.scaled(views, 2)] == ["one", "two", "two"]
 
 
 def test_page_url(tmp_path: Path) -> None:
@@ -98,6 +100,19 @@ def test_find_chromium_reports_a_missing_browser(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("HOME", str(tmp_path))
     with pytest.raises(MissingDependencyError, match="Chromium"):
         browser.find_chromium()
+
+
+def test_find_mermaid(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NARRATTY_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("NARRATTY_MERMAID_JS", raising=False)
+    with pytest.raises(MissingDependencyError, match="Mermaid diagrams need mermaid.min.js") as error:
+        browser.find_mermaid()
+    assert error.value.hint is not None and "--runtime docker" in error.value.hint
+    (tmp_path / "mermaid.min.js").write_text("")
+    assert browser.find_mermaid() == tmp_path / "mermaid.min.js"
+    monkeypatch.setenv("NARRATTY_MERMAID_JS", str(tmp_path / "elsewhere.js"))
+    with pytest.raises(MissingDependencyError, match="elsewhere.js"):
+        browser.find_mermaid()
 
 
 def test_scrolling_page_and_bar_as_ffmpeg_inputs(tmp_path: Path) -> None:

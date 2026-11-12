@@ -6,9 +6,11 @@ and review the diff.
 
 from __future__ import annotations
 
+import base64
 import io
 import os
 from pathlib import Path
+from typing import Any
 
 import pytest
 from ruamel.yaml import YAML
@@ -359,16 +361,15 @@ def test_an_image_shows_with_the_text_around_it(tmp_path: Path) -> None:
     doc = _image_doc(tmp_path, "Before.\n\n![A picture](pic.png)\n\nAfter.\n\n## Next\n\nNext text.\n")
     first, second = _expand(doc)
     assert first["narration"] == "Before. After."
-    (browser,) = first["actions"]
-    assert browser["browser"]["address"] == "pic.png"
-    assert browser["browser"]["url"].startswith("data:text/html;base64,")
+    (action,) = first["actions"]
+    assert action["slide"]["image"].startswith("data:image/png;base64,")
     assert "actions" not in second
 
 
 def test_an_image_never_covers_commands(tmp_path: Path) -> None:
     doc = _image_doc(tmp_path, "Look.\n\n![A picture](pic.png)\n\n```bash\nls\n```\n")
     image, command = _expand(doc)
-    assert [next(iter(action)) for action in image["actions"]] == ["browser"]
+    assert [next(iter(action)) for action in image["actions"]] == ["slide"]
     assert command["actions"][0] == {"run": "ls"}
     assert "narration" not in command
 
@@ -483,3 +484,214 @@ def test_fingerprint_follows_what_the_video_shows(tmp_path: Path) -> None:
     assert fingerprint(spec) == first, "moved lines, comments and dropped shell comments change nothing"
     doc.write_text("# Doc\n\nSay that.\n\n```bash\nls\n```\n", encoding="utf-8")
     assert fingerprint(spec) != first
+
+
+def _slides(scene: dict[str, object]) -> list[dict[str, Any]]:
+    actions = scene["actions"]
+    assert isinstance(actions, list)
+    return [action["slide"] for action in actions if "slide" in action]
+
+
+# ── pauses ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_pause_ends_the_scene_and_holds(tmp_path: Path) -> None:
+    doc = _doc(
+        tmp_path,
+        "# Doc\n\nFirst.\n\n<!-- narratty: pause 800ms -->\n\nSecond.\n\n"
+        "<!-- narratty: pause -->\nThird.\n\n```bash\nls\n```\n",
+    )
+    scenes = _expand(doc)
+    assert [(s["id"], s.get("narration"), s.get("actions")) for s in scenes] == [
+        ("doc-1", "First.", None),
+        ("doc-2", None, [{"hold": 800}]),
+        ("doc-3", "Second.", None),
+        ("doc-4", "Third.", [{"run": "ls"}, {"wait": {"prompt": True}}]),
+    ]
+    notes = [note.what for note in explain_entry(MarkdownEntry(markdown=doc.name), doc, "all").notes]
+    assert "pause comment: 800 ms of silence" in notes
+    assert "pause comment: the scene ends here" in notes
+
+
+def test_pause_needs_a_duration(tmp_path: Path) -> None:
+    message, line = _error(tmp_path, "# Doc\n\n<!-- narratty: pause soon -->\n")
+    assert (message, line) == ("pause comment: expected a duration such as 800ms or 1.5s, got 'soon'", 3)
+
+
+# ── tables ──────────────────────────────────────────────────────────────────────────────
+
+SAFETY = (
+    "| Hazard | Severity | Mitigation |\n"
+    "|---|---|---|\n"
+    "| Pinch point | high | Keep the guard closed |\n"
+    "| Hot surface | | Wear `gloves` <b>always</b> |\n"
+)
+
+
+def test_table_rows_are_spoken_one_by_one(tmp_path: Path) -> None:
+    doc = _doc(tmp_path, "# Doc\n\nThe risks.\n\n<!-- narratty: table -->\n" + SAFETY + "\nAfter.\n")
+    intro, first, second, after = _expand(doc)
+    assert intro["narration"] == "The risks."
+    assert first["narration"] == "Hazard: Pinch point. Severity: high. Mitigation: Keep the guard closed."
+    assert second["narration"] == "Hazard: Hot surface. Mitigation: Wear gloves always."
+    assert (first["source"], second["source"]) == ("doc.md:8", "doc.md:9")
+    (slide,) = _slides(second)
+    assert slide["highlight"] == 2
+    assert slide["table"]["header"] == ["Hazard", "Severity", "Mitigation"]
+    assert slide["table"]["rows"][1] == ["Hot surface", "", "Wear `gloves` <b>always</b>"]
+    assert _slides(first)[0]["table"] is slide["table"], "one table, shared by the row slides"
+    assert after["narration"] == "After."
+    assert "actions" not in after, "the table is gone after its rows"
+
+
+def test_table_template_pause_and_look(tmp_path: Path) -> None:
+    comment = (
+        '<!-- narratty: table {say: "{hazard}: {Mitigation}", pause: 500ms, title: Risks, rows: 1} -->\n'
+    )
+    first, second = _expand(_doc(tmp_path, "# Doc\n\n" + comment + SAFETY))
+    assert first["narration"] == "Pinch point: Keep the guard closed"
+    assert [next(iter(action)) for action in first["actions"]] == ["slide", "hold"]
+    assert first["actions"][1] == {"hold": 500}
+    assert first["narration_start"] == "after_actions"
+    assert {key: _slides(second)[0][key] for key in ("title", "rows", "highlight")} == {
+        "title": "Risks",
+        "rows": 1,
+        "highlight": 2,
+    }
+
+
+def test_tables_without_a_comment_stay_out(tmp_path: Path) -> None:
+    assert _expand(_doc(tmp_path, "# Doc\n\n" + SAFETY)) == []
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ("<!-- narratty: table -->\nNo table.\n", "table comment: the next block is not a table"),
+        ("<!-- narratty: table -->\n", "table comment: the next block is not a table"),
+        (
+            "<!-- narratty: table {say: '{Hazzard}'} -->\n" + SAFETY,
+            "no column 'Hazzard' (did you mean 'Hazard'?)",
+        ),
+        ("<!-- narratty: table {speak: x} -->\n" + SAFETY, "table comment: unknown key 'speak'"),
+        ("<!-- narratty: table {pause: soon} -->\n" + SAFETY, "table comment: pause: expected a duration"),
+        ("<!-- narratty: table -->\n| a | b |\n|---|---|\n", "table comment: the table has no rows"),
+    ],
+)
+def test_table_comment_errors(tmp_path: Path, body: str, message: str) -> None:
+    text, line = _error(tmp_path, "# Doc\n\n" + body)
+    assert message in text
+    assert line == 3
+
+
+def test_inline_code_reaches_the_lexicon(tmp_path: Path) -> None:
+    from narratty.tts.lexicon import Entry, Lexicon
+
+    (scene,) = _expand(_doc(tmp_path, "# Doc\n\nInstall `uv` and check the `SHA256` sum.\n"))
+    lexicon = Lexicon([Entry("uv", "you vee", "spec"), Entry("SHA256", "shah two fifty six", "spec")])
+    assert lexicon.apply(str(scene["narration"])) == "Install you vee and check the shah two fifty six sum."
+
+
+# ── diagrams and HTML pages ───────────────────────────────────────────────────────────
+
+MERMAID = "```mermaid\nflowchart LR\n  a[A & B] --> b\n```\n"
+
+
+def test_mermaid_block_shows_like_an_image(tmp_path: Path) -> None:
+    doc = _doc(tmp_path, "# Doc\n\nBefore.\n\n" + MERMAID + "\nAfter.\n\n```bash\nls\n```\n")
+    diagram, command = _expand(doc)
+    assert diagram["narration"] == "Before. After."
+    assert _slides(diagram) == [{"mermaid": "flowchart LR\n  a[A & B] --> b\n"}]
+    assert command["actions"][0] == {"run": "ls"}
+
+
+def test_mermaid_blocks_follow_images_false(tmp_path: Path) -> None:
+    doc = _doc(tmp_path, "# Doc\n\n" + MERMAID)
+    expansion = explain_entry(MarkdownEntry(markdown=doc.name, images=False), doc, "all")
+    assert expansion.scenes == []
+    assert "mermaid block: left out (images: false)" in [note.what for note in expansion.notes]
+
+
+def test_mermaid_block_takes_no_options(tmp_path: Path) -> None:
+    message, _ = _error(tmp_path, '# Doc\n\n```mermaid {narratty="hidden"}\ngraph TD\n```\n')
+    assert message == "'hidden' only applies to shell and console blocks"
+
+
+# ── slide comments ──────────────────────────────────────────────────────────────────────
+
+
+def test_slide_comment_sets_the_look(tmp_path: Path) -> None:
+    body = "# Doc\n\n<!-- narratty: slide {title: Flow, theme: light} -->\n" + MERMAID + "\nThe flow.\n"
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert _slides(scene) == [
+        {"title": "Flow", "theme": "light", "mermaid": "flowchart LR\n  a[A & B] --> b\n"}
+    ]
+
+
+def test_slide_comment_shows_a_table_without_reading_it(tmp_path: Path) -> None:
+    (scene,) = _expand(_doc(tmp_path, "# Doc\n\n<!-- narratty: slide -->\n" + SAFETY + "\nTwo risks.\n"))
+    assert scene["narration"] == "Two risks."
+    (slide,) = _slides(scene)
+    assert "highlight" not in slide and len(slide["table"]["rows"]) == 2
+
+
+def test_table_pages_follow_pause_comments(tmp_path: Path) -> None:
+    rows = "".join(f"| r{n} |\n" for n in range(1, 6))
+    body = (
+        "# Doc\n\n<!-- narratty: slide {rows: 2} -->\n| R |\n|---|\n" + rows + "\nFirst two.\n\n"
+        "<!-- narratty: pause 1s -->\n\nNext two.\n\n```bash\nls\n```\n"
+    )
+    scenes = _expand(_doc(tmp_path, body))
+    shown = [([s.get("page") for s in _slides(scene)], scene.get("narration")) for scene in scenes]
+    assert shown == [
+        ([1], "First two."),
+        ([2], None),  # the pause's silence already shows the next page
+        ([2], "Next two."),
+        ([3], None),  # left over: shown silently before the command
+        ([], None),
+    ]
+    assert scenes[3]["actions"][1] == {"hold": 3000}
+
+
+def test_slide_comment_shows_an_html_file(tmp_path: Path) -> None:
+    (tmp_path / "slides").mkdir()
+    (tmp_path / "slides" / "arch.html").write_text("<h1>Architecture</h1>", encoding="utf-8")
+    body = "# Doc\n\nBefore.\n\n<!-- narratty: slide {html: slides/arch.html} -->\nThe parts.\n"
+    before, scene = _expand(_doc(tmp_path, body))
+    assert before["narration"] == "Before."
+    (slide,) = _slides(scene)
+    prefix = "data:text/html;base64,"
+    assert base64.b64decode(slide["html"].removeprefix(prefix)).decode() == "<h1>Architecture</h1>"
+    assert scene["narration"] == "The parts."
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ("<!-- narratty: slide {html: missing.html} -->\n", "slide comment: file not found: missing.html"),
+        (
+            "<!-- narratty: slide -->\nText.\n",
+            "slide comment: the next block is not a table, image or mermaid",
+        ),
+        ("<!-- narratty: slide {colour: red} -->\n" + MERMAID, "slide comment: unknown key 'colour'"),
+    ],
+)
+def test_slide_comment_errors(tmp_path: Path, body: str, message: str) -> None:
+    text, line = _error(tmp_path, "# Doc\n\n" + body)
+    assert message in text
+    assert line == 3
+
+
+def test_slide_options_are_checked_with_the_spec(tmp_path: Path) -> None:
+    doc = _doc(tmp_path, "# Doc\n\n<!-- narratty: slide {rows: 2} -->\n" + MERMAID + "Text.\n")
+    with pytest.raises(SpecError) as info:
+        parse_document("scenes:\n  - markdown: doc.md\n", tmp_path / "s.narratty.yaml")
+    (issue,) = info.value.issues
+    assert "only apply to table slides" in issue.message
+    assert (issue.file, issue.line) == (doc, 4)
+
+
+def test_pages_too_large_to_embed(tmp_path: Path) -> None:
+    (tmp_path / "big.html").write_bytes(b"x" * 1_600_000)
+    message, _ = _error(tmp_path, "# Doc\n\n<!-- narratty: slide {html: big.html} -->\nText.\n")
+    assert message == "big.html is too large to embed (Chromium loads data: URLs up to 2 MB)"

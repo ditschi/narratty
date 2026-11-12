@@ -29,7 +29,7 @@ from narratty.cli.commands.voices import voices_app
 
 app = typer.Typer(
     name="narratty",
-    help="Turn a YAML script into a narrated terminal video.",
+    help="Turn your docs into narrated terminal videos.",
     no_args_is_help=True,
     add_completion=True,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -58,7 +58,7 @@ def main_callback(
         help="Show Python stack traces for unexpected internal errors.",
     ),
 ) -> None:
-    """Turn a YAML script into a narrated terminal video."""
+    """Turn your docs into narrated terminal videos."""
     _ = version
     if debug:
         os.environ["NARRATTY_DEBUG"] = "1"

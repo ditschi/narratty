@@ -99,7 +99,8 @@ const views = browsers.map((b) => {
   const el = document.createElement("div");
   el.className = "browser";
   el.innerHTML = '<img class="bar" alt=""><div class="view"><img class="page" alt=""></div>';
-  el.querySelector(".bar").src = b.bar;
+  if (b.bar) el.querySelector(".bar").src = b.bar;
+  else el.querySelector(".bar").remove();
   el.querySelector(".page").src = b.page;
   el.querySelector(".view").style.height = b.view_height + "cqw";
   stage.appendChild(el);

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "narratty"
 dynamic = ["version"]
-description = "Turn a YAML script into a narrated terminal video with local TTS, VHS rendering and automatic voiceover sync."
+description = "Turn your docs into narrated terminal videos with local TTS, commands that really run and automatic voiceover sync."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }

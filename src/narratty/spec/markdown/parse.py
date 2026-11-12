@@ -1,8 +1,8 @@
 """Markdown text to a flat list of headings, spoken text, code blocks and comments.
 
 markdown-it-py with the ``admon`` plugin reads the text the way mkdocs does for what
-matters here. What is left out of the video (tables, collapsed blocks, raw HTML) is
-dropped in this pass; what to do with the rest is decided in :mod:`.scenes`.
+matters here. What is left out of the video (collapsed blocks, raw HTML) is dropped in
+this pass; what to do with the rest is decided in :mod:`.scenes`.
 """
 
 from __future__ import annotations
@@ -70,6 +70,17 @@ class Image(Block):
 
 
 @dataclass(frozen=True)
+class Table(Block):
+    """A table: its cells as plain text (spoken) and as inline Markdown (shown)."""
+
+    header: tuple[str, ...]
+    rows: tuple[tuple[str, ...], ...]
+    row_lines: tuple[int, ...]
+    header_source: tuple[str, ...]
+    rows_source: tuple[tuple[str, ...], ...]
+
+
+@dataclass(frozen=True)
 class Dropped(Block):
     """Something left out of the video, kept so ``plan --sources`` can say why."""
 
@@ -80,11 +91,11 @@ _HEADING_ATTRS = re.compile(r"\s*\{:?\s*(?P<attrs>[^}]*)\}\s*$")
 _ATTR = re.compile(r"#(?P<id>[\w-]+)|\.[\w-]+|(?P<key>[\w-]+)=(?P<value>\"[^\"]*\"|'[^']*'|[^\s}]+)")
 _ALERT = re.compile(r"^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*", re.IGNORECASE)
 _INLINE_HILITE = re.compile(r"^#!\w+\s+")
-_SENTENCE_END = (".", "!", "?", ":", ";", "…")
+SENTENCE_END = (".", "!", "?", ":", ";", "…")
 _COMMENT = re.compile(r"^\s*<!--(?P<text>.*?)-->\s*$", re.DOTALL)
 _DETAILS_OPEN = re.compile(r"<details\b", re.IGNORECASE)
 _DETAILS_CLOSE = re.compile(r"</details\s*>", re.IGNORECASE)
-_DROPPED = {"table": "table", "code_block": "indented code block"}
+_DROPPED = {"code_block": "indented code block"}
 
 
 def parse_blocks(lines: list[Line]) -> list[Block]:
@@ -134,6 +145,8 @@ class _Walker:
                 self.walk([child for child in node.children if child.type != "admonition_title"])
         elif node.type == "fence":
             self.blocks.append(self.code(node))
+        elif node.type == "table":
+            self.blocks.append(self.table(node))
         elif node.type in _DROPPED:
             self.blocks.append(Dropped(*self.at(node), _DROPPED[node.type]))
 
@@ -164,7 +177,7 @@ class _Walker:
             text = _ALERT.sub("", text)
         if not text or _HEADING_ATTRS.fullmatch(text):  # empty, an image, or `{ .annotate }`
             return
-        if item and not text.endswith(_SENTENCE_END):
+        if item and not text.endswith(SENTENCE_END):
             text += "."
         links = tuple(_links(node.children[0])) if node.children else ()
         self.blocks.append(Text(*self.at(node), text, links))
@@ -178,6 +191,25 @@ class _Walker:
             id=attrs.get("#"),
             title=attrs.get("title"),
             options=tuple(attrs.get("narratty", "").split()),
+        )
+
+    def table(self, node: SyntaxTreeNode) -> Table:
+        def cells(row: SyntaxTreeNode) -> tuple[str, ...]:
+            return tuple(_plain(cell.children[0]) if cell.children else "" for cell in row.children)
+
+        def sources(row: SyntaxTreeNode) -> tuple[str, ...]:
+            return tuple(cell.children[0].content if cell.children else "" for cell in row.children)
+
+        parts = {part.type: part for part in node.children}
+        head = parts["thead"].children if "thead" in parts else []
+        body = parts["tbody"].children if "tbody" in parts else []
+        return Table(
+            *self.at(node),
+            header=cells(head[0]) if head else (),
+            rows=tuple(cells(row) for row in body),
+            row_lines=tuple(self.at(row)[1] for row in body),
+            header_source=sources(head[0]) if head else (),
+            rows_source=tuple(sources(row) for row in body),
         )
 
 

@@ -42,6 +42,13 @@ def doctor_command(runtime: Runtime = RuntimeOption) -> None:
             table.add_row(check.name, status, purpose, escape(check.reason or "installed"))
             if check.required and not check.ok:
                 missing.append(check.name)
+        from narratty.render.browser import MERMAID_FILE, find_mermaid
+
+        purpose = "Mermaid diagrams in browser views (optional)"
+        try:
+            table.add_row(MERMAID_FILE, "[green]ok[/]", purpose, escape(str(find_mermaid())))
+        except MissingDependencyError as error:
+            table.add_row(MERMAID_FILE, "[yellow]optional[/]", purpose, escape(error.hint or error.message))
     out.print(table)
 
     if missing:

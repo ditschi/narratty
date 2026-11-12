@@ -21,7 +21,7 @@ from narratty.render import media, timelapse
 from narratty.render.narration import Placement, build_track
 from narratty.render.subtitles import Narrated, SubtitleFiles, cues_for, to_srt
 from narratty.spec import load_spec
-from narratty.spec.model import ShowBrowser, ShowOverlay, Spec
+from narratty.spec.model import ShowBrowser, ShowOverlay, ShowSlide, Spec
 from narratty.timeline import Timeline, build_timeline
 from narratty.tts.lexicon import load_lexicon
 from narratty.tts.registry import get_provider
@@ -493,8 +493,10 @@ def has_overlays(spec: Spec) -> bool:
 
 
 def has_browsers(spec: Spec) -> bool:
-    """Whether any scene shows a browser."""
-    return any(isinstance(action, ShowBrowser) for scene in spec.scenes for action in scene.actions)
+    """Whether any scene shows a browser or a slide."""
+    return any(
+        isinstance(action, ShowBrowser | ShowSlide) for scene in spec.scenes for action in scene.actions
+    )
 
 
 def overlay_images(
