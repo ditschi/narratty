@@ -303,9 +303,30 @@ emphasizes a Mermaid node or subgraph while the scene is narrated.
 | `focus` | Mermaid node or subgraph ID to emphasize |
 | `html` | Shows an HTML file instead, from the next paragraph on |
 
-For a voiceover walkthrough, repeat the diagram in successive YAML scenes and set a
-different `focus` ID in each slide. Each node stays emphasized for its scene's narration
-unless `duration_ms` caps the slide.
+For a voiceover walkthrough in Markdown, repeat the diagram with a different `focus`
+ID for each step. A durationless `pause` closes the current narration scene without
+adding silence, so the highlight advances with the spoken text:
+
+````markdown
+<!-- narratty: slide {title: Request flow, focus: api} -->
+```mermaid
+flowchart LR
+  api[API] --> db[Database]
+```
+The API receives the request.
+
+<!-- narratty: pause -->
+
+<!-- narratty: slide {title: Request flow, focus: db} -->
+```mermaid
+flowchart LR
+  api[API] --> db[Database]
+```
+The database stores it.
+````
+
+In YAML, use one scene per focus ID instead. A node stays emphasized for its scene's
+narration unless `duration_ms` caps the slide.
 Mermaid labels can use Unicode emoji; the narratty image includes an emoji font. Its
 bundled Font Awesome 6 Solid icons use the `fa:` prefix, for example `fa:server` in
 Mermaid's icon syntax. Native renders can set `NARRATTY_FONTAWESOME_JSON` to an

@@ -694,6 +694,23 @@ def test_slide_comment_can_focus_a_mermaid_node(tmp_path: Path) -> None:
     assert _slides(scene) == [{"focus": "api", "mermaid": "flowchart LR\n  a[A & B] --> b\n"}]
 
 
+def test_markdown_mermaid_walkthrough_uses_a_pause_as_a_scene_boundary(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\n<!-- narratty: slide {focus: a} -->\n"
+        + MERMAID
+        + "The request arrives.\n\n<!-- narratty: pause -->\n\n"
+        "<!-- narratty: slide {focus: b} -->\n"
+        + MERMAID
+        + "The database stores it.\n"
+    )
+    first, second = _expand(_doc(tmp_path, body))
+    assert [scene["narration"] for scene in (first, second)] == [
+        "The request arrives.",
+        "The database stores it.",
+    ]
+    assert [_slides(scene)[0]["focus"] for scene in (first, second)] == ["a", "b"]
+
+
 def test_slide_comment_shows_a_table_without_reading_it(tmp_path: Path) -> None:
     (scene,) = _expand(_doc(tmp_path, "# Doc\n\n<!-- narratty: slide -->\n" + SAFETY + "\nTwo risks.\n"))
     assert scene["narration"] == "Two risks."
