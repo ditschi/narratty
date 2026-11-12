@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Conventional Commits](https://www.conventionalcommits.org/) and is maintained by
 commitizen.
 
+## v0.6.1 (2026-11-12)
+
+### Fix
+
+- bound overlay inputs to visible intervals
+
 ## v0.6.0 (2026-11-12)
 
 ### Feat
