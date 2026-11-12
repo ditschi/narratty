@@ -22,7 +22,10 @@ from narratty.spec.markdown.scenes import (
 )
 from narratty.spec.model import MarkdownEntry
 
-SPATIAL = re.compile(r"\b(above|below|click here|the following command)\b", re.IGNORECASE)
+SPATIAL = re.compile(
+    r"(?<!\band )(?<!\bor )\b(above|below|click here|the following command)\b", re.IGNORECASE
+)
+"""Words that point at the page; "and above" / "or below" (as in "level 2 and above") are fine."""
 ERROR_OUTPUT = re.compile(
     r"^\s*(?:error(?:\[\w+\])?:|fatal:|panic:|Error\b|ERROR\b|Traceback \(most recent call last\))"
 )
@@ -47,6 +50,10 @@ _ID = re.compile(r"[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*")
 _PARTICIPANT = re.compile(r"^\s*(?:create\s+)?(?:participant|actor)\s+(?P<id>\S+)", re.MULTILINE)
 _MESSAGE = re.compile(r"^\s*(?P<a>[\w.@]+)\s*(?:<<)?--?(?:>>|>|x|\))[+-]?\s*(?P<b>[\w.@]+)\s*:", re.MULTILINE)
 _BRACKETS = re.compile(r"\[[^\[\]]*\]|\([^()]*\)|\{[^{}]*\}")
+
+
+PROMPT_LANGS = ("", "text", "txt", "shell-session", "terminal")
+"""Languages whose `$ ` lines are likely commands; a `markdown` or `yaml` example is not."""
 
 
 def lint(blocks: list[Block], entry: MarkdownEntry, path: Path, expansion: Expansion) -> list[Note]:
@@ -92,8 +99,10 @@ def _blocks(selected: list[Block], notes: dict[tuple[Path, int], list[str]]) -> 
             )
         if not isinstance(block, Code):
             continue
-        if any("left out (no" in what for what in whats) and any(
-            line.startswith("$ ") for line in block.content.splitlines()
+        if (
+            block.lang in PROMPT_LANGS
+            and any("left out (no" in what for what in whats)
+            and any(line.startswith("$ ") for line in block.content.splitlines())
         ):
             yield _warn(
                 block,

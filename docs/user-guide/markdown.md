@@ -430,6 +430,8 @@ A slide is shown while the text around it is spoken, up to the next block, headi
 `pause` comment; a scene after that shows the terminal again. `hold` keeps the slide
 up for more of the text after it (since 0.7):
 
+<!-- narratty: skip -->
+
 | `hold` | The slide stays for the text after it, up to |
 |---|---|
 | unset | the end of its scene |
@@ -817,7 +819,7 @@ Change them like any style in [`overlay_styles`](spec.md#overlays).
 ## Snippets and mkdocs
 
 The doc is read the way this repo's mkdocs config renders it: admonitions,
-collapsible blocks and content tabs (`pymdownx.tabbed`) as above, and
+collapsible blocks and content tabs (`pymdownx.tabbed`) as described on this page, and
 `--8<-- "path"` snippets (with an optional `:start:end` line range) inserted before
 reading, relative to the snippets `base_path` in the nearest `mkdocs.yml`, else the
 repository root. Errors in an inserted snippet name the snippet file and line.

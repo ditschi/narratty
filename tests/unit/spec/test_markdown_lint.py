@@ -117,6 +117,15 @@ def test_other_diagram_types_are_not_checked() -> None:
     assert mermaid_targets("classDiagram\n  A <|-- B") is None
 
 
+def test_prompts_in_doc_examples_are_fine(tmp_path: Path) -> None:
+    body = "# Doc\n\n```markdown\n$ make install\n```\n\n" + RUN
+    assert _warnings(tmp_path, body) == []
+
+
+def test_and_above_is_not_spatial(tmp_path: Path) -> None:
+    assert _warnings(tmp_path, "# Doc\n\nHeadings of level 2 and above, or below.\n\n" + RUN) == []
+
+
 def test_spatial_words_in_narration(tmp_path: Path) -> None:
     body = "# Doc\n\nRun the following command.\n\n<!-- narratty: say As shown above. -->\n\n" + RUN
     assert [line for line, _ in _warnings(tmp_path, body)] == [3, 5]
