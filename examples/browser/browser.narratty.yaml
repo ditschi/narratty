@@ -20,7 +20,7 @@ scenes:
       This is the page you should see. The readme explains what narratty does, and
       further down you find the quick start.
     actions:
-      - browser: {url: "https://github.com/ditschi/narratty", scroll: 1400}
+      - browser: {url: "https://github.com/ditschi/narratty", scroll: 1400, load_ms: 15s}
   - id: back
     narration: Back in the terminal, copy the clone command and press Enter.
     actions:
