@@ -243,7 +243,8 @@ snippet configures the spoken steps; the live table below is what those steps hi
 - `say` fills in the cells of the columns named in braces; names match the header
   regardless of case.
 - `say: ["First custom narration.", "Second custom narration."]` supplies one custom
-  phrase per row; the list must have exactly as many phrases as the table has rows.
+  phrase per row; the list must have exactly as many phrases as the table has rows
+  (since 0.7).
 - `pause: 500ms` highlights each row that long before it is spoken.
 - `title`, `theme` and `rows` set the look of the slide, as in the `slide` comment.
 - Cells are read like paragraphs, so the lexicon applies to inline code in them.
@@ -319,7 +320,7 @@ emphasizes a Mermaid node or subgraph while the scene is narrated.
 | `title` | Text above the content |
 | `theme` | `dark` or `light` for this slide |
 | `rows` | Table rows per page, see [Tables](#tables) |
-| `focus` | Mermaid node or subgraph ID to emphasize |
+| `focus` | Mermaid node or subgraph ID to emphasize (since 0.7) |
 | `html` | Shows an HTML file instead, from the next paragraph on |
 
 For a voiceover walkthrough in Markdown, write the Mermaid diagram once, then use a
@@ -350,8 +351,12 @@ The API receives the request.
 <!-- narratty: focus db -->
 The database stores it.
 
-The `focus` comment closes the previous narration scene and reuses the last Mermaid
-diagram with a new focus target. In YAML, repeat the slide action in one scene per focus
+The `focus` comment (since 0.7) closes the previous narration scene and reuses the last
+Mermaid diagram with a new focus target. It takes one node or subgraph ID from the
+diagram source, such as `db` or `api-gateway`. The diagram must still be on screen: a
+heading, table, image, browser view or command block in between ends it. With
+`narration: none` and no `say` text before it, or with `images: false`, the comment is
+left out like the diagram. In YAML, repeat the slide action in one scene per focus
 ID instead. A node stays emphasized for its scene's narration unless `duration_ms` caps
 the slide.
 Mermaid labels can use Unicode emoji; the narratty image includes an emoji font. Its
@@ -417,7 +422,7 @@ The [Compose file reference](https://docs.docker.com/compose/) lists every key.
 | `pause` | Ends the scene; with a duration, silence follows (since 0.6), see [Pauses](#pauses) |
 | `table` | Speaks the next table row by row on a slide (since 0.6), see [Tables](#tables) |
 | `slide` | Sets the title and look of the next table, diagram or image, or shows an HTML file (since 0.6), see [Slides](#slides) |
-| `focus` | Reuses the last Mermaid diagram, emphasizing the given node or subgraph for the next narrated step |
+| `focus` | Reuses the last Mermaid diagram, emphasizing the given node or subgraph for the next narrated step (since 0.7), see [Slides](#slides) |
 | `spec` | Spec keys for building the doc on its own (since 0.6), see [Building a doc on its own](#building-a-doc-on-its-own) |
 
 HTML comments cannot contain `--`; put such text into a YAML scene instead.

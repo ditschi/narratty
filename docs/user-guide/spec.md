@@ -495,20 +495,22 @@ scenes:
 
 | Key | Meaning |
 |---|---|
-| `table` | `{header: [...], rows: [[...], ...]}`; cells are inline Markdown (`` `code` ``, `**bold**`, links) |
+| `table` | `{header: [...], rows: [[...], ...]}`, the list of rows, each with as many cells as the header; cells are inline Markdown (`` `code` ``, `**bold**`, links) |
 | `mermaid` | The source of a [Mermaid](https://mermaid.js.org) diagram, drawn without network |
-| `focus` | Mermaid node or subgraph ID to emphasize during narration (since 0.6) |
+| `focus` | Mermaid node or subgraph ID to emphasize during narration (since 0.7) |
 | `image` | A PNG, JPEG, GIF, SVG or WebP file in the workspace, or a `data:` URL |
 | `html` | An HTML file in the workspace or a `data:` URL, shown as it is (no title or theme) |
 | `title` | Text above the content |
 | `highlight` | Table row to highlight, from 1 |
-| `rows` | Table rows per page; the page with the highlighted row is shown, with a page counter |
+| `rows` | Table rows per page, a number (not the `rows` list inside `table`); the page with the highlighted row is shown, with a page counter |
 | `page` | Table page to show when no row is highlighted |
 | `theme` | `dark` or `light`; defaults to `slides.theme` |
 | `duration_ms` | Hide after this long |
 
 For a diagram walkthrough, repeat the same source in successive scenes and change
-`focus`; each highlight stays in place for that scene's narration:
+`focus`; each highlight stays in place for that scene's narration. `focus` is the ID
+from the diagram source (`api`, `api-gateway`, a subgraph's ID) and must name exactly
+one node or subgraph; otherwise the render fails and lists the IDs it found:
 
 ```yaml
 scenes:
@@ -558,3 +560,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 | 0.3 | `run` action, `key: Enter` (the bare `- enter` still works), durations like `1.5s`, `wait: "pattern"`, `wait: {prompt: true}`, `timing.run_hold_ms`, `timing.pause_ms` and scene `pause_ms`, `tts.lexicon`, `subtitles`, `environment`, `sandbox.docker`, `terminal.layout`, overlays (`overlay`, `overlay_styles`), `browser`, `diff`, `focus`, `reveal`, scene `timelapse`, `expect_exit` and `fast` |
 | 0.5 | `requires.narratty`, `markdown` scene entries and the top-level `narration` ([Markdown input](markdown.md)), overlay styles `heading-1` to `heading-4`, `breadcrumb` and `file`, `browser` `address` and `data:` URLs |
 | 0.6 | `slide` action and `slides.theme`, Mermaid diagrams in browser views, `run` `expect_output`; in Markdown input the `table`, `slide`, `pause` and `spec` comments, `mermaid` blocks, `check_output` and the `any-output` block option |
+| 0.7 | `slide` `focus`; in Markdown input the `focus` comment, the `slide` comment's `focus` key and a list for the `table` comment's `say` |
