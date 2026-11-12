@@ -94,6 +94,15 @@ def test_screen_text_strips_escapes_and_follows_clears() -> None:
     assert screen.text == "ac\nlast", "backspace erases, only the last rows count"
 
 
+def test_screen_text_follows_carriage_returns_and_line_erases() -> None:
+    """zsh's PROMPT_SP: `%`, spaces, carriage returns, then the prompt and erase-line."""
+    screen = ScreenText(rows=3)
+    screen.feed("hi\r\n\x1b[7m%\x1b[27m" + " " * 79 + "\r \r\r\x1b[J$ \x1b[K")
+    assert screen.lines == ["hi", "$ "]
+    screen.feed("\r 50%\r100%")
+    assert screen.lines[-1] == "100%", "a progress line is redrawn in place"
+
+
 def test_diff_shows_what_the_demo_changed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NARRATTY_DIFF_BASE", str(tmp_path / "base"))
     monkeypatch.setenv("PATH", f"{Path(shutil.which('git') or 'git').parent}:{os.defpath}")  # no delta or bat
@@ -244,3 +253,15 @@ def test_prompt_timeouts_name_the_scene_and_no_pattern(tmp_path: Path) -> None:
     assert "in scene 'greet'" in raised.value.message
     assert raised.value.scene == "greet"
     assert raised.value.hint is not None and "pattern" not in raised.value.hint
+
+
+@pytest.mark.parametrize("shell", ["bash", "zsh"])
+def test_check_sees_the_prompt_in_real_shells(shell: str, tmp_path: Path) -> None:
+    """zsh redraws its prompt after carriage returns (PROMPT_SP); the wait must follow."""
+    if not shutil.which(shell):
+        pytest.skip(f"{shell} is not installed")
+    spec = _prompt_scene("echo hi").replace("terminal: {", f"terminal: {{shell: {shell}, ")
+    events, _, _ = _record(spec, tmp_path, audio_ms=10)
+    assert "hi" in "".join(str(e[2]) for e in events if e[1] == "o")
+    spec = _prompt_scene("""printf '{"a":1}'""").replace("terminal: {", f"terminal: {{shell: {shell}, ")
+    _record(spec, tmp_path, audio_ms=10)

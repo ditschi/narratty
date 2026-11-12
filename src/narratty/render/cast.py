@@ -90,33 +90,55 @@ ESCAPE = re.compile(
 )
 
 
+_ERASE_LINE = re.compile(r"\x1b\[0?K")
+
+
 @dataclass
 class ScreenText:
     """The printed text since the last clear, without escape sequences.
 
-    Close enough to the screen for ``wait`` patterns on command output; cursor
+    Close enough to the screen for ``wait`` patterns on command output: a carriage
+    return moves to the start of the line, and what follows overwrites it (zsh redraws
+    its prompt that way); erase to the end of the line is followed. Other cursor
     movement inside full-screen programs is not modelled.
     """
 
     rows: int
     lines: list[str] = field(default_factory=lambda: [""])
+    column: int = 0
 
     def feed(self, data: str) -> None:
         """Add printed output."""
         cleared = list(_CLEAR.finditer(data))
         if cleared:
-            self.lines = [""]
+            self.lines, self.column = [""], 0
             data = data[cleared[-1].end() :]
-        for char in ESCAPE.sub("", data):
+        position = 0
+        for escape in ESCAPE.finditer(data):
+            self._text(data[position : escape.start()])
+            if _ERASE_LINE.fullmatch(escape.group()):
+                self.lines[-1] = self.lines[-1][: self.column]
+            position = escape.end()
+        self._text(data[position:])
+        del self.lines[: -self.rows]
+
+    def _text(self, text: str) -> None:
+        for char in text:
             if char == "\n":
                 self.lines.append("")
+                self.column = 0
             elif char == "\r":
-                continue  # the \n of \r\n moves on; a lone \r redraws the line in place
+                self.column = 0
             elif char == "\b":
-                self.lines[-1] = self.lines[-1][:-1]
+                self.column = max(0, self.column - 1)
             elif char >= " " or char == "\t":
-                self.lines[-1] += char
-        del self.lines[: -self.rows]
+                line = self.lines[-1]
+                if self.column == len(line):  # the usual case: appending
+                    self.lines[-1] = line + char
+                else:
+                    line = line.ljust(self.column)
+                    self.lines[-1] = line[: self.column] + char + line[self.column + 1 :]
+                self.column += 1
 
     @property
     def text(self) -> str:

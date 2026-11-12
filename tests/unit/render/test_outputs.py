@@ -111,3 +111,9 @@ def test_a_command_that_never_ran(tmp_path: Path) -> None:
 
 def test_plain_lines_drop_a_prompt_glued_to_the_output() -> None:
     assert plain_lines('printf x\r\n{"a":1}$ ', "$ ") == ['{"a":1}']
+
+
+def test_plain_lines_drop_zsh_prompt_sp() -> None:
+    mark = "\x1b[1m\x1b[7m%\x1b[27m\x1b[1m\x1b[0m" + " " * 79 + "\r \r\r\x1b[0m\x1b[J$ \x1b[K"
+    assert plain_lines("echo hi\r\r\nhi\r\n" + mark, "$ ") == ["hi"]
+    assert plain_lines('printf x\r\r\n{"a":1}' + mark, "$ ") == ['{"a":1}']
