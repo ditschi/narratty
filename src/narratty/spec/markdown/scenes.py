@@ -38,7 +38,18 @@ from narratty.spec.model import (
 
 SHELL_LANGS = ("bash", "sh", "shell")
 BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure", "any-output")
-COMMENT_KINDS = ("skip", "say", "overlay", "hidden", "browser", "pause", "table", "slide", "spec")
+COMMENT_KINDS = (
+    "skip",
+    "say",
+    "overlay",
+    "hidden",
+    "browser",
+    "pause",
+    "table",
+    "slide",
+    "focus",
+    "spec",
+)
 SLIDE_KEYS = ("title", "theme", "rows", "html", "focus")
 TABLE_KEYS = ("say", "pause", "title", "theme", "rows")
 VISUALS = "a table, image or mermaid block"
@@ -159,6 +170,7 @@ class _Builder:
         self.link: tuple[Comment, dict[str, Any]] | None = None  # a browser comment's options
         self.table: tuple[Comment, dict[str, Any]] | None = None  # a table comment's options
         self.slide: tuple[Comment, dict[str, Any]] | None = None  # a slide comment's options
+        self.diagram: dict[str, Any] | None = None  # the last Mermaid slide, reusable by focus comments
         self.pages: list[dict[str, Any]] = []  # later pages of the table on screen
         self.pages_block: Block | None = None
         self.used: set[str] = set()
@@ -250,6 +262,7 @@ class _Builder:
             "pause": self.pause,
             "table": self.table_comment,
             "slide": self.slide_comment,
+            "focus": self.focus_comment,
             "hidden": self.hidden_comment,
         }.get(kind):
             handler(block, body)
@@ -367,8 +380,21 @@ class _Builder:
         if not self.entry.images:
             self.note(block, None, "mermaid block: left out (images: false)")
             return
-        slide = {**look, "mermaid": block.content}
-        self.pending_view(block, {"slide": slide}, "mermaid block: shown as a slide")
+        self.diagram = {**look, "mermaid": block.content}
+        self.pending_view(block, {"slide": self.diagram}, "mermaid block: shown as a slide")
+
+    def focus_comment(self, block: Comment, body: str) -> None:
+        """Start a new narrated scene that focuses another node in the last Mermaid diagram."""
+        if self.diagram is None:
+            raise fail(block.file, block.line, "focus comment: no preceding Mermaid diagram")
+        if not body:
+            raise fail(block.file, block.line, "focus comment: expected a Mermaid node or subgraph ID")
+        if not self.spoken:
+            raise fail(block.file, block.line, "focus comment: put it after the text for the previous step")
+        self.flush()
+        self.overlays.append((None, {"slide": {**self.diagram, "focus": body}}))
+        self.unassigned.append((block, f"focus comment: highlights Mermaid target {body!r}"))
+        self.image = True
 
     def pause(self, block: Comment, body: str) -> None:
         """End the scene here; with a duration, a silent scene follows.

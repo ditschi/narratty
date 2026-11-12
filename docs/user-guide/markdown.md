@@ -315,18 +315,14 @@ flowchart LR
 ```
 The API receives the request.
 
-<!-- narratty: pause -->
-
-<!-- narratty: slide {title: Request flow, focus: db} -->
-```mermaid
-flowchart LR
-  api[API] --> db[Database]
-```
+<!-- narratty: focus db -->
 The database stores it.
 ````
 
-In YAML, use one scene per focus ID instead. A node stays emphasized for its scene's
-narration unless `duration_ms` caps the slide.
+The `focus` comment closes the previous narration scene and reuses the last Mermaid
+diagram with a new focus target. In YAML, repeat the slide action in one scene per focus
+ID instead. A node stays emphasized for its scene's narration unless `duration_ms` caps
+the slide.
 Mermaid labels can use Unicode emoji; the narratty image includes an emoji font. Its
 bundled Font Awesome 6 Solid icons use the `fa:` prefix, for example `fa:server` in
 Mermaid's icon syntax. Native renders can set `NARRATTY_FONTAWESOME_JSON` to an
@@ -390,6 +386,7 @@ The [Compose file reference](https://docs.docker.com/compose/) lists every key.
 | `pause` | Ends the scene; with a duration, silence follows (since 0.6), see [Pauses](#pauses) |
 | `table` | Speaks the next table row by row on a slide (since 0.6), see [Tables](#tables) |
 | `slide` | Sets the title and look of the next table, diagram or image, or shows an HTML file (since 0.6), see [Slides](#slides) |
+| `focus` | Reuses the last Mermaid diagram, emphasizing the given node or subgraph for the next narrated step |
 | `spec` | Spec keys for building the doc on its own (since 0.6), see [Building a doc on its own](#building-a-doc-on-its-own) |
 
 HTML comments cannot contain `--`; put such text into a YAML scene instead.
