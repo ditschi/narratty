@@ -124,6 +124,8 @@ def test_a_clip_pushed_back_by_the_one_before_says_so() -> None:
         (10000, 10000, None),
         (9800, 10000, None),  # within VHS's usual few percent
         (8000, 10000, 1.25),
+        (9500, 10000, 10000 / 9500),
+        (9400, 9800, None),  # 4%, but only 400 ms: VHS's start and stop overhead
         (0, 10000, None),
         (10000, 0, None),
     ],

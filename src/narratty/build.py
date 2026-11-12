@@ -861,8 +861,9 @@ def build(
         say("mixing narration")
         track = work / "narration.wav"
         used = build_track(placements, video_ms, track)
-        starts = wanted | {p.scene_id: p.start_ms for p in used}
-        late = None if layout is None else _overruns(planned, layout, video_ms, starts, wanted, say)
+        placed = {p.scene_id: p.start_ms for p in used}
+        starts = wanted | placed
+        late = None if layout is None else _overruns(planned, layout, video_ms, placed, wanted, say)
         cues = cues_for(narrations(planned, starts))
         srt: Path | None = None
         if mode in ("track", "burn") and cues:

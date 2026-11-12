@@ -24,8 +24,10 @@ from dataclasses import dataclass
 from narratty.render.script import END_CUE, narration_cue
 from narratty.timeline import Timeline
 
-# A video this much shorter than the time VHS spent recording lost frames under load.
+# A video this much shorter than the time VHS spent recording lost frames under load
+# (relative, and at least ``DROP_MIN_MS``, so VHS's start and stop overhead never counts).
 DROP_TOLERANCE = 0.03
+DROP_MIN_MS = 500
 # Narration may run this far into the next scene without being worth a warning.
 OVERRUN_GRACE_MS = 100
 
@@ -150,6 +152,6 @@ def retime_factor(video_ms: int, recorded_ms: int, tolerance: float = DROP_TOLER
     could not capture (a busy machine) are missing, so the video runs fast. Stretching
     it by ``recorded_ms / video_ms`` puts every frame back at the time it was taken.
     """
-    if video_ms <= 0 or recorded_ms <= 0 or video_ms >= recorded_ms * (1 - tolerance):
+    if video_ms <= 0 or recorded_ms - video_ms < max(DROP_MIN_MS, recorded_ms * tolerance):
         return None
     return recorded_ms / video_ms
