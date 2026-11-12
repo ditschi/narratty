@@ -98,6 +98,22 @@ def docs_serve(session: nox.Session) -> None:
     session.run("mkdocs", "serve", *session.posargs)
 
 
+# Pages docs_check runs natively: their commands may only touch the workspace copy.
+CHECKED_DOCS = (
+    "docs/user-guide/markdown.md",
+    "docs/user-guide/spec.md",
+    "docs/examples/pronunciation.md",
+)
+
+
+@nox.session(python=DEFAULT_PYTHON, tags=["docs"])
+def docs_check(session: nox.Session) -> None:
+    """Run the commands of our own docs and compare their output (narratty check)."""
+    session.install("-e", ".")
+    for doc in session.posargs or CHECKED_DOCS:
+        session.run("narratty", "check", "--runtime", "native", doc)
+
+
 @nox.session(python=DEFAULT_PYTHON)
 def check_syntax(session: nox.Session) -> None:
     """Byte-compile all sources to catch syntax errors fast."""

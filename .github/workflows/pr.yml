@@ -252,6 +252,24 @@ jobs:
         run: uv tool install nox
       - name: Build docs
         run: nox -s docs
+  # ── Docs check: our docs' commands run, and print what the docs show ────────
+  docs-check:
+    name: Docs check (narratty check)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - name: Install nox
+        run: uv tool install nox
+      - name: Check docs
+        run: nox -s docs_check
   # ── Docker image: built and smoke-tested when its inputs change ─────────────
   docker:
     name: Docker
@@ -336,7 +354,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [changes, lint-title, quality, agent, tests, package, integration, performance, docs-build, docker]
+    needs: [changes, lint-title, quality, agent, tests, package, integration, performance, docs-build, docs-check, docker]
     runs-on: ubuntu-latest
     steps:
       - name: All jobs passed or were skipped

@@ -19,7 +19,11 @@ searchable. The lexicon tells the engine how to say them. See
 `kubectl` needs no entry: it is in the built-in lexicon. Put entries shared by several
 specs in `narratty.lexicon.toml` in the repository or `~/.config/narratty/lexicon.toml`.
 
-```bash
-narratty lexicon check examples/lexicon/lexicon.narratty.yaml   # words that may need an entry
-narratty lexicon show examples/lexicon/lexicon.narratty.yaml    # merged entries and their source
+`lexicon check` lists words that may need an entry, `lexicon show` the merged entries
+and where each comes from:
+
+```console
+$ narratty lexicon check examples/lexicon/lexicon.narratty.yaml
+every unusual word has a lexicon entry
+$ narratty lexicon show examples/lexicon/lexicon.narratty.yaml
 ```

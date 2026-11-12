@@ -20,6 +20,7 @@ uv run pre-commit install    # ruff, mypy, codespell, commit-msg check
 | `nox -s duplicates` / `cyclic_imports` | pylint R0801 / R0401 |
 | `nox -s performance` | Cold-start budgets for `--help` and shell completion |
 | `nox -s docs` | `mkdocs build --strict` |
+| `nox -s docs_check` | `narratty check` on the pages in `CHECKED_DOCS` (`noxfile.py`): their commands run natively, in a copy of the repository, and must print what the page shows |
 
 ## Commits
 
