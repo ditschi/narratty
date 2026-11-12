@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Conventional Commits](https://www.conventionalcommits.org/) and is maintained by
 commitizen.
 
+## v0.5.0 (2026-11-12)
+
+### Feat
+
+- **spec**: browser comments open a marked link of Markdown input
+- **spec**: leave the heading out of scene ids when it repeats the file stem
+- **spec**: show images of Markdown input in a browser view
+- **cli**: narratty compile and plan --sources for Markdown input
+- **spec**: commands, files, doc comments and overrides in Markdown input
+- **render**: chapter overlays hide after 3s; overlay_styles: {chapter: {keep: true}} keeps them
+- **spec**: expand Markdown docs into scenes
+- **spec**: accept markdown entries in scenes
+- **spec**: requires.narratty and the spec versioning rule
+
+### Fix
+
+- **container**: run as container root under rootless Docker
+- **container**: resolve the workspace from the spec, not its compiled copy
+
 ## v0.4.1 (2026-10-01)
 
 ### Fix
