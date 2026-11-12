@@ -414,4 +414,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 | Release | Added to `version: 1` |
 |---|---|
 | 0.3 | `run` action, `key: Enter` (the bare `- enter` still works), durations like `1.5s`, `wait: "pattern"`, `wait: {prompt: true}`, `timing.run_hold_ms`, `timing.pause_ms` and scene `pause_ms`, `tts.lexicon`, `subtitles`, `environment`, `sandbox.docker`, `terminal.layout`, overlays (`overlay`, `overlay_styles`), `browser`, `diff`, `focus`, `reveal`, scene `timelapse`, `expect_exit` and `fast` |
-| 0.5 | `requires.narratty` |
+| 0.5 | `requires.narratty`, `markdown` scene entries and the top-level `narration` ([Markdown input](markdown.md)), overlay styles `heading-1` to `heading-4`, `breadcrumb` and `file`, `browser` `address` and `data:` URLs |
