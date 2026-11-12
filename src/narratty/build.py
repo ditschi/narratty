@@ -658,7 +658,8 @@ def _scene_cache_plan(
             cache_dir(),
         ),
     )
-    keys = scene_keys(planned.spec, planned.timeline, recording_context(ws.path, exclude=exclusions))
+    context = recording_context(ws.path, exclude=exclusions, passthrough=planned.spec.sandbox.env_passthrough)
+    keys = scene_keys(planned.spec, planned.timeline, context)
     selected = None
     replay: frozenset[str] = frozenset()
     if not refresh:

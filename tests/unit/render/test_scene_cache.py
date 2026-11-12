@@ -153,3 +153,44 @@ def test_browser_symlinks_are_fingerprinted_by_their_target(
     real.write_text("version 2", encoding="utf-8")
     os.utime(real, ns=(1, 1))
     assert scene_cache.tool_fingerprint() != before
+
+
+def test_only_output_shaping_environment_variables_change_the_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(scene_cache, "tool_fingerprint", dict)
+    monkeypatch.setattr(scene_cache, "workspace_digest", lambda *args, **kwargs: "files")
+    before = scene_cache.recording_context(tmp_path)
+    monkeypatch.setenv("SSH_AUTH_SOCK", "/tmp/agent.1")
+    monkeypatch.setenv("TOKEN", "first")
+    assert scene_cache.recording_context(tmp_path) == before
+    with_token = scene_cache.recording_context(tmp_path, passthrough=["TOKEN"])
+    assert with_token != before, "the spec's env_passthrough values reach the shell"
+    monkeypatch.setenv("TOKEN", "second")
+    assert scene_cache.recording_context(tmp_path, passthrough=["TOKEN"]) != with_token
+    monkeypatch.setenv("LC_TIME", "de_DE.UTF-8")
+    assert scene_cache.recording_context(tmp_path) != before
+
+
+def test_workspace_digest_ignores_commits_that_change_no_file(tmp_path: Path) -> None:
+    import shutil
+    import subprocess
+
+    if shutil.which("git") is None:
+        pytest.skip("needs git")
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+    (tmp_path / "file.txt").write_text("one", encoding="utf-8")
+    git("init", "-q")
+    git("add", "file.txt")
+    git("commit", "-q", "-m", "first")
+    before = workspace_digest(tmp_path)
+    git("commit", "-q", "--allow-empty", "-m", "second")
+    assert workspace_digest(tmp_path) == before

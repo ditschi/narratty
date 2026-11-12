@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import uuid
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -46,17 +47,13 @@ def scene_keys(spec: Spec, timeline: Timeline, recording_context: str) -> dict[s
 def workspace_digest(
     workspace: Path, *, exclude: frozenset[Path] = frozenset(), ignore_bytecode: bool = False
 ) -> str:
-    """Hash the workspace files and Git revision before the recorded commands run."""
+    """Hash the workspace files before the recorded commands run.
+
+    Only the files count, not the Git history: a commit that changes no file keeps the key.
+    """
     root = workspace.resolve()
     excluded = {path.resolve() for path in exclude}
     digest = hashlib.sha256()
-    git = shutil.which("git")
-    if git:
-        result = subprocess.run(
-            [git, "rev-parse", "--verify", "HEAD"], cwd=root, capture_output=True, check=False
-        )
-        if result.returncode == 0:
-            digest.update(result.stdout)
     for directory, folders, files in os.walk(root, followlinks=False):
         parent = Path(directory)
         folders[:] = sorted(
@@ -151,13 +148,21 @@ def tool_fingerprint() -> dict[str, Any]:
     }
 
 
-def recording_context(workspace: Path, *, exclude: frozenset[Path] = frozenset()) -> str:
-    """Fingerprint the workspace, recorder code, tools and stable process environment."""
-    environment = {
-        key: value
-        for key, value in os.environ.items()
-        if key not in {"NARRATTY_REMOTE_EXIT_LOG", "NARRATTY_BRIDGE", "NARRATTY_WORKSPACE", IMAGE_ID_ENV}
-    }
+# Variables that change how the recorded shell and its programs draw. The spec's own
+# ``sandbox.env`` is part of the scene keys already; its ``env_passthrough`` names are added.
+_ENVIRONMENT = frozenset({"TERM", "COLORTERM", "LANG", "LANGUAGE", "TZ", "SHELL", "PATH", "HOME", "NO_COLOR"})
+
+
+def recording_context(
+    workspace: Path, *, exclude: frozenset[Path] = frozenset(), passthrough: Iterable[str] = ()
+) -> str:
+    """Fingerprint the workspace, recorder code, tools and the environment that shapes output.
+
+    The recorder code is narratty's own files (not its version, which a development
+    install derives from the Git revision).
+    """
+    names = _ENVIRONMENT | set(passthrough)
+    environment = {key: value for key, value in os.environ.items() if key in names or key.startswith("LC_")}
     return _digest(
         {
             "workspace": workspace_digest(workspace, exclude=exclude),
