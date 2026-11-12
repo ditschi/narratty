@@ -659,6 +659,14 @@ def _scene_cache_plan(
     if unsupported:
         log("scene cache unavailable for this build; recording all scenes")
         return None
+    if ws.snapshot_root is not None:
+        # The snapshot directory is new each build and shows in prompts and output. Keying
+        # to it would never hit, and leaving it out would mix footage from different paths.
+        log(
+            "scene cache unavailable for a native workspace snapshot, which gets a new path "
+            "each build; use --workspace-mode rw or a container runtime"
+        )
+        return None
     cache = SceneCache(cache_dir())
     exclusions = _cache_exclusions(
         ws,

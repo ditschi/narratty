@@ -279,6 +279,23 @@ def test_build_survives_a_scene_cache_it_cannot_write(
     assert any(line.startswith("scene cache not updated: ") for line in logs), logs
 
 
+def test_scene_cache_is_off_for_native_snapshots(tmp_path: Path) -> None:
+    from narratty.build import _scene_cache_plan
+    from narratty.workspace import PreparedWorkspace
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    planned = _plan(workspace)
+    snapshot = PreparedWorkspace(tmp_path / "snap" / "workspace", "snapshot", workspace, tmp_path / "snap")
+    logs: list[str] = []
+    work = tmp_path / "work"
+    plan = _scene_cache_plan(
+        planned, snapshot, tmp_path / "o.mp4", work, None, fast=False, refresh=False, log=logs.append
+    )
+    assert plan is None
+    assert any("new path each build" in line for line in logs), logs
+
+
 def test_subtitle_files_show_the_spec_text(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from narratty.build import WorkspaceOptions, build
     from narratty.draft import estimate_ms
