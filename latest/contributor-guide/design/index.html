@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -54,6 +54,8 @@
     
     
       <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -430,6 +432,8 @@
       
         
       
+        
+      
     
     
     
@@ -602,6 +606,34 @@
     
   
     Writing specs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/markdown/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Markdown input
   
 
     
@@ -1690,6 +1722,155 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#markdown-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Markdown input
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Markdown input">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Principles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-markdown-entry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The markdown entry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-a-doc-becomes-scenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How a doc becomes scenes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#doc-comments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Doc comments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code blocks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#placeholders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placeholders
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified rendering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#documentation-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation page
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#overlays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overlays
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tooling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tooling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#not-in-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not in v1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#narratty-in-the-recorded-shell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        narratty in the recorded shell
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#milestones" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2189,6 +2370,155 @@
     <span class="md-ellipsis">
       
         Behaviour people notice
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#markdown-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Markdown input
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Markdown input">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Principles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-markdown-entry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The markdown entry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-a-doc-becomes-scenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How a doc becomes scenes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#doc-comments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Doc comments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code blocks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#placeholders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placeholders
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified rendering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#documentation-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation page
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#overlays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overlays
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tooling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tooling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#not-in-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not in v1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#narratty-in-the-recorded-shell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        narratty in the recorded shell
       
     </span>
   </a>
@@ -3255,6 +3585,342 @@ describes the shipped behaviour.</p>
   <code>docker run</code> / <code>vhs</code> / <code>ffmpeg</code> commands so users can reproduce by hand.</li>
 </ul>
 <hr />
+<h2 id="markdown-input">Markdown input<a class="headerlink" href="#markdown-input" title="Permanent link">&para;</a></h2>
+<p>Agreed on 2026-11-11, implemented for 0.5 (<code>src/narratty/spec/markdown/</code>; the user
+guide is <code>docs/user-guide/markdown.md</code>). A Markdown doc can be the source of a video, so one file is
+both read and watched. Plain docs need no markup.</p>
+<h3 id="principles">Principles<a class="headerlink" href="#principles" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The YAML spec stays the entry point. A <code>scenes</code> item <code>markdown: &lt;path&gt;</code> expands into
+  ordinary scenes and mixes with hand-written YAML scenes.</li>
+<li>The loader expands it into plain <code>Scene</code>s, so timeline, render, cache and exit checks
+  are unchanged. Sandboxed runs get the expanded spec, because only the spec file is
+  mounted into the container.</li>
+<li>The YAML decides everything at section level and above: which docs, which sections,
+  their order, the narration rule and heading overlays. The doc only carries
+  paragraph-level comments.</li>
+<li>Several videos from one doc are several YAML files.</li>
+<li>Additive: stays <code>version: 1</code>, gets "(since X.Y)" in the spec docs and a regenerated
+  <code>schema/v1.json</code>.</li>
+</ul>
+<h3 id="the-markdown-entry">The <code>markdown</code> entry<a class="headerlink" href="#the-markdown-entry" title="Permanent link">&para;</a></h3>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">all</span><span class="w">                      </span><span class="c1"># default for every markdown entry</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">markdown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs/user-guide/environments.md</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">sections</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">images</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">compose</span><span class="p p-Indicator">]</span><span class="w">     </span><span class="c1"># nested headings included; omitted = whole doc</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">heading_overlays</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">outro</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">That's all you need to get started.</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">markdown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs/user-guide/building.md</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">none</span><span class="w">                 </span><span class="c1"># only `say` comments are spoken</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="nt">heading_overlays</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="nt"> breadcrumb</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">    </span><span class="nt">defaults</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">typing_speed_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">40</span><span class="p p-Indicator">,</span><span class="nt"> pause_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">200</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">    </span><span class="nt">overrides</span><span class="p">:</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">      </span><span class="nt">install</span><span class="p">:</span><span class="w">                      </span><span class="c1"># block id from the fence, see Code blocks</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">        </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install it with uv.</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">        </span><span class="nt">fast</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">        </span><span class="nt">before</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="s">"pipx</span><span class="nv"> </span><span class="s">works</span><span class="nv"> </span><span class="s">too"</span><span class="p p-Indicator">}]</span>
+</code></pre></div>
+- <code>sections</code> match the mkdocs TOC slug, with the title as a fallback. A missing section
+  is an error with "did you mean". Duplicate headings are addressed by a list path.
+- <code>narration</code>: <code>all</code> speaks every paragraph, <code>none</code> only the <code>say</code> comments.
+- <code>tabs</code> lists preferred tab labels, e.g. <code>tabs: [macOS]</code>; in each tab set the first
+  listed label that exists is used, otherwise the first tab.
+- <code>id_prefix</code> replaces the file stem in generated scene ids.
+- <code>defaults</code> takes scene keys (<code>typing_speed_ms</code>, <code>pause_ms</code>, <code>fast</code>, <code>timelapse</code>,
+  <code>narration_start</code>, <code>expect_exit</code>) for every scene of the entry.
+- <code>overrides</code> is keyed by block id and takes the same scene keys plus <code>narration</code> and
+  <code>before</code> / <code>after</code> action lists. This is how one video words or decorates a block
+  differently from another. An id that is not in the doc is an error.
+- Transitions between docs are normal scenes, e.g. a hidden <code>run: cd x &amp;&amp; clear</code>
+  followed by a scene with an overlay. There is no transition feature.</p>
+<h3 id="how-a-doc-becomes-scenes">How a doc becomes scenes<a class="headerlink" href="#how-a-doc-becomes-scenes" title="Permanent link">&para;</a></h3>
+<p>Pinned down with golden tests (<code>tests/unit/spec/markdown/</code>, Markdown fixture →
+expanded YAML); every page of this repo's <code>docs/</code> must expand to a valid spec.</p>
+<table>
+<thead>
+<tr>
+<th>Markdown</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Paragraphs before a code block, same section</td>
+<td>Joined into the narration of the scene that runs the block</td>
+</tr>
+<tr>
+<td>Paragraphs after the last block of a section</td>
+<td>Scene without actions; the output stays on screen</td>
+</tr>
+<tr>
+<td>Block without a paragraph before it</td>
+<td>Silent scene</td>
+</tr>
+<tr>
+<td><code>console</code> block</td>
+<td><code>$</code> lines run, <code>&gt;</code> continues them; other lines are output</td>
+</tr>
+<tr>
+<td><code>bash</code> / <code>sh</code> block</td>
+<td>Commands split by complete shell syntax (heredocs, <code>if</code>, <code>for</code>); trailing <code># …</code> is not typed</td>
+</tr>
+<tr>
+<td>Other language with a <code>title</code></td>
+<td>A hidden scene writes the file (heredoc), then <code>cat</code> shows it, with a <code>file</code> overlay</td>
+</tr>
+<tr>
+<td>Other language without a title</td>
+<td>Skipped</td>
+</tr>
+<tr>
+<td>Inline code, links, emphasis</td>
+<td>Read as plain text</td>
+</tr>
+<tr>
+<td>Tables, images, raw HTML, footnotes</td>
+<td>Not spoken</td>
+</tr>
+<tr>
+<td>List items</td>
+<td>Each item read as a sentence; a code block inside an item is a scene like any other</td>
+</tr>
+<tr>
+<td>Blockquotes</td>
+<td>Read like paragraphs</td>
+</tr>
+<tr>
+<td>GitHub alerts (<code>&gt; [!NOTE]</code>)</td>
+<td>Read like paragraphs; the <code>[!NOTE]</code> marker is dropped</td>
+</tr>
+<tr>
+<td>Admonitions <code>!!!</code> and open <code>???+</code></td>
+<td>Body read without the title; code blocks inside run as usual</td>
+</tr>
+<tr>
+<td>Collapsed <code>???</code> and <code>&lt;details&gt;</code></td>
+<td>Skipped with everything inside; <code>say</code> comments or <code>overrides</code> bring parts back</td>
+</tr>
+<tr>
+<td>Content tabs <code>=== "…"</code></td>
+<td>One tab per tab set: the first label listed in the entry's <code>tabs</code>, else the first tab</td>
+</tr>
+<tr>
+<td><code>--8&lt;-- "path[:start:end]"</code> snippets</td>
+<td>Inserted, relative to the snippets <code>base_path</code> in <code>mkdocs.yml</code> (else the repo root), before parsing</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Every command is followed by <code>wait: {prompt: true}</code>, because <code>run</code> does not wait for
+  the command to finish.</li>
+<li>The parser is markdown-it-py (already installed through Rich). Plain CommonMark reads
+  <code>!!! note</code> as a paragraph and a <code>=== "Linux"</code> tab as a paragraph plus an indented code
+  block, so admonitions need the mdit-py-plugins <code>admon</code> rule and tabs a small rule of
+  our own. The plugin reads <code>!!! info inline end</code> as the title <code>inline end</code>; we drop
+  the <code>inline</code> and <code>end</code> modifiers ourselves. mdit-py-plugins becomes a dependency (Rich
+  only brings markdown-it-py). Other snippet forms (<code>--8&lt;--</code> blocks, URLs, sections) are an
+  error with a hint.</li>
+<li>Headings with an <code>attr_list</code> id (<code>## Title {#custom}</code>) are matched by that id; other
+  slugs follow <code>pymdownx.slugs.slugify(case="lower")</code>, like this repo's TOC.</li>
+<li>Scene ids are <code>&lt;prefix&gt;-&lt;heading-slug&gt;-&lt;n&gt;</code>: the prefix defaults to the file stem,
+  <code>n</code> counts within the section, and non-ASCII headings are transliterated. A block with
+  an id uses <code>&lt;prefix&gt;-&lt;id&gt;</code>, which survives edits around it.</li>
+</ul>
+<h3 id="doc-comments">Doc comments<a class="headerlink" href="#doc-comments" title="Permanent link">&para;</a></h3>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>&lt;!-- narratty: skip --&gt;
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>&lt;!-- narratty: say
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>Narration only the video has; it may span lines.
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>--&gt;
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>&lt;!-- narratty: overlay {text: compose.yaml, style: file} --&gt;
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>&lt;!-- narratty: hidden
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>git init demo &amp;&amp; cd demo
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>--&gt;
+</code></pre></div>
+- <code>skip</code> leaves the next paragraph or block out of the video.
+- <code>say</code> adds narration at its position; <code>skip</code> plus <code>say</code> replaces a paragraph.
+- <code>overlay</code> takes the same value as the <a href="../../user-guide/spec/#overlays">overlay action</a>
+  and appears where the comment stands.
+- <code>hidden</code> runs setup commands in the recorded shell without showing them.
+- <code>browser</code> opens a link of the next paragraph (the first, <code>link: N</code> or <code>link: "text"</code>)
+  or a given URL in a browser view; the paragraph starts a new scene. Relative doc links
+  map to <code>site_url</code>.
+- HTML comments cannot contain <code>--</code>; such text goes into a YAML scene.</p>
+<h3 id="code-blocks">Code blocks<a class="headerlink" href="#code-blocks" title="Permanent link">&para;</a></h3>
+<p>An id and per-block options go in one attribute list after the language:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="sb">```console</span><span class="w"> </span>{#install narratty="no-run"}
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="gp">$ </span>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>narratty
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="sb">```</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="sb">```yaml</span><span class="w"> </span>{#spec title="demo.narratty.yaml"}
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="nt">scenes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="sb">```</span>
+</code></pre></div>
+<ul>
+<li><code>#id</code> names the block for <code>overrides</code> and the scene id; mkdocs also makes it a link
+  anchor.</li>
+<li><code>narratty="…"</code> takes space-separated options: <code>no-run</code> (typed, then cancelled with
+  Ctrl+C), <code>hidden</code>
+  (run, not shown) and <code>expect-failure</code>. Leaving a block out entirely is the <code>skip</code>
+  comment.</li>
+<li>Comments hold what the video adds (narration, overlays, setup); attributes describe
+  the block they sit on.</li>
+</ul>
+<h3 id="placeholders">Placeholders<a class="headerlink" href="#placeholders" title="Permanent link">&para;</a></h3>
+<p>No substitution feature. Docs write placeholders as environment variables, which
+readers can set and copy:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="gp">$ </span>narratty<span class="w"> </span>build<span class="w"> </span><span class="s2">"</span><span class="nv">$SPEC</span><span class="s2">"</span><span class="w"> </span>--var<span class="w"> </span><span class="nv">target</span><span class="o">=</span><span class="s2">"</span><span class="nv">$TARGET</span><span class="s2">"</span>
+</code></pre></div>
+<ul>
+<li>The video types <code>$SPEC</code> as written, so values, including secrets, never appear on
+  screen.</li>
+<li>The value comes from <code>sandbox.env</code>, <code>sandbox.env_passthrough</code> (the user sets it on the
+  host) or a <code>hidden</code> comment with an <code>export</code>. A value the doc itself sets, such as
+  <code>export PROJECT=demo</code> in a block, runs like any other command.</li>
+<li>A command to be run that still contains an <code>&lt;angle&gt;</code> placeholder is an error with the
+  hint to write it as <code>$NAME</code>.</li>
+</ul>
+<h3 id="verified-rendering">Verified rendering<a class="headerlink" href="#verified-rendering" title="Permanent link">&para;</a></h3>
+<p>Checked on 2026-11-11 with this repo's <code>markdown_extensions</code>, GitHub's Markdown API
+(<code>gh api /markdown</code>, gfm) and markdown-it-py 4.2:</p>
+<table>
+<thead>
+<tr>
+<th>Fence line</th>
+<th>mkdocs</th>
+<th>GitHub</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>console narratty="no-run"</code>, <code>console no-run</code>, <code>console id="x"</code></td>
+<td><strong>Broken</strong>: the block renders as inline text in a paragraph</td>
+<td>Fine</td>
+</tr>
+<tr>
+<td><code>console title="Install"</code></td>
+<td>Fine, filename header</td>
+<td>Fine</td>
+</tr>
+<tr>
+<td><code>console title="Install" {#x}</code></td>
+<td><strong>Broken</strong></td>
+<td>Fine</td>
+</tr>
+<tr>
+<td><code>console {#x title="Install" narratty="no-run"}</code></td>
+<td>Fine: <code>id</code> on the block, <code>narratty</code> dropped</td>
+<td>Fine, highlighted as <code>console</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>HTML comments, including multi-line ones with blank lines, are invisible in mkdocs
+  and on GitHub. markdown-it-py returns them as <code>html_block</code> tokens with line numbers.</li>
+<li>markdown-it-py keeps the whole info string (<code>console {#x …}</code>), so we parse the braces
+  ourselves. VS Code's preview is markdown-it too and uses the first word as language.</li>
+<li>
+<p>Material's copy button copies <code>$</code>, <code>&gt;</code> and output lines of <code>console</code> blocks. A short
+  <code>extra_css</code> rule fixes it, checked in a browser:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">.</span><span class="nc">highlight</span><span class="w"> </span><span class="nt">code</span><span class="o">[</span><span class="nt">data-md-copying</span><span class="o">]</span><span class="w"> </span><span class="p">.</span><span class="nc">gp</span><span class="o">,</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="p">.</span><span class="nc">highlight</span><span class="w"> </span><span class="nt">code</span><span class="o">[</span><span class="nt">data-md-copying</span><span class="o">]</span><span class="w"> </span><span class="p">.</span><span class="nc">go</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">display</span><span class="p">:</span><span class="w"> </span><span class="kc">none</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+</li>
+</ul>
+<h3 id="documentation-page">Documentation page<a class="headerlink" href="#documentation-page" title="Permanent link">&para;</a></h3>
+<p>The user-guide page on Markdown input is written as a Markdown-input video source and
+shows its own video:</p>
+<ul>
+<li><code>docs/user-guide/markdown.md</code> explains the feature in plain docs prose.</li>
+<li><code>examples/markdown/markdown.narratty.yaml</code> is a <code>markdown:</code> entry pointing at that
+  page, plus the <code>overrides</code> and hidden setup the video needs.</li>
+<li><code>examples/render-docs.sh</code> renders it to <code>docs/assets/examples/markdown.mp4</code>, which the
+  page embeds with <code>&lt;video&gt;</code> (raw HTML, so not spoken).</li>
+<li>Every spec <code>render-docs.sh</code> renders stores <code>narratty compile --fingerprint</code> next to
+  it; <code>tests/unit/test_docs_videos.py</code> fails when a spec or its Markdown changed since.
+  Rendering in CI instead is a follow-up.</li>
+<li>The page's blocks must run in the default sandbox; <code>narratty build</code> blocks are
+  <code>no-run</code>.</li>
+<li>The docs switch to <code>console</code> only where output helps the reader, and get the copy CSS
+  above.</li>
+</ul>
+<h3 id="overlays">Overlays<a class="headerlink" href="#overlays" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The <code>chapter</code> style changes its default to <code>keep: false</code>, <code>duration_ms: 3s</code>. The
+  changelog names <code>overlay_styles: {chapter: {keep: true}}</code> for the old behaviour.</li>
+<li><code>heading_overlays: N</code> shows headings down to level <code>N</code>, each level in its own
+  built-in style. Users change them through <code>overlay_styles</code>.</li>
+<li><code>breadcrumb: true</code> shows levels 2 to <code>N</code> as one overlay, <code>Environments › Compose ›
+  Services</code>, in the built-in style <code>breadcrumb</code> (<code>top-right</code>, <code>small</code>); the <code>#</code> heading
+  stays a title card. <code>separator</code> defaults to <code>›</code> and <code>max_length</code> to 50: middle parts
+  become <code>…</code> first, then the last part is cut. Every scene in the section repeats the
+  overlay and the renderer merges identical overlays at the same position in consecutive
+  scenes, so the breadcrumb ends with the entry without <code>keep</code>.</li>
+<li>A block with <code>title="file"</code> gets an overlay in the new built-in <code>file</code> style (<code>top</code>,
+  <code>small</code>); <code>file_titles: false</code> turns this off.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Style</th>
+<th><code>position</code></th>
+<th><code>size</code></th>
+<th><code>bold</code></th>
+<th><code>duration_ms</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>heading-1</code></td>
+<td><code>center</code></td>
+<td><code>large</code></td>
+<td>yes</td>
+<td><code>2.5s</code></td>
+</tr>
+<tr>
+<td><code>heading-2</code></td>
+<td><code>top-right</code></td>
+<td><code>large</code></td>
+<td>yes</td>
+<td><code>3s</code></td>
+</tr>
+<tr>
+<td><code>heading-3</code></td>
+<td><code>top-right</code></td>
+<td><code>medium</code></td>
+<td>no</td>
+<td><code>3s</code></td>
+</tr>
+<tr>
+<td><code>heading-4</code> and deeper</td>
+<td><code>top-right</code></td>
+<td><code>small</code></td>
+<td>no</td>
+<td><code>2.5s</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="tooling">Tooling<a class="headerlink" href="#tooling" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>narratty plan --sources</code> lists the derived scenes with the Markdown file and line,
+  and why each paragraph is spoken or skipped.</li>
+<li><code>narratty compile</code> writes the expanded YAML, as a way out and for frozen builds.</li>
+<li>Errors name the Markdown file and line; <code>Issue</code> gets a file next to its line.</li>
+</ul>
+<h3 id="not-in-v1">Not in v1<a class="headerlink" href="#not-in-v1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Checking command output against the doc (<code>check_output</code>, <code>...</code> wildcards,
+  <code>normalize</code>): narratty does not capture output yet. Exit codes are checked.</li>
+<li>Narration rules <code>lead</code> and <code>code</code>, <code>skip rest</code>, configurable admonitions.</li>
+<li>Highlighting the current part of a breadcrumb, and overlays synced to a spoken word.</li>
+</ul>
+<h3 id="narratty-in-the-recorded-shell">narratty in the recorded shell<a class="headerlink" href="#narratty-in-the-recorded-shell" title="Permanent link">&para;</a></h3>
+<p>The default sandbox records in the narratty image, which has <code>narratty</code> on <code>PATH</code>. Only
+the spec is mounted (at <code>/spec</code>), so a docs page that runs <code>narratty plan</code> or
+<code>narratty compile</code> on screen first writes its files into <code>/work</code> with a <code>hidden</code> comment.
+<code>narratty build</code> blocks stay <code>no-run</code>. Project environments record in the project's
+image, which has no <code>narratty</code>.</p>
+<hr />
 <h2 id="milestones">Milestones<a class="headerlink" href="#milestones" title="Permanent link">&para;</a></h2>
 <ol>
 <li><strong>Scaffold</strong>: uv project with repo-env's layout (hatch-vcs, nox, ruff, mypy, pytest,
@@ -3386,10 +4052,10 @@ sandboxed mode then wraps a pipeline that already works.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

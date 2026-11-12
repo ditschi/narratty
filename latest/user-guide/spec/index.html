@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -54,6 +54,8 @@
     
     
       <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -409,6 +411,8 @@
   
     
     
+      
+        
       
         
       
@@ -847,6 +851,34 @@
     
   
     Writing specs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../markdown/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Markdown input
   
 
     
@@ -1881,9 +1913,14 @@ fail validation:</p>
 <td>Named overlay styles; see <a href="#overlays">Overlays</a> (since 0.3)</td>
 </tr>
 <tr>
+<td><code>narration</code></td>
+<td><code>all</code></td>
+<td>Default narration rule of <code>markdown</code> entries: <code>all</code> or <code>none</code>; see <a href="../markdown/">Markdown input</a> (since 0.5)</td>
+</tr>
+<tr>
 <td><code>scenes</code></td>
 <td>required</td>
-<td>At least one scene</td>
+<td>At least one scene, or a <code>markdown</code> entry</td>
 </tr>
 </tbody>
 </table>
@@ -2278,6 +2315,9 @@ wins over the config.</p>
 </table>
 <p>A scene lasts as long as its actions or its narration plus <code>narration_buffer_ms</code>,
 whichever is longer.</p>
+<p>A <code>scenes</code> item can instead be a <code>markdown</code> entry, <code>- markdown: docs/guide.md</code>, which
+turns the doc's paragraphs and code blocks into scenes where it stands; see
+<a href="../markdown/">Markdown input</a> (since 0.5).</p>
 <h3 id="timelapse">Timelapse<a class="headerlink" href="#timelapse" title="Permanent link">&para;</a></h3>
 <p>A long step (a download, a build) can be shown sped up instead of hidden:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">install</span>
@@ -2452,8 +2492,9 @@ scrolls.</p>
 </code></pre></div>
 <p>The overlay appears where its action stands in the scene. It stays until the first
 of: <code>duration_ms</code> has passed, another overlay takes its position, or the scene ends.
-With <code>keep: true</code> it stays past the scene until another overlay takes its position
-(the <code>chapter</code> style keeps). The box is sized around the text; <code>\n</code> starts a new
+With <code>keep: true</code> it stays past the scene until another overlay takes its position.
+The same overlay (text and style) in consecutive scenes shows as one, without fading
+in again (since 0.5). The box is sized around the text; <code>\n</code> starts a new
 line. The top right is usually free of terminal text; the bottom is shared with
 <a href="../building/#subtitles">burned-in subtitles</a>.</p>
 <p><code>overlay: "text"</code> uses the <code>default</code> style. A mapping takes <code>text</code>, an optional
@@ -2509,7 +2550,10 @@ line. The top right is usually free of terminal text; the bottom is shared with
 </tr>
 </tbody>
 </table>
-<p>Built-in styles: <code>default</code> (above) and <code>chapter</code> (<code>top-right</code>, <code>large</code>, bold, <code>keep</code>).
+<p>Built-in styles: <code>default</code> (above) and <code>chapter</code> (<code>top-right</code>, <code>large</code>, bold, hides
+after <code>3s</code>). Since 0.5 a chapter no longer keeps; <code>overlay_styles: {chapter: {keep: true}}</code>
+brings back the old behaviour. <a href="../markdown/#heading-overlays">Markdown input</a> adds
+<code>heading-1</code> to <code>heading-4</code>, <code>breadcrumb</code> and <code>file</code> (since 0.5).
 <code>overlay_styles</code> changes them or adds your own; each style starts from <code>default</code>, so
 it only lists what differs. Overlays fade in and out. They need the mp4 to be
 re-encoded, which <code>build</code> does when a spec has any; in the <a href="../building/#asciicast-with-narration">cast page</a>
@@ -2546,7 +2590,12 @@ under an address bar until its scene ends.</p>
 <tr>
 <td><code>url</code></td>
 <td>required</td>
-<td>An <code>http(s)</code> URL, or an HTML file in the workspace</td>
+<td>An <code>http(s)</code> URL, an HTML file in the workspace, or a <code>data:</code> URL (since 0.5)</td>
+</tr>
+<tr>
+<td><code>address</code></td>
+<td>the URL</td>
+<td>Text in the address bar (since 0.5)</td>
 </tr>
 <tr>
 <td><code>scroll</code></td>
@@ -2598,7 +2647,7 @@ before 0.5 do not know <code>requires.narratty</code> and reject it as an unknow
 </tr>
 <tr>
 <td>0.5</td>
-<td><code>requires.narratty</code></td>
+<td><code>requires.narratty</code>, <code>markdown</code> scene entries and the top-level <code>narration</code> (<a href="../markdown/">Markdown input</a>), overlay styles <code>heading-1</code> to <code>heading-4</code>, <code>breadcrumb</code> and <code>file</code>, <code>browser</code> <code>address</code> and <code>data:</code> URLs</td>
 </tr>
 </tbody>
 </table>
@@ -2673,10 +2722,10 @@ before 0.5 do not know <code>requires.narratty</code> and reject it as an unknow
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
