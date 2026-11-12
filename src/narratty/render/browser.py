@@ -74,7 +74,7 @@ RUN_MERMAID_JS = (
     "if (!focus) return;"
     "const targets = [...document.querySelectorAll('.node[id], .cluster[id]')];"
     "const target = targets.find(e => e.id === focus || "
-    "e.id.endsWith('-' + focus + '-0') || e.id.endsWith('-' + focus));"
+    "e.id.includes('-' + focus + '-') || e.id.endsWith('-' + focus));"
     "if (!target) throw new Error('no Mermaid node or subgraph with id ' + focus);"
     "target.classList.add('narratty-focus');"
     "})"

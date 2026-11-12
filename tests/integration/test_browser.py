@@ -76,7 +76,7 @@ def test_capture_draws_mermaid_diagrams(chromium: str, tmp_path: Path) -> None:
 @pytest.mark.usefixtures("mermaid")
 def test_capture_focuses_mermaid_node(chromium: str, tmp_path: Path) -> None:
     page = slides.page(
-        Slide(mermaid='flowchart LR\n  api["🚀 API"] --> db[Database]', focus="api"), "dark", tmp_path
+        Slide(mermaid='flowchart LR\n  api["🚀 API"] --> db[Database]', focus="db"), "dark", tmp_path
     )
     shot = tmp_path / "focused.png"
     browser.capture(
