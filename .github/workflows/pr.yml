@@ -306,7 +306,8 @@ jobs:
           path: docs/assets/examples/markdown.mp4
           if-no-files-found: error
   # ── 7. Docs preview: pr-<N>/ on GitHub Pages, linked in a PR comment ────────
-  # Forks get a read-only token, so only branches of this repo get a preview.
+  # Forks get a read-only token, so only branches of this repo get a preview; Dependabot's
+  # PRs neither, as the job installs their new dependencies with a write token.
   docs-preview:
     name: Docs preview
     runs-on: ubuntu-latest
@@ -316,6 +317,7 @@ jobs:
     if: >-
       !cancelled() && needs.docs-build.result == 'success' && needs.docs-videos.result != 'failure'
       && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]' && github.event.pull_request.user.login != 'dependabot[bot]'
     permissions:
       contents: write
       pull-requests: write
