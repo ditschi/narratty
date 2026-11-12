@@ -257,7 +257,7 @@ while it is spoken.
 | Preview | `narratty plan --sources` | where each scene comes from |
 | Build | `narratty build` | the finished video |
 
-This is the comment above the table.
+This is the comment that stands before the table.
 
 ```markdown
 <!-- narratty: table {say: "{Step}: {Command} shows {Shows}.", title: From doc to video} -->
@@ -265,7 +265,7 @@ This is the comment above the table.
 ```
 
 For a voiceover that does not read the cells, give `say` one phrase per row. The
-snippet configures the spoken steps; the live table below is what those steps highlight:
+snippet configures the spoken steps; the live table after it is what those steps highlight:
 
 ```markdown
 <!-- narratty: table {title: Request path, say: ["The client sends a request.", "The API checks the request.", "The database stores the result."]} -->
@@ -363,6 +363,7 @@ emphasizes a Mermaid node or subgraph while the scene is narrated.
 <!-- narratty: slide {title: From doc to video, theme: light} -->
 ```
 
+<!-- narratty: skip -->
 | Key | Does |
 |---|---|
 | `title` | Text above the content |
@@ -665,7 +666,20 @@ sections are not supported and are reported as errors.
 
 ## Checking the result
 
-`narratty validate` reports problems at the Markdown file and line.
+`narratty validate` reports problems at the Markdown file and line. Since 0.7 it also
+warns, on stderr and without failing, about what expands fine but is likely not what
+the author meant:
+
+| Warning | Fix |
+|---|---|
+| No command runs in the video | Label command blocks `console` (with `$ ` prompts), `bash` or `sh` |
+| A left-out block has `$ ` lines | Label it `console`, or mark it `narratty="show"` |
+| A table is left out | A `table` or `slide` comment, or `skip` to leave it out on purpose |
+| Output shown looks like an error (`error:`, `Error`, `fatal:`, a Python traceback) | Mark the block `expect-failure` if the command is meant to fail |
+| A `focus` ID is not in the diagram (flowcharts and sequence diagrams) | Use an ID from the source; the warning suggests the closest |
+| Narration says "above", "below", "click here" or "the following command" | Say what is meant; listeners cannot see the page |
+
+`lint: false` on the entry, or in the doc's `spec` comment, turns the warnings off.
 `narratty plan --sources SPEC` lists every scene with the Markdown line it comes from,
 and what was left out and why. `narratty compile SPEC` prints the spec with every
 `markdown` entry replaced by its scenes: a way out of Markdown input, or a frozen copy

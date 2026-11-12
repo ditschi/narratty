@@ -21,17 +21,24 @@ def check_voice(provider_name: str, voice: str) -> None:
 def validate_command(spec: Path = SpecArgument) -> None:
     """Parse and validate a spec; report every problem with its line number.
 
-    Valid but redundant lines (defaults, a trailing `hold: auto`, ...) are reported as hints.
+    Valid but redundant lines (defaults, a trailing `hold: auto`, ...) are reported as hints,
+    likely authoring problems in Markdown docs as warnings (`lint: false` turns them off).
     """
     from rich.markup import escape
 
-    from narratty.spec.hints import load_spec_with_hints
+    from narratty.spec.compile import markdown_warnings
+    from narratty.spec.hints import find_hints
+    from narratty.spec.loader import Issue, parse_document, read_spec_text
     from narratty.ui.console import err, out
 
-    loaded, hints = load_spec_with_hints(spec)
+    document = parse_document(read_spec_text(spec), spec)
+    loaded = document.spec
     check_voice(loaded.tts.provider, loaded.tts.voice)
-    for hint in hints:
+    for hint in find_hints(*document):
         err.print(f"[yellow]hint:[/] {escape(hint.render(spec))}", highlight=False, soft_wrap=True)
+    for warning in markdown_warnings(document, spec):
+        where = Issue("", warning.what, warning.line, None, warning.file)
+        err.print(f"[yellow]warning:[/] {escape(where.render(spec))}", highlight=False, soft_wrap=True)
     narrated = len(loaded.narrated_scenes)
     out.print(
         f"[green]ok[/] {spec}: {len(loaded.scenes)} scenes, {narrated} narrated, "

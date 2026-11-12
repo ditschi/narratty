@@ -32,6 +32,19 @@ def test_validate_prints_hints(tmp_path: Path) -> None:
     assert "terminal.width: same as the default; leave it out" in plain(result.output)
 
 
+def test_validate_warns_about_markdown_docs(tmp_path: Path) -> None:
+    doc = tmp_path / "doc.md"
+    doc.write_text("# Doc\n\nThe table below.\n\n| a |\n|---|\n| b |\n", encoding="utf-8")
+    result = runner.invoke(app, ["validate", str(doc)])
+    assert result.exit_code == 0, result.output
+    output = plain(result.output)
+    assert f"warning: {doc}:1:1: no command runs in the video" in output
+    assert f"warning: {doc}:3:1: the narration says 'below'" in output
+    assert f"warning: {doc}:5:1: table left out of the video" in output
+    doc.write_text("<!-- narratty: spec\nlint: false\n-->\n# Doc\n\nThe table below.\n", encoding="utf-8")
+    assert "warning" not in plain(runner.invoke(app, ["validate", str(doc)]).output)
+
+
 def test_init_refuses_to_overwrite(tmp_path: Path) -> None:
     spec = tmp_path / "demo.narratty.yaml"
     spec.write_text("keep", encoding="utf-8")

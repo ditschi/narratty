@@ -9,7 +9,7 @@ import re
 import shlex
 import unicodedata
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -78,8 +78,6 @@ class Note:
 class Expansion:
     scenes: list[ExpandedScene]
     notes: list[Note]
-    warnings: list[Note] = field(default_factory=list)
-    """Authoring problems ``narratty validate`` warns about (see :mod:`.lint`)."""
 
 
 def build_scenes(

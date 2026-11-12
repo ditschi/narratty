@@ -123,6 +123,21 @@ def sources(spec_file: Path) -> list[Source]:
     return found
 
 
+def markdown_warnings(document: Document, spec_file: Path) -> list[Source]:
+    """Authoring warnings for the Markdown docs of ``document`` (``narratty validate``)."""
+    from narratty.spec.markdown import lint_entry
+    from narratty.spec.model import MarkdownEntry
+
+    found: list[Source] = []
+    for raw in document.data["scenes"]:
+        if isinstance(raw, dict) and "markdown" in raw:
+            entry = MarkdownEntry.model_validate(to_plain(raw))
+            path = spec_file.parent / entry.markdown
+            notes = lint_entry(entry, path, entry.narration or document.spec.narration)
+            found += [Source(Path(os.path.normpath(note.file)), note.line, None, note.what) for note in notes]
+    return found
+
+
 def _flow_leaves(value: Any, depth: int = 0) -> Any:
     """``value`` with an action's inner mappings in flow style: ``wait: {prompt: true}``.
 
