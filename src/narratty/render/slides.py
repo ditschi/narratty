@@ -113,6 +113,8 @@ def _image_src(image: str, workspace: Path) -> str:
     if image.startswith("data:"):
         return html.escape(image)
     path = (workspace / image).resolve()
+    if not path.is_relative_to(workspace.resolve()):
+        raise RenderError(f"slide: {image} is outside the workspace")
     if not path.is_file():
         raise RenderError(f"slide: {image} is not a file in the workspace")
     return path.as_uri()

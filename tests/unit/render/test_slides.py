@@ -81,6 +81,15 @@ def test_image_from_the_workspace(tmp_path: Path) -> None:
         slides.page(_slide(image="missing.png"), "dark", tmp_path)
 
 
+def test_image_outside_the_workspace_is_refused(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (tmp_path / "secret.png").write_bytes(b"png")
+    for image in ("../secret.png", str(tmp_path / "secret.png")):
+        with pytest.raises(RenderError, match="is outside the workspace"):
+            slides.page(_slide(image=image), "dark", workspace)
+
+
 SPEC = """\
 timing: {lead_in_ms: 100, tail_ms: 500, narration_buffer_ms: 0}
 terminal: {typing_speed_ms: 10}
