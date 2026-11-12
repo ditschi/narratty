@@ -468,3 +468,18 @@ def test_relative_links_open_the_published_page(tmp_path: Path) -> None:
     first, second = _expand(doc)
     assert first["actions"][0]["browser"]["url"] == "https://example.org/docs/spec/#overlays"
     assert second["actions"][0]["browser"]["url"] == "https://example.org/docs/"
+
+
+def test_fingerprint_follows_what_the_video_shows(tmp_path: Path) -> None:
+    from narratty.spec.compile import fingerprint
+
+    doc = _doc(tmp_path, "# Doc\n\nSay this.\n\n```bash\nls\n```\n")
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text("scenes:\n  - markdown: doc.md\n", encoding="utf-8")
+    first = fingerprint(spec)
+    doc.write_text(
+        "# Doc\n\n\n\nSay this.\n<!-- a comment -->\n\n```bash\nls  # typed? no\n```\n", encoding="utf-8"
+    )
+    assert fingerprint(spec) == first, "moved lines, comments and dropped shell comments change nothing"
+    doc.write_text("# Doc\n\nSay that.\n\n```bash\nls\n```\n", encoding="utf-8")
+    assert fingerprint(spec) != first

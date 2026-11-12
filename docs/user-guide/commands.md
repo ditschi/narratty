@@ -6,6 +6,7 @@
 | `narratty validate SPEC` | Check a spec; report every problem, and hints for redundant lines, with line and column |
 | `narratty schema` | Print the spec's JSON Schema |
 | `narratty compile SPEC [-o FILE]` | Print the spec with its [Markdown entries](markdown.md) expanded (since 0.5) |
+| `narratty compile SPEC --fingerprint` | Print a hash of what the video shows and says, to notice when a committed video is outdated (since 0.5) |
 | `narratty voices [--provider P] [--installed]` | List curated and installed voices |
 | `narratty voices pull VOICE` | Download a voice (and the Kokoro model) |
 | `narratty tts SPEC [--offline]` | Synthesize all narration clips and print their lengths |

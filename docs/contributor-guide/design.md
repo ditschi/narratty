@@ -952,6 +952,9 @@ shows its own video:
   page, plus the `overrides` and hidden setup the video needs.
 - `examples/render-docs.sh` renders it to `docs/assets/examples/markdown.mp4`, which the
   page embeds with `<video>` (raw HTML, so not spoken).
+- Every spec `render-docs.sh` renders stores `narratty compile --fingerprint` next to
+  it; `tests/unit/test_docs_videos.py` fails when a spec or its Markdown changed since.
+  Rendering in CI instead is a follow-up.
 - The page's blocks must run in the default sandbox; `narratty build` blocks are
   `no-run`.
 - The docs switch to `console` only where output helps the reader, and get the copy CSS

@@ -18,4 +18,6 @@ one with `narratty build <spec>`.
 | [End card](end-card.md) | "Created with narratty" card with logo, link and QR code | `end_card`, `--no-end-card` |
 
 All recordings except the end card example are built with `--no-end-card`.
-`examples/render-docs.sh` rebuilds them.
+`examples/render-docs.sh` rebuilds them (`--only markdown` just the specs whose path
+contains `markdown`) and stores a fingerprint of each spec next to it; a unit test
+fails when a spec, or the Markdown it reads, changed since its videos were rendered.

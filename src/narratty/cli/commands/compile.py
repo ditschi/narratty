@@ -14,6 +14,11 @@ def compile_command(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write the YAML to this file instead of stdout.", show_default=False
     ),
+    fingerprint: bool = typer.Option(
+        False,
+        "--fingerprint",
+        help="Print a hash of what the video shows and says instead, to notice when it is outdated.",
+    ),
 ) -> None:
     """Print the spec with every `markdown` entry replaced by its scenes.
 
@@ -21,10 +26,10 @@ def compile_command(
     """
     import sys
 
-    from narratty.spec.compile import compile_spec
+    from narratty.spec import compile as compiled
     from narratty.ui.console import err
 
-    text = compile_spec(spec)
+    text = compiled.fingerprint(spec) + "\n" if fingerprint else compiled.compile_spec(spec)
     if output is None:
         sys.stdout.write(text)
         return

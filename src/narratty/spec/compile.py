@@ -66,6 +66,16 @@ def compile_spec(spec_file: Path) -> str:
     return compile_document(parse_document(read_spec_text(spec_file), spec_file), spec_file)
 
 
+def fingerprint(spec_file: Path) -> str:
+    """A hash of what the video of ``spec_file`` shows and says, Markdown entries expanded.
+
+    Unchanged by moved lines, comments and newly added defaults; a committed video can
+    store it to notice when its spec or Markdown source has changed since it was rendered.
+    """
+    spec = parse_document(read_spec_text(spec_file), spec_file).spec
+    return hashlib.sha256(spec.model_dump_json(exclude_defaults=True).encode()).hexdigest()
+
+
 def container_spec(spec_file: Path, cache: Path) -> Path | None:
     """A compiled copy of the spec to mount into a container, or None when it has no Markdown."""
     document = parse_document(read_spec_text(spec_file), spec_file)
