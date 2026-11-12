@@ -210,6 +210,10 @@ class SceneCacheStats:
     entries: int
     recordings: int
     bytes: int
+    partial: int = 0  # files left by interrupted writes; their size counts in ``bytes``
+
+
+_PARTIAL_GRACE_S = 3600
 
 
 def _position(value: Any) -> bool:
@@ -322,14 +326,23 @@ class SceneCache:
             finally:
                 pending.unlink(missing_ok=True)
 
+    def _partial(self) -> list[Path]:
+        return [*(self.root / "videos").glob("*.part"), *(self.root / "keys").glob("*.part")]
+
     def stats(self) -> SceneCacheStats:
         entries = list((self.root / "keys").glob("*.json"))
-        videos = list((self.root / "videos").glob("*.mp4"))
-        return SceneCacheStats(len(entries), len(videos), sum(path.stat().st_size for path in videos))
+        files = [*(self.root / "videos").glob("*.mp4"), *(partial := self._partial())]
+        return SceneCacheStats(
+            len(entries), len(files) - len(partial), sum(_size(path) for path in files), len(partial)
+        )
 
     def prune(self, older_than_s: float, *, now: float | None = None) -> SceneCacheStats:
-        """Remove stale entries and unreferenced recordings older than the cutoff."""
-        cutoff = (time.time() if now is None else now) - older_than_s
+        """Remove stale entries, unreferenced recordings and leftovers of interrupted writes.
+
+        Leftovers younger than an hour may belong to a running build and are kept.
+        """
+        now = time.time() if now is None else now
+        cutoff = now - older_than_s
         entries = list((self.root / "keys").glob("*.json"))
         removed = [entry for entry in entries if entry.stat().st_mtime < cutoff]
         for entry in removed:
@@ -348,7 +361,16 @@ class SceneCache:
             for video in (self.root / "videos").glob("*.mp4")
             if video.name not in referenced and video.stat().st_mtime < cutoff
         ]
-        size = sum(video.stat().st_size for video in videos)
-        for video in videos:
-            video.unlink()
-        return SceneCacheStats(len(removed), len(videos), size)
+        partial_cutoff = min(cutoff, now - _PARTIAL_GRACE_S)
+        partial = [path for path in self._partial() if path.stat().st_mtime < partial_cutoff]
+        size = sum(_size(path) for path in [*videos, *partial])
+        for path in [*videos, *partial]:
+            path.unlink(missing_ok=True)
+        return SceneCacheStats(len(removed), len(videos), size, len(partial))
+
+
+def _size(path: Path) -> int:
+    try:
+        return path.stat().st_size
+    except OSError:  # removed by a concurrent build
+        return 0

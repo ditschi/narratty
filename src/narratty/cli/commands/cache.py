@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 import typer
 
 from narratty.errors import UsageError
+
+if TYPE_CHECKING:
+    from narratty.render.scene_cache import SceneCacheStats
 
 cache_app = typer.Typer(help="Inspect or prune the audio and scene caches.", no_args_is_help=True)
 
@@ -43,17 +47,17 @@ def info_command() -> None:
     out.print(f"{stats.path}\n{stats.clips} clips, {_size(stats.bytes)}", highlight=False, soft_wrap=True)
     scenes = SceneCache(cache_dir())
     scene_stats = scenes.stats()
-    out.print(
-        f"{scenes.root}\n{scene_stats.entries} scene entries, "
-        f"{scene_stats.recordings} recordings, {_size(scene_stats.bytes)}",
-        highlight=False,
-        soft_wrap=True,
-    )
+    out.print(f"{scenes.root}\n{_scene_summary(scene_stats)}", highlight=False, soft_wrap=True)
+
+
+def _scene_summary(stats: SceneCacheStats) -> str:
+    partial = f", {stats.partial} interrupted writes" if stats.partial else ""
+    return f"{stats.entries} scene entries, {stats.recordings} recordings{partial}, {_size(stats.bytes)}"
 
 
 @cache_app.command("prune")
 def prune_command(
-    older_than: str = typer.Option("30d", "--older-than", help="Remove clips unused for this long."),
+    older_than: str = typer.Option("30d", "--older-than", help="Remove entries unused for this long."),
     remove_all: bool = typer.Option(False, "--all", help="Remove every entry in the selected cache."),
     scenes: bool = typer.Option(False, "--scenes", help="Prune scene recordings instead of audio clips."),
 ) -> None:
@@ -66,11 +70,7 @@ def prune_command(
     age = -1 if remove_all else parse_age(older_than)
     if scenes:
         removed_scenes = SceneCache(cache_dir()).prune(age)
-        out.print(
-            f"removed {removed_scenes.entries} scene entries, "
-            f"{removed_scenes.recordings} recordings, {_size(removed_scenes.bytes)}",
-            highlight=False,
-        )
+        out.print(f"removed {_scene_summary(removed_scenes)}", highlight=False)
         return
     removed = AudioCache(cache_dir()).prune(age)
     out.print(f"removed {removed.clips} clips, {_size(removed.bytes)}", highlight=False)

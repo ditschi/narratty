@@ -268,3 +268,25 @@ def test_a_failed_write_leaves_no_partial_file(tmp_path: Path, monkeypatch: pyte
     with pytest.raises(OSError, match="No space"):
         cache.put({"first": "first", "second": "second"}, video, {"first": 0, "second": 2000}, 4000)
     assert list((cache.root / "videos").iterdir()) == []
+
+
+def test_leftovers_of_interrupted_writes_are_counted_and_pruned_when_stale(tmp_path: Path) -> None:
+    import os
+    import time
+
+    cache = SceneCache(tmp_path)
+    (cache.root / "videos").mkdir(parents=True)
+    (cache.root / "keys").mkdir(parents=True)
+    old_video = cache.root / "videos" / "a.mp4.part"
+    old_entry = cache.root / "keys" / "k.json.0123abcd.part"
+    young = cache.root / "videos" / "b.mp4.part"
+    for path, content in ((old_video, b"12345"), (old_entry, b"{}"), (young, b"123")):
+        path.write_bytes(content)
+    old = time.time() - 7200
+    for path in (old_video, old_entry):
+        os.utime(path, (old, old))
+    stats = cache.stats()
+    assert (stats.entries, stats.recordings, stats.partial, stats.bytes) == (0, 0, 3, 10)
+    removed = cache.prune(-1)
+    assert (removed.partial, removed.bytes) == (2, 7)
+    assert young.is_file(), "a write younger than an hour may belong to a running build"
