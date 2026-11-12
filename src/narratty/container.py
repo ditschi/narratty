@@ -273,7 +273,13 @@ def ensure_image(engine: Runtime, image: str) -> None:
 
     if _image_id(engine, image):
         return
-    err.print(f"pulling {image} (this can take a while)…", highlight=False, soft_wrap=True)
+    err.print(
+        f"pulling {image} (this can take a while)…",
+        highlight=False,
+        soft_wrap=True,
+        emoji=False,
+        markup=False,
+    )
     try:
         progress: int | None = sys.stderr.fileno()
     except (AttributeError, ValueError, OSError):
