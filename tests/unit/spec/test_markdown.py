@@ -709,6 +709,12 @@ def test_markdown_mermaid_walkthrough_reuses_one_diagram_source(tmp_path: Path) 
     assert [_slides(scene)[0]["focus"] for scene in (first, second)] == ["a", "b"]
 
 
+def test_ragged_markdown_tables_get_even_rows(tmp_path: Path) -> None:
+    body = "# Doc\n\n<!-- narratty: slide -->\n| A | B |\n|---|---|\n| 1 |\n| 2 | 3 | 4 |\n\nRows.\n"
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert _slides(scene)[0]["table"]["rows"] == [["1", ""], ["2", "3"]]
+
+
 def test_slide_comment_shows_a_table_without_reading_it(tmp_path: Path) -> None:
     (scene,) = _expand(_doc(tmp_path, "# Doc\n\n<!-- narratty: slide -->\n" + SAFETY + "\nTwo risks.\n"))
     assert scene["narration"] == "Two risks."

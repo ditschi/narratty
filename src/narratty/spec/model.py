@@ -356,6 +356,15 @@ class SlideTable(_Model):
     header: list[str] = Field([], description="Column titles; none for a table without a header row.")
     rows: list[list[str]] = Field(min_length=1)
 
+    @model_validator(mode="after")
+    def _same_columns(self) -> SlideTable:
+        columns = len(self.header) if self.header else len(self.rows[0])
+        for number, row in enumerate(self.rows, 1):
+            if len(row) != columns:
+                given = "the header has" if self.header else "row 1 has"
+                raise ValueError(f"table row {number} has {len(row)} cell(s), but {given} {columns}")
+        return self
+
 
 class Slide(_Model):
     """Exactly one of table, mermaid, image or html, shown full screen."""

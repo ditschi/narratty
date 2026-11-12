@@ -34,6 +34,9 @@ def _slide(**keys: object) -> Slide:
         ({"html": "a.html", "title": "A"}, "title and theme do not apply"),
         ({"html": "https://example.com"}, "browser action"),
         ({"image": "notes.pdf"}, "not .pdf"),
+        ({"table": {"header": ["A", "B"], "rows": [["1", "2"], ["3"]]}}, "row 2 has 1 cell.*header has 2"),
+        ({"table": {"header": ["A"], "rows": [["1", "2"]]}}, "row 1 has 2 cell.*header has 1"),
+        ({"table": {"rows": [["1", "2"], ["3", "4", "5"]]}}, "row 2 has 3 cell.*row 1 has 2"),
     ],
 )
 def test_slide_checks(keys: dict[str, object], message: str) -> None:
