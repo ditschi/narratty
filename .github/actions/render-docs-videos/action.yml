@@ -1,0 +1,42 @@
+name: Render docs videos
+description: >-
+  Renders the docs videos made from Markdown (examples/render-ci-videos.sh) with the
+  narratty of this checkout, in the published image with this checkout's wheel on top.
+  Needs uv and the narratty CLI installed from this checkout.
+inputs:
+  base-image:
+    description: Image to add this checkout's wheel to
+    default: ghcr.io/ditschi/narratty:edge
+runs:
+  using: composite
+  steps:
+    - name: Build the wheel
+      shell: bash
+      run: uv build --wheel --out-dir dist
+    - name: Image with this checkout's narratty
+      shell: bash
+      env:
+        BASE: ${{ inputs.base-image }}
+      run: |
+        docker pull "$BASE"
+        docker build --build-arg BASE="$BASE" -f docker/render.Dockerfile -t narratty:docs dist
+    - name: Voices from the image
+      # The host checks the voice before it starts the container; copying it from the
+      # image saves downloading the Kokoro model again.
+      shell: bash
+      run: |
+        data="$RUNNER_TEMP/narratty-data"
+        mkdir -p "$data"
+        docker run --rm --user "$(id -u):$(id -g)" --volume "$data:/x" --entrypoint sh narratty:docs \
+          -c 'cp -r /opt/narratty/data/. /x/'
+        echo "NARRATTY_DATA_DIR=$data" >>"$GITHUB_ENV"
+    - name: Render
+      # One retry: VHS's frame rate varies with the runner's load, and a recording that
+      # drifts more than --max-drift from the plan fails the build (exit code 6).
+      shell: bash
+      run: |
+        for attempt in 1 2; do
+          examples/render-ci-videos.sh --runtime docker --image narratty:docs && exit 0
+          echo "::warning::rendering the docs videos failed (attempt $attempt)"
+        done
+        exit 1

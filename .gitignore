@@ -35,3 +35,6 @@ site/
 
 # narratty render output
 out/
+
+# Rendered in CI before each docs deploy (examples/render-ci-videos.sh)
+docs/assets/examples/markdown.mp4
