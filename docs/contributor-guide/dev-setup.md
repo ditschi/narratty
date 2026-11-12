@@ -21,6 +21,10 @@ uv run pre-commit install    # ruff, mypy, codespell, commit-msg check
 | `nox -s performance` | Cold-start budgets for `--help` and shell completion |
 | `nox -s docs` | `mkdocs build --strict` |
 
+The video on the Markdown input page is rendered in CI and not committed; to see it
+in `mkdocs serve`, render it with `examples/render-ci-videos.sh`. Pull requests that
+touch docs, examples or code upload it as the `docs-videos` artifact.
+
 ## Commits
 
 Commits and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/)

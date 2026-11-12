@@ -198,3 +198,40 @@ jobs:
         run: uv tool install nox
       - name: Build docs
         run: nox -s docs
+  # ── 7. Docs videos made from Markdown ───────────────────────────────────────
+  # The docs deploy renders them; here they are rendered when something they depend
+  # on changed, and uploaded so reviewers can watch them.
+  docs-videos:
+    name: Docs videos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Anything the videos depend on changed?
+        id: changes
+        run: |
+          paths=(docs examples src pyproject.toml uv.lock docker .github/actions/render-docs-videos)
+          if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- "${paths[@]}"; then
+            echo "render=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "render=true" >>"$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-python@v6
+        if: steps.changes.outputs.render == 'true'
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+        if: steps.changes.outputs.render == 'true'
+      - name: Install narratty
+        if: steps.changes.outputs.render == 'true'
+        run: uv pip install -e . --system
+      - name: Render
+        if: steps.changes.outputs.render == 'true'
+        uses: ./.github/actions/render-docs-videos
+      - uses: actions/upload-artifact@v7
+        if: steps.changes.outputs.render == 'true'
+        with:
+          name: docs-videos
+          path: docs/assets/examples/markdown.mp4
+          if-no-files-found: error

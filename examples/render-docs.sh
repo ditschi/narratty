@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Renders the recordings shown on the docs into docs/assets/examples.
+# Renders the recordings shown on the docs into docs/assets/examples; CI renders the ones
+# made from Markdown (examples/render-ci-videos.sh), which are not committed.
 # Usage: examples/render-docs.sh [--only PATTERN] [narratty build options, e.g. --runtime native]
 #   --only PATTERN  renders only the specs whose path contains PATTERN (e.g. markdown)
 # Each spec gets <name>.fingerprint next to it (`narratty compile --fingerprint`): what its
@@ -47,6 +48,4 @@ if selected examples/end-card/end-card.narratty.yaml; then
   fingerprint examples/end-card/end-card.narratty.yaml
 fi
 build examples/editor-layout/editor.narratty.yaml -o "$out/editor-layout.mp4" "$@"
-# The video of docs/user-guide/markdown.md, made from that page.
-build examples/markdown/markdown.narratty.yaml -o "$out/markdown.mp4" "$@"
 build examples/browser/browser.narratty.yaml -o "$out/browser.mp4" --yes "$@"   # needs network

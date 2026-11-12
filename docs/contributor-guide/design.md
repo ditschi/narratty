@@ -950,11 +950,14 @@ shows its own video:
 - `docs/user-guide/markdown.md` explains the feature in plain docs prose.
 - `examples/markdown/markdown.narratty.yaml` is a `markdown:` entry pointing at that
   page, plus the `overrides` and hidden setup the video needs.
-- `examples/render-docs.sh` renders it to `docs/assets/examples/markdown.mp4`, which the
-  page embeds with `<video>` (raw HTML, so not spoken).
-- Every spec `render-docs.sh` renders stores `narratty compile --fingerprint` next to
-  it; `tests/unit/test_docs_videos.py` fails when a spec or its Markdown changed since.
-  Rendering in CI instead is a follow-up.
+- CI renders it to `docs/assets/examples/markdown.mp4` before each docs deploy
+  (`examples/render-ci-videos.sh` in `.github/actions/render-docs-videos`, using the
+  `edge` image with the checkout's wheel on top), so it is not committed; the page
+  embeds it with `<video>` (raw HTML, so not spoken). PRs that touch docs, examples or
+  code render it too and upload it as an artifact.
+- The other docs videos are committed: `examples/render-docs.sh` renders them and
+  stores `narratty compile --fingerprint` next to each spec, and
+  `tests/unit/test_docs_videos.py` fails when a spec changed since.
 - The page's blocks must run in the default sandbox; `narratty build` blocks are
   `no-run`.
 - The docs switch to `console` only where output helps the reader, and get the copy CSS

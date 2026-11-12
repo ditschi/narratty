@@ -203,6 +203,8 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - name: Install docs deps
         run: uv pip install -e ".[docs]" --system
+      - name: Render the docs videos made from Markdown
+        uses: ./.github/actions/render-docs-videos
       - name: Configure git for mike
         run: |
           git config user.name "github-actions[bot]"
