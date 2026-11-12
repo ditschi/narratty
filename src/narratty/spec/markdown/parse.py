@@ -8,6 +8,7 @@ this pass; what to do with the rest is decided in :mod:`.scenes`.
 from __future__ import annotations
 
 import re
+import shlex
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,7 +52,7 @@ class Code(Block):
     id: str | None = None
     title: str | None = None
     options: tuple[str, ...] = ()
-    """Space-separated words of the ``narratty="…"`` attribute."""
+    """Space-separated words of the ``narratty="…"`` attribute; ``key='a b'`` is one word."""
 
 
 @dataclass(frozen=True)
@@ -190,7 +191,7 @@ class _Walker:
             content=node.content,
             id=attrs.get("#"),
             title=attrs.get("title"),
-            options=tuple(attrs.get("narratty", "").split()),
+            options=block_options(attrs.get("narratty", "")),
         )
 
     def table(self, node: SyntaxTreeNode) -> Table:
@@ -229,6 +230,14 @@ def parse_info(info: str) -> tuple[str, dict[str, str]]:
             value = match["value"]
             attrs[match["key"]] = value[1:-1] if value[:1] in "\"'" else value
     return lang.lower(), attrs
+
+
+def block_options(text: str) -> tuple[str, ...]:
+    """The words of a ``narratty="…"`` attribute, quotes as in the shell (``run='a b'``)."""
+    try:
+        return tuple(shlex.split(text))
+    except ValueError:  # an unbalanced quote: the words as they are, reported as unknown
+        return tuple(text.split())
 
 
 def _only_image(inline: SyntaxTreeNode) -> SyntaxTreeNode | None:

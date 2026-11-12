@@ -669,6 +669,11 @@ class MarkdownEntry(_Model):
         description="Let `narratty check` compare what commands print with the output shown in "
         "console blocks.",
     )
+    say: Literal["before", "during"] = Field(
+        "during",
+        description="When the text before a command block is spoken: before its commands are typed, "
+        "or during them (since 0.7). A `run` comment changes it per block.",
+    )
     defaults: SceneDefaults = SceneDefaults()
     overrides: dict[Annotated[str, Field(pattern=SCENE_ID_PATTERN)], BlockOverride] = Field(
         {}, description="Per-block changes, keyed by the id in the block's attributes."

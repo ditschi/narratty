@@ -423,6 +423,7 @@ The [Compose file reference](https://docs.docker.com/compose/) lists every key.
 | `table` | Speaks the next table row by row on a slide (since 0.6), see [Tables](#tables) |
 | `slide` | Sets the title and look of the next table, diagram or image, or shows an HTML file (since 0.6), see [Slides](#slides) |
 | `focus` | Reuses the last Mermaid diagram, emphasizing the given node or subgraph for the next narrated step (since 0.7), see [Slides](#slides) |
+| `run` | How the next shell or console block runs: narration order, a substitute command, output lines, stopping it (since 0.7), see [Running commands](#running-commands) |
 | `spec` | Spec keys for building the doc on its own (since 0.6), see [Building a doc on its own](#building-a-doc-on-its-own) |
 
 HTML comments cannot contain `--`; put such text into a YAML scene instead.
@@ -472,10 +473,130 @@ scenes: []
 | `hidden` | Runs the block without showing it (setup) |
 | `expect-failure` | The block's commands are expected to fail |
 | `any-output` | The output the block shows is not compared (since 0.6), see [Checking docs in CI](#checking-docs-in-ci) |
+| `say=…`, `instead=…`, `lines=…`, `until=…`, `then=…`, `timeout=…` | The keys of the `run` comment (since 0.7), see [Running commands](#running-commands) |
 
 !!! warning "Write attributes in braces"
     mkdocs renders `console narratty="no-run"` (without braces) as plain text. A
     brace-less `title="…"` works on its own, but not together with an id.
+
+## Running commands
+
+Since narratty 0.7.
+
+A `run` comment right before a shell or console block says how the video runs it.
+The block stays what readers copy.
+
+```markdown
+<!-- narratty: run {say: before, lines: 10} -->
+```
+
+The same keys fit in the block's attributes as `key=value`, quoted like in the shell
+when the value has spaces. Where both are given, the attribute wins.
+
+````markdown
+```console {narratty="instead='pip install -e .' lines=10"}
+$ pip install tally
+```
+````
+
+| Key | Does |
+|---|---|
+| `say` | When the text is spoken: `before`, `during` (default) or `after` the commands, see [Explain, then run](#explain-then-run) |
+| `instead` | Shows the block's command, runs this one, see [Show one command, run another](#show-one-command-run-another) |
+| `lines` | Shows only that many lines of each command's output, see [Long output](#long-output) |
+| `until` | Waits for this regular expression on screen, then stops the last command, see [Commands that keep running](#commands-that-keep-running) |
+| `then` | The key that stops it: `C-c` (default) or a key such as `q` |
+| `timeout` | How long `until` waits (default `30s`) |
+
+### Explain, then run
+
+| `say` | The video | Narration |
+|---|---|---|
+| `during` (default) | Speaks while the commands are typed and run | The text before the block |
+| `before` | Speaks first, then types the commands | The text before the block |
+| `after` | Runs the commands, then speaks, in the same scene | The text after the block, up to the next block, heading or `pause`; the text before it is spoken on its own first |
+
+`say: before` on the `markdown` entry makes it the default for every block; a `run`
+comment with `say: during` changes it back for one. In YAML, `before` is a `hold: auto`
+before the first action and `after` is `narration_start: after_actions`.
+
+<!-- narratty: run {say: after} -->
+```console
+$ echo "Hello from Markdown"
+Hello from Markdown
+```
+
+The video printed the greeting before this paragraph was spoken.
+
+```markdown
+<!-- narratty: run {say: after} -->
+```
+
+### Show one command, run another
+
+`instead` shows the reader's command and runs another one in its place: the reader's
+`pip install tally` can stay in the doc while the video installs from the checkout.
+
+````markdown
+<!-- narratty: run {instead: "pip install -e ."} -->
+```console
+$ pip install tally
+```
+````
+
+- The block's command is typed, then replaced unseen, and the screen shows it with the
+  output of the command that ran. No `^C` and no second command appear.
+- The block must have one command, and `instead` must fit on one line. The block's
+  command may contain placeholders such as `<package>`, since it does not run.
+- `narratty check` runs the `instead` command and does not compare its output with
+  the output the block shows, which belongs to the reader's command.
+- A `no-run` block runs nothing in its place: its command is typed and stays on
+  screen. To say so in the video, add an `overlay` comment, such as
+  `<!-- narratty: overlay not run in this video -->`.
+
+### Long output
+
+`lines: 10` shows the first ten lines of each command's output and ends it with
+`... (N more lines)`. The block keeps the output readers see, `...` included:
+
+````markdown
+<!-- narratty: run {lines: 3} -->
+```console
+$ seq 100
+1
+2
+...
+```
+````
+
+- `narratty check` runs the command as it is and compares all of its output with the
+  block.
+- In the video the output goes through `awk`. The command then writes to a pipe
+  instead of a terminal, so programs that colour their output only in a terminal print
+  it plain, and stderr is merged into stdout. Commands must fit on one line.
+
+### Commands that keep running
+
+`until` waits for a pattern in the output, then stops the block's last command, by
+default with Ctrl+C, and waits for the prompt. Servers and `tail -f` stay in the doc as
+readers type them.
+
+````markdown
+<!-- narratty: run {until: "Serving HTTP", timeout: 20s} -->
+```console
+$ python -m http.server 8000
+Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ...
+...
+```
+````
+
+- The pattern is a regular expression, matched against the whole screen, so pick one
+  the screen does not show before the command prints it.
+- `then: q` stops a pager with a key instead; keys are those of the
+  [`key` action](spec.md#actions), `C-…` is a Ctrl chord.
+- `narratty check` waits and stops the command the same way. The exit code of a
+  command stopped with Ctrl+C does not count as a failure. Its output ends with what
+  the command prints when stopped, so end the block's output with `...`.
 
 ## Placeholders
 
@@ -526,6 +647,7 @@ scenes:
 | `file_titles` | `true` | Show a file block's title as an overlay |
 | `images` | `true` | Show images on a line of their own and `mermaid` blocks, see [Images](#images) |
 | `id_prefix` | file stem | Start of the generated scene ids |
+| `say` | `during` | When the text before a block is spoken: `before` its commands are typed, or `during` them (since 0.7), see [Explain, then run](#explain-then-run) |
 | `check_output` | `true` | Let `narratty check` compare the output console blocks show, see [Checking docs in CI](#checking-docs-in-ci) (since 0.6) |
 | `defaults` | `{}` | Scene keys for every scene: `typing_speed_ms`, `pause_ms`, `fast`, `timelapse`, `narration_start`, `expect_exit` |
 | `overrides` | `{}` | Per block id: the same scene keys plus `narration` and `before` / `after` action lists |

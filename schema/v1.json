@@ -2269,6 +2269,16 @@
           "title": "Check Output",
           "type": "boolean"
         },
+        "say": {
+          "default": "during",
+          "description": "When the text before a command block is spoken: before its commands are typed, or during them (since 0.7). A `run` comment changes it per block.",
+          "enum": [
+            "before",
+            "during"
+          ],
+          "title": "Say",
+          "type": "string"
+        },
         "defaults": {
           "$ref": "#/$defs/SceneDefaults",
           "default": {
