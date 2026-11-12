@@ -70,29 +70,17 @@ def test_encode_mp3(tmp_path: Path) -> None:
 
 def test_join_recordings_uses_frame_boundaries(tmp_path: Path) -> None:
     runner = FakeRunner()
-    media.join_recordings(
-        Path("old.mp4"),
-        Path("new.mp4"),
-        tmp_path / "out.mp4",
-        prefix_frames=45,
-        suffix_start_frame=3,
-        framerate=30,
-        runner=runner,
-    )
+    parts = [(Path("old.mp4"), 0, 45), (Path("older.mp4"), 6, 20), (Path("new.mp4"), 3, None)]
+    media.join_recordings(parts, tmp_path / "out.mp4", framerate=30, runner=runner)
     argv = runner.calls[0][0]
+    assert [argv[i + 1] for i, arg in enumerate(argv) if arg == "-i"] == ["old.mp4", "older.mp4", "new.mp4"]
     graph = argv[argv.index("-filter_complex") + 1]
-    assert "trim=end_frame=45" in graph and "trim=start_frame=3" in graph
-    assert "concat=n=2:v=1:a=0" in graph
+    assert "[0:v]trim=start_frame=0:end_frame=45" in graph
+    assert "[1:v]trim=start_frame=6:end_frame=20" in graph
+    assert "[2:v]trim=start_frame=3," in graph
+    assert "concat=n=3:v=1:a=0" in graph
     with pytest.raises(RenderError, match="join cached scenes"):
-        media.join_recordings(
-            Path("old.mp4"),
-            Path("new.mp4"),
-            tmp_path / "out.mp4",
-            prefix_frames=45,
-            suffix_start_frame=3,
-            framerate=30,
-            runner=FakeRunner(returncode=1),
-        )
+        media.join_recordings(parts, tmp_path / "out.mp4", framerate=30, runner=FakeRunner(returncode=1))
 
 
 def test_run_vhs_logs_lines_with_times(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

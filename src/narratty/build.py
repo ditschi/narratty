@@ -10,7 +10,7 @@ import tempfile
 import uuid
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager, nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -322,6 +322,7 @@ def render_silent(
     cache_markers: bool = False,
     cached_prefix: SceneRecording | None = None,
     replay_scenes: frozenset[str] = frozenset(),
+    fresh: FreshFootage | None = None,
 ) -> timelapse.Layout | None:
     """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``.
 
@@ -335,6 +336,9 @@ def render_silent(
     With timelapse scenes, overlays or browser views, the tape also takes markers: the
     timelapse scenes are sped up into ``video`` and the returned layout says where each
     scene and cue landed.
+
+    ``cached_prefix`` footage is joined before the recording of the scenes after
+    ``replay_scenes``; ``fresh`` then learns where that recording is and its markers.
     """
     from narratty.bridge import shim_env
     from narratty.draft import FRAMERATE as DRAFT_FRAMERATE
@@ -400,6 +404,8 @@ def render_silent(
 
     positions = timelapse.marker_positions(vhs_log, marks, recorded.duration_ms)
     positions = shift_positions(positions, inserts, recorded.frame_rate)
+    if fresh is not None:
+        fresh.video, fresh.positions = recording, dict(positions)
     return _finish_recording(
         planned, recording, video, positions, cached_prefix, replay_scenes, framerate, recorded.frame_rate
     )
@@ -416,23 +422,23 @@ def _finish_recording(
     recorded_framerate: float,
 ) -> timelapse.Layout:
     if cached_prefix is not None:
-        prefix_framerate = media.probe(cached_prefix.video).frame_rate
-        if prefix_framerate <= 0 or recorded_framerate <= 0:
+        if recorded_framerate <= 0:
             raise RenderError("cannot join cached scenes without a known video frame rate")
+        parts: list[tuple[Path, int, int | None]] = []
+        prefix_output_frames = 0
+        for part in cached_prefix.parts:
+            part_framerate = media.probe(part.video).frame_rate
+            if part_framerate <= 0:
+                raise RenderError("cannot join cached scenes without a known video frame rate")
+            start = round(part.start_ms * part_framerate / 1000)
+            end = round(part.end_ms * part_framerate / 1000)
+            parts.append((part.video, start, end))
+            prefix_output_frames += round((end - start) * framerate / part_framerate)
         first = next(
             scene.id for scene in planned.spec.scenes if not scene.hidden and scene.id not in replay_scenes
         )
-        prefix_frames = round(cached_prefix.cut_ms * prefix_framerate / 1000)
         suffix_frame = round(positions[f"scene-{first}"] * recorded_framerate / 1000)
-        media.join_recordings(
-            cached_prefix.video,
-            recording,
-            video,
-            prefix_frames=prefix_frames,
-            suffix_start_frame=suffix_frame,
-            framerate=framerate,
-        )
-        prefix_output_frames = round(prefix_frames * framerate / prefix_framerate)
+        media.join_recordings([*parts, (recording, suffix_frame, None)], video, framerate=framerate)
         positions = {
             key: _joined_position(value, prefix_output_frames, suffix_frame, recorded_framerate, framerate)
             for key, value in positions.items()
@@ -608,6 +614,14 @@ def _cache_exclusions(ws: PreparedWorkspace, paths: Sequence[Path]) -> frozenset
     return frozenset(excluded)
 
 
+@dataclass
+class FreshFootage:
+    """The fresh recording joined to cached footage, and its markers (see render_silent)."""
+
+    video: Path | None = None
+    positions: dict[str, int] = field(default_factory=dict)
+
+
 @dataclass(frozen=True)
 class SceneCachePlan:
     """The cache entries and reusable prefix selected for a build."""
@@ -672,12 +686,7 @@ def _scene_cache_plan(
             if any(name not in candidate.starts_ms for name in prefix):
                 log(f"scene cache entry through {scene_id} is missing a scene boundary")
                 continue
-            try:
-                info = media.probe(candidate.video)
-            except RenderError:
-                log(f"scene cache entry through {scene_id} has an unreadable recording")
-                continue
-            if reason := _scene_recording_problem(candidate, info, prefix):
+            if reason := _scene_recording_problem(candidate, prefix):
                 log(f"scene cache entry through {scene_id} is incompatible: {reason}")
             else:
                 selected, replay = candidate, frozenset(prefix)
@@ -686,19 +695,22 @@ def _scene_cache_plan(
     return SceneCachePlan(cache, keys, selected, replay)
 
 
-def _scene_recording_problem(
-    candidate: SceneRecording, info: media.MediaInfo, prefix: list[str]
-) -> str | None:
-    """Whether a cached recording can safely supply the given scene prefix."""
+def _scene_recording_problem(candidate: SceneRecording, prefix: list[str]) -> str | None:
+    """Whether cached footage can safely supply the given scene prefix."""
     starts = [candidate.starts_ms[name] for name in prefix]
-    if not info.has_video:
-        return "recording has no video stream"
-    if info.frame_rate <= 0:
-        return "recording has no known frame rate"
-    if info.duration_ms < candidate.cut_ms:
-        return f"recording ends at {info.duration_ms} ms before cut {candidate.cut_ms} ms"
     if starts != sorted(starts) or starts[-1] >= candidate.cut_ms:
         return "scene boundaries are not ordered before the cut"
+    for part in candidate.parts:
+        try:
+            info = media.probe(part.video)
+        except RenderError:
+            return f"recording {part.video.name} is unreadable"
+        if not info.has_video:
+            return "recording has no video stream"
+        if info.frame_rate <= 0:
+            return "recording has no known frame rate"
+        if info.duration_ms < part.end_ms:
+            return f"recording ends at {info.duration_ms} ms before cut {part.end_ms} ms"
     return None
 
 
@@ -748,11 +760,13 @@ def build(
         say(f"recording {len(planned.timeline.scenes)} scenes with VHS")
         silent = work / "silent.mp4"
         render_options: dict[str, Any] = {}
+        fresh = FreshFootage()
         if cache is not None:
             render_options = {
                 "cache_markers": True,
                 "cached_prefix": cache.prefix,
                 "replay_scenes": cache.replay,
+                "fresh": fresh,
             }
         layout = render_silent(
             planned,
@@ -797,15 +811,33 @@ def build(
         check_exits(planned, work, output, ignore_exit=ignore_exit)
         if cache is not None and layout is not None:
             verify(BuildResult(output, expected_ms, video_ms, tuple(used)), max_drift=max_drift)
-            cache.cache.put(
-                {scene.id: cache.keys[scene.id] for scene in planned.spec.scenes if not scene.hidden},
-                silent,
-                layout.scene_starts_ms,
-                layout.cues_ms["end"],
-            )
+            _store_scenes(cache, planned, silent, layout, fresh)
     result = BuildResult(output, expected_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
     return result
+
+
+def _store_scenes(
+    cache: SceneCachePlan, planned: Plan, silent: Path, layout: timelapse.Layout, fresh: FreshFootage
+) -> None:
+    """Add entries for the freshly recorded scenes (see narratty.render.scene_cache)."""
+    keys = {scene.id: cache.keys[scene.id] for scene in planned.spec.scenes if not scene.hidden}
+    if cache.prefix is None:
+        cache.cache.put(keys, silent, layout.scene_starts_ms, layout.cues_ms["end"])
+        return
+    if fresh.video is None:
+        return
+    cache.cache.put(
+        keys,
+        fresh.video,
+        layout.scene_starts_ms,
+        layout.cues_ms["end"],
+        base=cache.prefix,
+        video_starts_ms={
+            scene: fresh.positions[f"scene-{scene}"] for scene in keys if scene not in cache.replay
+        },
+        video_end_ms=fresh.positions["cue-end"],
+    )
 
 
 def _export_artifacts(planned: Plan, workspace: Path, output: Path, say: Log) -> None:

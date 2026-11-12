@@ -28,7 +28,7 @@ def _digest(value: Any) -> str:
 def scene_keys(spec: Spec, timeline: Timeline, recording_context: str) -> dict[str, str]:
     """Hash each scene and its entire preceding state, including recording context."""
     settings = spec.model_dump(mode="json", exclude={"scenes", "tts", "subtitles"})
-    previous = _digest({"format": 1, "settings": settings, "context": recording_context})
+    previous = _digest({"format": 2, "settings": settings, "context": recording_context})
     keys: dict[str, str] = {}
     for scene in spec.scenes:
         timing = asdict(timeline.scene(scene.id))
@@ -174,13 +174,31 @@ def recording_context(
     )
 
 
+# Storage. A build that reuses cached scenes joins their footage to a fresh recording,
+# re-encoding both. Storing that joined video would re-encode the oldest scenes again on
+# every later reuse (generational loss, and frame rounding that adds up). So the cache
+# never stores a join: it stores each fresh recording as VHS wrote it, and an entry lists
+# the parts of stored recordings that make up its scenes. Entries of reused scenes stay
+# as they are; only freshly recorded scenes get new entries, whose parts are the reused
+# prefix's parts plus the new recording. Every build re-encodes each frame once, from
+# VHS's own output.
+
+
 @dataclass(frozen=True)
-class SceneRecording:
-    """A recording and the positions of its scene boundaries."""
+class Footage:
+    """The part of a stored recording between two positions of its own."""
 
     video: Path
-    starts_ms: dict[str, int]
+    start_ms: int
     end_ms: int
+
+
+@dataclass(frozen=True)
+class SceneRecording:
+    """The footage of a scene prefix and where its scenes start once the parts are joined."""
+
+    parts: tuple[Footage, ...]
+    starts_ms: dict[str, int]
     cut_ms: int
 
 
@@ -193,6 +211,10 @@ class SceneCacheStats:
     bytes: int
 
 
+def _position(value: Any) -> bool:
+    return type(value) is int and value >= 0
+
+
 class SceneCache:
     """Recordings referenced by cumulative scene keys."""
 
@@ -203,29 +225,57 @@ class SceneCache:
         """Return a complete cache entry, or None for a missing or damaged entry."""
         try:
             data = json.loads((self.root / "keys" / f"{key}.json").read_text(encoding="utf-8"))
-            name, starts, end, cut = data["video"], data["starts_ms"], data["end_ms"], data["cut_ms"]
-            if not isinstance(name, str) or Path(name).name != name or not name.endswith(".mp4"):
+            parts, starts, cut = data["parts"], data["starts_ms"], data["cut_ms"]
+            if not isinstance(parts, list) or not parts:
                 return None
+            footage = []
+            for part in parts:
+                name, begin, end = part["video"], part["start_ms"], part["end_ms"]
+                if not isinstance(name, str) or Path(name).name != name or not name.endswith(".mp4"):
+                    return None
+                if not (_position(begin) and _position(end) and begin < end):
+                    return None
+                footage.append(Footage(self.root / "videos" / name, begin, end))
             if not isinstance(starts, dict) or not all(
-                isinstance(scene, str) and type(position) is int and position >= 0
-                for scene, position in starts.items()
+                isinstance(scene, str) and _position(position) for scene, position in starts.items()
             ):
                 return None
-            if type(end) is not int or end < 0 or any(position > end for position in starts.values()):
+            if not _position(cut) or cut == 0 or any(position >= cut for position in starts.values()):
                 return None
-            if type(cut) is not int or not 0 < cut <= end:
-                return None
-            video = self.root / "videos" / name
-            if not video.is_file():
+            if not all(part.video.is_file() for part in footage):
                 return None
             (self.root / "keys" / f"{key}.json").touch()
-            video.touch()
-            return SceneRecording(video, starts, end, cut)
+            for part in footage:
+                part.video.touch()
+            return SceneRecording(tuple(footage), starts, cut)
         except (OSError, ValueError, TypeError, KeyError):
             return None
 
-    def put(self, keys: dict[str, str], video: Path, starts_ms: dict[str, int], end_ms: int) -> None:
-        """Atomically publish a recording after the build has passed its checks."""
+    def put(
+        self,
+        keys: dict[str, str],
+        video: Path,
+        starts_ms: dict[str, int],
+        end_ms: int,
+        *,
+        base: SceneRecording | None = None,
+        video_starts_ms: dict[str, int] | None = None,
+        video_end_ms: int | None = None,
+    ) -> None:
+        """Atomically publish a recording after the build has passed its checks.
+
+        ``keys`` are the visible scenes in order and ``starts_ms``/``end_ms`` their
+        positions in the build's video. Without ``base`` that video is ``video``. With
+        it, the first scenes were reused from ``base`` and keep their entries; ``video``
+        is the fresh recording of the rest, and ``video_starts_ms``/``video_end_ms`` are
+        positions in it.
+        """
+        reused = set(base.starts_ms) if base else set()
+        fresh = [scene for scene in keys if scene not in reused]
+        if not fresh:
+            return
+        own_starts = starts_ms if video_starts_ms is None else video_starts_ms
+        own_end = end_ms if video_end_ms is None else video_end_ms
         videos, entries = self.root / "videos", self.root / "keys"
         videos.mkdir(parents=True, exist_ok=True)
         entries.mkdir(parents=True, exist_ok=True)
@@ -233,15 +283,26 @@ class SceneCache:
         staged = videos / f"{name}.part"
         shutil.copyfile(video, staged)
         os.replace(staged, videos / name)
+        prefix = [asdict(part) | {"video": part.video.name} for part in base.parts] if base else []
+        first = own_starts[fresh[0]] if base else 0
         scenes = list(keys)
-        for index, (scene, key) in enumerate(keys.items()):
-            cut = starts_ms[scenes[index + 1]] if index + 1 < len(scenes) else end_ms
-            if cut <= starts_ms[scene]:
+        for index, scene in enumerate(scenes):
+            if scene in reused:
+                continue
+            following = scenes[index + 1] if index + 1 < len(scenes) else None
+            cut = starts_ms[following] if following else end_ms
+            own_cut = own_starts[following] if following else own_end
+            if cut <= starts_ms[scene] or own_cut <= first:
                 continue
             data = json.dumps(
-                {"video": name, "starts_ms": starts_ms, "end_ms": end_ms, "cut_ms": cut}, sort_keys=True
+                {
+                    "parts": [*prefix, {"video": name, "start_ms": first, "end_ms": own_cut}],
+                    "starts_ms": {other: starts_ms[other] for other in scenes[: index + 1]},
+                    "cut_ms": cut,
+                },
+                sort_keys=True,
             )
-            entry = entries / f"{key}.json"
+            entry = entries / f"{keys[scene]}.json"
             pending = entry.with_name(f"{entry.name}.{uuid.uuid4().hex}.part")
             pending.write_text(data, encoding="utf-8")
             os.replace(pending, entry)
@@ -258,12 +319,13 @@ class SceneCache:
         removed = [entry for entry in entries if entry.stat().st_mtime < cutoff]
         for entry in removed:
             entry.unlink()
-        referenced = set()
+        referenced: set[str] = set()
         for entry in entries:
             if entry in removed:
                 continue
             try:
-                referenced.add(json.loads(entry.read_text(encoding="utf-8"))["video"])
+                parts = json.loads(entry.read_text(encoding="utf-8"))["parts"]
+                referenced.update(part["video"] for part in parts)
             except (OSError, ValueError, TypeError, KeyError):
                 continue
         videos = [

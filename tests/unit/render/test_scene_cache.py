@@ -52,9 +52,45 @@ def test_recording_is_shared_by_prefix_keys(tmp_path: Path) -> None:
     cache.put({"first": "first", "second": "second"}, video, {"first": 100, "second": 2000}, 4000)
     first, second = cache.get("first"), cache.get("second")
     assert first is not None and second is not None
-    assert first.video == second.video and (first.cut_ms, second.cut_ms) == (2000, 4000)
-    assert first.video.read_bytes() == b"video"
-    assert first.starts_ms == {"first": 100, "second": 2000}
+    assert [part.video for part in first.parts] == [part.video for part in second.parts]
+    assert (first.cut_ms, second.cut_ms) == (2000, 4000)
+    assert first.parts[0].video.read_bytes() == b"video"
+    assert (first.parts[0].start_ms, first.parts[0].end_ms) == (0, 2000)
+    assert first.starts_ms == {"first": 100}
+    assert second.starts_ms == {"first": 100, "second": 2000}
+
+
+def test_reused_scenes_keep_their_footage_and_fresh_scenes_chain_onto_it(tmp_path: Path) -> None:
+    cache = SceneCache(tmp_path)
+    original = tmp_path / "original.mp4"
+    original.write_bytes(b"original")
+    keys = {"a": "a1", "b": "b1", "c": "c1"}
+    cache.put(keys, original, {"a": 100, "b": 2000, "c": 4000}, 6000)
+    base = cache.get("b1")
+    assert base is not None
+    before = (cache.root / "keys" / "a1.json").read_text(encoding="utf-8")
+    fresh = tmp_path / "fresh.mp4"
+    fresh.write_bytes(b"fresh")
+    # The fresh recording replays a and b hidden; c starts at 700 ms in it.
+    cache.put(
+        {"a": "a1", "b": "b1", "c": "c2", "d": "d2"},
+        fresh,
+        {"a": 100, "b": 2000, "c": 4000, "d": 5000},
+        7000,
+        base=base,
+        video_starts_ms={"c": 700, "d": 1700},
+        video_end_ms=3700,
+    )
+    assert (cache.root / "keys" / "a1.json").read_text(encoding="utf-8") == before
+    assert cache.get("b1") == base, "a reused entry is not pointed at the joined video"
+    chained = cache.get("c2")
+    assert chained is not None
+    assert [(part.video.read_bytes(), part.start_ms, part.end_ms) for part in chained.parts] == [
+        (b"original", 0, 4000),
+        (b"fresh", 700, 1700),
+    ]
+    assert chained.cut_ms == 5000 and chained.starts_ms == {"a": 100, "b": 2000, "c": 4000}
+    assert len(list((cache.root / "videos").glob("*.mp4"))) == 2, "no joined video is stored"
 
 
 def test_damaged_or_missing_cache_entries_are_misses(tmp_path: Path) -> None:
@@ -63,7 +99,8 @@ def test_damaged_or_missing_cache_entries_are_misses(tmp_path: Path) -> None:
     entries.mkdir(parents=True)
     (entries / "broken.json").write_text("{", encoding="utf-8")
     (entries / "escape.json").write_text(
-        '{"video":"../other.mp4","starts_ms":{},"end_ms":0}', encoding="utf-8"
+        '{"parts":[{"video":"../other.mp4","start_ms":0,"end_ms":10}],"starts_ms":{},"cut_ms":10}',
+        encoding="utf-8",
     )
     assert cache.get("missing") is None
     assert cache.get("broken") is None
@@ -101,10 +138,11 @@ def test_prune_preserves_recordings_referenced_by_fresh_entries(tmp_path: Path) 
     os.utime(cache.root / "keys" / "first.json", (old, old))
     recording = cache.get("second")
     assert recording is not None
-    os.utime(recording.video, (old, old))
+    video = recording.parts[0].video
+    os.utime(video, (old, old))
     removed = cache.prune(100)
     assert (removed.entries, removed.recordings) == (1, 0)
-    assert recording.video.is_file()
+    assert video.is_file()
     removed = cache.prune(-1)
     assert (removed.entries, removed.recordings, removed.bytes) == (1, 1, 5)
 
