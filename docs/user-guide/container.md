@@ -2,7 +2,8 @@
 
 With Docker or Podman installed, `build`, `render`, `tts`, `plan` and `tape` run
 inside the narratty image by default (`--runtime auto`). The image contains VHS,
-ttyd, Chromium, Mermaid, ffmpeg, fonts, Kokoro, Piper, `git`, `tree`, the Docker CLI (with
+ttyd, Chromium, Mermaid, Font Awesome icons, emoji and terminal fonts, ffmpeg, Kokoro,
+Piper, `git`, `tree`, the Docker CLI (with
 Compose and Buildx) and the [demo toolkit](toolkit.md)
 (`bat`, `delta`, `eza`, `fd`, `ripgrep`, `jq`, `micro`, `yazi`, `tmux`, `zsh`). You only need narratty
 itself and a container runtime on the host.

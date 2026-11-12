@@ -28,6 +28,7 @@ def _slide(**keys: object) -> Slide:
         ({}, "exactly one of: table, mermaid, image, html"),
         ({"mermaid": "graph TD", "image": "a.png"}, "exactly one of"),
         ({"mermaid": "graph TD", "highlight": 1}, "only apply to table slides"),
+        ({"table": TABLE, "focus": "api"}, "focus only applies to Mermaid slides"),
         ({"table": TABLE, "highlight": 6}, "highlight 6: the table has 5 rows"),
         ({"table": TABLE, "rows": 2, "page": 4}, r"page 4: the table has 3 page\(s\)"),
         ({"html": "a.html", "title": "A"}, "title and theme do not apply"),
@@ -62,6 +63,12 @@ def test_light_theme_and_mermaid(tmp_path: Path) -> None:
     assert 'data-mermaid-theme="default"' in page
     assert "#ffffff" in page
     assert 'data-mermaid-theme="dark"' in slides.page(_slide(mermaid="graph TD"), "dark", tmp_path)
+
+
+def test_mermaid_focus_is_carried_to_the_rendered_page(tmp_path: Path) -> None:
+    page = slides.page(_slide(mermaid="flowchart LR\n  api --> db", focus="api"), "dark", tmp_path)
+    assert '<body data-mermaid-theme="dark" data-mermaid-focus="api">' in page
+    assert ".narratty-focus" in page
 
 
 def test_image_from_the_workspace(tmp_path: Path) -> None:

@@ -1116,8 +1116,9 @@ scenes:
 - When a captured page has `.mermaid` elements that are not drawn yet and no Mermaid of
   its own, the capture step evaluates the bundled `mermaid.min.js` over CDP
   (`Runtime.evaluate`), runs `mermaid.run()` and awaits it before the screenshot. The
-  theme comes from `data-mermaid-theme` on the body (set by slides), else Mermaid's
-  default. The page does not link the script, so `data:` pages work too.
+  theme and optional focus ID come from body data attributes (set by slides), else
+  Mermaid's defaults apply. Focus is applied to the matching SVG node or cluster after
+  drawing. The page does not link the script, so `data:` pages work too.
 - So every browser view renders Mermaid offline, including `browser` actions in YAML
   and local HTML files; `docs/user-guide/spec.md` says so.
 - A diagram Mermaid cannot parse is a render error with the scene id and Mermaid's
@@ -1129,6 +1130,9 @@ scenes:
   `ARG MERMAID_SHA256`; `NARRATTY_MERMAID_JS` points at it (sandboxed runs mount the
   host's data directory over the image's). Chromium is already there; no Node and no
   mermaid-cli, whose Puppeteer would bring a second Chromium.
+- The image also has Noto Color Emoji and the pinned Iconify `fa6-solid` JSON pack;
+  Mermaid registers it offline as the `fa:` icon prefix. Native renders can point
+  `NARRATTY_FONTAWESOME_JSON` at an equivalent Iconify pack.
 - The wheel does not ship it. Native renders look for `NARRATTY_MERMAID_JS`, then
   `mermaid.min.js` in the data directory; otherwise a `MissingDependencyError` hints at
   `--runtime docker` or the download. `narratty doctor` lists it as optional.

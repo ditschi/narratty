@@ -15,6 +15,9 @@ from typing import Any
 import pytest
 from ruamel.yaml import YAML
 
+from narratty.render import browser
+from narratty.render.overlays import planned_times
+from narratty.render.script import build_script
 from narratty.spec import SpecError
 from narratty.spec.loader import parse_document
 from narratty.spec.markdown import EntryError, expand_entry, explain_entry
@@ -22,7 +25,8 @@ from narratty.spec.markdown.parse import Heading, parse_blocks, parse_info, slug
 from narratty.spec.markdown.scenes import breadcrumb_text, write_file
 from narratty.spec.markdown.shell import split_commands
 from narratty.spec.markdown.source import Line, read_source, select_tabs
-from narratty.spec.model import HeadingOverlays, MarkdownEntry
+from narratty.spec.model import HeadingOverlays, MarkdownEntry, Spec
+from narratty.timeline import build_timeline
 
 FIXTURES = Path(__file__).parent / "markdown"
 ROOT = Path(__file__).parents[3]
@@ -569,6 +573,24 @@ def test_table_rows_are_spoken_one_by_one(tmp_path: Path) -> None:
     assert "actions" not in after, "the table is gone after its rows"
 
 
+def test_table_highlights_follow_each_row_narration(tmp_path: Path) -> None:
+    doc = _doc(tmp_path, "# Doc\n\n<!-- narratty: table -->\n" + SAFETY)
+    first, second = _expand(doc)
+    scenes = [{key: value for key, value in scene.items() if key != "source"} for scene in (first, second)]
+    spec = Spec.model_validate({"timing": {"narration_buffer_ms": 250}, "end_card": False, "scenes": scenes})
+    audio_ms = {str(first["id"]): 1800, str(second["id"]): 2400}
+    timeline = build_timeline(spec, audio_ms)
+    times = planned_times(build_script(spec, timeline))
+
+    views = browser.schedule(spec, times)
+    assert [view.slide.highlight for view in views if view.slide is not None] == [1, 2]
+    for scene in spec.scenes:
+        view = next(view for view in views if view.scene_id == scene.id)
+        timing = timeline.scene(scene.id)
+        assert view.start_ms == timing.start_ms
+        assert view.end_ms == timing.start_ms + audio_ms[scene.id] + spec.timing.narration_buffer_ms
+
+
 def test_table_template_pause_and_look(tmp_path: Path) -> None:
     comment = (
         '<!-- narratty: table {say: "{hazard}: {Mitigation}", pause: 500ms, title: Risks, rows: 1} -->\n'
@@ -585,6 +607,15 @@ def test_table_template_pause_and_look(tmp_path: Path) -> None:
     }
 
 
+def test_table_say_list_pairs_custom_voiceover_with_row_highlights(tmp_path: Path) -> None:
+    comment = "<!-- narratty: table {say: ['We guard against pinching.', 'Avoid hot surfaces.']} -->\n"
+    first, second = _expand(_doc(tmp_path, "# Doc\n\n" + comment + SAFETY))
+    assert first["narration"] == "We guard against pinching."
+    assert second["narration"] == "Avoid hot surfaces."
+    assert _slides(first)[0]["highlight"] == 1
+    assert _slides(second)[0]["highlight"] == 2
+
+
 def test_tables_without_a_comment_stay_out(tmp_path: Path) -> None:
     assert _expand(_doc(tmp_path, "# Doc\n\n" + SAFETY)) == []
 
@@ -597,6 +628,10 @@ def test_tables_without_a_comment_stay_out(tmp_path: Path) -> None:
         (
             "<!-- narratty: table {say: '{Hazzard}'} -->\n" + SAFETY,
             "no column 'Hazzard' (did you mean 'Hazard'?)",
+        ),
+        (
+            "<!-- narratty: table {say: ['First row only']} -->\n" + SAFETY,
+            "table comment: say has 1 phrase(s) for 2 row(s)",
         ),
         ("<!-- narratty: table {speak: x} -->\n" + SAFETY, "table comment: unknown key 'speak'"),
         ("<!-- narratty: table {pause: soon} -->\n" + SAFETY, "table comment: pause: expected a duration"),
@@ -651,6 +686,12 @@ def test_slide_comment_sets_the_look(tmp_path: Path) -> None:
     assert _slides(scene) == [
         {"title": "Flow", "theme": "light", "mermaid": "flowchart LR\n  a[A & B] --> b\n"}
     ]
+
+
+def test_slide_comment_can_focus_a_mermaid_node(tmp_path: Path) -> None:
+    body = "# Doc\n\n<!-- narratty: slide {focus: api} -->\n" + MERMAID
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert _slides(scene) == [{"focus": "api", "mermaid": "flowchart LR\n  a[A & B] --> b\n"}]
 
 
 def test_slide_comment_shows_a_table_without_reading_it(tmp_path: Path) -> None:

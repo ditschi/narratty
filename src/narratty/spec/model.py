@@ -363,6 +363,7 @@ class Slide(_Model):
     title: str | None = Field(None, min_length=1, description="Shown above the content.")
     table: SlideTable | None = None
     mermaid: str | None = Field(None, min_length=1, description="A Mermaid diagram's source.")
+    focus: str | None = Field(None, min_length=1, description="Mermaid node or subgraph to emphasize.")
     image: str | None = Field(
         None,
         min_length=1,
@@ -405,6 +406,12 @@ class Slide(_Model):
             pages = -(-count // self.rows) if self.rows else 1
             if self.page and self.page > pages:
                 raise ValueError(f"page {self.page}: the table has {pages} page(s)")
+        return self
+
+    @model_validator(mode="after")
+    def _mermaid_focus(self) -> Slide:
+        if self.focus is not None and self.mermaid is None:
+            raise ValueError("focus only applies to Mermaid slides")
         return self
 
     @property

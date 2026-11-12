@@ -56,14 +56,28 @@ STARTUP_S = 90
 PAGE_HEIGHT_JS = "Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0)"
 MERMAID_ENV = "NARRATTY_MERMAID_JS"
 MERMAID_FILE = "mermaid.min.js"
+FONTAWESOME_ENV = "NARRATTY_FONTAWESOME_JSON"
 # Diagrams not drawn yet, on a page that does not bring its own Mermaid.
 NEEDS_MERMAID_JS = (
     "typeof window.mermaid === 'undefined' && [...document.querySelectorAll('.mermaid')]"
     ".some(e => !e.shadowRoot && !e.querySelector('svg') && !e.dataset.processed)"
 )
+NEEDS_FONTAWESOME = (
+    "[...document.querySelectorAll('.mermaid')].some(e => /\\bfa:[\\w-]+/.test(e.textContent))"
+)
 RUN_MERMAID_JS = (
-    "mermaid.initialize({startOnLoad: false, theme: document.body.dataset.mermaidTheme || 'default'});"
+    "mermaid.initialize({startOnLoad: false, theme: document.body.dataset.mermaidTheme || 'default', "
+    "fontFamily: 'DejaVu Sans, Noto Color Emoji, sans-serif'});"
     "mermaid.run({querySelector: '.mermaid'})"
+    ".then(() => {"
+    "const focus = document.body.dataset.mermaidFocus;"
+    "if (!focus) return;"
+    "const targets = [...document.querySelectorAll('.node[id], .cluster[id]')];"
+    "const target = targets.find(e => e.id === focus || "
+    "e.id.endsWith('-' + focus + '-0') || e.id.endsWith('-' + focus));"
+    "if (!target) throw new Error('no Mermaid node or subgraph with id ' + focus);"
+    "target.classList.add('narratty-focus');"
+    "})"
     ".catch(e => { throw new Error((e && (e.message || e.str)) || String(e)); })"
 )
 
@@ -279,6 +293,8 @@ def capture(
             if _evaluate(tools, session, NEEDS_MERMAID_JS):
                 _evaluate(tools, session, find_mermaid().read_text(encoding="utf-8"), timeout_s=60)
                 try:
+                    if _evaluate(tools, session, NEEDS_FONTAWESOME):
+                        _register_fontawesome(tools, session)
                     _evaluate(tools, session, RUN_MERMAID_JS, timeout_s=60, await_promise=True)
                 except RenderError as error:
                     raise RenderError(f"browser: Mermaid cannot draw a diagram: {error.message}") from error
@@ -331,6 +347,22 @@ def _evaluate(
         lines = [line for line in str(message).splitlines() if not line.startswith("    at ")]
         raise RenderError("\n".join(lines).removeprefix("Error: ").strip())
     return reply["result"].get("value")
+
+
+def _register_fontawesome(tools: _DevTools, session: str) -> None:
+    """Register the bundled Iconify Font Awesome pack before Mermaid draws a diagram."""
+    path = os.environ.get(FONTAWESOME_ENV)
+    if not path:
+        raise MissingDependencyError(
+            "Mermaid Font Awesome icons need the fa6-solid Iconify pack",
+            hint=f"set {FONTAWESOME_ENV} to its icons.json file or render in the narratty image",
+        )
+    try:
+        icons = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise RenderError(f"browser: cannot load the Font Awesome icon pack at {path}: {error}") from error
+    pack = json.dumps({"name": "fa", "icons": icons}, separators=(",", ":"))
+    _evaluate(tools, session, f"mermaid.registerIconPacks([{pack}]);", timeout_s=60)
 
 
 # ── drawing ───────────────────────────────────────────────────────────────────

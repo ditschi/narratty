@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import shutil
 from pathlib import Path
 
@@ -70,6 +71,47 @@ def test_capture_draws_mermaid_diagrams(chromium: str, tmp_path: Path) -> None:
     with Image.open(shot) as image:
         counts = {color: count for count, color in image.convert("RGB").getcolors(maxcolors=100_000) or []}
     assert counts.get((31, 32, 32), 0) > 1000, "the nodes are filled in the dark theme's colour"
+
+
+@pytest.mark.usefixtures("mermaid")
+def test_capture_focuses_mermaid_node(chromium: str, tmp_path: Path) -> None:
+    page = slides.page(
+        Slide(mermaid='flowchart LR\n  api["🚀 API"] --> db[Database]', focus="api"), "dark", tmp_path
+    )
+    shot = tmp_path / "focused.png"
+    browser.capture(
+        "data:text/html;base64," + base64.b64encode(page.encode()).decode(),
+        600,
+        400,
+        "none",
+        5000,
+        shot,
+        chromium=chromium,
+    )
+    with Image.open(shot) as image:
+        colors = {color: count for count, color in image.convert("RGB").getcolors(maxcolors=100_000) or []}
+    assert colors.get((189, 147, 249), 0) > 0, "the focused node uses the slide accent"
+
+
+@pytest.mark.usefixtures("mermaid")
+def test_capture_draws_fontawesome_icons_offline(chromium: str, tmp_path: Path) -> None:
+    pack = os.environ.get(browser.FONTAWESOME_ENV)
+    if not pack or not Path(pack).is_file():
+        pytest.skip("no local Font Awesome Iconify pack")
+    page = slides.page(
+        Slide(mermaid='flowchart LR\n  server@{ icon: "fa:server", label: "Server", form: "square" }'),
+        "dark",
+        tmp_path,
+    )
+    browser.capture(
+        "data:text/html;base64," + base64.b64encode(page.encode()).decode(),
+        600,
+        400,
+        "none",
+        5000,
+        tmp_path / "fontawesome.png",
+        chromium=chromium,
+    )
 
 
 @pytest.mark.usefixtures("mermaid")

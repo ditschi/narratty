@@ -497,6 +497,7 @@ scenes:
 |---|---|
 | `table` | `{header: [...], rows: [[...], ...]}`; cells are inline Markdown (`` `code` ``, `**bold**`, links) |
 | `mermaid` | The source of a [Mermaid](https://mermaid.js.org) diagram, drawn without network |
+| `focus` | Mermaid node or subgraph ID to emphasize during narration (since 0.6) |
 | `image` | A PNG, JPEG, GIF, SVG or WebP file in the workspace, or a `data:` URL |
 | `html` | An HTML file in the workspace or a `data:` URL, shown as it is (no title or theme) |
 | `title` | Text above the content |
@@ -505,6 +506,29 @@ scenes:
 | `page` | Table page to show when no row is highlighted |
 | `theme` | `dark` or `light`; defaults to `slides.theme` |
 | `duration_ms` | Hide after this long |
+
+For a diagram walkthrough, repeat the same source in successive scenes and change
+`focus`; each highlight stays in place for that scene's narration:
+
+```yaml
+scenes:
+  - id: api
+    narration: Requests enter through the API.
+    actions:
+      - slide:
+          mermaid: |
+            flowchart LR
+              api --> db
+          focus: api
+  - id: database
+    narration: The API stores each request in the database.
+    actions:
+      - slide:
+          mermaid: |
+            flowchart LR
+              api --> db
+          focus: db
+```
 
 Exactly one of `table`, `mermaid`, `image` and `html` is given. A table taller than
 the slide moves up so that the highlighted row stays in view. A Markdown doc makes

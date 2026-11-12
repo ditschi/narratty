@@ -39,7 +39,7 @@ from narratty.spec.model import (
 SHELL_LANGS = ("bash", "sh", "shell")
 BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure", "any-output")
 COMMENT_KINDS = ("skip", "say", "overlay", "hidden", "browser", "pause", "table", "slide", "spec")
-SLIDE_KEYS = ("title", "theme", "rows", "html")
+SLIDE_KEYS = ("title", "theme", "rows", "html", "focus")
 TABLE_KEYS = ("say", "pause", "title", "theme", "rows")
 VISUALS = "a table, image or mermaid block"
 NO_RUN_HOLD_MS = 1000
@@ -392,8 +392,15 @@ class _Builder:
 
     def table_comment(self, block: Comment, body: str) -> None:
         options = _options(body, block, "table", TABLE_KEYS)
-        if "say" in options and not isinstance(options["say"], str):
-            raise fail(block.file, block.line, "table comment: say must be a text such as '{Name}: {Value}'")
+        say = options.get("say")
+        if say is not None and not (
+            isinstance(say, str) or isinstance(say, list) and all(isinstance(text, str) for text in say)
+        ):
+            raise fail(
+                block.file,
+                block.line,
+                "table comment: say must be text such as '{Name}: {Value}' or a list of row texts",
+            )
         if "pause" in options:
             options["pause"] = _duration(options["pause"], block, "table comment: pause")
         self.table = (block, options)
@@ -413,16 +420,22 @@ class _Builder:
         self.table = None
         if not block.rows:
             raise fail(comment.file, comment.line, "table comment: the table has no rows")
+        phrases = options.get("say")
+        if isinstance(phrases, list) and len(phrases) != len(block.rows):
+            raise fail(
+                comment.file,
+                comment.line,
+                f"table comment: say has {len(phrases)} phrase(s) for {len(block.rows)} row(s)",
+            )
         look = {key: options[key] for key in SLIDE_KEYS if key in options} | (look or {})
-        template = options.get("say")
-        if template is not None:
-            _check_fields(template, block.header, comment)
+        if isinstance(phrases, str):
+            _check_fields(phrases, block.header, comment)
         pause = options.get("pause")
         self.flush()
         for number, (row, line) in enumerate(zip(block.rows, block.row_lines, strict=True), 1):
             source = Block(block.file, line)
             self.overlays.append((None, {"slide": {**look, "table": table, "highlight": number}}))
-            text = row_text(block.header, row, template)
+            text = phrases[number - 1] if isinstance(phrases, list) else row_text(block.header, row, phrases)
             if text:
                 self.spoken.append(text)
             self.unassigned.append((source, f"table row {number}: " + ("spoken" if text else "empty")))

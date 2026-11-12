@@ -223,6 +223,8 @@ This is the comment above the table.
   empty cells are left out.
 - `say` fills in the cells of the columns named in braces; names match the header
   regardless of case.
+- `say: ["First custom narration.", "Second custom narration."]` supplies one custom
+  phrase per row; the list must have exactly as many phrases as the table has rows.
 - `pause: 500ms` highlights each row that long before it is spoken.
 - `title`, `theme` and `rows` set the look of the slide, as in the `slide` comment.
 - Cells are read like paragraphs, so the lexicon applies to inline code in them.
@@ -286,8 +288,8 @@ flowchart LR
   doc[Markdown doc] --> entry[markdown entry] --> scenes --> video
 ```
 
-A `slide` comment before a table, diagram or image sets its title and look; this one
-gave the diagram its title.
+A `slide` comment before a table, diagram or image sets its title and look; `focus`
+emphasizes a Mermaid node or subgraph while the scene is narrated.
 
 ```markdown
 <!-- narratty: slide {title: From doc to video, theme: light} -->
@@ -298,7 +300,18 @@ gave the diagram its title.
 | `title` | Text above the content |
 | `theme` | `dark` or `light` for this slide |
 | `rows` | Table rows per page, see [Tables](#tables) |
+| `focus` | Mermaid node or subgraph ID to emphasize |
 | `html` | Shows an HTML file instead, from the next paragraph on |
+
+For a voiceover walkthrough, repeat the diagram in successive YAML scenes and set a
+different `focus` ID in each slide. Each node stays emphasized for its scene's narration
+unless `duration_ms` caps the slide.
+Mermaid labels can use Unicode emoji; the narratty image includes an emoji font. Its
+bundled Font Awesome 6 Solid icons use the `fa:` prefix, for example `fa:server` in
+Mermaid's icon syntax. Native renders can set `NARRATTY_FONTAWESOME_JSON` to an
+Iconify-compatible Font Awesome `icons.json` file. The bundled icons are Font Awesome
+Free by [Fonticons, Inc.](https://fontawesome.com/license/free), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 Diagrams are drawn when the video is rendered, with the `mermaid.min.js` that comes
 with the narratty image, so they need no network. Native renders read it from

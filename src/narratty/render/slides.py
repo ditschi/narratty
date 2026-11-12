@@ -39,7 +39,8 @@ MERMAID_THEMES = {"dark": "dark", "light": "default"}
 
 _STYLE = """
 html,body{{margin:0;height:100%}}
-body{{display:flex;flex-direction:column;background:{bg};color:{fg};font-family:'DejaVu Sans',sans-serif}}
+body{{display:flex;flex-direction:column;background:{bg};color:{fg};font-family:
+'DejaVu Sans','Noto Color Emoji',sans-serif}}
 header{{padding:3vh 4vw 0;font-size:3.2vw;font-weight:bold;color:{accent}}}
 main{{flex:1;min-height:0;display:flex;overflow:hidden}}
 main>*{{margin:auto}}
@@ -53,6 +54,8 @@ a{{color:{link}}}
 img{{max-width:94vw;max-height:100%;object-fit:contain}}
 pre.mermaid{{width:94vw;text-align:center;font:1.6vw 'JetBrains Mono',monospace;white-space:pre-wrap}}
 pre.mermaid svg{{max-width:100%!important;max-height:{diagram_height};height:auto}}
+.narratty-focus>:is(rect,polygon,circle,path){{stroke:{accent}!important;stroke-width:4px!important;
+filter:drop-shadow(0 0 5px {accent})}}
 """
 # A table taller than the slide moves up until the highlighted row is in the middle.
 _FOLLOW_MARK = (
@@ -77,9 +80,10 @@ def page(slide: Slide, theme: SlideTheme, workspace: Path) -> str:
         body = f'<img alt="{html.escape(slide.title or "")}" src="{_image_src(slide.image, workspace)}">'
     style = _STYLE.format(**COLORS[theme], diagram_height="78vh" if slide.title else "92vh")
     header = f"<header>{html.escape(slide.title)}</header>" if slide.title else ""
+    focus = f' data-mermaid-focus="{html.escape(slide.focus, quote=True)}"' if slide.focus else ""
     return (
         f'<!doctype html><html><head><meta charset="utf-8"><style>{style}</style></head>'
-        f'<body data-mermaid-theme="{MERMAID_THEMES[theme]}">{header}<main>{body}</main>{footer}'
+        f'<body data-mermaid-theme="{MERMAID_THEMES[theme]}"{focus}>{header}<main>{body}</main>{footer}'
         + (f"<script>{script}</script>" if script else "")
         + "</body></html>"
     )
