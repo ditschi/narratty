@@ -17,6 +17,14 @@ commitizen.
 - build Markdown docs directly, init --markdown and narratty check
 - **spec**: slides, tables, pauses and Mermaid diagrams
 
+### Behaviour change
+
+- Markdown input (spec `version: 1`): an image on a line of its own is now shown as a
+  slide instead of in a browser view, and `mermaid` blocks, left out before, are now
+  drawn as slides. `images: false` in the `markdown` entry leaves out both, as does a
+  `<!-- narratty: skip -->` comment for a single image or block; the browser view for
+  images is gone.
+
 ## v0.5.0 (2026-11-12)
 
 ### Feat
