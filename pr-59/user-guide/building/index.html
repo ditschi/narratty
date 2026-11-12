@@ -767,6 +767,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#scene-recording-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scene Recording Cache
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#subtitles" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1819,6 +1830,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#scene-recording-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scene Recording Cache
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#subtitles" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1944,8 +1966,34 @@
 <a href="../spec/#end_card"><code>end_card</code></a>); <code>--no-end-card</code> leaves it out.</p>
 <p>With <code>--work-dir</code> the tape, the silent video and the narration track are kept for
 inspection.</p>
+<h2 id="scene-recording-cache">Scene Recording Cache<a class="headerlink" href="#scene-recording-cache" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--scene-cache
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--scene-cache<span class="w"> </span>--refresh-scene-cache
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>narratty<span class="w"> </span>cache<span class="w"> </span>info
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>narratty<span class="w"> </span>cache<span class="w"> </span>prune<span class="w"> </span>--scenes<span class="w"> </span>--older-than<span class="w"> </span>30d
+</code></pre></div>
+<p>The opt-in scene cache reuses the longest unchanged prefix of the silent recording.
+It replays those scenes hidden in the same shell to restore their state, records the
+remaining scenes and joins the video. The last visible scene is always recorded again.
+Commands and waits in reused scenes still run, so the cache saves recording work, not
+the time spent running commands or waiting. A changed scene invalidates it and all
+following scenes. Narration can change without invalidating the footage when its
+duration and the rest of the scene timing stay the same.</p>
+<p>The cache fingerprints the workspace contents, scene inputs, timeline, recorder code,
+available tools and process environment. The spec and generated output files are
+excluded from the workspace fingerprint. It cannot track every external dependency:
+network responses, time, files outside the workspace, symlink targets, running services
+and commands that read the excluded files can change the result. Replayed commands may
+also produce different state than the cached footage shows. Use
+<code>--refresh-scene-cache</code> with <code>--scene-cache</code> to force a fresh recording after such a
+change, and for final builds where reproducibility matters.</p>
+<p>Caching currently requires at least two visible scenes and falls back to a normal
+recording with drafts, fast pauses, timelapses, overlays, browser views, slides or a
+project environment. It applies only to MP4 builds. Sandboxed scene-cache builds use
+the stable container hostname <code>narratty</code>. <code>cache prune --scenes --all</code> removes all
+scene recordings without touching the audio cache.</p>
 <h2 id="subtitles">Subtitles<a class="headerlink" href="#subtitles" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--subtitles<span class="w"> </span>files<span class="w">   </span><span class="c1"># demo.mp4, demo.srt, demo.vtt</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--subtitles<span class="w"> </span>files<span class="w">   </span><span class="c1"># demo.mp4, demo.srt, demo.vtt</span>
 </code></pre></div>
 <p>Subtitles come from the narration: each clip becomes one cue per sentence, and long
 sentences are split so a cue fits in two lines. Cues show the text as written in the
@@ -1979,7 +2027,7 @@ spec. Set the mode with <a href="../spec/#top-level"><code>subtitles</code></a> 
 <p>With <code>--format cast</code>, every mode except <code>none</code> writes the <code>.srt</code> and <code>.vtt</code> beside
 the page.</p>
 <h2 id="draft">Draft<a class="headerlink" href="#draft" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--draft<span class="w">      </span><span class="c1"># writes demo.draft.mp4</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--draft<span class="w">      </span><span class="c1"># writes demo.draft.mp4</span>
 </code></pre></div>
 <p>A draft checks actions and timing without waiting for TTS:</p>
 <ul>
@@ -1996,7 +2044,7 @@ the page.</p>
 <p><code>narratty plan SPEC --draft</code> prints the estimated timeline. <code>--draft</code> only applies to
 mp4 output.</p>
 <h2 id="fast-pauses">Fast pauses<a class="headerlink" href="#fast-pauses" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--fast
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--fast
 </code></pre></div>
 <p>Most of a narrated video is pauses: the screen holds still while the voice talks.
 VHS records in real time, so a 10 s pause costs 10 s of recording. With <code>--fast</code>, a
@@ -2016,17 +2064,17 @@ there only the screen is checked. Pauses in <a href="../spec/#timelapse">timelap
 recorded in full; those scenes are sped up anyway.</p>
 <p>A scene's <code>fast</code> overrides the command line: <code>fast: false</code> records its pauses in full
 even with <code>--fast</code>, <code>fast: true</code> fills them even without it.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">scenes</span><span class="p">:</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">build</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">fast</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">        </span><span class="c1"># output may still arrive during the pause</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">make</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">build</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">fast</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">        </span><span class="c1"># output may still arrive during the pause</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">make</span>
 </code></pre></div>
 <p>With <code>--format cast</code>, <code>--fast</code> skips the rest of a pause once there has been no
 output for half a second and no command is running. The cast's timestamps are the
 same as without it.</p>
 <h2 id="asciicast-with-narration">Asciicast with narration<a class="headerlink" href="#asciicast-with-narration" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--format<span class="w"> </span>cast<span class="w">   </span><span class="c1"># demo.cast, demo.mp3, demo.html</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>demo.narratty.yaml<span class="w"> </span>--format<span class="w"> </span>cast<span class="w">   </span><span class="c1"># demo.cast, demo.mp3, demo.html</span>
 </code></pre></div>
 <p>Instead of a video, this writes an <a href="https://docs.asciinema.org/manual/asciicast/v2/">asciicast</a>
 (<code>.cast</code>), the narration as MP3, and an HTML page that plays both with
@@ -2050,7 +2098,7 @@ selectable, and the cast is a few kilobytes.</p>
   full-screen programs such as <code>vim</code> are not modelled.</li>
 </ul>
 <p>To embed the recording in your own page, use the <code>.cast</code> and <code>.mp3</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nx">AsciinemaPlayer</span><span class="p">.</span><span class="nx">create</span><span class="p">(</span><span class="s2">"demo.cast"</span><span class="p">,</span><span class="w"> </span><span class="nx">element</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">audioUrl</span><span class="o">:</span><span class="w"> </span><span class="s2">"demo.mp3"</span><span class="w"> </span><span class="p">});</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nx">AsciinemaPlayer</span><span class="p">.</span><span class="nx">create</span><span class="p">(</span><span class="s2">"demo.cast"</span><span class="p">,</span><span class="w"> </span><span class="nx">element</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">audioUrl</span><span class="o">:</span><span class="w"> </span><span class="s2">"demo.mp3"</span><span class="w"> </span><span class="p">});</span>
 </code></pre></div>
 <p>Seeking needs a server that supports range requests, as most static hosts do.</p>
 <h2 id="looking-before-rendering">Looking before rendering<a class="headerlink" href="#looking-before-rendering" title="Permanent link">&para;</a></h2>

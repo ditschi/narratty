@@ -1844,8 +1844,8 @@ the spec it implies (see <a href="../markdown/#building-a-doc-on-its-own">Buildi
 <td>List narration words that look hard to pronounce and have no entry</td>
 </tr>
 <tr>
-<td><code>narratty cache info</code> / <code>prune [--older-than 30d] [--all]</code></td>
-<td>Inspect or prune the audio cache</td>
+<td><code>narratty cache info</code> / <code>prune [--older-than 30d] [--all] [--scenes]</code></td>
+<td>Inspect caches or prune audio (or, with <code>--scenes</code>, recording) cache</td>
 </tr>
 <tr>
 <td><code>narratty plan SPEC [--draft]</code></td>
@@ -1878,6 +1878,10 @@ the spec it implies (see <a href="../markdown/#building-a-doc-on-its-own">Buildi
 <tr>
 <td><code>narratty build SPEC --fast</code></td>
 <td>Fill long pauses with still frames instead of recording them (<a href="../building/#fast-pauses">fast pauses</a>)</td>
+</tr>
+<tr>
+<td><code>narratty build SPEC --scene-cache [--refresh-scene-cache]</code></td>
+<td>Reuse unchanged recordings, or force a fresh recording (<a href="../building/#scene-recording-cache">scene cache</a>)</td>
 </tr>
 <tr>
 <td><code>narratty build SPEC --ignore-exit</code></td>
