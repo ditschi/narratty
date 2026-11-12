@@ -9,6 +9,7 @@ jobs:
   remove:
     name: Remove docs preview
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.event.pull_request.head.repo.full_name == github.repository
     env:
       VERSION: pr-${{ github.event.pull_request.number }}

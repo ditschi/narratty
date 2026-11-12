@@ -18,6 +18,7 @@ jobs:
   tag:
     name: Release tag
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       release: ${{ steps.tag.outputs.release }}
       version: ${{ steps.tag.outputs.version }}
@@ -68,6 +69,7 @@ jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: tag
     if: needs.tag.outputs.release == 'true'
     outputs:
@@ -107,6 +109,7 @@ jobs:
   publish-test:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: build
     environment:
       name: testpypi
@@ -141,6 +144,7 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [build, publish-test]
     environment:
       name: pypi
@@ -159,6 +163,7 @@ jobs:
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [build, publish-pypi]
     permissions:
       contents: write
@@ -189,6 +194,7 @@ jobs:
   docs-deploy:
     name: Deploy versioned docs
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs: [build, github-release]
     permissions:
       contents: write
