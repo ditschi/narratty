@@ -847,3 +847,18 @@ def test_pages_too_large_to_embed(tmp_path: Path) -> None:
     (tmp_path / "big.html").write_bytes(b"x" * 1_600_000)
     message, _ = _error(tmp_path, "# Doc\n\n<!-- narratty: slide {html: big.html} -->\nText.\n")
     assert message == "big.html is too large to embed (Chromium loads data: URLs up to 2 MB)"
+
+
+def test_yaml_errors_in_comments_hint_at_quoting(tmp_path: Path) -> None:
+    from narratty.spec.loader import SCHEMA_HINT, SpecError, load_spec
+
+    doc = tmp_path / "doc.md"
+    doc.write_text("# Doc\n\n<!-- narratty: overlay {text: GET /orders/{id}} -->\n\n```bash\nls\n```\n")
+    with pytest.raises(SpecError) as raised:
+        load_spec(doc)
+    assert "invalid YAML" in raised.value.message
+    assert raised.value.hint and "Quote" in raised.value.hint and "schema" not in raised.value.hint
+    doc.write_text("# Doc\n\n<!-- narratty: overlay {text: hi, colour: red} -->\n\n```bash\nls\n```\n")
+    with pytest.raises(SpecError) as raised:
+        load_spec(doc)
+    assert raised.value.hint == SCHEMA_HINT, "a schema violation keeps the schema hint"
