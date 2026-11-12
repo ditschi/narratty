@@ -871,6 +871,19 @@
           "default": null,
           "description": "Exit code of this command: success, failure or any; overrides the scene's.",
           "title": "Expect Exit"
+        },
+        "expect_output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the command prints, compared by `narratty check`. A line `...` stands for any lines, `...` within a line for any text.",
+          "title": "Expect Output"
         }
       },
       "required": [
@@ -2207,6 +2220,12 @@
           },
           "title": "Tabs",
           "type": "array"
+        },
+        "check_output": {
+          "default": true,
+          "description": "Let `narratty check` compare what commands print with the output shown in console blocks.",
+          "title": "Check Output",
+          "type": "boolean"
         },
         "defaults": {
           "$ref": "#/$defs/SceneDefaults",

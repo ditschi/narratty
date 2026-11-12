@@ -9,9 +9,9 @@ on the rendered page, change what the video does where the defaults don't fit.
 
 This is the recommended way to use narratty. The doc stays the source: readers read
 it, others watch or listen to the video. Every command runs while the video is
-recorded, so a doc whose commands fail does not build (see
-[Checking docs in CI](#checking-docs-in-ci)). The YAML spec points at the doc and
-adds what only the video needs.
+recorded, and `narratty check` also compares what the commands print with the doc (see
+[Checking docs in CI](#checking-docs-in-ci)). A doc can be built on its own; a YAML
+spec that points at it adds scenes before and after it, or combines several docs.
 
 The video is made from this page; its spec is
 [`examples/markdown/markdown.narratty.yaml`](https://github.com/ditschi/narratty/blob/main/examples/markdown/markdown.narratty.yaml).
@@ -45,6 +45,13 @@ narration, and the console line is a command that runs.
 
 ```console
 $ narratty compile hello.narratty.yaml
+scenes:
+  # from hello.md:5
+  - id: hello-1
+    narration: Say hello to the terminal.
+    actions:
+      - run: echo "Hello from Markdown"
+      - wait: {prompt: true}
 ```
 
 `narratty plan --sources` lists where each scene comes from, and what was left out
@@ -65,6 +72,38 @@ The video is built like any other spec. Here the command is only typed, not run.
 $ narratty build hello.narratty.yaml
 ```
 
+## Building a doc on its own
+
+Since narratty 0.6.
+
+Every command that takes a spec also takes a Markdown doc:
+
+```bash {narratty="no-run"}
+narratty build hello.md      # writes hello.mp4
+narratty check hello.md      # runs the commands and compares their output
+```
+
+The doc then implies its spec: a single `markdown` entry for the whole doc. Its
+commands run in a copy of the doc's git repository, from the root, or in the doc's
+folder outside a repository. A `spec` comment sets other keys, those of the spec and
+those of the `markdown` entry:
+
+```markdown
+<!-- narratty: spec
+tts: {voice: am_michael}
+heading_overlays: 2
+sandbox: {network: full}
+-->
+```
+
+The comment is YAML, invisible on the page like the other comments, and problems in
+it are reported at their line in the doc. It cannot hold scenes, and a YAML spec that
+points at the doc ignores it.
+
+Write a YAML spec when the video needs more than the doc: scenes before or after it,
+several docs, or several videos from one doc. `narratty init --markdown hello.md`
+writes one to start from.
+
 ## How a doc becomes scenes
 
 The doc is read in order. Paragraphs collect until a code block runs; then they are
@@ -75,7 +114,7 @@ the narration of the scene that runs it.
 | Paragraphs before a code block, same section | The narration of the scene that runs the block |
 | Paragraphs after the last block of a section | A scene without actions; the output stays on screen |
 | A block without a paragraph before it | A silent scene |
-| `console` block | `$ ` lines run, `> ` lines continue them; other lines are output and not typed |
+| `console` block | `$ ` lines run, `> ` lines right after them continue them; other lines are output, not typed, and compared by [`narratty check`](#checking-docs-in-ci) |
 | `bash` / `sh` block | Each complete command runs (heredocs, `if`, `for` stay together); `# …` comments are not typed |
 | Other language with a `title` | Written to that file (hidden), then shown with `cat` and a file overlay |
 | Other language without a `title` | Left out |
@@ -317,6 +356,7 @@ The [Compose file reference](https://docs.docker.com/compose/) lists every key.
 | `pause` | Ends the scene; with a duration, silence follows (since 0.6), see [Pauses](#pauses) |
 | `table` | Speaks the next table row by row on a slide (since 0.6), see [Tables](#tables) |
 | `slide` | Sets the title and look of the next table, diagram or image, or shows an HTML file (since 0.6), see [Slides](#slides) |
+| `spec` | Spec keys for building the doc on its own (since 0.6), see [Building a doc on its own](#building-a-doc-on-its-own) |
 
 HTML comments cannot contain `--`; put such text into a YAML scene instead.
 
@@ -364,6 +404,7 @@ scenes: []
 | `no-run` | Types the command, then cancels it with Ctrl+C |
 | `hidden` | Runs the block without showing it (setup) |
 | `expect-failure` | The block's commands are expected to fail |
+| `any-output` | The output the block shows is not compared (since 0.6), see [Checking docs in CI](#checking-docs-in-ci) |
 
 !!! warning "Write attributes in braces"
     mkdocs renders `console narratty="no-run"` (without braces) as plain text. A
@@ -385,9 +426,9 @@ error with the hint to write it as `$URL`.
 
 ## The `markdown` entry
 
-The YAML spec stays the entry point. It decides everything at section level and
-above: which docs, which sections and in what order, the narration rule and the
-overlays. Several videos from one doc are several YAML files.
+A YAML spec decides everything at section level and above: which docs, which sections
+and in what order, the narration rule and the overlays. Several videos from one doc
+are several YAML files.
 
 ```yaml
 narration: all                      # default for every markdown entry
@@ -418,6 +459,7 @@ scenes:
 | `file_titles` | `true` | Show a file block's title as an overlay |
 | `images` | `true` | Show images on a line of their own and `mermaid` blocks, see [Images](#images) |
 | `id_prefix` | file stem | Start of the generated scene ids |
+| `check_output` | `true` | Let `narratty check` compare the output console blocks show, see [Checking docs in CI](#checking-docs-in-ci) (since 0.6) |
 | `defaults` | `{}` | Scene keys for every scene: `typing_speed_ms`, `pause_ms`, `fast`, `timelapse`, `narration_start`, `expect_exit` |
 | `overrides` | `{}` | Per block id: the same scene keys plus `narration` and `before` / `after` action lists |
 
@@ -470,20 +512,38 @@ spec; the Markdown docs stay on the host.
 
 ## Checking docs in CI
 
-Every command of the doc runs while the video is recorded, and one that fails stops
-the build with exit code 7. A [draft](building.md#draft) build skips TTS, which makes
-it a quick check of the docs in CI:
+Since narratty 0.6.
 
-```bash
-narratty build docs.narratty.yaml --draft --no-end-card
+`narratty check` runs the doc's commands the way the video would, without recording,
+voice or end card. It fails when a command fails (exit code 7) or prints something
+else than the doc shows (exit code 8), with a diff:
+
+```bash {narratty="no-run"}
+narratty check docs/install.md
 ```
 
-Exit codes are checked; output is not compared with the doc yet.
-`narratty compile SPEC --fingerprint` tells when a committed video is older than its
-doc.
+In a console block, the lines after a `$ ` command, up to the next one, are what it
+prints:
+
+```console
+$ echo "Hello from Markdown"
+Hello from Markdown
+```
+
+- Colours, trailing spaces and blank lines at the start and end do not count.
+- A line `...` stands for any lines, also none; `...` within a line for any text,
+  as in `Python 3...`.
+- A command without output lines in the doc runs, but its output is not compared.
+- `narratty="any-output"` on a block, or `check_output: false` on the entry, turns
+  the comparison off.
+- Builds check exit codes, but do not compare output.
+
+The comparison is the `run` action's [`expect_output`](spec.md#expected-output), which
+`narratty compile` shows. `narratty compile SPEC --fingerprint` tells when a
+committed video is older than its doc.
 
 ## Not supported yet
 
-- Checking command output against the doc: exit codes are checked, output is not.
+- Comparing output in the editor layout.
 - Narration rules beyond `all` and `none`, and a "skip the rest" comment.
 - Configurable handling of admonitions per type.

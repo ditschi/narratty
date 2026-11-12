@@ -1140,6 +1140,53 @@ scenes:
 - `docs/user-guide/markdown.md` gets a section per feature, which the Markdown example
   video includes; `docs/user-guide/spec.md` documents the `slide` action.
 
+## Docs first
+
+Agreed on 2026-11-12 and implemented for 0.6, after the docs started to present a
+Markdown doc as the recommended source of a video. All additive: `run` gets
+`expect_output`, the markdown entry `check_output`, Markdown the `spec` comment and the
+`any-output` block option; there is a new command `check` and a new exit code 8.
+
+### A doc on its own
+- Every command that takes `SPEC` also takes a `.md` / `.markdown` file. The loader
+  (`spec/markdown/implicit.py`) turns it into the spec it implies: one `markdown`
+  entry for the whole doc.
+- A `<!-- narratty: spec … -->` comment holds YAML. Keys of a markdown entry
+  (`sections`, `heading_overlays`, …) move into the entry, the rest stay top-level.
+  The YAML is padded with blank lines to its line in the doc, so ruamel's positions
+  are the doc's lines, also for keys moved into the entry. `scenes` is an error; two
+  `spec` comments are too. A YAML spec pointing at the doc ignores the comment.
+- Why a comment and not front matter: GitHub renders front matter as a table, and
+  narratty's rule is that what only the video needs is invisible on the page.
+- `workspace.source` defaults to the doc's git root (written into the implied spec, so
+  `compile` shows it): docs assume commands run from the repository root. Outside a
+  repository it is the doc's folder.
+- Sandboxed runs mount the compiled spec as `/spec/<stem>.narratty.yaml`, so the
+  container reads YAML, not Markdown.
+
+### `narratty init --markdown DOC`
+Writes `<stem>.narratty.yaml` in the current directory with `markdown: <doc relative
+to it>` and commented `sections`, `heading_overlays`, an intro scene, `tts` and
+`workspace`. It validates without hints.
+
+### Comparing output: `narratty check`
+- In a console block, the lines after a `$ ` command up to the next `$ ` line are its
+  output; `> ` only continues a command right after it (before, any later `> ` line
+  did). With `check_output` (default true) and without `any-output`, a command with
+  output lines gets `expect_output`. Commands without output lines are not compared.
+- `narratty check SPEC` plans a draft (no TTS, no end card) and plays the script in the
+  asciicast recorder with fast pauses: no VHS, ffmpeg or voice. The recorder notes the
+  raw-output offset at each Enter and where each prompt wait succeeded; a command's
+  output is the text between its last Enter and the prompt, without escape sequences,
+  `\r` redraws and the prompt line. It then checks exit codes and outputs.
+- Matching: trailing spaces and surrounding blank lines are ignored; a line `...`
+  matches any lines, `...` in a line any text (doctest's ELLIPSIS). A mismatch shows a
+  unified diff and exits with 8 (`OutputError`).
+- VHS builds do not compare output: VHS exposes no output stream, and `Wait+Screen`
+  only sees the top of the buffer. The editor layout is not compared either: the
+  recorder sees tmux's redraws, not the shell's output.
+- Sandboxed, `check` runs in the narratty image like `build`, without fetching a voice.
+
 ---
 
 ## Milestones

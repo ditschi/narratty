@@ -256,6 +256,29 @@ def test_placeholders(code: str, found: list[str]) -> None:
     assert [name for command in split_commands(code) for name in command.placeholders] == found
 
 
+def test_console_output_becomes_expect_output(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\n```console\n$ for i in 1 2; do\n>   echo $i\n> done\n1\n> 2\n\n"
+        "$ true\n$ echo  hi  \nhi  \n```\n"
+    )
+    actions = _expand(_doc(tmp_path, body))[0]["actions"]
+    runs = [action for action in actions if "run" in action]
+    assert runs == [
+        {"run": "for i in 1 2; do\n  echo $i\ndone", "expect_output": "1\n> 2"},
+        {"run": "true"},
+        {"run": "echo  hi", "expect_output": "hi"},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("info", "keys"),
+    [('console {narratty="any-output"}', {}), ("console", {"check_output": False})],
+)
+def test_output_comparison_can_be_turned_off(tmp_path: Path, info: str, keys: dict[str, object]) -> None:
+    doc = _doc(tmp_path, f"# Doc\n\n```{info}\n$ date\nThu Jan  1\n```\n")
+    assert _expand(doc, **keys)[0]["actions"][0] == {"run": "date"}
+
+
 def _doc(tmp_path: Path, body: str) -> Path:
     doc = tmp_path / "doc.md"
     doc.write_text(body, encoding="utf-8")
@@ -482,6 +505,8 @@ def test_fingerprint_follows_what_the_video_shows(tmp_path: Path) -> None:
         "# Doc\n\n\n\nSay this.\n<!-- a comment -->\n\n```bash\nls  # typed? no\n```\n", encoding="utf-8"
     )
     assert fingerprint(spec) == first, "moved lines, comments and dropped shell comments change nothing"
+    doc.write_text("# Doc\n\nSay this.\n\n```console\n$ ls\nREADME.md\n```\n", encoding="utf-8")
+    assert fingerprint(spec) == first, "the output a console block shows is not typed"
     doc.write_text("# Doc\n\nSay that.\n\n```bash\nls\n```\n", encoding="utf-8")
     assert fingerprint(spec) != first
 

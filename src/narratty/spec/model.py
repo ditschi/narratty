@@ -107,6 +107,11 @@ class Run(_Model):
     expect_exit: ExpectExit | None = Field(
         None, description="Exit code of this command: success, failure or any; overrides the scene's."
     )
+    expect_output: str | None = Field(
+        None,
+        description="What the command prints, compared by `narratty check`. A line `...` stands for "
+        "any lines, `...` within a line for any text.",
+    )
 
 
 class Enter(_Model):
@@ -619,6 +624,11 @@ class MarkdownEntry(_Model):
     )
     tabs: list[Annotated[str, Field(min_length=1)]] = Field(
         [], description="Preferred content tab labels; otherwise each tab set's first tab is used."
+    )
+    check_output: bool = Field(
+        True,
+        description="Let `narratty check` compare what commands print with the output shown in "
+        "console blocks.",
     )
     defaults: SceneDefaults = SceneDefaults()
     overrides: dict[Annotated[str, Field(pattern=SCENE_ID_PATTERN)], BlockOverride] = Field(

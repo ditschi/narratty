@@ -8,6 +8,8 @@ Exit-code contract:
     4  missing dependency (tool, voice, container runtime)
     5  render or mux failure
     6  sync verification failure
+    7  a recorded command exited contrary to its expect_exit
+    8  a command printed other output than its expect_output
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ class ExitCode(IntEnum):
     RENDER = 5
     SYNC = 6
     COMMAND = 7
+    OUTPUT = 8
 
 
 class NarrattyError(Exception):
@@ -77,3 +80,9 @@ class CommandError(NarrattyError):
     """A command in the recording exited contrary to its scene's ``expect_exit``."""
 
     exit_code = ExitCode.COMMAND
+
+
+class OutputError(NarrattyError):
+    """A command printed other output than its ``expect_output``."""
+
+    exit_code = ExitCode.OUTPUT

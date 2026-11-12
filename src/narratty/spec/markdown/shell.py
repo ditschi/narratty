@@ -28,6 +28,8 @@ class Command:
     offset: int
     placeholders: list[str] = field(default_factory=list)
     """``<name>`` found outside single quotes and heredoc bodies."""
+    output: list[str] = field(default_factory=list)
+    """The output a console block shows after the command."""
 
 
 @dataclass
