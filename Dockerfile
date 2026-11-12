@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # narratty image: the CLI plus everything a native render needs (VHS, ttyd, Chromium,
-# ffmpeg, fonts, the Docker CLI, Kokoro and Piper with a default voice each), the demo
+# Mermaid, ffmpeg, fonts, the Docker CLI, Kokoro and Piper with a default voice each), the demo
 # toolkit and narratty-agent for project environments. ttyd is not packaged in Debian
 # trixie, so its static release binary is used. Targets:
 #   toolkit ghcr.io/ditschi/narratty-toolkit:<version>  (static demo tools, see below)
@@ -59,6 +59,9 @@ FROM ${PYTHON_IMAGE} AS base
 ARG TARGETARCH
 ARG VHS_VERSION=0.12.1
 ARG TTYD_VERSION=1.7.7
+# Draws Mermaid diagrams in browser views without network (render/browser.py).
+ARG MERMAID_VERSION=12.3.0
+ARG MERMAID_SHA256=be0684e8d20bfc874df12c0f04927a5c482f57f2200eec54cca52a4583fd4040
 # Voices baked into the image, so it renders without network access.
 ARG KOKORO_VOICES="af_heart"
 ARG PIPER_VOICES="en_US-lessac-medium"
@@ -78,6 +81,12 @@ RUN apt-get update \
  && ttyd --version \
  && rm -rf /var/lib/apt/lists/* /tmp/vhs.deb
 
+RUN curl -fsSL -o /tmp/mermaid.tgz "https://registry.npmjs.org/mermaid/-/mermaid-${MERMAID_VERSION}.tgz" \
+ && echo "${MERMAID_SHA256}  /tmp/mermaid.tgz" | sha256sum -c - \
+ && mkdir -p /opt/narratty/mermaid \
+ && tar -xzf /tmp/mermaid.tgz -C /opt/narratty/mermaid --strip-components=2 package/dist/mermaid.min.js \
+ && rm /tmp/mermaid.tgz
+
 COPY --from=toolkit / /usr/local/
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/
@@ -92,6 +101,7 @@ RUN pip install --no-cache-dir /tmp/narratty-*.whl && rm /tmp/narratty-*.whl
 ENV NARRATTY_IN_CONTAINER=1 \
     NARRATTY_DATA_DIR=/opt/narratty/data \
     NARRATTY_CACHE_DIR=/cache \
+    NARRATTY_MERMAID_JS=/opt/narratty/mermaid/mermaid.min.js \
     VHS_NO_SANDBOX=true \
     YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
     BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config \

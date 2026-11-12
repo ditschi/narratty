@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import base64
 import shutil
 from pathlib import Path
 
 import pytest
 from PIL import Image
 
-from narratty.errors import MissingDependencyError
-from narratty.render import browser
+from narratty.errors import MissingDependencyError, RenderError
+from narratty.render import browser, slides
+from narratty.spec.model import Slide
 
 pytestmark = pytest.mark.integration
 
@@ -43,3 +45,43 @@ def test_capture_scrolls_without_stretching_the_page(
         assert image.convert("RGB").getpixel((10, 290)) == (255, 0, 0)
         if distance:
             assert image.convert("RGB").getpixel((10, 300 + distance - 5)) == (0, 0, 255)
+
+
+@pytest.fixture
+def mermaid() -> None:
+    try:
+        browser.find_mermaid()
+    except MissingDependencyError:
+        pytest.skip("no mermaid.min.js")
+
+
+def _diagram(source: str, tmp_path: Path) -> str:
+    """A Mermaid slide as a data: URL (a snap Chromium cannot read files in /tmp)."""
+    page = slides.page(Slide(mermaid=source), "dark", tmp_path)
+    return "data:text/html;base64," + base64.b64encode(page.encode()).decode()
+
+
+@pytest.mark.usefixtures("mermaid")
+def test_capture_draws_mermaid_diagrams(chromium: str, tmp_path: Path) -> None:
+    shot = tmp_path / "shot.png"
+    browser.capture(
+        _diagram("flowchart LR\n  a --> b\n", tmp_path), 400, 300, "none", 5000, shot, chromium=chromium
+    )
+    with Image.open(shot) as image:
+        counts = {color: count for count, color in image.convert("RGB").getcolors(maxcolors=100_000) or []}
+    assert counts.get((31, 32, 32), 0) > 1000, "the nodes are filled in the dark theme's colour"
+
+
+@pytest.mark.usefixtures("mermaid")
+def test_mermaid_errors_name_the_problem(chromium: str, tmp_path: Path) -> None:
+    with pytest.raises(RenderError, match="Mermaid cannot draw a diagram: Parse error") as error:
+        browser.capture(
+            _diagram("flowchart LR\n  a -->\n", tmp_path),
+            400,
+            300,
+            "none",
+            5000,
+            tmp_path / "x.png",
+            chromium=chromium,
+        )
+    assert "    at " not in error.value.message

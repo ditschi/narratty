@@ -49,6 +49,9 @@ combined tutorial file.
 
 ## Goals
 
+- Docs first (since 0.5): a Markdown doc is the recommended source, so one text is
+  read on the page and watched as a video, and recording it runs every command in it.
+  YAML scenes cover intros, transitions and demos without a doc.
 - One command turns a `.narratty.yaml` into a narrated `.mp4`.
 - Voiceover-synchronized: every narration clip starts exactly when its scene starts
   on screen, and a scene never ends before its narration does.
@@ -999,6 +1002,143 @@ the spec is mounted (at `/spec`), so a docs page that runs `narratty plan` or
 `narratty compile` on screen first writes its files into `/work` with a `hidden` comment.
 `narratty build` blocks stay `no-run`. Project environments record in the project's
 image, which has no `narratty`.
+
+---
+
+## Markdown input, round 2
+
+Agreed on 2026-11-12 from the wishes of a user who turns safety docs into videos, and
+implemented for 0.6. All of it is additive: the `slide` action and `slides.theme` are
+new spec keys, the rest are doc comments; the spec stays `version: 1` and the docs say
+"(since 0.6)". The user guide is `docs/user-guide/markdown.md`; this section adds to
+[Markdown input](#markdown-input), whose "Tables, images …" rows now have the
+exceptions below.
+
+| Wish | Decision |
+|---|---|
+| Speak a table row by row, highlighted on screen | `table` comment, shown as a [slide](#slides) |
+| Pause or split a scene inside a section | `pause` comment; `---` stays a plain rule |
+| Lexicon for inline code (`` `uv` ``, `` `SHA256` ``) | Works already: inline code is read as plain text, so the lexicon applies. Documented, plus a test |
+| A diagram, table or HTML slide from the doc, with a title | The `slide` action; Markdown makes slides from tables, `mermaid` fences and images, and the `slide` comment sets title and look |
+| A spoken version of a paragraph | Works already: `skip` plus `say`. `say` keeps adding narration as in 0.5 |
+
+Cropping a section of the built mkdocs page was considered and left for later: the
+rendered page has to come from the published site (network, may lag behind the doc)
+or a local `mkdocs build`, and a table far down a long section is still hard to show.
+Slides are made from the doc's own lines, so they always match it.
+
+### Slides
+```yaml
+slides: {theme: dark}                  # default; light is the other look
+scenes:
+  - id: risks
+    actions:
+      - slide:
+          title: Safety risks
+          table: {header: [Hazard, Fix], rows: [[Pinch point, Keep the guard closed]]}
+          highlight: 1
+          rows: 8                      # per page
+      - slide: {mermaid: "flowchart LR\n  a --> b", theme: light}
+      - slide: {image: docs/arch.svg}
+      - slide: {html: slides/intro.html}
+```
+- Exactly one of `table`, `mermaid`, `image` and `html`. `highlight`, `rows` and `page`
+  only go with `table`; `html` pages are shown as they are, without title or theme.
+  Code, list and callout slides would fit the same page template later.
+- A slide is a browser view of a page narratty generates (`render/slides.py`), full
+  screen without the address bar. It is timed, replaced and composited like a
+  `browser` action, so the timeline and the cast player need no other changes.
+- The page is written to a file in the work directory and loaded from there, so
+  workspace images load as files and embedded images have no URL length limit.
+- Table cells are inline Markdown, rendered with raw HTML and images off. With `rows`,
+  only the page of the highlighted row (or `page`) is rendered, with a page counter. A
+  table taller than the slide is moved up by a small script until the highlighted row
+  is in the middle.
+- Colours follow the terminal's Dracula look in `dark`; `light` is white with the same
+  accents. Mermaid gets its `dark` or `default` theme to match.
+
+### Tables
+```markdown
+<!-- narratty: table {say: "{Hazard}: {Mitigation}", pause: 500ms, title: Risks} -->
+| Hazard | Severity | Mitigation |
+|---|---|---|
+| Pinch point | high | Guard closed before start |
+```
+- Without a comment a table is still left out. A `table` or `slide` comment whose next
+  block is not one it applies to is an error.
+- `table`: narration still pending gets its own scene first. Then each body row is one
+  scene with a slide of the whole table, that row highlighted. `title`, `theme` and
+  `rows` set the slide's look.
+- `say` is a template over the header names; a `{Name}` that is no header is an error
+  with "did you mean". Without it a row reads `Hazard: Pinch point. Severity: high. …`,
+  leaving out empty cells.
+- Cells are read like paragraphs (inline code, links and emphasis as plain text), so
+  the lexicon applies to them too. The slide shows the cells' Markdown source.
+- `pause` puts `hold` after the row's slide and starts the narration after it
+  (`narration_start: after_actions`): the row is highlighted, then spoken. A silent
+  scene between rows would show the terminal for a moment. Without `pause` the gap is
+  `timing.narration_buffer_ms`.
+- Row scenes get ordinary ids (`<prefix>-<section>-<n>`) and their row's line.
+- `slide` before a table shows it without reading it, like an image. With `rows`, each
+  `pause` comment in the text after it brings up the next page; pages left when the
+  view ends (next command, heading or section end) follow as silent scenes of 3 s.
+
+### Pauses
+```markdown
+<!-- narratty: pause 800ms -->
+```
+- Ends the current scene where the comment stands: narration before it gets a scene of
+  its own (without actions, so the screen stays).
+- With a duration, a silent scene `{actions: [{hold: 800ms}]}` follows. The hold cannot
+  go into the narrated scene, which lasts `max(actions, audio + buffer)` and would
+  swallow it.
+- Without a duration it only splits; the gap is `timing.narration_buffer_ms`.
+- The duration takes the spec's duration syntax (`800ms`, `1.5s`).
+- `---` does not split: it is visible markup with a meaning of its own, and reading it
+  as a split would change the scene ids of existing docs.
+- While a paged table is shown (see [Tables](#tables)), the comment brings up its next
+  page; with a duration, the silent scene shows that page.
+
+### Diagrams, images and HTML slides
+- A `mermaid` fence becomes `slide: {mermaid: …}`, shown like an image while the text
+  around it is spoken, and left out with `images: false`. GitHub renders these fences,
+  and so does mkdocs with the `mermaid` custom fence of `pymdownx.superfences` (this
+  repo has it).
+- An image on its own line becomes `slide: {image: data:…}`: embedded, because the
+  docs are not mounted into the sandbox.
+- A `slide` comment before a table, fence or image adds `title`, `theme` and `rows`.
+  `<!-- narratty: slide {html: slides/architecture.html} -->` shows a local HTML page
+  from the next paragraph on, embedded as a `data:` URL; it must be self-contained
+  (inline CSS, SVG, `data:` images) and stay under Chromium's 2 MB URL limit.
+- When a captured page has `.mermaid` elements that are not drawn yet and no Mermaid of
+  its own, the capture step evaluates the bundled `mermaid.min.js` over CDP
+  (`Runtime.evaluate`), runs `mermaid.run()` and awaits it before the screenshot. The
+  theme comes from `data-mermaid-theme` on the body (set by slides), else Mermaid's
+  default. The page does not link the script, so `data:` pages work too.
+- So every browser view renders Mermaid offline, including `browser` actions in YAML
+  and local HTML files; `docs/user-guide/spec.md` says so.
+- A diagram Mermaid cannot parse is a render error with the scene id and Mermaid's
+  message. `plan` cannot check it, because that needs a browser.
+
+### Mermaid in the image
+- The narratty image gets `mermaid.min.js` from the npm tarball in
+  `/opt/narratty/mermaid/`, pinned with `ARG MERMAID_VERSION` and checked against
+  `ARG MERMAID_SHA256`; `NARRATTY_MERMAID_JS` points at it (sandboxed runs mount the
+  host's data directory over the image's). Chromium is already there; no Node and no
+  mermaid-cli, whose Puppeteer would bring a second Chromium.
+- The wheel does not ship it. Native renders look for `NARRATTY_MERMAID_JS`, then
+  `mermaid.min.js` in the data directory; otherwise a `MissingDependencyError` hints at
+  `--runtime docker` or the download. `narratty doctor` lists it as optional.
+
+### Tests and docs
+- `tests/unit/render/test_slides.py` covers the slide checks, the generated pages
+  (pages, highlight, themes, images) and how slides are scheduled and composited.
+- `tests/unit/spec/test_markdown.py` covers tables, pauses, table pages, the `slide`
+  comment, inline code with the lexicon and `mermaid` fences.
+- Capture tests render a Mermaid slide and report a broken one, next to the existing
+  browser tests that need Chromium (skipped without `mermaid.min.js`).
+- `docs/user-guide/markdown.md` gets a section per feature, which the Markdown example
+  video includes; `docs/user-guide/spec.md` documents the `slide` action.
 
 ---
 

@@ -29,6 +29,7 @@ from narratty.spec.model import (
     Scene,
     ShowBrowser,
     ShowOverlay,
+    ShowSlide,
     Spec,
     TypeCommand,
     Wait,
@@ -282,7 +283,7 @@ def overlay_cue(scene_id: str, index: int) -> str:
 
 
 def _sends_keys(action: Action) -> bool:
-    return not isinstance(action, Hold | Wait | ShowOverlay | ShowBrowser)
+    return not isinstance(action, Hold | Wait | ShowOverlay | ShowBrowser | ShowSlide)
 
 
 def _unhide(steps: list[Step]) -> list[Step]:
@@ -306,7 +307,7 @@ def _timelapse_steps(scene: Scene, timing: SceneTiming, pace: Pacing, context: C
         for index, action in enumerate(scene.actions)
         for step in (
             [Cue(overlay_cue(scene.id, index))]
-            if isinstance(action, ShowOverlay | ShowBrowser)
+            if isinstance(action, ShowOverlay | ShowBrowser | ShowSlide)
             else action_steps(action, pace, context)
         )
     ]
@@ -334,7 +335,7 @@ def scene_steps(
         steps.append(Hide())
     filled = popup = False
     for index, action in enumerate(scene.actions):
-        if isinstance(action, ShowOverlay | ShowBrowser):
+        if isinstance(action, ShowOverlay | ShowBrowser | ShowSlide):
             steps.append(Cue(overlay_cue(scene.id, index)))
             continue
         if isinstance(action, Hold) and action.hold == "auto" and fill_at_hold:

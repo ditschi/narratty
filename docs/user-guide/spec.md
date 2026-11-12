@@ -1,8 +1,9 @@
 # Spec reference
 
-A narratty video is described by a `.narratty.yaml` file. `narratty init` writes a
-commented starter, `narratty validate` checks one, and `narratty schema` prints the JSON
-Schema.
+A narratty video is described by a `.narratty.yaml` file. For a video made from a doc,
+it is mostly a [`markdown` entry](markdown.md#the-markdown-entry) plus the voice and
+the look. `narratty init` writes a commented starter, `narratty validate` checks one,
+and `narratty schema` prints the JSON Schema.
 
 ## Editor support
 
@@ -70,6 +71,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `subtitles` | `none` | `none`, `files`, `track` or `burn`; see [Subtitles](building.md#subtitles) (since 0.3) |
 | `overlay_styles` | `{}` | Named overlay styles; see [Overlays](#overlays) (since 0.3) |
 | `narration` | `all` | Default narration rule of `markdown` entries: `all` or `none`; see [Markdown input](markdown.md) (since 0.5) |
+| `slides.theme` | `dark` | Look of every [slide](#slides): `dark` or `light` (since 0.6) |
 | `scenes` | required | At least one scene, or a `markdown` entry |
 
 ## `tts`
@@ -243,6 +245,7 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 | `reveal` | `- reveal: src/app.py` | Selects a path, relative to the workspace, in the explorer (editor layout) (since 0.3) |
 | `overlay` | `- overlay: "Open src/main.py"` | Shows text over the video; see [Overlays](#overlays) (since 0.3) |
 | `browser` | `- browser: docs/site/index.html` | Shows a web page over the terminal; see [Browser views](#browser-views) (since 0.3) |
+| `slide` | `- slide: {mermaid: "flowchart LR\n  a --> b"}` | Shows a table, diagram, image or HTML page full screen; see [Slides](#slides) (since 0.6) |
 
 Keys: `Enter`, `Tab`, `Space`, `Backspace`, `Delete`, `Escape`, `Up`, `Down`, `Left`,
 `Right`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`. Names are case-insensitive.
@@ -393,6 +396,63 @@ container that is `sandbox: {network: full}`. Prefer local files for pages behin
 login; narratty never signs in. The whole example is in
 [`examples/browser`](https://github.com/ditschi/narratty/tree/main/examples/browser).
 
+Since 0.6, Mermaid diagrams on a page are drawn before the capture: elements with
+the class `mermaid` (`<pre class="mermaid">flowchart LR …</pre>`) on a page that does
+not load Mermaid itself. The narratty image brings `mermaid.min.js`, so this works
+without network; native renders read it from `NARRATTY_MERMAID_JS` or the data
+directory (`narratty doctor` shows where).
+
+### Slides
+
+Since narratty 0.6.
+
+A slide shows one table, Mermaid diagram, image or HTML page full screen over the
+terminal, with an optional title, while the narration talks about it. Like a browser
+view it stays until its scene ends or `duration_ms` has passed, and a later slide or
+browser view in the same scene replaces it.
+
+```yaml
+slides: {theme: dark}              # the default; light is the other look
+scenes:
+  - id: risks
+    narration: Pinch points are the highest risk. Keep the guard closed.
+    actions:
+      - slide:
+          title: Safety risks
+          table:
+            header: [Hazard, Severity, Mitigation]
+            rows:
+              - [Pinch point, high, Keep the guard closed]
+              - [Hot surface, medium, Wear `gloves`]
+          highlight: 1
+  - id: flow
+    narration: A spec becomes a video in three steps.
+    actions:
+      - slide: {title: Build flow, mermaid: "flowchart LR\n  spec --> plan --> build --> mp4"}
+  - id: screenshot
+    narration: This is the result.
+    actions:
+      - slide: {image: docs/assets/overlays.png, theme: light}
+```
+
+| Key | Meaning |
+|---|---|
+| `table` | `{header: [...], rows: [[...], ...]}`; cells are inline Markdown (`` `code` ``, `**bold**`, links) |
+| `mermaid` | The source of a [Mermaid](https://mermaid.js.org) diagram, drawn without network |
+| `image` | A PNG, JPEG, GIF, SVG or WebP file in the workspace, or a `data:` URL |
+| `html` | An HTML file in the workspace or a `data:` URL, shown as it is (no title or theme) |
+| `title` | Text above the content |
+| `highlight` | Table row to highlight, from 1 |
+| `rows` | Table rows per page; the page with the highlighted row is shown, with a page counter |
+| `page` | Table page to show when no row is highlighted |
+| `theme` | `dark` or `light`; defaults to `slides.theme` |
+| `duration_ms` | Hide after this long |
+
+Exactly one of `table`, `mermaid`, `image` and `html` is given. A table taller than
+the slide moves up so that the highlighted row stays in view. A Markdown doc makes
+slides from its tables, `mermaid` blocks and images; see
+[Markdown input](markdown.md#slides).
+
 ## Spec versions
 
 `version` changes only when a spec that worked before would break: a key is removed,
@@ -415,3 +475,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 |---|---|
 | 0.3 | `run` action, `key: Enter` (the bare `- enter` still works), durations like `1.5s`, `wait: "pattern"`, `wait: {prompt: true}`, `timing.run_hold_ms`, `timing.pause_ms` and scene `pause_ms`, `tts.lexicon`, `subtitles`, `environment`, `sandbox.docker`, `terminal.layout`, overlays (`overlay`, `overlay_styles`), `browser`, `diff`, `focus`, `reveal`, scene `timelapse`, `expect_exit` and `fast` |
 | 0.5 | `requires.narratty`, `markdown` scene entries and the top-level `narration` ([Markdown input](markdown.md)), overlay styles `heading-1` to `heading-4`, `breadcrumb` and `file`, `browser` `address` and `data:` URLs |
+| 0.6 | `slide` action and `slides.theme`, Mermaid diagrams in browser views; in Markdown input the `table`, `slide` and `pause` comments and `mermaid` blocks |

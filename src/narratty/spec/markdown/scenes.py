@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import difflib
-import html
 import posixpath
 import re
 import shlex
@@ -16,25 +15,38 @@ from typing import Any
 
 from narratty.spec.markdown import EntryError, ExpandedScene
 from narratty.spec.markdown.links import LinkError, resolve_link
-from narratty.spec.markdown.parse import Block, Code, Comment, Dropped, Heading, Image, Text
+from narratty.spec.markdown.parse import (
+    SENTENCE_END,
+    Block,
+    Code,
+    Comment,
+    Dropped,
+    Heading,
+    Image,
+    Table,
+    Text,
+)
 from narratty.spec.markdown.shell import Command, clean_command, split_commands
 from narratty.spec.markdown.source import fail
-from narratty.spec.model import HeadingOverlays, MarkdownEntry, MarkdownNarration
+from narratty.spec.model import (
+    SLIDE_IMAGE_TYPES,
+    HeadingOverlays,
+    MarkdownEntry,
+    MarkdownNarration,
+    to_ms,
+)
 
 SHELL_LANGS = ("bash", "sh", "shell")
 BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure")
-COMMENT_KINDS = ("skip", "say", "overlay", "hidden", "browser")
+COMMENT_KINDS = ("skip", "say", "overlay", "hidden", "browser", "pause", "table", "slide")
+SLIDE_KEYS = ("title", "theme", "rows", "html")
+TABLE_KEYS = ("say", "pause", "title", "theme", "rows")
+VISUALS = "a table, image or mermaid block"
 NO_RUN_HOLD_MS = 1000
 IMAGE_HOLD_MS = 3000  # an image scene without narration
-IMAGE_TYPES = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".svg": "image/svg+xml",
-    ".webp": "image/webp",
-}
+MAX_URL_CHARS = 2 * 1024 * 1024  # Chromium does not load longer URLs
 _COMMENT = re.compile(r"^\s*narratty:\s*(?P<kind>[\w-]*)(?P<body>.*)$", re.DOTALL)
+_FIELD = re.compile(r"\{([^{}]+)\}")
 
 
 @dataclass(frozen=True)
@@ -145,12 +157,15 @@ class _Builder:
         self.skip = False
         self.image = False  # an image or web page waits for its scene
         self.link: tuple[Comment, dict[str, Any]] | None = None  # a browser comment's options
+        self.table: tuple[Comment, dict[str, Any]] | None = None  # a table comment's options
+        self.slide: tuple[Comment, dict[str, Any]] | None = None  # a slide comment's options
+        self.pages: list[dict[str, Any]] = []  # later pages of the table on screen
+        self.pages_block: Block | None = None
         self.used: set[str] = set()
 
     def add(self, blocks: list[Block]) -> None:
         for block in blocks:
-            if self.link is not None and not isinstance(block, (Comment, Dropped)):
-                self.open_link(block)
+            self.check_pending(block)
             if isinstance(block, Heading):
                 self.heading(block)
             elif isinstance(block, Comment):
@@ -159,14 +174,35 @@ class _Builder:
                 self.note(block, None, f"{block.what}: not part of the video")
             elif self.skip:
                 self.skip = False
+                if isinstance(block, Table):
+                    self.table = None
+                self.slide = None
                 self.note(block, None, f"{_kind(block)}: left out by a skip comment")
-            elif isinstance(block, Text):
-                self.text(block)
-            elif isinstance(block, Code):
-                self.code(block)
-            elif isinstance(block, Image):
-                self.show_image(block)
+            else:
+                self.content(block)
+        self.check_pending(None)
         self.flush()
+
+    def check_pending(self, block: Block | None) -> None:
+        """Comments waiting for the next block must get one they apply to (None: section end)."""
+        if isinstance(block, (Comment, Dropped)):
+            return
+        if self.link is not None and block is not None:
+            self.open_link(block)
+        if self.table is not None and not isinstance(block, Table):
+            self.no_block(self.table, "table", "a table")
+        if self.slide is not None and (block is None or not _visual(block)):
+            self.no_block(self.slide, "slide", VISUALS)
+
+    def content(self, block: Block) -> None:
+        if isinstance(block, Text):
+            self.text(block)
+        elif isinstance(block, Code):
+            self.code(block)
+        elif isinstance(block, Image):
+            self.show_image(block)
+        elif isinstance(block, Table):
+            self.show_table(block)
 
     # ── blocks ──
 
@@ -205,10 +241,16 @@ class _Builder:
             self.spoken.append(" ".join(body.split()))
             self.unassigned.append((block, "say comment: spoken"))
         elif kind == "overlay":
-            self.overlays.append((None, {"overlay": _yaml_value(body, block)}))
+            self.overlays.append((None, {"overlay": _yaml_value(body, block, kind)}))
             self.unassigned.append((block, "overlay comment"))
         elif kind == "browser":
             self.browser_comment(block, body)
+        elif kind == "pause":
+            self.pause(block, body)
+        elif kind == "table":
+            self.table_comment(block, body)
+        elif kind == "slide":
+            self.slide_comment(block, body)
         elif kind == "hidden":
             commands = split_commands(body)
             _check_placeholders(commands, block, 0)
@@ -224,12 +266,12 @@ class _Builder:
 
     def browser_comment(self, block: Comment, body: str) -> None:
         """Open a page from where the next paragraph starts: a URL, or one of its links."""
-        value = _yaml_value(body, block) if body else {}
+        value = _yaml_value(body, block, "browser") if body else {}
         options = {"url": value} if isinstance(value, str) else value
         if not isinstance(options, dict):
             raise fail(block.file, block.line, "browser comment: expected a URL or a mapping")
         if "url" in options:
-            self.show_view(block, options, f"browser comment: opens {options['url']}")
+            self.show_view(block, {"browser": options}, f"browser comment: opens {options['url']}")
         else:
             self.link = (block, options)
 
@@ -260,17 +302,46 @@ class _Builder:
             url = resolve_link(href, block.file)
         except LinkError as error:
             raise fail(comment.file, comment.line, f"browser comment: {error}") from error
-        self.show_view(comment, {"url": url, **options}, f"browser comment: opens {text!r} ({url})")
+        self.show_view(
+            comment, {"browser": {"url": url, **options}}, f"browser comment: opens {text!r} ({url})"
+        )
 
-    def show_view(self, block: Block, browser: dict[str, Any], what: str) -> None:
-        """A browser view from the next paragraph on, until the next command or heading."""
+    def show_view(self, block: Block, action: dict[str, Any], what: str) -> None:
+        """A browser view or slide from the next paragraph on, until the next command or heading."""
         self.flush()  # the page appears with its paragraph, not with the narration before
-        self.overlays.append((None, {"browser": browser}))
+        self.pending_view(block, action, what)
+
+    def pending_view(self, block: Block, action: dict[str, Any], what: str) -> None:
+        """Show ``action`` with the text around it, up to the next block."""
+        self.overlays.append((None, action))
         self.unassigned.append((block, what))
         self.image = True
 
+    def slide_comment(self, block: Comment, body: str) -> None:
+        options = _options(body, block, "slide", SLIDE_KEYS)
+        if "html" not in options:
+            self.slide = (block, options)
+            return
+        name = str(options.pop("html"))
+        path = block.file.parent / name
+        if not path.is_file():
+            raise fail(block.file, block.line, f"slide comment: file not found: {name}")
+        html_url = _embed("text/html", path.read_bytes(), block, name)
+        self.show_view(block, {"slide": {**options, "html": html_url}}, f"slide comment: shows {name}")
+
+    def take_slide(self) -> dict[str, Any] | None:
+        """The pending slide comment's options, if any."""
+        options = self.slide[1] if self.slide is not None else None
+        self.slide = None
+        return options
+
+    def no_block(self, pending: tuple[Comment, dict[str, Any]], kind: str, expected: str) -> None:
+        comment = pending[0]
+        raise fail(comment.file, comment.line, f"{kind} comment: the next block is not {expected}")
+
     def show_image(self, block: Image) -> None:
-        """Show the image while the text around it is spoken, up to the next block."""
+        """Show the image as a slide while the text around it is spoken, up to the next block."""
+        look = self.take_slide() or {}
         if not self.entry.images:
             self.note(block, None, "image: left out (images: false)")
             return
@@ -278,16 +349,96 @@ class _Builder:
             self.note(block, None, "image: left out (not a local file)")
             return
         path = block.file.parent / block.src.split("#")[0].split("?")[0]
-        mime = IMAGE_TYPES.get(path.suffix.lower())
+        mime = SLIDE_IMAGE_TYPES.get(path.suffix.lower())
         if mime is None:
             self.note(block, None, f"image: left out ({path.suffix or 'no'} files are not shown)")
             return
         if not path.is_file():
             raise fail(block.file, block.line, f"image not found: {block.src}")
-        url = image_page(path.read_bytes(), mime, block.alt)
-        self.overlays.append((None, {"browser": {"url": url, "address": block.src}}))
-        self.unassigned.append((block, "image: shown in a browser view"))
-        self.image = True
+        data = f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
+        self.pending_view(block, {"slide": {**look, "image": data}}, "image: shown as a slide")
+
+    def show_diagram(self, block: Code) -> None:
+        """A Mermaid diagram, shown like an image; the renderer draws it."""
+        look = self.take_slide() or {}
+        if not self.entry.images:
+            self.note(block, None, "mermaid block: left out (images: false)")
+            return
+        slide = {**look, "mermaid": block.content}
+        self.pending_view(block, {"slide": slide}, "mermaid block: shown as a slide")
+
+    def pause(self, block: Comment, body: str) -> None:
+        """End the scene here; with a duration, a silent scene follows.
+
+        While a table with pages is shown, the next page appears here instead.
+        """
+        ms = _duration(body, block, "pause comment") if body else 0
+        page = self.pages.pop(0) if self.pages else None
+        self.flush(pages=False)
+        if page is not None:
+            if ms:
+                self.emit(block, {"id": self.next_id(None), "actions": [{"slide": page}, {"hold": ms}]})
+            self.pending_view(block, {"slide": page}, f"pause comment: table page {page['page']}")
+            return
+        if not ms:
+            self.note(block, None, "pause comment: the scene ends here")
+            return
+        scene_id = self.next_id(None)
+        self.emit(block, {"id": scene_id, "actions": [{"hold": ms}]})
+        self.note(block, scene_id, f"pause comment: {ms} ms of silence")
+
+    def table_comment(self, block: Comment, body: str) -> None:
+        options = _options(body, block, "table", TABLE_KEYS)
+        if "say" in options and not isinstance(options["say"], str):
+            raise fail(block.file, block.line, "table comment: say must be a text such as '{Name}: {Value}'")
+        if "pause" in options:
+            options["pause"] = _duration(options["pause"], block, "table comment: pause")
+        self.table = (block, options)
+
+    def show_table(self, block: Table) -> None:
+        """A slide of the table, with a slide or table comment; left out otherwise."""
+        look = self.take_slide()
+        if self.table is None and look is None:
+            self.note(block, None, "table: not part of the video")
+            return
+        table = {"header": list(block.header_source), "rows": [list(row) for row in block.rows_source]}
+        if self.table is None:
+            assert look is not None
+            self.show_pages(block, look, table)
+            return
+        comment, options = self.table
+        self.table = None
+        if not block.rows:
+            raise fail(comment.file, comment.line, "table comment: the table has no rows")
+        look = {key: options[key] for key in SLIDE_KEYS if key in options} | (look or {})
+        template = options.get("say")
+        if template is not None:
+            _check_fields(template, block.header, comment)
+        pause = options.get("pause")
+        self.flush()
+        for number, (row, line) in enumerate(zip(block.rows, block.row_lines, strict=True), 1):
+            source = Block(block.file, line)
+            self.overlays.append((None, {"slide": {**look, "table": table, "highlight": number}}))
+            text = row_text(block.header, row, template)
+            if text:
+                self.spoken.append(text)
+            self.unassigned.append((source, f"table row {number}: " + ("spoken" if text else "empty")))
+            actions: list[dict[str, Any]] = [{"hold": pause}] if pause else []
+            if not text:
+                actions.append({"hold": IMAGE_HOLD_MS})
+            extra = {"narration_start": "after_actions"} if pause and text else {}
+            self.scene(source, self.next_id(None), actions, extra)
+
+    def show_pages(self, block: Table, look: dict[str, Any], table: dict[str, Any]) -> None:
+        """A table shown, not read: its first page now, the next ones at ``pause`` comments."""
+        per_page = look.get("rows")
+        count = -(-len(block.rows) // per_page) if isinstance(per_page, int) and per_page > 0 else 1
+        if count == 1:
+            self.pending_view(block, {"slide": {**look, "table": table}}, "table: shown as a slide")
+            return
+        pages = [{**look, "table": table, "page": number} for number in range(1, count + 1)]
+        self.pending_view(block, {"slide": pages[0]}, f"table: shown as a slide, page 1 of {count}")
+        self.pages, self.pages_block = pages[1:], block
 
     def code(self, block: Code) -> None:
         options = set(block.options)
@@ -299,7 +450,13 @@ class _Builder:
             )
         if self.image and (block.lang == "console" or block.lang in SHELL_LANGS or block.title):
             self.flush()  # an image never covers commands
-        if block.lang == "console" or block.lang in SHELL_LANGS:
+        if block.lang == "mermaid":
+            if options:
+                raise fail(
+                    block.file, block.line, f"{sorted(options)[0]!r} only applies to shell and console blocks"
+                )
+            self.show_diagram(block)
+        elif block.lang == "console" or block.lang in SHELL_LANGS:
             self.commands(block, options)
         elif block.title:
             self.file(block, options)
@@ -347,13 +504,24 @@ class _Builder:
 
     # ── scenes ──
 
-    def flush(self) -> None:
-        """Narration after the last block of a section: a scene without actions."""
+    def flush(self, *, pages: bool = True) -> None:
+        """Narration after the last block of a section: a scene without actions.
+
+        Table pages no ``pause`` comment brought up yet follow as silent scenes.
+        """
         if self.spoken or self.image:
             first = self.unassigned[0][0] if self.unassigned else None
             assert first is not None
             hold = [] if self.spoken else [{"hold": IMAGE_HOLD_MS}]
             self.scene(first, self.next_id(None), hold, {})
+        while pages and self.pages:
+            assert self.pages_block is not None
+            page = self.pages.pop(0)
+            scene_id = self.next_id(None)
+            self.emit(
+                self.pages_block, {"id": scene_id, "actions": [{"slide": page}, {"hold": IMAGE_HOLD_MS}]}
+            )
+            self.note(self.pages_block, scene_id, f"table: page {page['page']}, silent")
 
     def scene(
         self, block: Block, scene_id: str, actions: list[dict[str, Any]], extra: dict[str, Any]
@@ -426,7 +594,14 @@ class _Builder:
 def _kind(block: Block) -> str:
     if isinstance(block, Image):
         return "image"
+    if isinstance(block, Table):
+        return "table"
     return "paragraph" if isinstance(block, Text) else f"{getattr(block, 'lang', '') or 'code'} block"
+
+
+def _visual(block: Block) -> bool:
+    """Whether a slide comment can show ``block``."""
+    return isinstance(block, (Table, Image)) or (isinstance(block, Code) and block.lang == "mermaid")
 
 
 def _bare(action: Any) -> dict[str, Any]:
@@ -434,15 +609,87 @@ def _bare(action: Any) -> dict[str, Any]:
     return {next(iter(type(action).model_fields)): True}
 
 
-def _yaml_value(text: str, block: Block) -> Any:
+def _yaml_value(text: str, block: Block, kind: str) -> Any:
     from ruamel.yaml import YAML
     from ruamel.yaml.error import YAMLError
 
     try:
         value = YAML(typ="safe").load(text)
     except YAMLError as error:
-        raise fail(block.file, block.line, f"overlay comment: invalid YAML: {error}") from error
+        raise fail(block.file, block.line, f"{kind} comment: invalid YAML: {error}") from error
     return value
+
+
+def _duration(value: Any, block: Block, what: str) -> int:
+    ms = to_ms(value.strip() if isinstance(value, str) else value)
+    if not isinstance(ms, int) or isinstance(ms, bool) or ms < 0:
+        raise fail(
+            block.file, block.line, f"{what}: expected a duration such as 800ms or 1.5s, got {value!r}"
+        )
+    return ms
+
+
+def _embed(mime: str, data: bytes, block: Block, name: str) -> str:
+    url = f"data:{mime};base64,{base64.b64encode(data).decode()}"
+    if len(url) > MAX_URL_CHARS:
+        raise fail(
+            block.file, block.line, f"{name} is too large to embed (Chromium loads data: URLs up to 2 MB)"
+        )
+    return url
+
+
+def _options(body: str, block: Comment, kind: str, keys: Sequence[str]) -> dict[str, Any]:
+    """The mapping a comment takes, with only ``keys``."""
+    options = _yaml_value(body, block, kind) if body else {}
+    if not isinstance(options, dict):
+        raise fail(block.file, block.line, f"{kind} comment: expected a mapping such as {{{keys[0]}: ...}}")
+    if unknown := sorted(set(options) - set(keys)):
+        raise fail(
+            block.file,
+            block.line,
+            f"{kind} comment: unknown key {unknown[0]!r}; expected one of {', '.join(keys)}",
+        )
+    return options
+
+
+# ── tables ─────────────────────────────────────────────────────────────────────────────
+
+
+def _column(name: str, header: Sequence[str]) -> int | None:
+    name = name.strip()
+    if name in header:
+        return header.index(name)
+    folded = [title.casefold() for title in header]
+    return folded.index(name.casefold()) if name.casefold() in folded else None
+
+
+def _check_fields(template: str, header: Sequence[str], comment: Comment) -> None:
+    for match in _FIELD.finditer(template):
+        if _column(match[1], header) is None:
+            raise fail(
+                comment.file,
+                comment.line,
+                f"table comment: no column {match[1]!r}{_did_you_mean(match[1], list(header))}",
+            )
+
+
+def row_text(header: Sequence[str], row: Sequence[str], template: str | None) -> str:
+    """How a table row is spoken: ``template`` filled in, else ``Header: cell.`` per cell."""
+    if template is not None:
+
+        def cell(match: re.Match[str]) -> str:
+            index = _column(match[1], header)
+            return row[index] if index is not None and index < len(row) else ""
+
+        return " ".join(_FIELD.sub(cell, template).split())
+    parts = []
+    for number, value in enumerate(row):
+        if not value:
+            continue
+        name = header[number] if number < len(header) else ""
+        part = f"{name}: {value}" if name else value
+        parts.append(part if part.endswith(SENTENCE_END) else part + ".")
+    return " ".join(parts)
 
 
 # ── actions ───────────────────────────────────────────────────────────────────
@@ -489,21 +736,6 @@ def console_commands(content: str) -> list[Command]:
         if command.text.strip():
             commands.append(Command(command.text, offset, command.placeholders))
     return commands
-
-
-def image_page(data: bytes, mime: str, alt: str) -> str:
-    """A ``data:`` URL of a page that shows the image centred, for a browser view.
-
-    Embedded, so it needs neither network nor a file in the workspace or container.
-    """
-    image = f"data:{mime};base64,{base64.b64encode(data).decode()}"
-    page = (
-        '<!doctype html><html><body style="margin:0;height:100vh;display:flex;'
-        'align-items:center;justify-content:center;background:#282a36">'
-        f'<img alt="{html.escape(alt)}" src="{image}" style="max-width:96%;max-height:96%">'
-        "</body></html>"
-    )
-    return f"data:text/html;base64,{base64.b64encode(page.encode()).decode()}"
 
 
 def write_file(path: str, content: str) -> str:
