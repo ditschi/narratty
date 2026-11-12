@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from narratty.errors import CommandError
-from narratty.render.script import Ctrl, Press, Type, action_steps
+from narratty.render.script import Context, Ctrl, Press, Type, action_steps
 from narratty.spec.model import ExpectExit, Run, Scene, Spec
 from narratty.timeline import Pacing
 
@@ -50,11 +50,13 @@ class Typed:
 def typed_commands(spec: Spec) -> list[Typed]:
     """Every line the scenes type and submit with Enter, in order."""
     commands = []
+    # The prompt and shell shape the line a `run` with `show` or `max_lines` submits.
+    context = Context(editor=False, prompt=spec.terminal.prompt, shell=spec.terminal.shell)
     for scene in spec.scenes:
         line = ""
         for action in scene.actions:
             expect = action.expect_exit if isinstance(action, Run) else None
-            for step in action_steps(action, Pacing(speed=1)):
+            for step in action_steps(action, Pacing(speed=1), context):
                 if isinstance(step, Type):
                     line += step.text
                 elif isinstance(step, Press) and step.key == "Enter":

@@ -112,6 +112,29 @@ class Run(_Model):
         description="What the command prints, compared by `narratty check`. A line `...` stands for "
         "any lines, `...` within a line for any text.",
     )
+    show: str | None = Field(
+        None,
+        min_length=1,
+        description="Typed on screen instead of `run`, which runs in its place without being shown "
+        "(since 0.7). `narratty check` runs `run` as it is.",
+    )
+    max_lines: int | None = Field(
+        None,
+        ge=1,
+        description="Lines of output the video shows; the rest is cut with a note (since 0.7). "
+        "`narratty check` sees all of it.",
+    )
+
+    @model_validator(mode="after")
+    def _one_line_when_masked(self) -> Run:
+        if (self.show is not None or self.max_lines is not None) and "\n" in self.run.strip():
+            raise ValueError("with show or max_lines, run must be a single line")
+        return self
+
+    @property
+    def masked(self) -> bool:
+        """Whether the screen shows something else than the typed ``run`` (see ``show``)."""
+        return self.show is not None or self.max_lines is not None
 
 
 class Enter(_Model):

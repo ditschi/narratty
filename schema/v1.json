@@ -884,6 +884,34 @@
           "default": null,
           "description": "What the command prints, compared by `narratty check`. A line `...` stands for any lines, `...` within a line for any text.",
           "title": "Expect Output"
+        },
+        "show": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Typed on screen instead of `run`, which runs in its place without being shown (since 0.7). `narratty check` runs `run` as it is.",
+          "title": "Show"
+        },
+        "max_lines": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lines of output the video shows; the rest is cut with a note (since 0.7). `narratty check` sees all of it.",
+          "title": "Max Lines"
         }
       },
       "required": [

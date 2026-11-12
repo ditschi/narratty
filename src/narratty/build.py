@@ -1028,6 +1028,7 @@ def check(
 
     say = log or (lambda _message: None)
     planned = plan(spec_path, end_card=False, draft=True, log=say)
+    planned = Plan(planned.spec_path, unmasked(planned.spec), planned.clips, planned.timeline, planned.draft)
     # In the editor layout the shell's output reaches the recorder through tmux, redrawn.
     editor = planned.spec.terminal.layout == "editor"
     if editor:
@@ -1045,6 +1046,25 @@ def check(
         outputs.check(planned.spec, recording.submitted)
     runs = [action for scene in planned.spec.scenes for action in scene.actions if isinstance(action, Run)]
     return CheckResult(len(runs), 0 if editor else len(outputs.expectations(planned.spec)))
+
+
+def unmasked(spec: Spec) -> Spec:
+    """``spec`` with each ``run`` as it is: what the command prints is compared in full,
+    and a ``show`` that stands in for it on screen is left out."""
+    scenes = [
+        scene.model_copy(
+            update={
+                "actions": [
+                    action.model_copy(update={"show": None, "max_lines": None})
+                    if isinstance(action, Run) and action.masked
+                    else action
+                    for action in scene.actions
+                ]
+            }
+        )
+        for scene in spec.scenes
+    ]
+    return spec.model_copy(update={"scenes": scenes})
 
 
 def verify(result: BuildResult, *, max_drift: float) -> None:

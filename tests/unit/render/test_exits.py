@@ -211,3 +211,35 @@ def test_hook_logs_real_shells(shell: str, tmp_path: Path, monkeypatch: pytest.M
         Exit(1, "grep -q x /dev/null"),
     ], "one entry per command line, none for empty lines"
     assert problems(spec, entries) == ["scene 'broken': `echo 'it''s'; false` exited with 1"]
+
+
+MASKED = """\
+terminal: {{shell: {shell}, typing_speed_ms: 1}}
+timing: {{lead_in_ms: 0, tail_ms: 0, narration_buffer_ms: 0}}
+end_card: false
+scenes:
+  - id: shown
+    actions:
+      - {{run: "false", show: "pip install tally"}}
+      - {{wait: {{prompt: true}}}}
+  - id: trimmed
+    expect_exit: failure
+    actions:
+      - {{run: "(seq 5; exit 3)", max_lines: 2}}
+      - {{wait: {{prompt: true}}}}
+"""
+
+
+def test_masked_runs_report_the_exit_code_of_what_ran(tmp_path: Path) -> None:
+    spec = parse_spec(MASKED.format(shell="bash"), tmp_path / "t.yaml")
+    log = tmp_path / "exits.log"
+    log.write_text("", encoding="utf-8")
+    steps = build_script(spec, build_timeline(spec, {}), exit_log=log)
+    recording = record(steps, terminal=spec.terminal, cwd=tmp_path, env=os.environ, title="T")
+    entries = parse_log(log.read_text(encoding="utf-8"))
+    assert [e.status for e in entries if not e.line.startswith("function ")] == [1, 3]
+    assert problems(spec, entries) == [f"scene 'shown': `{typed_commands(spec)[0].line}` exited with 1"], (
+        "the failure of the substitute is reported, the trimmed one was expected"
+    )
+    printed = recording.submitted[-1].output
+    assert "1\r\n2\r\n... (3 more lines)" in printed
