@@ -669,6 +669,13 @@ class MarkdownEntry(_Model):
         description="Let `narratty check` compare what commands print with the output shown in "
         "console blocks.",
     )
+    clear_on: int | None = Field(
+        None,
+        ge=1,
+        le=6,
+        description="Clear the screen where a heading of this level or higher starts a section "
+        "(since 0.7). Unset: never.",
+    )
     say: Literal["before", "during"] = Field(
         "during",
         description="When the text before a command block is spoken: before its commands are typed, "

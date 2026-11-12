@@ -423,6 +423,7 @@ The [Compose file reference](https://docs.docker.com/compose/) lists every key.
 | `table` | Speaks the next table row by row on a slide (since 0.6), see [Tables](#tables) |
 | `slide` | Sets the title and look of the next table, diagram or image, or shows an HTML file (since 0.6), see [Slides](#slides) |
 | `focus` | Reuses the last Mermaid diagram, emphasizing the given node or subgraph for the next narrated step (since 0.7), see [Slides](#slides) |
+| `clear` | Clears the screen (since 0.7), see [Clearing the screen](#clearing-the-screen) |
 | `run` | How the next shell or console block runs: narration order, a substitute command, output lines, stopping it (since 0.7), see [Running commands](#running-commands) |
 | `spec` | Spec keys for building the doc on its own (since 0.6), see [Building a doc on its own](#building-a-doc-on-its-own) |
 
@@ -598,6 +599,23 @@ Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ...
   command stopped with Ctrl+C does not count as a failure. Its output ends with what
   the command prints when stopped, so end the block's output with `...`.
 
+## Clearing the screen
+
+Since narratty 0.7.
+
+The screen keeps what earlier commands printed. A `clear` comment clears it where it
+stands, so the text after it does not play over old output:
+
+```markdown
+<!-- narratty: clear -->
+```
+
+`clear_on: 2` on the `markdown` entry clears it where each heading of level 2 or
+higher starts a section. The screen is cleared when the next visible scene starts,
+together with its [heading overlay](#heading-overlays), also after a `hidden` block.
+Clearing presses Ctrl+L, which runs no command, so exit codes are checked as before;
+`shell: sh` has no line editing and cannot clear this way.
+
 ## Placeholders
 
 Write placeholders as environment variables, which readers can set and copy:
@@ -647,6 +665,7 @@ scenes:
 | `file_titles` | `true` | Show a file block's title as an overlay |
 | `images` | `true` | Show images on a line of their own and `mermaid` blocks, see [Images](#images) |
 | `id_prefix` | file stem | Start of the generated scene ids |
+| `clear_on` | none | Clear the screen where a heading of this level or higher starts a section (since 0.7), see [Clearing the screen](#clearing-the-screen) |
 | `say` | `during` | When the text before a block is spoken: `before` its commands are typed, or `during` them (since 0.7), see [Explain, then run](#explain-then-run) |
 | `check_output` | `true` | Let `narratty check` compare the output console blocks show, see [Checking docs in CI](#checking-docs-in-ci) (since 0.6) |
 | `defaults` | `{}` | Scene keys for every scene: `typing_speed_ms`, `pause_ms`, `fast`, `timelapse`, `narration_start`, `expect_exit` |

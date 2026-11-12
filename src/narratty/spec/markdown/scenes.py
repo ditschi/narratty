@@ -42,6 +42,7 @@ RUN_KEYS = ("say", "instead", "lines", "until", "then", "timeout")
 """Keys of the ``run`` comment, also written ``key=value`` in a block's ``narratty="…"``."""
 SAY = ("before", "during", "after")
 UNTIL_TIMEOUT_MS = 30_000
+CLEAR = {"ctrl_sequence": "C-l"}  # readline's clear-screen: no command, nothing in the exit log
 COMMENT_KINDS = (
     "skip",
     "say",
@@ -53,6 +54,7 @@ COMMENT_KINDS = (
     "slide",
     "focus",
     "run",
+    "clear",
     "spec",
 )
 SLIDE_KEYS = ("title", "theme", "rows", "html", "focus")
@@ -258,6 +260,8 @@ class _Builder:
         self.overlays = [
             (level, action) for level, action in self.overlays if level is None or level < block.level
         ]
+        if self.entry.clear_on is not None and block.level <= self.entry.clear_on:
+            self.clear(block, f"heading: clears the screen (clear_on: {self.entry.clear_on})")
         settings = self.entry.heading_overlays
         if settings is None or block.level > settings.levels:
             return
@@ -298,6 +302,7 @@ class _Builder:
             "focus": self.focus_comment,
             "hidden": self.hidden_comment,
             "run": self.run_comment,
+            "clear": self.clear_comment,
         }.get(kind):
             handler(block, body)
         else:
@@ -313,6 +318,18 @@ class _Builder:
         scene_id = self.next_id(None)
         self.emit(block, {"id": scene_id, "hidden": True, "actions": _runs(commands)})
         self.note(block, scene_id, f"hidden comment: {len(commands)} command(s), not shown")
+
+    def clear_comment(self, block: Comment, body: str) -> None:
+        if body:
+            raise fail(block.file, block.line, f"clear comment: takes no value, got {body!r}")
+        self.flush()  # the text before it stays with the screen it was written for
+        self.clear(block, "clear comment: clears the screen")
+
+    def clear(self, block: Block, what: str) -> None:
+        """Clear the screen when the next visible scene starts, with its heading overlays."""
+        if CLEAR not in (action for _, action in self.overlays):
+            self.overlays.append((None, CLEAR))
+            self.unassigned.append((block, what))
 
     def run_comment(self, block: Comment, body: str) -> None:
         self.run = (block, _run_options(_options(body, block, "run", RUN_KEYS), block, "run comment"))

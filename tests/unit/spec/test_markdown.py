@@ -1036,3 +1036,34 @@ def test_control_in_a_real_shell(tmp_path: Path, unmask: bool) -> None:
         trimmed = next(lines for line, lines in printed.items() if "seq 5" in line)
         assert trimmed[1:] == ["1", "2", "... (3 more lines)"], "after the redrawn command line"
         assert not any("rm -rf" in line for line in printed if not line.startswith("sh -c"))
+
+
+def test_clear_comment_clears_the_screen_with_the_next_scene(tmp_path: Path) -> None:
+    body = "# Doc\n\nBefore.\n\n<!-- narratty: clear -->\n\n<!-- narratty: hidden\ncd /tmp\n-->\n\n"
+    body += "After.\n\n```sh\nls\n```\n"
+    scenes = _expand(_doc(tmp_path, body))
+    assert [(scene["id"], scene.get("narration"), scene.get("actions", [])[:1]) for scene in scenes] == [
+        ("doc-1", "Before.", []),
+        ("doc-2", None, [{"run": "cd /tmp"}]),
+        ("doc-3", "After.", [{"ctrl_sequence": "C-l"}]),
+    ], "the hidden scene leaves it to the next visible one"
+
+
+def test_clear_on_clears_at_each_section_with_its_heading_overlay(tmp_path: Path) -> None:
+    body = (
+        '# Doc\n\nIntro.\n\n## A\n\n### A1\n\nText.\n\n## B\n\n```sh {narratty="hidden"}\nls\n```\n\nMore.\n'
+    )
+    scenes = _expand(_doc(tmp_path, body), clear_on=2, heading_overlays=2)
+    assert [(scene["id"], scene.get("actions")) for scene in scenes] == [
+        ("doc-1", [{"ctrl_sequence": "C-l"}, {"overlay": {"text": "Doc", "style": "heading-1"}}]),
+        ("doc-a1-1", [{"ctrl_sequence": "C-l"}, {"overlay": {"text": "A", "style": "heading-2"}}]),
+        ("doc-b-1", [{"run": "ls"}, {"wait": {"prompt": True}}]),
+        ("doc-b-2", [{"ctrl_sequence": "C-l"}, {"overlay": {"text": "B", "style": "heading-2"}}]),
+    ]
+
+
+def test_clear_comment_takes_no_value(tmp_path: Path) -> None:
+    assert (
+        _error(tmp_path, "# Doc\n\n<!-- narratty: clear all -->\n")[0]
+        == "clear comment: takes no value, got 'all'"
+    )

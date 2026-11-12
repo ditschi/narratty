@@ -2269,6 +2269,21 @@
           "title": "Check Output",
           "type": "boolean"
         },
+        "clear_on": {
+          "anyOf": [
+            {
+              "maximum": 6,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Clear the screen where a heading of this level or higher starts a section (since 0.7). Unset: never.",
+          "title": "Clear On"
+        },
         "say": {
           "default": "during",
           "description": "When the text before a command block is spoken: before its commands are typed, or during them (since 0.7). A `run` comment changes it per block.",
