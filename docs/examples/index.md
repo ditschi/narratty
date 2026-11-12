@@ -19,6 +19,8 @@ one with `narratty build <spec>`.
 | [End card](end-card.md) | "Created with narratty" card with logo, link and QR code | `end_card`, `--no-end-card` |
 
 All recordings except the end card example are built with `--no-end-card`.
-`examples/render-docs.sh` rebuilds them (`--only markdown` just the specs whose path
-contains `markdown`) and stores a fingerprint of each spec next to it; a unit test
-fails when a spec, or the Markdown it reads, changed since its videos were rendered.
+`examples/render-docs.sh` rebuilds them (`--only browser` just the specs whose path
+contains `browser`) and stores a fingerprint of each spec next to it; a unit test
+fails when a spec changed since its videos were rendered. Videos made from Markdown,
+like the one on [Markdown input](../user-guide/markdown.md), are rendered in CI before
+each docs deploy instead, so they always match their page (`examples/render-ci-videos.sh`).

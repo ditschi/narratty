@@ -22,6 +22,10 @@ uv run pre-commit install    # ruff, mypy, codespell, commit-msg check
 | `nox -s docs` | `mkdocs build --strict` |
 | `nox -s docs_check` | `narratty check` on the pages in `CHECKED_DOCS` (`noxfile.py`): their commands run natively, in a copy of the repository, and must print what the page shows |
 
+The video on the Markdown input page is rendered in CI and not committed; to see it
+in `mkdocs serve`, render it with `examples/render-ci-videos.sh`. Pull requests that
+touch docs, examples or code upload it as the `docs-videos` artifact.
+
 ## Commits
 
 Commits and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/)
