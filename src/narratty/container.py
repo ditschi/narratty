@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from narratty import __version__
+from narratty import __version__, runtime
 from narratty.runtime import Runtime, release_tag
 
 if TYPE_CHECKING:
@@ -78,9 +78,7 @@ class ContainerSpec:
 def _user_flags(engine: Runtime) -> list[str]:
     if engine is Runtime.PODMAN:
         return ["--userns", "keep-id"]
-    if hasattr(os, "getuid"):
-        return ["--user", f"{os.getuid()}:{os.getgid()}"]
-    return []  # pragma: no cover - Windows
+    return ["--user", runtime.host_user(engine.value)]
 
 
 def run_argv(spec: ContainerSpec) -> list[str]:

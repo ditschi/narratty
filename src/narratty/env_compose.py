@@ -179,7 +179,7 @@ def start_compose(
             if not keep:
                 cleanup.callback(run, [engine, "volume", "rm", "--force", mounts.volume])
         add_toolkit(environment, image, mounts, engine=engine, run=run, log=log)
-        user = exec_user(environment.user)
+        user = exec_user(environment.user, engine)
         labels = {
             **mounts.labels,
             "narratty.environment": "1",

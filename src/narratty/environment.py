@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from narratty import runtime
 from narratty.errors import MissingDependencyError, NarrattyError, UsageError
 from narratty.spec.model import ENV_SOURCES, Environment
 
@@ -278,14 +279,7 @@ def user_flags(engine: str, user: str) -> list[str]:
         return ["--user", user]
     if engine == "podman":
         return ["--userns", "keep-id"]
-    return ["--user", host_user()]
-
-
-def host_user() -> str:
-    """``UID:GID`` of the current user."""
-    if hasattr(os, "getuid"):
-        return f"{os.getuid()}:{os.getgid()}"
-    return "1000:1000"  # pragma: no cover - Windows
+    return ["--user", runtime.host_user(engine)]
 
 
 def home_for(environment: Environment, image: ImageInfo) -> str:

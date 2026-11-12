@@ -58,6 +58,26 @@ def test_podman_keeps_the_user_id() -> None:
     assert "--user" not in argv
 
 
+def test_rootless_docker_runs_as_container_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rootless Docker maps container root to the host user; other ids cannot write its files."""
+    monkeypatch.setattr("narratty.runtime.docker_is_rootless", lambda: True)
+    argv = run_argv(ContainerSpec(Runtime.DOCKER, "img", [], []))
+    assert argv[argv.index("--user") + 1] == "0:0"
+
+
+@pytest.mark.parametrize(
+    ("output", "rootless"),
+    [("[name=seccomp,profile=builtin name=rootless name=cgroupns]", True), ("[name=seccomp]", False)],
+)
+def test_rootless_docker_is_detected(monkeypatch: pytest.MonkeyPatch, output: str, rootless: bool) -> None:
+    import subprocess
+
+    from narratty import runtime
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, output, ""))
+    assert runtime._detect_rootless() is rootless
+
+
 def _write_spec(tmp_path: Path) -> Path:
     spec = tmp_path / "proj" / "demo.narratty.yaml"
     spec.parent.mkdir()

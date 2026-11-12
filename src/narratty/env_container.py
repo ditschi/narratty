@@ -14,6 +14,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from narratty import runtime
 from narratty.environment import (
     ARCHITECTURES,
     Engine,
@@ -21,18 +22,17 @@ from narratty.environment import (
     Session,
     _check,
     _engine,
-    host_user,
     serve_agent,
 )
 from narratty.errors import UsageError
 from narratty.spec.model import Environment
 
 
-def exec_user(user: str) -> str | None:
+def exec_user(user: str, engine: str) -> str | None:
     """``exec --user`` for ``environment.user`` (``image`` keeps the container's user)."""
     if user == "image":
         return None
-    return host_user() if user == "host" else user
+    return runtime.host_user(engine) if user == "host" else user
 
 
 def grants(environment: Environment) -> list[str]:
@@ -67,7 +67,7 @@ def attach(
         run([engine, "image", "inspect", "--format", "{{.Architecture}}", str(state.get("Image", ""))]),
         f"inspecting the image of {name}",
     ).stdout.strip()
-    user = exec_user(environment.user)
+    user = exec_user(environment.user, engine)
     agent = agent_for(ARCHITECTURES.get(image, image))
     if agent is None:
         yield Session(engine, name, environment.workdir, user=user)

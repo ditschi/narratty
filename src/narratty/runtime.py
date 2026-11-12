@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import functools
 import os
 import re
 import shutil
+import subprocess
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -86,3 +88,35 @@ def release_tag(version: str | None = None) -> str:
 
     tag = __version__ if version is None else version
     return tag if _RELEASE.match(tag) else "edge"
+
+
+def _detect_rootless() -> bool:
+    """True when the Docker daemon runs rootless.
+
+    Its root user is the host user and other ids map to sub-ids, so files written as
+    root in the container belong to the user, while ``--user UID:GID`` cannot write
+    the user's directories.
+    """
+    try:
+        result = subprocess.run(  # noqa: S603
+            ["docker", "info", "--format", "{{.SecurityOptions}}"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return "rootless" in result.stdout
+
+
+docker_is_rootless = functools.cache(_detect_rootless)
+
+
+def host_user(engine: str) -> str:
+    """``UID:GID`` that writes files as the current user in a container of ``engine``."""
+    if engine == "docker" and docker_is_rootless():
+        return "0:0"
+    if hasattr(os, "getuid"):
+        return f"{os.getuid()}:{os.getgid()}"
+    return "1000:1000"  # pragma: no cover - Windows
