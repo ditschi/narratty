@@ -811,7 +811,9 @@ def build(
             srt = work / "subtitles.srt"
             srt.write_text(to_srt(cues), encoding="utf-8")
         if has_browsers(planned.spec):
-            say("capturing browser views")
+            from narratty.render.browser import capture_note
+
+            say(capture_note(planned.spec) or "capturing browser views")
         overlays = overlay_images(planned, video_ms, work, ws.path, layout)
         if overlays:
             say(f"drawing {len(overlays)} overlays")
@@ -956,7 +958,7 @@ def build_cast(
         if has_browsers(spec):
             from narratty.render import browser
 
-            say("capturing browser views")
+            say(browser.capture_note(spec) or "capturing browser views")
             shots = browser.shoot(spec, browser.schedule(spec, times), ws.path, work / "browser")
             views = browser.page_views(shots, spec.terminal)
         page = player_page(

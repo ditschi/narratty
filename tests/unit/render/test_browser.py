@@ -148,3 +148,16 @@ def test_page_views_for_the_cast_page(tmp_path: Path) -> None:
     assert data["scroll"] == [2.0, 4.0]
     assert data["scroll_by"] == 100.0  # 1200 px of a 1200 px wide video
     assert str(data["page"]).startswith("data:image/png;base64,")
+
+
+def test_capture_note_names_what_is_captured() -> None:
+    def note(actions: str) -> str | None:
+        return browser.capture_note(
+            parse_spec(f"scenes:\n  - id: a\n    actions: {actions}\n", Path("t.yaml"))
+        )
+
+    assert note("[enter]") is None
+    assert note('[{slide: {mermaid: "graph TD"}}, {slide: {image: a.png}}]') == "capturing 2 slides"
+    assert note('[{browser: "http://localhost:8000"}, {slide: {image: a.png}}]') == (
+        "capturing 1 browser view and 1 slide"
+    )
