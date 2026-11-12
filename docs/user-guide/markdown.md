@@ -219,6 +219,25 @@ This is the comment above the table.
 | Step | Command | Shows |
 ```
 
+For a voiceover that does not read the cells, give `say` one phrase per row. The
+snippet configures the spoken steps; the live table below is what those steps highlight:
+
+```markdown
+<!-- narratty: table {title: Request path, say: ["The client sends a request.", "The API checks the request.", "The database stores the result."]} -->
+| Step | What happens |
+|---|---|
+| Client | Sends a request to the API |
+| API | Checks the request |
+| Database | Stores the result |
+```
+
+<!-- narratty: table {title: Request path, say: ["The client sends a request.", "The API checks the request.", "The database stores the result."]} -->
+| Step | What happens |
+|---|---|
+| Client | Sends a request to the API |
+| API | Checks the request |
+| Database | Stores the result |
+
 - Without `say`, each cell is read with its header, such as "Step: Check.", and
   empty cells are left out.
 - `say` fills in the cells of the columns named in braces; names match the header
@@ -303,9 +322,9 @@ emphasizes a Mermaid node or subgraph while the scene is narrated.
 | `focus` | Mermaid node or subgraph ID to emphasize |
 | `html` | Shows an HTML file instead, from the next paragraph on |
 
-For a voiceover walkthrough in Markdown, repeat the diagram with a different `focus`
-ID for each step. A durationless `pause` closes the current narration scene without
-adding silence, so the highlight advances with the spoken text:
+For a voiceover walkthrough in Markdown, write the Mermaid diagram once, then use a
+`focus` comment for each later step. The comment closes the previous narration scene
+without adding silence. Here is the source snippet:
 
 ````markdown
 <!-- narratty: slide {title: Request flow, focus: api} -->
@@ -318,6 +337,18 @@ The API receives the request.
 <!-- narratty: focus db -->
 The database stores it.
 ````
+
+And here is the same Markdown as live content, which renders the diagram:
+
+<!-- narratty: slide {title: Request flow, focus: api} -->
+```mermaid
+flowchart LR
+  api[API] --> db[Database]
+```
+The API receives the request.
+
+<!-- narratty: focus db -->
+The database stores it.
 
 The `focus` comment closes the previous narration scene and reuses the last Mermaid
 diagram with a new focus target. In YAML, repeat the slide action in one scene per focus
