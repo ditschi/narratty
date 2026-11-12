@@ -6,17 +6,17 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Turn a YAML script into a narrated terminal video with local TTS, VHS rendering and automatic voiceover sync.">
+        <meta name="description" content="Turn your docs into narrated terminal videos with local TTS, commands that really run and automatic voiceover sync.">
       
       
       
         <link rel="canonical" href="https://ditschi.github.io/narratty/latest/user-guide/markdown/">
       
       
-        <link rel="prev" href="../writing-specs/">
+        <link rel="prev" href="../shell-completion/">
       
       
-        <link rel="next" href="../voices/">
+        <link rel="next" href="../building/">
       
       
         
@@ -252,6 +252,15 @@
   
     
     
+      
+  
+  
+  
+    
+  
+  
+    
+    
       <li class="md-tabs__item md-tabs__item--active">
         <a href="../installation/" class="md-tabs__link">
           
@@ -263,6 +272,9 @@
 
         </a>
       </li>
+    
+  
+
     
   
 
@@ -422,20 +434,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -479,6 +477,67 @@
             
   
     User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_1" id="__nav_2_1_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
   
 
           </label>
@@ -540,29 +599,9 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../commands/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Commands
-  
-
-    
-  </span>
-  
-  
-
-      </a>
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -572,45 +611,46 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../spec/" class="md-nav__link">
+  
+    
+    
+      
         
-  
-  
-  <span class="md-ellipsis">
+      
+        
+      
+        
+      
     
-  
-    Spec reference
-  
-
     
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="">
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../writing-specs/" class="md-nav__link">
-        
   
   
   <span class="md-ellipsis">
     
   
-    Writing specs
+    From docs to video
   
 
     
@@ -618,11 +658,19 @@
   
   
 
-      </a>
-    </li>
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    From docs to video
   
 
-              
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
@@ -735,6 +783,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pauses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pauses
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slides
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#doc-comments" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -823,6 +904,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#checking-docs-in-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking docs in CI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#not-supported-yet" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -837,6 +929,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../building/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building a video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -870,6 +990,75 @@
 
               
             
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YAML scenes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    YAML scenes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
                 
   
@@ -877,14 +1066,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../building/" class="md-nav__link">
+      <a href="../writing-specs/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Building a video
+    Writing specs
   
 
     
@@ -897,6 +1086,105 @@
   
 
               
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spec reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Where commands run
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Where commands run
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
@@ -982,6 +1270,103 @@
 
               
             
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
               
                 
   
@@ -1005,6 +1390,14 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1580,6 +1973,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pauses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pauses
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slides
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#doc-comments" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1668,6 +2094,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#checking-docs-in-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking docs in CI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#not-supported-yet" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1709,6 +2146,11 @@
 Paragraphs become the narration, code blocks become what the video types and runs.
 Plain docs need no extra markup. Comments and code block attributes, both invisible
 on the rendered page, change what the video does where the defaults don't fit.</p>
+<p>This is the recommended way to use narratty. The doc stays the source: readers read
+it, others watch or listen to the video. Every command runs while the video is
+recorded, so a doc whose commands fail does not build (see
+<a href="#checking-docs-in-ci">Checking docs in CI</a>). The YAML spec points at the doc and
+adds what only the video needs.</p>
 <p>The video is made from this page; its spec is
 <a href="https://github.com/ditschi/narratty/blob/main/examples/markdown/markdown.narratty.yaml"><code>examples/markdown/markdown.narratty.yaml</code></a>.</p>
 <video controls width="100%" src="../../assets/examples/markdown.mp4"></video>
@@ -1785,7 +2227,7 @@ the narration of the scene that runs it.</p>
 </tr>
 <tr>
 <td>Inline code, links, emphasis</td>
-<td>Read as plain text</td>
+<td>Read as plain text, so the <a href="../voices/#pronunciation">lexicon</a> applies to inline code too</td>
 </tr>
 <tr>
 <td>List items</td>
@@ -1809,10 +2251,18 @@ the narration of the scene that runs it.</p>
 </tr>
 <tr>
 <td>An image on a line of its own</td>
-<td>Shown in a <a href="../spec/#browser-views">browser view</a> while the text around it is spoken, see <a href="#images">Images</a></td>
+<td>Shown as a <a href="../spec/#slides">slide</a> while the text around it is spoken, see <a href="#images">Images</a></td>
 </tr>
 <tr>
-<td>Tables, images within text, raw HTML</td>
+<td><code>mermaid</code> block</td>
+<td>Drawn as a slide (since 0.6), see <a href="#slides">Slides</a></td>
+</tr>
+<tr>
+<td>Tables</td>
+<td>Left out; with a <code>table</code> comment spoken row by row, with a <code>slide</code> comment shown (since 0.6), see <a href="#tables">Tables</a></td>
+</tr>
+<tr>
+<td>Images within text, raw HTML</td>
 <td>Left out</td>
 </tr>
 </tbody>
@@ -1862,31 +2312,168 @@ lists in <code>tabs</code>. This video picks the bash tab.</p>
 <p>Collapsible blocks that start open are spoken like admonitions. HTML <code>details</code> blocks
 are left out like collapsed ones.</p>
 <h2 id="images">Images<a class="headerlink" href="#images" title="Permanent link">&para;</a></h2>
-<p>An image on a line of its own is shown while the text around it is spoken.</p>
+<p>An image on a line of its own is shown as a slide while the text around it is spoken.</p>
 <p><img alt="Overlays in a narratty video: a chapter title, a file name and a note" src="../../assets/overlays.png" /></p>
 <p>The image stays until the next command or heading, so it never covers what is typed.
 It is embedded in the spec, which keeps it working in the sandbox without network.</p>
 <p>Images within a sentence, remote images and formats other than PNG, JPEG, GIF, SVG
 and WebP are left out. <code>images: false</code> in the entry leaves out all images, and a
-<code>skip</code> comment a single one.</p>
+<code>skip</code> comment a single one. A <code>slide</code> comment gives it a title, see <a href="#slides">Slides</a>.</p>
+<h2 id="tables">Tables<a class="headerlink" href="#tables" title="Permanent link">&para;</a></h2>
+<!-- narratty: skip -->
+<p>Since narratty 0.6.</p>
+<p>A table is left out of the video unless a comment stands before it. With a <code>table</code>
+comment it is shown as a slide, and its rows are spoken one by one, each highlighted
+while it is spoken.</p>
+<!-- narratty: table {say: "{Step}: {Command} shows {Shows}.", title: From doc to video} -->
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Command</th>
+<th>Shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Check</td>
+<td><code>narratty validate</code></td>
+<td>problems, at the Markdown file and line</td>
+</tr>
+<tr>
+<td>Preview</td>
+<td><code>narratty plan --sources</code></td>
+<td>where each scene comes from</td>
+</tr>
+<tr>
+<td>Build</td>
+<td><code>narratty build</code></td>
+<td>the finished video</td>
+</tr>
+</tbody>
+</table>
+<p>This is the comment above the table.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>&lt;!-- narratty: table {say: "{Step}: {Command} shows {Shows}.", title: From doc to video} --&gt;
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>| Step | Command | Shows |
+</code></pre></div>
+<ul>
+<li>Without <code>say</code>, each cell is read with its header, such as "Step: Check.", and
+  empty cells are left out.</li>
+<li><code>say</code> fills in the cells of the columns named in braces; names match the header
+  regardless of case.</li>
+<li><code>pause: 500ms</code> highlights each row that long before it is spoken.</li>
+<li><code>title</code>, <code>theme</code> and <code>rows</code> set the look of the slide, as in the <code>slide</code> comment.</li>
+<li>Cells are read like paragraphs, so the lexicon applies to inline code in them.</li>
+</ul>
+<p>A <code>slide</code> comment shows a table without reading it, while the text after it is
+spoken. <code>rows: 8</code> splits a long table into pages of 8 rows; each <code>pause</code> comment in
+the text after it brings up the next page, and pages left when the text ends follow
+for a few seconds each.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>&lt;!-- narratty: slide {title: All hazards, rows: 8} --&gt;
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>| Hazard | Severity | Mitigation |
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>|---|---|---|
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>| … |
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>The first eight hazards concern the machine itself.
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>&lt;!-- narratty: pause --&gt;
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>The next ones concern the workplace around it.
+</code></pre></div>
+<h2 id="pauses">Pauses<a class="headerlink" href="#pauses" title="Permanent link">&para;</a></h2>
+<!-- narratty: skip -->
+<p>Since narratty 0.6.</p>
+<p>Paragraphs that follow each other are spoken in one go, up to the next code block.
+A <code>pause</code> comment ends the scene where it stands, and with a duration silence
+follows.</p>
+<!-- narratty: pause 1s -->
+
+<p>This paragraph comes after a second of silence.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>Paragraphs that follow each other are spoken in one go.
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>&lt;!-- narratty: pause 1s --&gt;
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>This paragraph comes after a second of silence.
+</code></pre></div>
+<p>Without a duration, <code>pause</code> only ends the scene; the next one
+follows after <code>timing.narration_buffer_ms</code>. A horizontal rule (<code>---</code>) does not end a
+scene. While a table with pages is shown, a <code>pause</code> brings up its next page.</p>
+<h2 id="slides">Slides<a class="headerlink" href="#slides" title="Permanent link">&para;</a></h2>
+<!-- narratty: skip -->
+<p>Since narratty 0.6.</p>
+<p>Tables, <code>mermaid</code> blocks and images become <a href="../spec/#slides">slides</a>: shown full
+screen while the text around them is spoken, dark unless the spec sets
+<code>slides: {theme: light}</code>. GitHub draws <code>mermaid</code> blocks too, and so does mkdocs with
+the <code>mermaid</code> custom fence of <code>pymdownx.superfences</code>.</p>
+<!-- narratty: slide {title: From doc to video} -->
+<pre class="mermaid"><code>flowchart LR
+  doc[Markdown doc] --&gt; entry[markdown entry] --&gt; scenes --&gt; video</code></pre>
+<p>A <code>slide</code> comment before a table, diagram or image sets its title and look; this one
+gave the diagram its title.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>&lt;!-- narratty: slide {title: From doc to video, theme: light} --&gt;
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>title</code></td>
+<td>Text above the content</td>
+</tr>
+<tr>
+<td><code>theme</code></td>
+<td><code>dark</code> or <code>light</code> for this slide</td>
+</tr>
+<tr>
+<td><code>rows</code></td>
+<td>Table rows per page, see <a href="#tables">Tables</a></td>
+</tr>
+<tr>
+<td><code>html</code></td>
+<td>Shows an HTML file instead, from the next paragraph on</td>
+</tr>
+</tbody>
+</table>
+<p>Diagrams are drawn when the video is rendered, with the <code>mermaid.min.js</code> that comes
+with the narratty image, so they need no network. Native renders read it from
+<code>NARRATTY_MERMAID_JS</code> or from the data directory; <code>narratty doctor</code> shows where.
+<code>images: false</code> leaves out diagrams too.</p>
+<p>A slide made in HTML is named with <code>html</code>, relative to the doc:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>&lt;!-- narratty: slide {html: slides/architecture.html} --&gt;
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>The architecture has three parts.
+</code></pre></div>
+<p>Like an image, the page is embedded in the spec, so it must be self-contained:
+styles inline, images inline as SVG or <code>data:</code> URLs.</p>
 <h2 id="doc-comments">Doc comments<a class="headerlink" href="#doc-comments" title="Permanent link">&para;</a></h2>
 <p>HTML comments are invisible on the docs site and on GitHub. Those starting with
 <code>narratty:</code> hold what only the video needs:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>&lt;!-- narratty: skip --&gt;
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>This paragraph is only for readers.
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>&lt;!-- narratty: say
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>Narration only the video has. It may span lines.
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>--&gt;
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>&lt;!-- narratty: overlay {text: compose.yaml, style: file} --&gt;
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>&lt;!-- narratty: hidden
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>git init demo &amp;&amp; cd demo
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>--&gt;
-<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>
-<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>&lt;!-- narratty: browser {scroll: auto, duration_ms: 6s} --&gt;
-<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>The [<span class="nt">Compose file reference</span>](<span class="na">https://docs.docker.com/compose/</span>) lists every key.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>&lt;!-- narratty: skip --&gt;
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>This paragraph is only for readers.
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>&lt;!-- narratty: say
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>Narration only the video has. It may span lines.
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>--&gt;
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>&lt;!-- narratty: overlay {text: compose.yaml, style: file} --&gt;
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>&lt;!-- narratty: hidden
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>git init demo &amp;&amp; cd demo
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>--&gt;
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>&lt;!-- narratty: browser {scroll: auto, duration_ms: 6s} --&gt;
+<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>The [<span class="nt">Compose file reference</span>](<span class="na">https://docs.docker.com/compose/</span>) lists every key.
+<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>
+<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>&lt;!-- narratty: pause 800ms --&gt;
+<a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>
+<a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a>&lt;!-- narratty: table {say: "{Hazard}: {Mitigation}"} --&gt;
+<a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a>| Hazard | Mitigation |
+<a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a>
+<a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a>&lt;!-- narratty: slide {title: Architecture} --&gt;
+<a id="__codelineno-14-23" name="__codelineno-14-23" href="#__codelineno-14-23"></a>![<span class="nt">The parts</span>](<span class="na">architecture.svg</span>)
 </code></pre></div>
 <table>
 <thead>
@@ -1916,14 +2503,26 @@ and WebP are left out. <code>images: false</code> in the entry leaves out all im
 <td><code>browser</code></td>
 <td>Opens a link of the next paragraph in a <a href="../spec/#browser-views">browser view</a>, see <a href="#opening-links">Opening links</a></td>
 </tr>
+<tr>
+<td><code>pause</code></td>
+<td>Ends the scene; with a duration, silence follows (since 0.6), see <a href="#pauses">Pauses</a></td>
+</tr>
+<tr>
+<td><code>table</code></td>
+<td>Speaks the next table row by row on a slide (since 0.6), see <a href="#tables">Tables</a></td>
+</tr>
+<tr>
+<td><code>slide</code></td>
+<td>Sets the title and look of the next table, diagram or image, or shows an HTML file (since 0.6), see <a href="#slides">Slides</a></td>
+</tr>
 </tbody>
 </table>
 <p>HTML comments cannot contain <code>--</code>; put such text into a YAML scene instead.</p>
 <h2 id="opening-links">Opening links<a class="headerlink" href="#opening-links" title="Permanent link">&para;</a></h2>
 <p>Links are read as plain text. A <code>browser</code> comment opens one of them in a
 <a href="../spec/#browser-views">browser view</a> while its paragraph is spoken:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>&lt;!-- narratty: browser {scroll: auto, duration_ms: 6s} --&gt;
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>The [<span class="nt">Compose file reference</span>](<span class="na">https://docs.docker.com/compose/</span>) lists every key.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>&lt;!-- narratty: browser {scroll: auto, duration_ms: 6s} --&gt;
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>The [<span class="nt">Compose file reference</span>](<span class="na">https://docs.docker.com/compose/</span>) lists every key.
 </code></pre></div>
 <ul>
 <li>Without <code>link</code> it opens the first link of the next paragraph; <code>link: 2</code> opens the
@@ -1941,13 +2540,13 @@ and WebP are left out. <code>images: false</code> in the entry leaves out all im
 <h2 id="code-block-attributes">Code block attributes<a class="headerlink" href="#code-block-attributes" title="Permanent link">&para;</a></h2>
 <p>An id and per-block options go into one attribute list after the language. mkdocs
 uses the id as a link anchor and ignores <code>narratty</code>; GitHub ignores both.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="sb">```console</span><span class="w"> </span>{#install narratty="no-run"}
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="gp">$ </span>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>narratty
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="sb">```</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="sb">```yaml</span><span class="w"> </span>{#spec title="demo.narratty.yaml"}
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="nt">scenes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="sb">```</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="sb">```console</span><span class="w"> </span>{#install narratty="no-run"}
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="gp">$ </span>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>narratty
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="sb">```</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="sb">```yaml</span><span class="w"> </span>{#spec title="demo.narratty.yaml"}
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="nt">scenes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="sb">```</span>
 </code></pre></div>
 <p><code>narratty="…"</code> takes space-separated options:</p>
 <table>
@@ -1979,7 +2578,7 @@ brace-less <code>title="…"</code> works on its own, but not together with an i
 </div>
 <h2 id="placeholders">Placeholders<a class="headerlink" href="#placeholders" title="Permanent link">&para;</a></h2>
 <p>Write placeholders as environment variables, which readers can set and copy:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>$ narratty build "$SPEC" --var target="$TARGET"
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>$ narratty build "$SPEC" --var target="$TARGET"
 </code></pre></div>
 <p>The video types <code>$SPEC</code> as written, so values, including secrets, never appear on
 screen. The value comes from <a href="../spec/#sandbox"><code>sandbox.env</code></a>, from
@@ -1990,22 +2589,22 @@ error with the hint to write it as <code>$URL</code>.</p>
 <p>The YAML spec stays the entry point. It decides everything at section level and
 above: which docs, which sections and in what order, the narration rule and the
 overlays. Several videos from one doc are several YAML files.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">all</span><span class="w">                      </span><span class="c1"># default for every markdown entry</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nt">scenes</span><span class="p">:</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">markdown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs/environments.md</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nt">sections</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">images</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">compose</span><span class="p p-Indicator">]</span><span class="w">     </span><span class="c1"># nested headings included; unset = whole doc</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="nt">heading_overlays</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">outro</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">That's all you need to get started.</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">markdown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs/building.md</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">none</span><span class="w">                 </span><span class="c1"># only `say` comments are spoken</span>
-<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">    </span><span class="nt">heading_overlays</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="nt"> breadcrumb</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">    </span><span class="nt">defaults</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">typing_speed_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">40</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">    </span><span class="nt">overrides</span><span class="p">:</span>
-<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">      </span><span class="nt">install</span><span class="p">:</span><span class="w">                      </span><span class="c1"># the block {#install}</span>
-<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="w">        </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install it with uv.</span>
-<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="w">        </span><span class="nt">fast</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">        </span><span class="nt">before</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="s">"pipx</span><span class="nv"> </span><span class="s">works</span><span class="nv"> </span><span class="s">too"</span><span class="p p-Indicator">}]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">all</span><span class="w">                      </span><span class="c1"># default for every markdown entry</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">markdown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs/environments.md</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="nt">sections</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">images</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">compose</span><span class="p p-Indicator">]</span><span class="w">     </span><span class="c1"># nested headings included; unset = whole doc</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">    </span><span class="nt">heading_overlays</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">outro</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">That's all you need to get started.</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">markdown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs/building.md</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">none</span><span class="w">                 </span><span class="c1"># only `say` comments are spoken</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">    </span><span class="nt">heading_overlays</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="nt"> breadcrumb</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">    </span><span class="nt">defaults</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">typing_speed_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">40</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">    </span><span class="nt">overrides</span><span class="p">:</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">      </span><span class="nt">install</span><span class="p">:</span><span class="w">                      </span><span class="c1"># the block {#install}</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">        </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install it with uv.</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">        </span><span class="nt">fast</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">        </span><span class="nt">before</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="s">"pipx</span><span class="nv"> </span><span class="s">works</span><span class="nv"> </span><span class="s">too"</span><span class="p p-Indicator">}]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -2049,7 +2648,7 @@ overlays. Several videos from one doc are several YAML files.</p>
 <tr>
 <td><code>images</code></td>
 <td><code>true</code></td>
-<td>Show images on a line of their own, see <a href="#images">Images</a></td>
+<td>Show images on a line of their own and <code>mermaid</code> blocks, see <a href="#images">Images</a></td>
 </tr>
 <tr>
 <td><code>id_prefix</code></td>
@@ -2151,6 +2750,15 @@ and what was left out and why. <code>narratty compile SPEC</code> prints the spe
 to build from.</p>
 <p>Sandboxed runs only mount the spec file into the container, so they get the expanded
 spec; the Markdown docs stay on the host.</p>
+<h2 id="checking-docs-in-ci">Checking docs in CI<a class="headerlink" href="#checking-docs-in-ci" title="Permanent link">&para;</a></h2>
+<p>Every command of the doc runs while the video is recorded, and one that fails stops
+the build with exit code 7. A <a href="../building/#draft">draft</a> build skips TTS, which makes
+it a quick check of the docs in CI:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>narratty<span class="w"> </span>build<span class="w"> </span>docs.narratty.yaml<span class="w"> </span>--draft<span class="w"> </span>--no-end-card
+</code></pre></div>
+<p>Exit codes are checked; output is not compared with the doc yet.
+<code>narratty compile SPEC --fingerprint</code> tells when a committed video is older than its
+doc.</p>
 <h2 id="not-supported-yet">Not supported yet<a class="headerlink" href="#not-supported-yet" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Checking command output against the doc: exit codes are checked, output is not.</li>
