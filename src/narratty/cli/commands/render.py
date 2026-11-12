@@ -59,7 +59,7 @@ def render_command(
         work_directory,
         workspace_for,
     )
-    from narratty.container import delegate
+    from narratty.container import delegate, host_path
     from narratty.end_card import container_flag
     from narratty.environment import EnvironmentOptions
     from narratty.ui.console import err
@@ -92,4 +92,4 @@ def render_command(
     ):
         render_silent(planned, video, work, ws.path, bridge, request=request)
         check_exits(planned, work, video, ignore_exit=ignore_exit)
-    err.print(f"[green]wrote[/] {video}", highlight=False, soft_wrap=True)
+    err.print(f"[green]wrote[/] {host_path(video)}", highlight=False, soft_wrap=True)

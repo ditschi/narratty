@@ -131,6 +131,17 @@ def stdout_is_tty() -> bool:
 
 
 CONTAINER_WORKSPACE = "/work"
+CONTAINER_OUTPUT = "/out"
+# The host directory mounted at CONTAINER_OUTPUT, so messages name the files you get.
+HOST_OUTPUT_ENV = "NARRATTY_HOST_OUTPUT"
+
+
+def host_path(path: Path) -> Path:
+    """``path`` as the host sees it, when it is in the container's output directory."""
+    host = os.environ.get(HOST_OUTPUT_ENV)
+    if not host or not path.is_relative_to(CONTAINER_OUTPUT):
+        return path
+    return Path(host) / path.relative_to(CONTAINER_OUTPUT)
 
 
 @dataclass(frozen=True)
@@ -341,8 +352,9 @@ class _Invocation:
     def add_output(self, output: Path) -> None:
         output = output.resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
-        self.mounts.append(Mount(output.parent, "/out"))
-        self.args += ["--output", f"/out/{output.name}"]
+        self.mounts.append(Mount(output.parent, CONTAINER_OUTPUT))
+        self.args += ["--output", f"{CONTAINER_OUTPUT}/{output.name}"]
+        self.env[HOST_OUTPUT_ENV] = str(output.parent)
 
     def add_work_dir(self, work_dir: Path) -> None:
         work_dir.mkdir(parents=True, exist_ok=True)

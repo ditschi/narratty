@@ -509,3 +509,23 @@ def test_a_failed_pull_is_a_narratty_error(monkeypatch: pytest.MonkeyPatch) -> N
         and "NARRATTY_IMAGE" in raised.value.hint
         and "--runtime native" in raised.value.hint
     )
+
+
+def test_output_paths_are_shown_as_the_host_sees_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.container import HOST_OUTPUT_ENV, host_path
+
+    monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(container, "_ensure_voice", lambda *args: None)
+    spec = _write_spec(tmp_path)
+    calls: list[list[str]] = []
+    delegate("tts", spec, runtime=Runtime.DOCKER, image="img:test", output=tmp_path / "o" / "v.mp4",
+             runner=lambda argv: calls.append(list(argv)) or 0)  # fmt: skip
+    assert f"{HOST_OUTPUT_ENV}={tmp_path / 'o'}" in calls[0]
+
+    monkeypatch.setenv(HOST_OUTPUT_ENV, "/home/me/videos")
+    assert host_path(Path("/out/x.mp4")) == Path("/home/me/videos/x.mp4")
+    assert host_path(Path("/work/x.mp4")) == Path("/work/x.mp4")
+    monkeypatch.delenv(HOST_OUTPUT_ENV)
+    assert host_path(Path("/out/x.mp4")) == Path("/out/x.mp4")

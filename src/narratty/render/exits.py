@@ -203,6 +203,9 @@ def check(spec: Spec, log: Path, *, default: ExpectExit = "success", output: Pat
         return
     found = problems(spec, entries, default)
     if found:
+        from narratty.container import host_path
+
+        output = host_path(output) if output else None
         raise CommandError(
             "the recording may show failed commands:\n  " + "\n  ".join(found),
             hint="Fix the command, or set `expect_exit: failure` (must fail) or "

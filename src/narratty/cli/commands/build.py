@@ -114,7 +114,7 @@ def build_command(
 ) -> None:
     """Build the narrated video (or asciicast)."""
     from narratty.build import build, build_cast, default_output
-    from narratty.container import delegate
+    from narratty.container import delegate, host_path
     from narratty.end_card import container_flag
     from narratty.environment import EnvironmentOptions
     from narratty.errors import UsageError
@@ -201,4 +201,4 @@ def build_command(
         f"planned {result.expected_ms / 1000:.2f}s ({result.drift:+.1%})",
         highlight=False,
     )
-    out.print(str(result.output), highlight=False, soft_wrap=True)
+    out.print(str(host_path(result.output)), highlight=False, soft_wrap=True)
