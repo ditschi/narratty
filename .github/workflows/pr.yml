@@ -383,7 +383,7 @@ jobs:
             }
   # ── The only required status check: skipped jobs pass, failed ones do not ──
   ci-ok:
-    name: CI OK
+    name: ci-ok # the required status check in the "default branch" ruleset; it matches the name
     if: always()
     needs: [changes, lint-title, quality, agent, tests, package, integration, performance, docs-build, docker, docs-videos]
     runs-on: ubuntu-latest
