@@ -6,11 +6,11 @@ import os
 
 import typer
 
-SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml")
+SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml", ".md", ".markdown")
 
 
 def complete_spec_path(incomplete: str) -> list[str]:
-    """Complete spec files (``*.narratty.yaml``) and directories to descend into."""
+    """Complete spec files (``*.narratty.yaml``), Markdown docs and directories to descend into."""
     directory, _, prefix = incomplete.rpartition("/")
     base = directory or "."
     if incomplete.startswith("/") and not directory:

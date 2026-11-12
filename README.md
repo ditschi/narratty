@@ -15,8 +15,8 @@ sync. It runs sandboxed in Docker or Podman, or natively.
 
 - **One source, read or watched:** readers read the doc, others watch or listen to
   the video made from it.
-- **Docs that are checked:** every command really runs; one that fails stops the
-  build.
+- **Docs that are checked:** every command really runs; `narratty check` also compares
+  what they print with the doc.
 - **Videos that stay current:** change the doc, rebuild the video.
 
 ````markdown
@@ -30,20 +30,21 @@ $ eza --tree --level=1 .
 ```
 ````
 
+```bash
+uv tool install narratty   # or: pipx install narratty
+narratty build hello.md    # writes hello.mp4
+narratty build hello.md -f cast  # hello.cast + hello.mp3 + hello.html
+narratty check hello.md    # runs the commands, compares their output
+```
+
+A YAML spec can point at the doc instead and add what the doc doesn't hold: an
+intro, a transition between docs, hidden setup, or a demo with no doc behind it.
+
 ```yaml
-# hello.narratty.yaml
+# hello.narratty.yaml (narratty init --markdown hello.md writes one)
 scenes:
   - markdown: hello.md
 ```
-
-```bash
-uv tool install narratty             # or: pipx install narratty
-narratty build hello.narratty.yaml   # writes hello.mp4
-narratty build hello.narratty.yaml -f cast  # hello.cast + hello.mp3 + hello.html
-```
-
-Scenes written in YAML cover what a doc doesn't hold: an intro, a transition between
-docs, hidden setup, or a demo with no doc behind it.
 
 With Docker or Podman installed, the build runs in the `ghcr.io/ditschi/narratty`
 image and needs nothing else on the host. Without one, `narratty doctor` lists the

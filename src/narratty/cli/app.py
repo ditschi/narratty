@@ -14,6 +14,7 @@ import typer
 from narratty import __version__
 from narratty.cli.commands.build import build_command
 from narratty.cli.commands.cache import cache_app
+from narratty.cli.commands.check import check_command
 from narratty.cli.commands.compile import compile_command
 from narratty.cli.commands.doctor import doctor_command
 from narratty.cli.commands.env import env_app
@@ -69,6 +70,7 @@ app.command("validate")(validate_command)
 app.command("schema")(schema_command)
 app.command("compile")(compile_command)
 app.command("build")(build_command)
+app.command("check")(check_command)
 app.command("plan")(plan_command)
 app.command("tts")(tts_command)
 app.command("tape")(tape_command)

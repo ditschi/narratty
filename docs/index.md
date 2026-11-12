@@ -13,17 +13,17 @@ Docker or Podman, or natively.
   others to watch someone use the tool or to listen while they follow along. The video
   is made from the doc itself, so everyone gets the same content, and subtitles come
   from the same text.
-- **Docs that are checked.** Every command in the video really runs. One that fails
-  stops the build, so a doc whose commands no longer work does not build. A
-  [draft build](user-guide/building.md#draft) in CI checks this without TTS.
+- **Docs that are checked.** Every command in the video really runs. `narratty check`
+  runs them without recording and compares what they print with the output the doc
+  shows, so CI notices when a doc no longer matches the tool.
 - **Videos that stay current.** Change the doc, rebuild the video.
   `narratty compile --fingerprint` tells when a committed video is older than its doc.
 - **The doc stays a doc.** Plain Markdown needs no markup. What only the video needs
   goes into HTML comments and code block attributes, invisible on GitHub and mkdocs.
 
-A short YAML spec points at the doc and sets the voice and the look. Scenes written
-in YAML cover what a doc doesn't hold: an intro, a transition between docs, hidden
-setup, or a demo with no doc behind it.
+A doc can be built on its own. A short YAML spec can point at it instead, and add
+scenes the doc doesn't hold: an intro, a transition between docs, hidden setup, or a
+demo with no doc behind it.
 
 ## Features
 
@@ -72,26 +72,19 @@ $ ls -la
 ```
 ````
 
-Point a spec at it:
-
-```yaml title="hello.narratty.yaml"
-scenes:
-  - markdown: hello.md
-```
-
-Build the video:
+Build the video, or check the doc:
 
 ```bash
-uv tool install narratty            # or: pipx install narratty
-narratty validate hello.narratty.yaml
-narratty build hello.narratty.yaml  # writes hello.mp4
+uv tool install narratty   # or: pipx install narratty
+narratty build hello.md    # writes hello.mp4
+narratty check hello.md    # runs the commands, compares their output
 ```
 
 Each scene lasts as long as its commands or its narration, whichever is longer. See
-[Markdown input](user-guide/markdown.md) for what a doc can hold,
-[Building a video](user-guide/building.md) for how timing works and the
-[spec reference](user-guide/spec.md) for every key. `narratty init` writes a
-commented starter spec with YAML scenes.
+[Markdown input](user-guide/markdown.md) for what a doc can hold and how a YAML spec
+adds to it, [Building a video](user-guide/building.md) for how timing works and the
+[spec reference](user-guide/spec.md) for every key. `narratty init --markdown hello.md`
+writes a spec for the doc, `narratty init` one with YAML scenes.
 
 ## Where it runs
 

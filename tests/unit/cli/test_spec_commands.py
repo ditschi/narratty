@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from narratty.cli.app import app
-from narratty.errors import ExitCode, UsageError
+from narratty.errors import ExitCode, OutputError, UsageError
 from narratty.spec import SpecError
 from tests.helpers import plain
 
@@ -38,6 +39,44 @@ def test_init_refuses_to_overwrite(tmp_path: Path) -> None:
     assert isinstance(result.exception, UsageError)
     assert spec.read_text(encoding="utf-8") == "keep"
     assert runner.invoke(app, ["init", str(spec), "--force"]).exit_code == 0
+
+
+def test_init_for_a_markdown_doc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "guide.md").write_text("# Guide\n\nSay this.\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--markdown", "docs/guide.md"])
+    assert result.exit_code == 0, result.output
+    spec = tmp_path / "guide.narratty.yaml"
+    assert "  - markdown: docs/guide.md\n" in spec.read_text(encoding="utf-8")
+    result = runner.invoke(app, ["validate", str(spec)])
+    assert result.exit_code == 0, result.output
+    assert "hint" not in plain(result.output)
+    result = runner.invoke(app, ["init", "--markdown", "missing.md"])
+    assert isinstance(result.exception, UsageError)
+
+
+def test_a_markdown_doc_is_a_spec(tmp_path: Path) -> None:
+    doc = tmp_path / "guide.md"
+    doc.write_text("# Guide\n\nSay this.\n\n```bash\nls\n```\n", encoding="utf-8")
+    result = runner.invoke(app, ["validate", str(doc)])
+    assert result.exit_code == 0, result.output
+    assert "1 scenes, 1 narrated" in plain(result.output)
+    result = runner.invoke(app, ["compile", str(doc)])
+    assert result.output.startswith("scenes:\n  # from guide.md:5\n  - id: guide-1\n")
+
+
+def test_check_compares_output(tmp_path: Path) -> None:
+    doc = tmp_path / "guide.md"
+    doc.write_text("# Guide\n\n```console\n$ echo hi\nhi\n```\n", encoding="utf-8")
+    args = ["check", str(doc), "--runtime", "native", "--workspace-mode", "rw"]
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0, result.output
+    assert "1 command ran; 1 output as expected" in plain(result.output)
+    doc.write_text("# Guide\n\n```console\n$ echo hi\nho\n```\n", encoding="utf-8")
+    result = runner.invoke(app, args)
+    assert isinstance(result.exception, OutputError)
+    assert result.exception.exit_code is ExitCode.OUTPUT
 
 
 def test_validate_reports_problems(tmp_path: Path) -> None:

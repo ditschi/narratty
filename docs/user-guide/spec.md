@@ -2,8 +2,10 @@
 
 A narratty video is described by a `.narratty.yaml` file. For a video made from a doc,
 it is mostly a [`markdown` entry](markdown.md#the-markdown-entry) plus the voice and
-the look. `narratty init` writes a commented starter, `narratty validate` checks one,
-and `narratty schema` prints the JSON Schema.
+the look, and a doc can also be built on its own with no YAML file at all
+([Building a doc on its own](markdown.md#building-a-doc-on-its-own)). `narratty init`
+writes a commented starter, `narratty validate` checks one, and `narratty schema`
+prints the JSON Schema.
 
 ## Editor support
 
@@ -33,18 +35,46 @@ narratty schema > .narratty.schema.json
 Unknown keys are errors, and `validate` reports every problem with its line and column,
 plus a "did you mean" for typos:
 
-```text
+<!-- narratty: hidden
+cat > demo.narratty.yaml <<'EOF'
+scenes:
+  - id: intro
+    actions:
+      - type_comand: ls
+EOF
+-->
+
+```console {narratty="expect-failure"}
 $ narratty validate demo.narratty.yaml
-demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did you mean 'type_command'?)
+error: demo.narratty.yaml: 1 problem
+  demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did you mean 'type_command'?)
+hint: Run `narratty schema` for the full list of keys.
 ```
 
 Valid lines that can be left out or written shorter are reported as hints; they do not
 fail validation:
 
-```text
+<!-- narratty: hidden
+cat > demo.narratty.yaml <<'EOF'
+version: 1
+tts:
+  voice: af_heart
+scenes:
+  - id: intro
+    narration: A quick look at the files.
+    actions:
+      - run: ls
+  - id: outro
+    narration: That is all.
+    actions:
+      - hold: auto
+EOF
+-->
+
+```console
 $ narratty validate demo.narratty.yaml
 hint: demo.narratty.yaml:3:3: tts.voice: same as the default; leave it out
-hint: demo.narratty.yaml:12:9: scenes[0].actions[2]: 'hold: auto' has no effect at the end of a scene; leave it out
+hint: demo.narratty.yaml:12:9: scenes[1].actions[0]: 'hold: auto' has no effect at the end of a scene; leave it out
 ok demo.narratty.yaml: 2 scenes, 2 narrated, voice kokoro/af_heart
 ```
 
@@ -233,7 +263,7 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 
 | Action | Example | Does |
 |---|---|---|
-| `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms`; may set its own `expect_exit` (since 0.3) |
+| `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms`; may set its own `expect_exit` (since 0.3) and `expect_output` (since 0.6, see [Expected output](#expected-output)) |
 | `type_command` | `- type_command: "ls -la"` | Types the text, without Enter |
 | `ctrl_sequence` | `- ctrl_sequence: C-c` | Presses Ctrl plus a key |
 | `key` | `- key: Enter` or `- key: Down 3` | Presses a key, optionally repeated |
@@ -299,6 +329,34 @@ anything with `shell: sh`. In the editor layout, the terminal pane's commands ar
 checked. In a [project environment](environments.md) the log is read from its container
 after recording. With bash 3.2 (macOS's default) narratty turns on shell history to read the
 command lines, so `key: Up` recalls earlier commands there.
+
+### Expected output
+
+Since narratty 0.6.
+
+A `run` action's `expect_output` is what the command prints. `narratty check` runs the
+commands without recording a video and compares; builds do not.
+
+```yaml
+- id: version
+  actions:
+    - run: python --version
+      expect_output: Python 3...
+    - wait: {prompt: true}
+```
+
+- The output is compared as plain text: colours and other escape sequences are left
+  out, a carriage return redraws its line, trailing spaces and blank lines at the
+  start and end do not count.
+- A line `...` stands for any number of lines, also none; `...` within a line for any
+  text there.
+- The output ends where the prompt is back, so follow the command with
+  `wait: {prompt: true}`. [Markdown input](markdown.md#checking-docs-in-ci) does that
+  and fills in `expect_output` from the output a console block shows.
+- Output is not compared in the editor layout, where tmux redraws it.
+
+`narratty check` exits with code 8 and shows a diff for each command that printed
+something else.
 
 ### Overlays
 
@@ -475,4 +533,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 |---|---|
 | 0.3 | `run` action, `key: Enter` (the bare `- enter` still works), durations like `1.5s`, `wait: "pattern"`, `wait: {prompt: true}`, `timing.run_hold_ms`, `timing.pause_ms` and scene `pause_ms`, `tts.lexicon`, `subtitles`, `environment`, `sandbox.docker`, `terminal.layout`, overlays (`overlay`, `overlay_styles`), `browser`, `diff`, `focus`, `reveal`, scene `timelapse`, `expect_exit` and `fast` |
 | 0.5 | `requires.narratty`, `markdown` scene entries and the top-level `narration` ([Markdown input](markdown.md)), overlay styles `heading-1` to `heading-4`, `breadcrumb` and `file`, `browser` `address` and `data:` URLs |
-| 0.6 | `slide` action and `slides.theme`, Mermaid diagrams in browser views; in Markdown input the `table`, `slide` and `pause` comments and `mermaid` blocks |
+| 0.6 | `slide` action and `slides.theme`, Mermaid diagrams in browser views, `run` `expect_output`; in Markdown input the `table`, `slide`, `pause` and `spec` comments, `mermaid` blocks, `check_output` and the `any-output` block option |

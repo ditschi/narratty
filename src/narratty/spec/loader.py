@@ -21,6 +21,12 @@ if TYPE_CHECKING:
     from narratty.spec.markdown import ExpandedScene
 
 SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml")
+MARKDOWN_SUFFIXES = (".md", ".markdown")
+
+
+def is_markdown(path: Path) -> bool:
+    """Whether ``path`` is a Markdown doc, built on its own with the spec it implies."""
+    return path.suffix.lower() in MARKDOWN_SUFFIXES
 
 
 @dataclass(frozen=True)
@@ -197,6 +203,8 @@ class Document(NamedTuple):
 
 
 def _load_yaml(text: str, file: Path) -> dict[Any, Any]:
+    if is_markdown(file):
+        return _implied(text, file)
     yaml = YAML(typ="rt")
     try:
         data = yaml.load(text)
@@ -212,6 +220,24 @@ def _load_yaml(text: str, file: Path) -> dict[Any, Any]:
     if not isinstance(data, dict):
         raise SpecError(file, [Issue("", "the spec must be a YAML mapping with a 'scenes' list", 1, 1)])
     return data
+
+
+def _implied(text: str, doc: Path) -> dict[Any, Any]:
+    """The spec of a doc built on its own; ``text`` is its spec comment's YAML."""
+    from narratty.spec.markdown import implied_spec
+
+    try:
+        data = YAML(typ="rt").load(text) if text.strip() else CommentedMap()
+    except MarkedYAMLError as error:
+        mark = error.problem_mark
+        line, column = (mark.line + 1, mark.column + 1) if mark is not None else (None, None)
+        raise SpecError(
+            doc, [Issue("", f"spec comment: invalid YAML: {error.problem}", line, column)]
+        ) from error
+    if not isinstance(data, CommentedMap):
+        line = len(text) - len(text.lstrip("\n")) + 1
+        raise SpecError(doc, [Issue("", "spec comment: expected a YAML mapping of spec keys", line)])
+    return implied_spec(data, doc)
 
 
 def _validation_issues(error: ValidationError, data: Any, prefix: tuple[int | str, ...] = ()) -> list[Issue]:
@@ -300,7 +326,11 @@ def parse_document(text: str, file: Path) -> Document:
 
 
 def read_spec_text(path: Path) -> str:
-    """The text of the spec at ``path``."""
+    """The text of the spec at ``path``; for a Markdown doc, the YAML of its spec comment."""
+    if is_markdown(path):
+        from narratty.spec.markdown import spec_comment_text
+
+        return spec_comment_text(path)
     try:
         return path.read_text(encoding="utf-8")
     except OSError as error:

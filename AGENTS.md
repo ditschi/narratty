@@ -11,7 +11,9 @@
 - Lint and format: ruff only (`nox -s lint`, `nox -s format`). Types: mypy (`nox -s check_types`).
 - Unit tests: `nox -s tests` or `.venv/bin/pytest`. Performance budgets are marked
   `performance` and deselected by default; run them with `nox -s performance`.
-- Docs: `nox -s docs` (mkdocs `--strict`, zero warnings).
+- Docs: `nox -s docs` (mkdocs `--strict`, zero warnings). `nox -s docs_check` runs the
+  commands of the pages in `CHECKED_DOCS` and compares their output with the page; a page
+  joins the list once its commands only touch the workspace copy (mark others `no-run`).
 
 ## Conventions
 

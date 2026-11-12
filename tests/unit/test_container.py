@@ -178,6 +178,24 @@ def test_markdown_specs_are_mounted_expanded(tmp_path: Path, monkeypatch: pytest
     assert f"{tmp_path}:/work" in volumes, "the workspace is relative to the spec, not its compiled copy"
 
 
+def test_a_doc_is_mounted_as_its_compiled_spec(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
+    doc = tmp_path / "guide.md"
+    doc.write_text("# Guide\n\nHello.\n", encoding="utf-8")
+    calls: list[list[str]] = []
+    delegate("check", doc, runtime=Runtime.DOCKER, image="img:test", voice=False, runner=calls.append)
+    argv = calls[0]
+    mounted = next(argv[i + 1] for i, arg in enumerate(argv) if arg == "--volume" and "/spec/" in argv[i + 1])
+    host, target, _ = mounted.rsplit(":", 2)
+    assert target == "/spec/guide.narratty.yaml", "inside, the compiled YAML is read as a spec"
+    assert "id: guide-1" in Path(host).read_text(encoding="utf-8")
+    assert argv[argv.index("img:test") + 1 : argv.index("img:test") + 3] == [
+        "check",
+        "/spec/guide.narratty.yaml",
+    ]
+
+
 @pytest.fixture
 def docker_calls(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
