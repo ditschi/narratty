@@ -54,8 +54,8 @@ a{{color:{link}}}
 img{{max-width:94vw;max-height:100%;object-fit:contain}}
 pre.mermaid{{width:94vw;text-align:center;font:1.6vw 'JetBrains Mono',monospace;white-space:pre-wrap}}
 pre.mermaid svg{{max-width:100%!important;max-height:{diagram_height};height:auto}}
-.narratty-focus>:is(rect,polygon,circle,path){{stroke:{accent}!important;stroke-width:4px!important;
-filter:drop-shadow(0 0 5px {accent})}}
+.narratty-focus>:is(rect,polygon,circle,path),.narratty-focus :is(.label-container,.label-container *){{
+stroke:{accent}!important;stroke-width:4px!important;filter:drop-shadow(0 0 5px {accent})}}
 """
 # A table taller than the slide moves up until the highlighted row is in the middle.
 _FOLLOW_MARK = (

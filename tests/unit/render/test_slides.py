@@ -69,6 +69,8 @@ def test_mermaid_focus_is_carried_to_the_rendered_page(tmp_path: Path) -> None:
     page = slides.page(_slide(mermaid="flowchart LR\n  api --> db", focus="api"), "dark", tmp_path)
     assert '<body data-mermaid-theme="dark" data-mermaid-focus="api">' in page
     assert ".narratty-focus" in page
+    # Mermaid 11 nests some shapes (cylinder, stadium) in a label-container group; labels stay as they are.
+    assert ".narratty-focus :is(.label-container,.label-container *)" in page
 
 
 def test_image_from_the_workspace(tmp_path: Path) -> None:
