@@ -13,7 +13,10 @@ environment:
 ```
 
 The image needs Linux (amd64 or arm64) and the [`terminal.shell`](spec.md#terminal).
-Without `environment`, nothing changes. Set exactly one source:
+Without `environment`, nothing changes. `--runtime native` only decides where
+narratty's own tools run: the demo shell still starts in the environment, and the log
+says so. Pass `--no-env` to run the demo shell on this machine instead. Set exactly one
+source:
 
 | Source | Use it for |
 |---|---|

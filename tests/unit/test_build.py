@@ -106,10 +106,14 @@ def test_environment_bridge_natively(tmp_path: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.setattr("narratty.runtime.container_engine", lambda: "podman")
     monkeypatch.setattr("narratty.environment.running", lambda engine, spec_path: None)
     workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
-    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+    logged: list[str] = []
+    with environment_bridge(_env_plan(tmp_path), workspace, None, logged.append) as bridge:
         assert bridge is not None
         assert bridge[:2] == ["podman", "exec"] and bridge[-1] == "env-1"
     assert started[0]["with_agent"] is False and started[0]["engine"] == "podman"
+    assert any("--runtime native" in line and "--no-env" in line for line in logged), (
+        "a native run says why it still starts a container"
+    )
 
 
 def test_environment_bridge_reuses_a_kept_environment(

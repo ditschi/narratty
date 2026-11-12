@@ -225,6 +225,10 @@ def environment_bridge(
             log(f"using the environment {kept[0].container} from `narratty env up`")
         yield kept[0].exec_bridge()
         return
+    if log:  # --runtime native is about narratty's own tools; the spec still asks for this
+        log(
+            "the demo shell runs in the spec's environment, also with --runtime native; --no-env runs it here"
+        )
     request = request or SandboxRequest()
     sandbox = approved_sandbox(planned.spec_path, planned.spec, request)
     with provide(
