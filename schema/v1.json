@@ -1201,7 +1201,7 @@
     },
     "Slide": {
       "additionalProperties": false,
-      "description": "Exactly one of table, mermaid, image or html, shown full screen.",
+      "description": "Exactly one of table, mermaid, image, html or code, shown full screen.",
       "properties": {
         "title": {
           "anyOf": [
@@ -1283,6 +1283,34 @@
           "default": null,
           "description": "An HTML file in the workspace or a data: URL, shown as it is.",
           "title": "Html"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Source code, shown syntax-highlighted (since 0.7).",
+          "title": "Code"
+        },
+        "lang": {
+          "anyOf": [
+            {
+              "pattern": "^[\\w+#.-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Language of the code, such as json or yaml; unset: plain text.",
+          "title": "Lang"
         },
         "highlight": {
           "anyOf": [

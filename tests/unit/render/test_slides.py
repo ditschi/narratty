@@ -25,7 +25,9 @@ def _slide(**keys: object) -> Slide:
 @pytest.mark.parametrize(
     ("keys", "message"),
     [
-        ({}, "exactly one of: table, mermaid, image, html"),
+        ({}, "exactly one of: table, mermaid, image, html, code"),
+        ({"mermaid": "graph TD", "lang": "json"}, "lang only applies to code slides"),
+        ({"code": "x", "lang": "a b"}, "lang"),
         ({"mermaid": "graph TD", "image": "a.png"}, "exactly one of"),
         ({"mermaid": "graph TD", "highlight": 1}, "only apply to table slides"),
         ({"table": TABLE, "focus": "api"}, "focus only applies to Mermaid slides"),
@@ -74,6 +76,20 @@ def test_mermaid_focus_is_carried_to_the_rendered_page(tmp_path: Path) -> None:
     assert ".narratty-focus" in page
     # Mermaid 11 nests some shapes (cylinder, stadium) in a label-container group; labels stay as they are.
     assert ".narratty-focus :is(.label-container,.label-container *)" in page
+
+
+def test_code_is_highlighted(tmp_path: Path) -> None:
+    page = slides.page(_slide(code='{"status": "ok"}', lang="json", title="Response"), "dark", tmp_path)
+    assert '<pre class="code" style="font-size:2.400vw"><code>' in page
+    assert '<span style="color: #FF79C6">"status"</span>' in page, "dracula colours"
+    assert "<header>Response</header>" in page
+    light = slides.page(_slide(code="<b>&</b>", lang="no-such-language", theme="light"), "dark", tmp_path)
+    assert "&lt;b&gt;&amp;&lt;/b&gt;" in light, "unknown languages are plain text"
+
+
+def test_long_code_gets_smaller(tmp_path: Path) -> None:
+    page = slides.page(_slide(code="\n".join(["x" * 120] * 3)), "dark", tmp_path)
+    assert 'style="font-size:1.181vw"' in page
 
 
 def test_image_from_the_workspace(tmp_path: Path) -> None:

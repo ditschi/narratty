@@ -36,7 +36,8 @@ dependencies = [
     "pillow>=10.1",
     "packaging>=23.0",
     "markdown-it-py>=3.0",
-    "mdit-py-plugins>=0.5",  # admon with collapsible ??? blocks
+    "mdit-py-plugins>=0.5",  # admon with collapsible ??? blocks, footnotes
+    "pygments>=2.17",  # code slides (rich needs it too)
 ]
 
 [project.urls]

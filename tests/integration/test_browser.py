@@ -48,6 +48,30 @@ def test_capture_scrolls_without_stretching_the_page(
             assert image.convert("RGB").getpixel((10, 300 + distance - 5)) == (0, 0, 255)
 
 
+def test_capture_draws_highlighted_code_slides(chromium: str, tmp_path: Path) -> None:
+    page = slides.page(Slide(code='{\n  "status": "ok"\n}', lang="json", title="Response"), "dark", tmp_path)
+    shot = tmp_path / "code.png"
+    browser.capture(
+        "data:text/html;base64," + base64.b64encode(page.encode()).decode(),
+        600,
+        400,
+        "none",
+        5000,
+        shot,
+        chromium=chromium,
+    )
+    with Image.open(shot) as image:
+        rgb = image.convert("RGB")
+        pink = [
+            (x, y)
+            for x in range(0, rgb.width, 2)
+            for y in range(0, rgb.height, 2)
+            if rgb.getpixel((x, y)) == (255, 121, 198)
+        ]
+    assert pink, "the JSON key is drawn in the Dracula key colour"
+    assert min(y for _, y in pink) > 60, "below the title"
+
+
 @pytest.fixture
 def mermaid() -> None:
     try:

@@ -339,7 +339,7 @@ class ShowBrowser(_Model):
 
 
 SlideTheme = Literal["dark", "light"]
-SLIDE_CONTENT = ("table", "mermaid", "image", "html")
+SLIDE_CONTENT = ("table", "mermaid", "image", "html", "code")
 SLIDE_IMAGE_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -367,7 +367,7 @@ class SlideTable(_Model):
 
 
 class Slide(_Model):
-    """Exactly one of table, mermaid, image or html, shown full screen."""
+    """Exactly one of table, mermaid, image, html or code, shown full screen."""
 
     title: str | None = Field(None, min_length=1, description="Shown above the content.")
     table: SlideTable | None = None
@@ -380,6 +380,14 @@ class Slide(_Model):
     )
     html: str | None = Field(
         None, min_length=1, description="An HTML file in the workspace or a data: URL, shown as it is."
+    )
+    code: str | None = Field(
+        None, min_length=1, description="Source code, shown syntax-highlighted (since 0.7)."
+    )
+    lang: str | None = Field(
+        None,
+        pattern=r"^[\w+#.-]+$",
+        description="Language of the code, such as json or yaml; unset: plain text.",
     )
     highlight: int | None = Field(
         None, ge=1, description="Table row to highlight, from 1; it picks the page."
@@ -421,6 +429,8 @@ class Slide(_Model):
     def _mermaid_focus(self) -> Slide:
         if self.focus is not None and self.mermaid is None:
             raise ValueError("focus only applies to Mermaid slides")
+        if self.lang is not None and self.code is None:
+            raise ValueError("lang only applies to code slides")
         return self
 
     @property
