@@ -107,3 +107,7 @@ def test_a_command_that_never_ran(tmp_path: Path) -> None:
     assert problems(spec, [Submitted("printf 'a\\nb\\n'", "\r\na\r\nb\r\n$ ")]) == [
         "scene 'greet': `echo two` did not run at the shell prompt"
     ]
+
+
+def test_plain_lines_drop_a_prompt_glued_to_the_output() -> None:
+    assert plain_lines('printf x\r\n{"a":1}$ ', "$ ") == ['{"a":1}']

@@ -81,7 +81,10 @@ def render_command(
         raise typer.Exit(code)
     with err.status("synthesizing narration"):
         planned = plan(spec, offline=offline, end_card=end_card)
+    from narratty.spec.compile import located
+
     with (
+        located(spec),
         err.status("recording with VHS"),
         work_directory(None) as work,
         workspace_for(planned, request.workspace, request) as ws,

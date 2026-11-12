@@ -71,7 +71,9 @@ def check_command(
     if code is not None:
         raise typer.Exit(code)
 
-    with err.status("checking") as status:
+    from narratty.spec.compile import located
+
+    with err.status("checking") as status, located(spec):
 
         def log(message: str) -> None:
             status.update(message)

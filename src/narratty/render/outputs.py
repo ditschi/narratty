@@ -67,6 +67,8 @@ def plain_lines(text: str, prompt: str) -> list[str]:
     lines = lines[1:]  # the rest of the typed line, before its line break
     if lines and prompt.strip() and lines[-1].startswith(prompt.rstrip()):
         lines.pop()
+    elif lines and prompt.strip() and lines[-1].endswith(prompt.rstrip()):
+        lines[-1] = lines[-1].removesuffix(prompt.rstrip())  # output without a final newline
     while lines and not lines[-1]:
         lines.pop()
     while lines and not lines[0]:

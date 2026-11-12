@@ -156,7 +156,9 @@ def build_command(
     if code is not None:
         raise typer.Exit(code)
 
-    with err.status("building") as status:
+    from narratty.spec.compile import located
+
+    with err.status("building") as status, located(spec):
 
         def log(message: str) -> None:
             status.update(message)

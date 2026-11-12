@@ -137,8 +137,10 @@ class Recorder:
         env: Mapping[str, str],
         clock: Callable[[], float] = time.monotonic,
         fast: bool = False,
+        prompt: str = "$ ",
     ) -> None:
         self.cols, self.rows = cols, rows
+        self.prompt = prompt.rstrip()
         self.fast = fast
         self._scene_fast = fast  # the current scene's own choice wins
         self.events: list[tuple[float, str, str]] = []
@@ -159,6 +161,8 @@ class Recorder:
         self._typed = ""
         self.enters: list[tuple[str, int]] = []  # (typed line, raw offset) at each Enter
         self.prompts: list[int] = []  # raw offsets where the prompt was back
+        self.scene: str | None = None  # the scene being played, hidden ones too
+        self._entered = 0  # the output chunk at the last Enter
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
         try:
@@ -307,6 +311,7 @@ class Recorder:
         """Scene starts, timelapse ends and cues: remember when they happened."""
         match step:
             case Mark(scene_id, hidden, timelapse, fast):
+                self.scene = scene_id
                 self._scene_fast = self.fast if fast is None else fast
                 if scene_id is not None and not hidden:
                     self._start_scene(scene_id, timelapse)
@@ -378,6 +383,7 @@ class Recorder:
             return
         for _ in range(count):
             self.enters.append((self._typed.strip(), self._raw_length))
+            self._entered = len(self.raw)
             self._typed = ""
             self._keys([KEYS[key]], speed_ms)
 
@@ -386,19 +392,47 @@ class Recorder:
 
         def matches() -> bool:
             text = self.screen.lines[-1] if line else self.screen.text
-            return bool(regex.search(text) or (failed and failed.search(text)))
+            if regex.search(text) or (failed and failed.search(text)):
+                return True
+            return line and self._prompt_was_back()
 
         found = self.pump(timeout_ms / 1000, matches)
         if found and line:
             self.prompts.append(self._raw_length)
         if failed and (error := failed.search(self.screen.text)) and not regex.search(self.screen.text):
-            raise RenderError(error.group(1).strip())
+            raise RenderError(error.group(1).strip(), scene=self.scene)
         if not found:
-            what = "the prompt to come back" if line else f"the screen to match /{pattern}/"
-            raise RenderError(
-                f"timed out after {timeout_ms} ms waiting for {what}",
-                hint="Check the pattern against the command's output, or raise wait.timeout_ms.",
-            )
+            raise wait_timeout(timeout_ms, None if line else pattern, self.scene)
+
+    def _prompt_was_back(self) -> bool:
+        """Whether a line printed since the last Enter started with the prompt and the
+        shell is idle: a background job printed after it, so it is no longer last."""
+        if not self.prompt or self.running_command():
+            return False
+        text = ESCAPE.sub("", "".join(self.raw[self._entered :]))
+        rows = [
+            row.removesuffix("\r").rsplit("\r", 1)[-1] for row in text.split("\n")[1:-1]
+        ]  # not the typed line, not the last
+        return any(row.startswith(self.prompt) for row in rows)
+
+
+def wait_timeout(timeout_ms: int, pattern: str | None, scene: str | None) -> RenderError:
+    """The error for a ``wait`` that timed out; ``pattern`` None: it waited for the prompt."""
+    where = f" in scene {scene!r}" if scene else ""
+    if pattern is None:
+        return RenderError(
+            f"timed out after {timeout_ms} ms{where} waiting for the prompt to come back",
+            hint="The command may still run (a server, a pager, a question for input): stop it "
+            "with `C-c`, send it to the background with its output redirected, or raise "
+            "wait.timeout_ms. The prompt must be the last thing printed; late output from a "
+            "background job hides it.",
+            scene=scene,
+        )
+    return RenderError(
+        f"timed out after {timeout_ms} ms{where} waiting for the screen to match /{pattern}/",
+        hint="Check the pattern against the command's output, or raise wait.timeout_ms.",
+        scene=scene,
+    )
 
 
 def _take_terminal() -> None:
@@ -439,7 +473,13 @@ def record(
     cols, rows = terminal_size(terminal)
     shell_env = {**env, "TERM": "xterm-256color", "COLUMNS": str(cols), "LINES": str(rows)}
     recorder = Recorder(
-        SHELL_ARGV[shell or terminal.shell], cols=cols, rows=rows, cwd=cwd, env=shell_env, fast=fast
+        SHELL_ARGV[shell or terminal.shell],
+        cols=cols,
+        rows=rows,
+        cwd=cwd,
+        env=shell_env,
+        fast=fast,
+        prompt=terminal.prompt,
     )
     try:
         for step in steps:

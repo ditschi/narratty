@@ -158,3 +158,15 @@ def test_line_breaks_in_commands_are_typed_as_enter() -> None:
         Press("Enter", 5),
         Type("b", 5),
     ]
+
+
+def test_prompt_pattern_allows_output_without_a_final_newline() -> None:
+    import re
+
+    from narratty.render.script import prompt_pattern
+
+    pattern = re.compile(prompt_pattern("$ "))
+    assert pattern.search("$ ")
+    assert pattern.search('{"a":1}$ ')
+    assert not pattern.search("$ echo $"), "a typed line ending in a lone `$` is not the prompt"
+    assert not pattern.search("$ ls")

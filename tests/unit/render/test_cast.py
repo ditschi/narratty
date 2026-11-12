@@ -215,3 +215,32 @@ def test_wait_for_the_prompt(tmp_path: Path) -> None:
     events, _, _ = _record(spec, tmp_path, audio_ms=10)
     output = "".join(str(e[2]) for e in events if e[1] == "o")
     assert "done" in output, "recorded until the command had finished"
+
+
+def _prompt_scene(command: str, extra: str = "") -> str:
+    return SPEC.split("  - id: greet")[0] + (
+        "  - id: greet\n    narration: Hello.\n    actions:\n"
+        f"      - type_command: {json.dumps(command)}\n      - enter\n{extra}"
+        "      - wait: {prompt: true, timeout_ms: 2000}\n"
+    )
+
+
+def test_wait_for_the_prompt_after_output_without_a_newline(tmp_path: Path) -> None:
+    """`printf '{"a":1}'` and `curl -s` leave the prompt right after their output."""
+    events, _, _ = _record(_prompt_scene("""printf '{"a":1}'"""), tmp_path, audio_ms=10)
+    assert '{"a":1}' in "".join(str(e[2]) for e in events if e[1] == "o")
+
+
+def test_wait_for_the_prompt_after_late_background_output(tmp_path: Path) -> None:
+    """A background job printing after the prompt leaves an empty cursor line."""
+    spec = _prompt_scene("(sleep 0.2; echo late) &", "      - hold: 600\n")
+    events, _, _ = _record(spec, tmp_path, audio_ms=10)
+    assert "late" in "".join(str(e[2]) for e in events if e[1] == "o")
+
+
+def test_prompt_timeouts_name_the_scene_and_no_pattern(tmp_path: Path) -> None:
+    with pytest.raises(RenderError) as raised:
+        _record(_prompt_scene("sleep 5").replace("timeout_ms: 2000", "timeout_ms: 300"), tmp_path)
+    assert "in scene 'greet'" in raised.value.message
+    assert raised.value.scene == "greet"
+    assert raised.value.hint is not None and "pattern" not in raised.value.hint

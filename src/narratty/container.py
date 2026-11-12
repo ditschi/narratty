@@ -294,12 +294,15 @@ class _Invocation:
     def use_compiled_spec(self) -> None:
         """Mount the expanded spec when it has Markdown entries; their docs are not mounted."""
         from narratty.paths import cache_dir
-        from narratty.spec.compile import container_spec
+        from narratty.spec.compile import SCENE_SOURCES_ENV, container_spec, scene_sources
 
         spec = self.mounts[0]
         self.compiled = compiled = container_spec(spec.host, cache_dir())
         if compiled is not None:
             self.mounts[0] = Mount(compiled, spec.container, read_only=True)
+            # Errors inside name the Markdown line of their scene, which only the host knows.
+            if sources := scene_sources(spec.host):
+                self.env[SCENE_SOURCES_ENV] = json.dumps(sources)
 
     def add_output(self, output: Path) -> None:
         output = output.resolve()

@@ -239,6 +239,8 @@ def test_a_doc_is_mounted_as_its_compiled_spec(tmp_path: Path, monkeypatch: pyte
         "inside, the compiled YAML is read as a spec"
     )
     assert modes == [0o600]
+    sources = next(a for a in argv if a.startswith("NARRATTY_SCENE_SOURCES="))
+    assert "guide.md:" in sources, "errors inside name the doc's lines"
     assert argv[argv.index("img:test") + 1 : argv.index("img:test") + 3] == [
         "check",
         "/spec/guide.narratty.yaml",

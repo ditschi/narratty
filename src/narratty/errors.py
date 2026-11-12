@@ -35,15 +35,18 @@ class NarrattyError(Exception):
     """Base class for all narratty errors.
 
     Carries an :class:`ExitCode` plus an optional user-facing ``hint`` that the
-    UI layer renders as a "next step" line.
+    UI layer renders as a "next step" line. ``scene`` is the id of the scene the error
+    happened in, when known; the commands that run a spec add where it comes from
+    (see :func:`narratty.spec.compile.locate`).
     """
 
     exit_code: ExitCode = ExitCode.GENERIC
 
-    def __init__(self, message: str, *, hint: str | None = None) -> None:
+    def __init__(self, message: str, *, hint: str | None = None, scene: str | None = None) -> None:
         super().__init__(message)
         self.message = message
         self.hint = hint
+        self.scene = scene
 
 
 class UsageError(NarrattyError):

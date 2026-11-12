@@ -353,6 +353,11 @@ commands without recording a video and compares; builds do not.
 - The output ends where the prompt is back, so follow the command with
   `wait: {prompt: true}`. [Markdown input](markdown.md#checking-docs-in-ci) does that
   and fills in `expect_output` from the output a console block shows.
+- Output without a final newline (`printf '{"a":1}'`, `curl -s`) is fine: the prompt
+  then follows it on the same line, and the wait still sees it. Late output from a
+  background job can push the prompt off its line; `check` notices that the shell is
+  idle, but a build waits until the timeout, so redirect such a job's output
+  (`server > server.log &`).
 - Output is not compared in the editor layout, where tmux redraws it.
 
 `narratty check` exits with code 8 and shows a diff for each command that printed
