@@ -1763,9 +1763,11 @@ one with <code>narratty build &lt;spec&gt;</code>.</p>
 </tbody>
 </table>
 <p>All recordings except the end card example are built with <code>--no-end-card</code>.
-<code>examples/render-docs.sh</code> rebuilds them (<code>--only markdown</code> just the specs whose path
-contains <code>markdown</code>) and stores a fingerprint of each spec next to it; a unit test
-fails when a spec, or the Markdown it reads, changed since its videos were rendered.</p>
+<code>examples/render-docs.sh</code> rebuilds them (<code>--only browser</code> just the specs whose path
+contains <code>browser</code>) and stores a fingerprint of each spec next to it; a unit test
+fails when a spec changed since its videos were rendered. Videos made from Markdown,
+like the one on <a href="../user-guide/markdown/">Markdown input</a>, are rendered in CI before
+each docs deploy instead, so they always match their page (<code>examples/render-ci-videos.sh</code>).</p>
 
 
 

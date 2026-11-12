@@ -4433,11 +4433,14 @@ shows its own video:</p>
 <li><code>docs/user-guide/markdown.md</code> explains the feature in plain docs prose.</li>
 <li><code>examples/markdown/markdown.narratty.yaml</code> is a <code>markdown:</code> entry pointing at that
   page, plus the <code>overrides</code> and hidden setup the video needs.</li>
-<li><code>examples/render-docs.sh</code> renders it to <code>docs/assets/examples/markdown.mp4</code>, which the
-  page embeds with <code>&lt;video&gt;</code> (raw HTML, so not spoken).</li>
-<li>Every spec <code>render-docs.sh</code> renders stores <code>narratty compile --fingerprint</code> next to
-  it; <code>tests/unit/test_docs_videos.py</code> fails when a spec or its Markdown changed since.
-  Rendering in CI instead is a follow-up.</li>
+<li>CI renders it to <code>docs/assets/examples/markdown.mp4</code> before each docs deploy
+  (<code>examples/render-ci-videos.sh</code> in <code>.github/actions/render-docs-videos</code>, using the
+  <code>edge</code> image with the checkout's wheel on top), so it is not committed; the page
+  embeds it with <code>&lt;video&gt;</code> (raw HTML, so not spoken). PRs that touch docs, examples or
+  code render it too and upload it as an artifact.</li>
+<li>The other docs videos are committed: <code>examples/render-docs.sh</code> renders them and
+  stores <code>narratty compile --fingerprint</code> next to each spec, and
+  <code>tests/unit/test_docs_videos.py</code> fails when a spec changed since.</li>
 <li>The page's blocks must run in the default sandbox; <code>narratty build</code> blocks are
   <code>no-run</code>.</li>
 <li>The docs switch to <code>console</code> only where output helps the reader, and get the copy CSS
