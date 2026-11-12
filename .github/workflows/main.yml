@@ -95,5 +95,12 @@ jobs:
         env:
           NO_MKDOCS_2_WARNING: "1"
         run: |
-          mike deploy --push --update-aliases latest
-          mike set-default --push latest
+          # PR previews push to gh-pages too; retry on a race.
+          for attempt in 1 2 3; do
+            git fetch --force origin gh-pages:gh-pages
+            if mike deploy --push --update-aliases latest && mike set-default --push latest; then
+              exit 0
+            fi
+            sleep $((attempt * 15))
+          done
+          exit 1

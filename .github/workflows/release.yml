@@ -218,5 +218,12 @@ jobs:
       - name: Deploy versioned docs
         run: |
           VERSION="${{ needs.build.outputs.version }}"
-          mike deploy --push --update-aliases "$VERSION" stable
-          mike set-default --push stable
+          # PR previews and the main deploy push to gh-pages too; retry on a race.
+          for attempt in 1 2 3; do
+            git fetch --force origin gh-pages:gh-pages
+            if mike deploy --push --update-aliases "$VERSION" stable && mike set-default --push stable; then
+              exit 0
+            fi
+            sleep $((attempt * 15))
+          done
+          exit 1
