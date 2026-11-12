@@ -282,6 +282,11 @@ def overlay_cue(scene_id: str, index: int) -> str:
     return f"overlay:{scene_id}:{index}"
 
 
+def narration_cue(scene_id: str) -> str:
+    """Label of the cue where a scene with ``narration_start: after_actions`` starts talking."""
+    return f"narration:{scene_id}"
+
+
 def _sends_keys(action: Action) -> bool:
     return not isinstance(action, Hold | Wait | ShowOverlay | ShowBrowser | ShowSlide)
 
@@ -348,11 +353,20 @@ def scene_steps(
             popup = False
         steps += action_steps(action, pace, context)
         popup = popup or (context.editor and isinstance(action, Diff))
-    if not filled and timing.fill_ms:
-        steps.append(Sleep(timing.fill_ms))
+    steps += _closing_fill(scene, timing, filled=filled)
     if popup:
         steps += close_popup()
     return _end_hidden(steps, context) if scene.hidden else steps
+
+
+def _closing_fill(scene: Scene, timing: SceneTiming, *, filled: bool) -> list[Step]:
+    """The fill after the actions; ``after_actions`` marks where its narration starts."""
+    steps: list[Step] = []
+    if scene.narration_start == "after_actions" and not scene.hidden and timing.audio_ms:
+        steps.append(Cue(narration_cue(scene.id)))  # where the actions really ended
+    if not filled and timing.fill_ms:
+        steps.append(Sleep(timing.fill_ms))
+    return steps
 
 
 def end_card_steps(
