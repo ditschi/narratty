@@ -8,6 +8,7 @@ the shell printed in between, as plain text.
 from __future__ import annotations
 
 import difflib
+import functools
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -86,26 +87,37 @@ def expectations(spec: Spec) -> list[Expected]:
 def matches(expected: Sequence[str], actual: Sequence[str]) -> bool:
     """Whether ``actual`` fits ``expected``: a line ``...`` stands for any lines (also
     none), ``...`` within a line for any text."""
-    memo: dict[tuple[int, int], bool] = {}
-
-    def fits(i: int, j: int) -> bool:
-        if (i, j) not in memo:
-            if i == len(expected):
-                memo[i, j] = j == len(actual)
-            elif expected[i].strip() == ELLIPSIS:
-                memo[i, j] = fits(i + 1, j) or (j < len(actual) and fits(i, j + 1))
-            else:
-                memo[i, j] = j < len(actual) and _line_fits(expected[i], actual[j]) and fits(i + 1, j + 1)
-        return memo[i, j]
-
-    return fits(0, 0)
+    # A glob match over lines, with ``...`` as the star: iterative, so long outputs cannot
+    # exhaust the recursion limit, and only the last ``...`` is ever backtracked to.
+    i = j = 0
+    star = -1  # the expected line of the last ``...`` seen
+    resume = 0  # the actual line that ``...`` would take next
+    while j < len(actual):
+        if i < len(expected) and expected[i].strip() == ELLIPSIS:
+            star, resume = i, j
+            i += 1
+        elif i < len(expected) and _line_fits(expected[i], actual[j]):
+            i += 1
+            j += 1
+        elif star >= 0:
+            resume += 1
+            i, j = star + 1, resume
+        else:
+            return False
+    while i < len(expected) and expected[i].strip() == ELLIPSIS:
+        i += 1
+    return i == len(expected)
 
 
 def _line_fits(expected: str, actual: str) -> bool:
     if ELLIPSIS not in expected:
         return expected.rstrip() == actual
-    pattern = ".*".join(re.escape(part) for part in expected.rstrip().split(ELLIPSIS))
-    return re.fullmatch(pattern, actual) is not None
+    return _line_pattern(expected.rstrip()).fullmatch(actual) is not None
+
+
+@functools.lru_cache(maxsize=256)
+def _line_pattern(expected: str) -> re.Pattern[str]:
+    return re.compile(".*".join(re.escape(part) for part in expected.split(ELLIPSIS)))
 
 
 def problems(spec: Spec, submitted: Sequence[Submitted]) -> list[str]:
