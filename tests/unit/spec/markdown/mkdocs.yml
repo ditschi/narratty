@@ -1,0 +1,4 @@
+# Only read for the snippets base_path of the fixtures.
+markdown_extensions:
+  - pymdownx.snippets:
+      base_path: [snippets]

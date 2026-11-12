@@ -18,3 +18,9 @@ def _isolated_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NARRATTY_BRIDGE", raising=False)
     monkeypatch.delenv("NARRATTY_AGENT_DIR", raising=False)
     monkeypatch.delenv("NARRATTY_TOOLKIT_IMAGE", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _rootful_docker(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Container user flags as with a rootful daemon, whatever this machine runs."""
+    monkeypatch.setattr("narratty.runtime.docker_is_rootless", lambda: False)

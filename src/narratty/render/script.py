@@ -242,6 +242,17 @@ def _key_steps(action: Enter | Key | CtrlSequence, speed: int) -> list[Step]:
     return [Ctrl(action.ctrl_sequence.removeprefix("C-").upper())]
 
 
+def _typed_lines(text: str, speed: int) -> list[Step]:
+    """Type ``text``; a line break is an Enter (VHS strings cannot hold one)."""
+    steps: list[Step] = []
+    for number, line in enumerate(text.split("\n")):
+        if number:
+            steps.append(Press("Enter", speed))
+        if line:
+            steps.append(Type(line, speed))
+    return steps
+
+
 def action_steps(action: Action, pace: Pacing, context: Context | None = None) -> list[Step]:
     """Steps for one action (``hold: auto`` is placed by the caller)."""
     context = context or Context(editor=False)
@@ -251,9 +262,9 @@ def action_steps(action: Action, pace: Pacing, context: Context | None = None) -
         return editor_steps(action, context)
     speed = pace.speed
     if isinstance(action, Run):
-        return _then_sleep([Type(action.run, speed), Press("Enter", speed)], pace.run_hold_ms)
+        return _then_sleep([*_typed_lines(action.run, speed), Press("Enter", speed)], pace.run_hold_ms)
     if isinstance(action, TypeCommand):
-        return [Type(action.type_command, speed)]
+        return _typed_lines(action.type_command, speed)
     if isinstance(action, Enter | Key | CtrlSequence):
         return _then_sleep(_key_steps(action, speed), pace.pause_ms)
     if isinstance(action, Wait):

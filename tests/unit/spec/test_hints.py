@@ -17,9 +17,8 @@ AFTER = "'hold: auto' has no effect with narration_start: after_actions"
 EXAMPLES = sorted((Path(__file__).parents[3] / "examples").glob("**/*.narratty.yaml"))
 
 
-def _hints(text: str) -> list[str]:
-    spec, data = parse_document(text, FILE)
-    return [issue.render(FILE) for issue in find_hints(spec, data)]
+def _hints(text: str, file: Path = FILE) -> list[str]:
+    return [issue.render(file) for issue in find_hints(*parse_document(text, file))]
 
 
 def test_defaults_written_out() -> None:
@@ -68,15 +67,16 @@ def test_hold_auto_mid_scene_is_fine_but_not_after_actions() -> None:
 
 
 @pytest.mark.parametrize(
-    ("text", "voices"),
+    ("text", "file"),
     [
-        (render_template("1.2.3"), False),
-        *((path.read_text(encoding="utf-8"), path.parent.name == "voices") for path in EXAMPLES),
+        (render_template("1.2.3"), FILE),
+        *((path.read_text(encoding="utf-8"), path) for path in EXAMPLES),
     ],
     ids=["template", *(path.parent.name for path in EXAMPLES)],
 )
-def test_template_and_examples_have_no_hints(text: str, voices: bool) -> None:
-    hints = _hints(text)
+def test_template_and_examples_have_no_hints(text: str, file: Path) -> None:
+    hints = _hints(text, file)
+    voices = file.parent.name == "voices"
     if voices:  # the voice examples spell out provider and voice to show them
         hints = [hint for hint in hints if "same as the default" not in hint]
     assert hints == []

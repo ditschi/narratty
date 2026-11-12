@@ -1,0 +1,79 @@
+- source: features.md:3
+  id: features-1
+  hidden: true
+  actions:
+  - run: mkdir -p demo && cd demo
+  - wait:
+      prompt: true
+- source: features.md:9
+  id: features-2
+  narration: Shell blocks split where the shell would run a command.
+  actions:
+  - overlay:
+      text: Features
+      style: heading-1
+  - run: export NAME=demo
+  - wait:
+      prompt: true
+  - run: "cat > hello.txt <<'EOF'\nHello # kept, it is in the heredoc\nEOF"
+  - wait:
+      prompt: true
+  - run: "if [ -f hello.txt ]; then\n  echo found\nfi"
+  - wait:
+      prompt: true
+- source: features.md:24
+  id: features-files-1-write
+  hidden: true
+  typing_speed_ms: 1
+  actions:
+  - run: "mkdir -p config && cat > config/demo.yaml <<'NARRATTY_EOF'\nname: demo\nNARRATTY_EOF"
+  - wait:
+      prompt: true
+- source: features.md:24
+  id: features-files-1
+  narration: Write a file and show it.
+  actions:
+  - overlay:
+      text: Files
+      style: heading-2
+  - overlay:
+      text: config/demo.yaml
+      style: file
+  - run: cat config/demo.yaml
+  - wait:
+      prompt: true
+- source: features.md:28
+  id: features-quiet-write
+  hidden: true
+  typing_speed_ms: 1
+  actions:
+  - run: "cat > quiet.yaml <<'NARRATTY_EOF'\nquiet: true\nNARRATTY_EOF"
+  - wait:
+      prompt: true
+- source: features.md:43
+  id: features-typed
+  narration: The video says this instead.
+  actions:
+  - overlay:
+      text: Options and comments
+      style: heading-2
+  - overlay:
+      text: Note
+      style: file
+  - type_command: narratty build "$SPEC"
+  - hold: 1000
+  - ctrl_sequence: C-c
+- source: features.md:47
+  id: features-fails
+  actions:
+  - run: 'false'
+  - wait:
+      prompt: true
+  expect_exit: failure
+- source: features.md:55
+  id: features-deeper-1
+  narration: Deeper text.
+  actions:
+  - overlay:
+      text: Deeper
+      style: heading-3

@@ -31,16 +31,22 @@ Loc = tuple[int | str, ...]
 
 def load_spec_with_hints(path: Path) -> tuple[Spec, list[Issue]]:
     """Read and validate the spec at ``path`` and collect its hints."""
-    spec, data = parse_document(read_spec_text(path), path)
-    return spec, find_hints(spec, data)
+    spec, data, origins = parse_document(read_spec_text(path), path)
+    return spec, find_hints(spec, data, origins)
 
 
-def find_hints(spec: Spec, data: Mapping[str, Any]) -> list[Issue]:
-    """Hints for ``spec``, positioned in ``data`` (the YAML as written), in file order."""
+def find_hints(spec: Spec, data: Mapping[str, Any], origins: Sequence[object]) -> list[Issue]:
+    """Hints for ``spec``, positioned in ``data`` (the YAML as written), in file order.
+
+    ``origins`` maps each scene to its index in ``data["scenes"]``; scenes expanded from
+    Markdown (any other origin) get no hints.
+    """
     found: list[tuple[Loc, str]] = []
     _defaults(spec, data, (), found)
     raw_scenes = data.get("scenes") or []
-    for index, scene in enumerate(spec.scenes):
+    for scene, index in zip(spec.scenes, origins, strict=True):
+        if not isinstance(index, int):
+            continue
         raw = raw_scenes[index] if index < len(raw_scenes) else {}
         if isinstance(raw, Mapping):
             _defaults(scene, raw, ("scenes", index), found)

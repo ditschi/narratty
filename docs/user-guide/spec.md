@@ -69,7 +69,8 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `end_card` | on | Closing card, see below |
 | `subtitles` | `none` | `none`, `files`, `track` or `burn`; see [Subtitles](building.md#subtitles) (since 0.3) |
 | `overlay_styles` | `{}` | Named overlay styles; see [Overlays](#overlays) (since 0.3) |
-| `scenes` | required | At least one scene |
+| `narration` | `all` | Default narration rule of `markdown` entries: `all` or `none`; see [Markdown input](markdown.md) (since 0.5) |
+| `scenes` | required | At least one scene, or a `markdown` entry |
 
 ## `tts`
 
@@ -196,6 +197,10 @@ wins over the config.
 A scene lasts as long as its actions or its narration plus `narration_buffer_ms`,
 whichever is longer.
 
+A `scenes` item can instead be a `markdown` entry, `- markdown: docs/guide.md`, which
+turns the doc's paragraphs and code blocks into scenes where it stands; see
+[Markdown input](markdown.md) (since 0.5).
+
 ### Timelapse
 
 A long step (a download, a build) can be shown sped up instead of hidden:
@@ -318,8 +323,9 @@ scenes:
 
 The overlay appears where its action stands in the scene. It stays until the first
 of: `duration_ms` has passed, another overlay takes its position, or the scene ends.
-With `keep: true` it stays past the scene until another overlay takes its position
-(the `chapter` style keeps). The box is sized around the text; `\n` starts a new
+With `keep: true` it stays past the scene until another overlay takes its position.
+The same overlay (text and style) in consecutive scenes shows as one, without fading
+in again (since 0.5). The box is sized around the text; `\n` starts a new
 line. The top right is usually free of terminal text; the bottom is shared with
 [burned-in subtitles](building.md#subtitles).
 
@@ -337,7 +343,10 @@ line. The top right is usually free of terminal text; the bottom is shared with
 | `duration_ms` | unset | Hide after this long |
 | `keep` | `false` | Stay past the end of the scene |
 
-Built-in styles: `default` (above) and `chapter` (`top-right`, `large`, bold, `keep`).
+Built-in styles: `default` (above) and `chapter` (`top-right`, `large`, bold, hides
+after `3s`). Since 0.5 a chapter no longer keeps; `overlay_styles: {chapter: {keep: true}}`
+brings back the old behaviour. [Markdown input](markdown.md#heading-overlays) adds
+`heading-1` to `heading-4`, `breadcrumb` and `file` (since 0.5).
 `overlay_styles` changes them or adds your own; each style starts from `default`, so
 it only lists what differs. Overlays fade in and out. They need the mp4 to be
 re-encoded, which `build` does when a spec has any; in the [cast page](building.md#asciicast-with-narration)
@@ -370,7 +379,8 @@ scenes:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `url` | required | An `http(s)` URL, or an HTML file in the workspace |
+| `url` | required | An `http(s)` URL, an HTML file in the workspace, or a `data:` URL (since 0.5) |
+| `address` | the URL | Text in the address bar (since 0.5) |
 | `scroll` | `none` | `auto` scrolls to the end of the page (at most 4 screens), a number scrolls that many pixels |
 | `duration_ms` | unset | Hide after this long |
 | `load_ms` | `5000` | How long the page may load before it is captured |
@@ -404,4 +414,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 | Release | Added to `version: 1` |
 |---|---|
 | 0.3 | `run` action, `key: Enter` (the bare `- enter` still works), durations like `1.5s`, `wait: "pattern"`, `wait: {prompt: true}`, `timing.run_hold_ms`, `timing.pause_ms` and scene `pause_ms`, `tts.lexicon`, `subtitles`, `environment`, `sandbox.docker`, `terminal.layout`, overlays (`overlay`, `overlay_styles`), `browser`, `diff`, `focus`, `reveal`, scene `timelapse`, `expect_exit` and `fast` |
-| 0.5 | `requires.narratty` |
+| 0.5 | `requires.narratty`, `markdown` scene entries and the top-level `narration` ([Markdown input](markdown.md)), overlay styles `heading-1` to `heading-4`, `breadcrumb` and `file`, `browser` `address` and `data:` URLs |

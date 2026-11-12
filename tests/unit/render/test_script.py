@@ -16,10 +16,12 @@ from narratty.render.script import (
     Step,
     Type,
     WaitScreen,
+    action_steps,
     build_script,
 )
 from narratty.spec.loader import parse_spec
-from narratty.timeline import build_timeline
+from narratty.spec.model import Run, TypeCommand
+from narratty.timeline import Pacing, build_timeline
 
 BASE = "/work/diff-base"
 HERE = HelperPlacement(diff_base=BASE)
@@ -138,3 +140,21 @@ def test_the_terminal_pane_can_be_a_bridge_while_the_recorder_shell_stays_local(
 def test_a_helper_error_ends_the_waits() -> None:
     waits = [s for s in _script(EDITOR) if isinstance(s, WaitScreen) and s.pattern != "Created with narratty"]
     assert len(waits) == 2 and all(w.fail == sh.ERROR for w in waits)
+
+
+def test_line_breaks_in_commands_are_typed_as_enter() -> None:
+    pace = Pacing(speed=5, run_hold_ms=100)
+    assert action_steps(Run(run="cat <<EOF\nhi\nEOF"), pace) == [
+        Type("cat <<EOF", 5),
+        Press("Enter", 5),
+        Type("hi", 5),
+        Press("Enter", 5),
+        Type("EOF", 5),
+        Press("Enter", 5),
+        Sleep(100),
+    ]
+    assert action_steps(TypeCommand(type_command="a \\\nb"), pace) == [
+        Type("a \\", 5),
+        Press("Enter", 5),
+        Type("b", 5),
+    ]

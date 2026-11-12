@@ -5,7 +5,7 @@ from __future__ import annotations
 import difflib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from packaging.version import Version
 from pydantic import BaseModel, ValidationError
@@ -15,23 +15,30 @@ from ruamel.yaml.error import MarkedYAMLError
 
 from narratty import __version__
 from narratty.errors import ExitCode, NarrattyError
-from narratty.spec.model import ACTION_KEYS, Spec, parse_requirement
+from narratty.spec.model import ACTION_KEYS, MarkdownEntry, MarkdownNarration, Spec, parse_requirement
+
+if TYPE_CHECKING:
+    from narratty.spec.markdown import ExpandedScene
 
 SPEC_SUFFIXES = (".narratty.yaml", ".narratty.yml")
 
 
 @dataclass(frozen=True)
 class Issue:
-    """One problem found in a spec, with a 1-based position when known."""
+    """One problem found in a spec, with a 1-based position when known.
+
+    ``file`` is set when the problem is in another file than the spec (a Markdown doc).
+    """
 
     path: str
     message: str
     line: int | None = None
     column: int | None = None
+    file: Path | None = None
 
     def render(self, file: Path) -> str:
         """``file:line:col: path: message`` (position omitted when unknown)."""
-        where = str(file)
+        where = str(self.file or file)
         if self.line is not None:
             where += f":{self.line}:{self.column or 1}"
         prefix = f"{self.path}: " if self.path else ""
@@ -77,7 +84,7 @@ def _nested_models(annotation: Any) -> list[type[BaseModel]]:
     return found
 
 
-_KNOWN_KEYS = sorted(_field_names(Spec))
+_KNOWN_KEYS = sorted(_field_names(Spec) | _field_names(MarkdownEntry))
 
 
 def format_path(loc: tuple[int | str, ...]) -> str:
@@ -139,11 +146,11 @@ def _strip_union_tags(loc: tuple[int | str, ...]) -> tuple[int | str, ...]:
     return tuple(out)
 
 
-def _to_plain(value: Any) -> Any:
+def to_plain(value: Any) -> Any:
     if isinstance(value, dict):
-        return {str(k): _to_plain(v) for k, v in value.items()}
+        return {str(k): to_plain(v) for k, v in value.items()}
     if isinstance(value, list):
-        return [_to_plain(v) for v in value]
+        return [to_plain(v) for v in value]
     if isinstance(value, str):
         return str(value)
     return value
@@ -180,8 +187,16 @@ def check_required_version(data: dict[Any, Any], file: Path, installed: str | No
         raise SpecError(file, [Issue("requires.narratty", message, line, column)])
 
 
-def parse_document(text: str, file: Path) -> tuple[Spec, dict[Any, Any]]:
-    """Like :func:`parse_spec`, plus the YAML as written (with line numbers)."""
+class Document(NamedTuple):
+    """A validated spec with the YAML as written and where each of its scenes came from."""
+
+    spec: Spec
+    data: dict[Any, Any]
+    origins: list[int | ExpandedScene]
+    """Per scene of ``spec``: its index in ``data["scenes"]``, or the Markdown it came from."""
+
+
+def _load_yaml(text: str, file: Path) -> dict[Any, Any]:
     yaml = YAML(typ="rt")
     try:
         data = yaml.load(text)
@@ -196,15 +211,91 @@ def parse_document(text: str, file: Path) -> tuple[Spec, dict[Any, Any]]:
         raise SpecError(file, [Issue("", message, line, column)]) from error
     if not isinstance(data, dict):
         raise SpecError(file, [Issue("", "the spec must be a YAML mapping with a 'scenes' list", 1, 1)])
+    return data
+
+
+def _validation_issues(error: ValidationError, data: Any, prefix: tuple[int | str, ...] = ()) -> list[Issue]:
+    issues = []
+    for item in error.errors():
+        loc = (*prefix, *_strip_union_tags(tuple(item["loc"])))
+        issues.append(Issue(format_path(loc), _message(item), *position(data, loc)))
+    return issues
+
+
+def _expand_scenes(
+    raw_scenes: list[Any], data: dict[Any, Any], file: Path
+) -> tuple[list[Any], list[int | ExpandedScene]]:
+    """``raw_scenes`` with each ``markdown`` entry replaced by its scenes."""
+    from narratty.spec.markdown import EntryError, expand_entry
+
+    default: MarkdownNarration = "none" if data.get("narration") == "none" else "all"
+    scenes: list[Any] = []
+    origins: list[int | ExpandedScene] = []
+    issues: list[Issue] = []
+    for index, raw in enumerate(raw_scenes):
+        if not (isinstance(raw, dict) and "markdown" in raw):
+            scenes.append(to_plain(raw))
+            origins.append(index)
+            continue
+        try:
+            entry = MarkdownEntry.model_validate(to_plain(raw))
+        except ValidationError as error:
+            issues += _validation_issues(error, data, ("scenes", index))
+            continue
+        path = file.parent / entry.markdown
+        if not path.is_file():
+            at: tuple[int | str, ...] = ("scenes", index, "markdown")
+            issues.append(Issue(format_path(at), f"no such file: {path}", *position(data, at)))
+            continue
+        try:
+            expanded = expand_entry(entry, path, entry.narration or default)
+        except SpecError as error:
+            issues += [issue if issue.file else _in_file(issue, error.file) for issue in error.issues]
+            continue
+        except EntryError as error:
+            at = ("scenes", index, *error.loc)
+            issues.append(Issue(format_path(at), error.message, *position(data, at)))
+            continue
+        scenes += [scene.data for scene in expanded]
+        origins += expanded
+    if issues:
+        raise SpecError(file, issues)
+    return scenes, origins
+
+
+def _in_file(issue: Issue, file: Path) -> Issue:
+    return Issue(issue.path, issue.message, issue.line, issue.column, file)
+
+
+def _scene_issue(item: Any, origins: list[int | ExpandedScene], data: Any) -> Issue:
+    """An issue of the expanded spec, positioned where the scene was written."""
+    loc = _strip_union_tags(tuple(item["loc"]))
+    origin = origins[loc[1]] if len(loc) > 1 and loc[0] == "scenes" and isinstance(loc[1], int) else None
+    if isinstance(origin, int):
+        loc = ("scenes", origin, *loc[2:])
+    elif origin is not None:
+        scene_id = origin.data.get("id")
+        rest = format_path(loc[2:])
+        path = f"scene {scene_id!r}" + (f": {rest}" if rest else "")
+        return Issue(path, _message(item), origin.line, None, origin.file)
+    return Issue(format_path(loc), _message(item), *position(data, loc))
+
+
+def parse_document(text: str, file: Path) -> Document:
+    """Like :func:`parse_spec`, plus the YAML as written (with line numbers).
+
+    ``markdown`` entries in ``scenes`` are expanded into the scenes of their doc.
+    """
+    data = _load_yaml(text, file)
     check_required_version(data, file)
+    plain = to_plain(data)
+    origins: list[int | ExpandedScene] = []
+    if isinstance(data.get("scenes"), list):
+        plain["scenes"], origins = _expand_scenes(data["scenes"], data, file)
     try:
-        return Spec.model_validate(_to_plain(data)), data
+        return Document(Spec.model_validate(plain), data, origins)
     except ValidationError as error:
-        issues = []
-        for item in error.errors():
-            loc = _strip_union_tags(tuple(item["loc"]))
-            line, column = position(data, loc)
-            issues.append(Issue(format_path(loc), _message(item), line, column))
+        issues = [_scene_issue(item, origins, data) for item in error.errors()]
         raise SpecError(file, issues) from error
 
 

@@ -224,6 +224,16 @@ class Diff(_Model):
         return [self.diff] if isinstance(self.diff, str) else list(self.diff)
 
 
+BUILTIN_OVERLAY_STYLES = (
+    "default",
+    "chapter",
+    "heading-1",
+    "heading-2",
+    "heading-3",
+    "heading-4",
+    "breadcrumb",
+    "file",
+)
 OverlayPosition = Literal[
     "top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"
 ]
@@ -256,7 +266,10 @@ class Overlay(OverlayStyle):
     """Text shown over the video. ``overlay: "text"`` is short for ``overlay: {text: "text"}``."""
 
     text: str = Field(min_length=1)
-    style: str = Field("default", description="Named style from overlay_styles (built in: default, chapter).")
+    style: str = Field(
+        "default",
+        description="Named style from overlay_styles (built in: " + ", ".join(BUILTIN_OVERLAY_STYLES) + ").",
+    )
 
 
 def _or_text(schema: dict[str, Any]) -> None:
@@ -281,7 +294,12 @@ class ShowOverlay(_Model):
 class Browser(_Model):
     """A web page or local HTML file. ``browser: URL`` is short for ``browser: {url: URL}``."""
 
-    url: str = Field(min_length=1, description="An http(s) URL, or an HTML file in the workspace.")
+    url: str = Field(
+        min_length=1, description="An http(s) URL, an HTML file in the workspace, or a data: URL."
+    )
+    address: str | None = Field(
+        None, min_length=1, description="Text in the address bar; defaults to the URL."
+    )
     scroll: Literal["none", "auto"] | NonNegativeInt = Field(
         "none",
         description="Scroll down while shown: auto (to the end of the page, at most 4 screens) "
@@ -432,6 +450,88 @@ class Scene(_Model):
         if self.hidden and any(isinstance(a, ShowBrowser) for a in self.actions):
             raise ValueError("a hidden scene cannot show a browser")
         return self
+
+
+# ── markdown entries ──────────────────────────────────────────────────────────
+
+MarkdownNarration = Literal["all", "none"]
+
+
+class SceneDefaults(_Model):
+    """Scene keys applied to every scene a markdown entry produces."""
+
+    typing_speed_ms: Annotated[Duration, Field(gt=0)] | None = None
+    pause_ms: Annotated[Duration, Field(ge=0)] | None = None
+    narration_start: Literal["with_actions", "after_actions"] | None = None
+    timelapse: float | None = Field(None, gt=1, le=1000)
+    expect_exit: ExpectExit | None = None
+    fast: bool | None = None
+
+
+class BlockOverride(SceneDefaults):
+    """How one video words or decorates a block of the doc, keyed by the block's id."""
+
+    narration: str | None = Field(None, description="Replaces the narration taken from the doc.")
+    before: list[Action] = Field([], description="Actions before the block's own.")
+    after: list[Action] = Field([], description="Actions after the block's own.")
+
+    @field_validator("before", "after", mode="before")
+    @classmethod
+    def _shorthand(cls, value: Any) -> Any:
+        return [_expand_shorthand(item) for item in value] if isinstance(value, list) else value
+
+
+class HeadingOverlays(_Model):
+    """Headings shown as overlays. ``heading_overlays: 3`` is short for ``{levels: 3}``."""
+
+    levels: int = Field(ge=1, le=6, description="Show headings down to this level.")
+    breadcrumb: bool = Field(False, description="Show levels 2 and deeper as one overlay.")
+    separator: str = Field(" › ", min_length=1, description="Between breadcrumb parts.")
+    max_length: int = Field(50, ge=10, description="Breadcrumbs longer than this are shortened.")
+
+
+def _or_levels(schema: dict[str, Any]) -> None:
+    """Let the schema accept the level shorthand next to the mapping."""
+    schema["anyOf"] = [
+        {"type": "integer", "minimum": 1, "maximum": 6, "description": "Short for {levels: ...}."},
+        *schema.pop("anyOf"),
+    ]
+
+
+SectionPath = Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)]
+
+
+class MarkdownEntry(_Model):
+    """A Markdown doc expanded into scenes where it stands in ``scenes``."""
+
+    markdown: str = Field(min_length=1, description="The Markdown file, relative to the spec.")
+    sections: list[Annotated[str, Field(min_length=1)] | SectionPath] | None = Field(
+        None,
+        min_length=1,
+        description="Sections to use, by TOC slug or title, with their nested headings; "
+        "a list path picks one of several equal headings. Unset: the whole doc.",
+    )
+    id_prefix: str | None = Field(
+        None, pattern=SCENE_ID_PATTERN, description="Start of the scene ids; defaults to the file stem."
+    )
+    narration: MarkdownNarration | None = Field(
+        None, description="all: speak every paragraph; none: only `say` comments. Defaults to the spec's."
+    )
+    heading_overlays: HeadingOverlays | None = Field(None, json_schema_extra=_or_levels)
+    file_titles: bool = Field(True, description="Show the title of a file block as an overlay.")
+    images: bool = Field(True, description="Show images that stand on their own line in a browser view.")
+    tabs: list[Annotated[str, Field(min_length=1)]] = Field(
+        [], description="Preferred content tab labels; otherwise each tab set's first tab is used."
+    )
+    defaults: SceneDefaults = SceneDefaults()
+    overrides: dict[Annotated[str, Field(pattern=SCENE_ID_PATTERN)], BlockOverride] = Field(
+        {}, description="Per-block changes, keyed by the id in the block's attributes."
+    )
+
+    @field_validator("heading_overlays", mode="before")
+    @classmethod
+    def _levels_shorthand(cls, value: Any) -> Any:
+        return {"levels": value} if isinstance(value, int) and not isinstance(value, bool) else value
 
 
 # ── top-level sections ────────────────────────────────────────────────────────
@@ -674,7 +774,11 @@ class Spec(_Model):
     overlay_styles: dict[Annotated[str, Field(pattern=SCENE_ID_PATTERN)], OverlayStyle] = Field(
         {},
         description="Named overlay styles, used as `overlay: {text: ..., style: <name>}`. "
-        "`default` and `chapter` are built in and can be changed here.",
+        "The built-in styles (default, chapter, heading-1 to heading-4, breadcrumb, file) "
+        "can be changed here.",
+    )
+    narration: MarkdownNarration = Field(
+        "all", description="Default narration rule of `markdown` entries in scenes."
     )
     scenes: list[Scene] = Field(min_length=1)
 
@@ -703,7 +807,7 @@ class Spec(_Model):
 
     @model_validator(mode="after")
     def _known_overlay_styles(self) -> Spec:
-        known = {"default", "chapter", *self.overlay_styles}
+        known = {*BUILTIN_OVERLAY_STYLES, *self.overlay_styles}
         for scene in self.scenes:
             for action in scene.actions:
                 if isinstance(action, ShowOverlay) and action.overlay.style not in known:

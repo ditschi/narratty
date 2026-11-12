@@ -106,8 +106,8 @@ def find_chromium() -> str:
 
 
 def page_url(url: str, workspace: Path) -> str:
-    """``url`` as Chromium loads it: web URLs as they are, files from the workspace."""
-    if url.startswith(("http://", "https://", "file://")):
+    """``url`` as Chromium loads it: web and data URLs as they are, files from the workspace."""
+    if url.startswith(("http://", "https://", "file://", "data:")):
         return url
     path = (workspace / url).resolve()
     if not path.is_file():
@@ -337,7 +337,7 @@ def shoot(spec: Spec, views: Sequence[View], workspace: Path, directory: Path) -
         check_network(spec, url)
         page = directory / f"browser-{number}.png"
         scroll_px = capture(url, width, view_px, browser.scroll, browser.load_ms, page, chromium=chromium)
-        bar = draw_bar(browser.url, width, bar_px, directory / f"browser-{number}-bar.png")
+        bar = draw_bar(browser.address or browser.url, width, bar_px, directory / f"browser-{number}-bar.png")
         shots.append(Shot(view, bar, page, view_px, scroll_px))
     return shots
 

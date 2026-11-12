@@ -1,0 +1,46 @@
+- source: constructs.md:6
+  id: constructs-1
+  narration: Intro with inline code, a link and emphasis. It spans two lines.
+  actions:
+  - run: echo hello
+  - wait:
+      prompt: true
+  - run: "printf '%s\\n' \\\na b"
+  - wait:
+      prompt: true
+- source: constructs.md:15
+  id: constructs-2
+  narration: A paragraph after the last block stays on screen.
+- source: constructs.md:22
+  id: constructs-lists-1
+  narration: 'First item. Second item ends with a colon:'
+  actions:
+  - run: mkdir demo
+  - wait:
+      prompt: true
+  - run: cd demo
+  - wait:
+      prompt: true
+- source: constructs.md:28
+  id: constructs-lists-2
+  narration: Ordered item.
+- source: constructs.md:32
+  id: constructs-callouts-1
+  narration: A GitHub alert. The note body is spoken. An open collapsible is spoken.
+- source: constructs.md:61
+  id: constructs-left-out-1
+  narration: Kept for step 4.
+  actions:
+  - browser:
+      url: 
+        data:text/html;base64,PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGJvZHkgc3R5bGU9Im1hcmdpbjowO2hlaWdodDoxMDB2aDtkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2p1c3RpZnktY29udGVudDpjZW50ZXI7YmFja2dyb3VuZDojMjgyYTM2Ij48aW1nIGFsdD0iQW4gaW1hZ2UiIHNyYz0iZGF0YTppbWFnZS9wbmc7YmFzZTY0LGlWQk9SdzBLR2dvQUFBQU5TVWhFVWdBQUFBSUFBQUFDQ0FJQUFBRDkxSnB6QUFBQUZrbEVRVlI0Mm1NTStGWE53TURBeE1EQXdNREFBQUFWT3dISm11L1dPQUFBQUFCSlJVNUVya0pnZ2c9PSIgc3R5bGU9Im1heC13aWR0aDo5NiU7bWF4LWhlaWdodDo5NiUiPjwvYm9keT48L2h0bWw+
+      address: image.png
+- source: constructs.md:73
+  id: constructs-install
+  actions:
+  - type_command: uv tool install narratty
+  - hold: 1000
+  - ctrl_sequence: C-c
+- source: constructs.md:79
+  id: constructs-callouts_1-1
+  narration: The second "Callouts" heading gets the slug callouts_1.

@@ -58,6 +58,26 @@ def test_podman_keeps_the_user_id() -> None:
     assert "--user" not in argv
 
 
+def test_rootless_docker_runs_as_container_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rootless Docker maps container root to the host user; other ids cannot write its files."""
+    monkeypatch.setattr("narratty.runtime.docker_is_rootless", lambda: True)
+    argv = run_argv(ContainerSpec(Runtime.DOCKER, "img", [], []))
+    assert argv[argv.index("--user") + 1] == "0:0"
+
+
+@pytest.mark.parametrize(
+    ("output", "rootless"),
+    [("[name=seccomp,profile=builtin name=rootless name=cgroupns]", True), ("[name=seccomp]", False)],
+)
+def test_rootless_docker_is_detected(monkeypatch: pytest.MonkeyPatch, output: str, rootless: bool) -> None:
+    import subprocess
+
+    from narratty import runtime
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, output, ""))
+    assert runtime._detect_rootless() is rootless
+
+
 def _write_spec(tmp_path: Path) -> Path:
     spec = tmp_path / "proj" / "demo.narratty.yaml"
     spec.parent.mkdir()
@@ -130,6 +150,32 @@ def test_draft_fetches_no_voice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         "plan", spec, runtime=Runtime.DOCKER, image="img:test", extra_args=["--draft"], runner=lambda argv: 0
     )
     assert code == 0
+
+
+def test_markdown_specs_are_mounted_expanded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The container gets no Markdown docs, so it gets the compiled spec instead."""
+    monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
+    (tmp_path / "doc.md").write_text("# Doc\n\nHello.\n", encoding="utf-8")
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text("scenes:\n  - markdown: doc.md\n", encoding="utf-8")
+    calls: list[list[str]] = []
+    delegate(
+        "plan", spec, runtime=Runtime.DOCKER, image="img:test", extra_args=["--draft"], runner=calls.append
+    )
+    argv = calls[0]
+    mounted = next(argv[i + 1] for i, arg in enumerate(argv) if arg == "--volume" and "/spec/" in argv[i + 1])
+    host, target, _ = mounted.rsplit(":", 2)
+    assert target == "/spec/demo.narratty.yaml"
+    assert Path(host).parent == tmp_path / "cache" / "compiled"
+    assert "id: doc-1" in Path(host).read_text(encoding="utf-8")
+
+    calls.clear()
+    monkeypatch.setattr(container, "_ensure_voice", lambda provider, voice: None)
+    sandbox = SandboxRequest(WorkspaceOptions(mode="rw"))
+    delegate("render", spec, runtime=Runtime.DOCKER, image="img:test", sandbox=sandbox, runner=calls.append)
+    volumes = {calls[0][i + 1] for i, arg in enumerate(calls[0]) if arg == "--volume"}
+    assert f"{tmp_path}:/work" in volumes, "the workspace is relative to the spec, not its compiled copy"
 
 
 @pytest.fixture

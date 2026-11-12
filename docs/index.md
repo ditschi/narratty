@@ -11,6 +11,9 @@ natively.
 
 - **Spec to video:** a `.narratty.yaml` file becomes an MP4, or an asciicast with
   narration and a player page (`--format cast`).
+- **[Markdown input](user-guide/markdown.md):** a Markdown doc becomes the video; its
+  paragraphs are the narration and its code blocks run in the terminal, so docs and
+  video stay in step.
 - **[Local voices](user-guide/voices.md):** Kokoro (natural sounding, the default) or Piper
   (many languages), no cloud service. Narration and typing stay in sync, and audio is
   cached.

@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any
 
-from narratty.spec.model import Spec
+from narratty.spec.model import MarkdownEntry, Spec
 
 # The schema is committed as schema/v1.json (a unit test keeps it in sync with the models),
 # so every release tag serves the schema of that release.
@@ -36,10 +36,12 @@ def _add_shorthands(schema: dict[str, Any]) -> dict[str, Any]:
     (``- enter``, ``- diff``, ``wait: "done"``, ``end_card: false``).
     """
     defs = schema["$defs"]
-    actions = defs["Scene"]["properties"]["actions"]["items"]["oneOf"]
-    actions.append({"const": "enter", "description": defs["Enter"]["description"], **_LEGACY_ENTER})
+    override = defs["BlockOverride"]["properties"]
+    for action_list in (defs["Scene"]["properties"]["actions"], override["before"], override["after"]):
+        actions = action_list["items"]["oneOf"]
+        actions.append({"const": "enter", "description": defs["Enter"]["description"], **_LEGACY_ENTER})
+        actions.append({"const": "diff", "description": "Show the whole diff; short for {diff: true}."})
     defs["Enter"].update(_LEGACY_ENTER)
-    actions.append({"const": "diff", "description": "Show the whole diff; short for {diff: true}."})
     wait = defs["Wait"]["properties"]["wait"]
     defs["Wait"]["properties"]["wait"] = {
         "anyOf": [{"type": "string", "description": "Regular expression; short for {screen: ...}."}, wait]
@@ -55,9 +57,23 @@ def _add_shorthands(schema: dict[str, Any]) -> dict[str, Any]:
     return schema
 
 
+def _add_markdown_entries(schema: dict[str, Any]) -> dict[str, Any]:
+    """Allow ``markdown`` entries in ``scenes``; the loader expands them before validation."""
+    entry = MarkdownEntry.model_json_schema()
+    schema["$defs"] |= entry.pop("$defs")
+    schema["$defs"]["MarkdownEntry"] = entry
+    # if/then/else instead of anyOf, so editors report a scene's own errors, not "no match".
+    schema["properties"]["scenes"]["items"] = {
+        "if": {"type": "object", "required": ["markdown"]},
+        "then": {"$ref": "#/$defs/MarkdownEntry"},
+        "else": {"$ref": "#/$defs/Scene"},
+    }
+    return schema
+
+
 def spec_schema() -> dict[str, Any]:
     """The spec's JSON Schema with ``$schema`` and ``$id`` set."""
-    schema = _add_shorthands(Spec.model_json_schema())
+    schema = _add_shorthands(_add_markdown_entries(Spec.model_json_schema()))
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": SCHEMA_ID,

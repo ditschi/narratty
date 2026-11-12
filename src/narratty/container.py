@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from narratty import __version__
+from narratty import __version__, runtime
 from narratty.runtime import Runtime, release_tag
 
 if TYPE_CHECKING:
@@ -78,9 +78,7 @@ class ContainerSpec:
 def _user_flags(engine: Runtime) -> list[str]:
     if engine is Runtime.PODMAN:
         return ["--userns", "keep-id"]
-    if hasattr(os, "getuid"):
-        return ["--user", f"{os.getuid()}:{os.getgid()}"]
-    return []  # pragma: no cover - Windows
+    return ["--user", runtime.host_user(engine.value)]
 
 
 def run_argv(spec: ContainerSpec) -> list[str]:
@@ -232,6 +230,7 @@ def delegate(
         _ensure_voice(spec.tts.provider, spec.tts.voice)
     chosen_image = image_ref(override=image)
     base = _Invocation(command, spec_path.resolve(), resolved.runtime, chosen_image, extra_args)
+    base.use_compiled_spec()
     if output is not None:
         base.add_output(output)
     if work_dir is not None:
@@ -263,6 +262,7 @@ class _Invocation:
         for directory in (cache, data):
             directory.mkdir(parents=True, exist_ok=True)
         self.engine, self.image = engine, image
+        self.spec_file = spec_file  # the mounted spec may be a compiled copy elsewhere
         self.mounts = [
             Mount(spec_file, f"/spec/{spec_file.name}", read_only=True),
             Mount(cache.resolve(), "/cache"),
@@ -276,6 +276,16 @@ class _Invocation:
         lexicon = export_host_entries(spec_file, cache / "lexicons")
         self.env[ENV_OVERRIDE] = f"/cache/lexicons/{lexicon.name}"
         self.network = "none"
+
+    def use_compiled_spec(self) -> None:
+        """Mount the expanded spec when it has Markdown entries; their docs are not mounted."""
+        from narratty.paths import cache_dir
+        from narratty.spec.compile import container_spec
+
+        spec = self.mounts[0]
+        compiled = container_spec(spec.host, cache_dir())
+        if compiled is not None:
+            self.mounts[0] = Mount(compiled, spec.container, read_only=True)
 
     def add_output(self, output: Path) -> None:
         output = output.resolve()
@@ -338,7 +348,7 @@ def _run_demo(
     from narratty.ui.console import err
     from narratty.workspace import prepare_workspace
 
-    spec_file = invocation.mounts[0].host
+    spec_file = invocation.spec_file
     sandbox = approved_sandbox(spec_file, spec, request)
     environment = resolve(spec.environment, request.environment)
     if environment is None:

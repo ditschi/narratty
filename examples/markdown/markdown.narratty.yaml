@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../schema/v1.json
+# The video on docs/user-guide/markdown.md, made from that page.
+meta:
+  title: Markdown input
+scenes:
+  - id: intro
+    narration: >
+      This video is made from the Markdown page it is shown on. The page's paragraphs
+      are the narration, and its code blocks are what you see typed.
+    actions:
+      - overlay: {text: Markdown input, style: heading-1}
+  - markdown: ../../docs/user-guide/markdown.md
+    sections: [quick-start, callouts-and-tabs, images]
+    tabs: [bash]
+    heading_overlays: 2

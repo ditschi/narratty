@@ -39,7 +39,9 @@ separate `-kokoro` image; from 0.2 on, the one image has both engines.
 
 Voices are downloaded on the host before the container starts. The container runs
 with no network, all capabilities dropped, `no-new-privileges`, a read-only root
-filesystem and your own user id, so files it writes belong to you.
+filesystem and your own user id, so files it writes belong to you. With rootless
+Docker, where the container's root is your user, it runs as root for the same reason
+(since 0.5).
 
 ## Workspace modes
 

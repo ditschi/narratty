@@ -7,10 +7,24 @@
       "description": "A web page or local HTML file. ``browser: URL`` is short for ``browser: {url: URL}``.",
       "properties": {
         "url": {
-          "description": "An http(s) URL, or an HTML file in the workspace.",
+          "description": "An http(s) URL, an HTML file in the workspace, or a data: URL.",
           "minLength": 1,
           "title": "Url",
           "type": "string"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text in the address bar; defaults to the URL.",
+          "title": "Address"
         },
         "scroll": {
           "anyOf": [
@@ -616,7 +630,7 @@
         },
         "style": {
           "default": "default",
-          "description": "Named style from overlay_styles (built in: default, chapter).",
+          "description": "Named style from overlay_styles (built in: default, chapter, heading-1, heading-2, heading-3, heading-4, breadcrumb, file).",
           "title": "Style",
           "type": "string"
         }
@@ -1485,6 +1499,518 @@
       },
       "title": "Workspace",
       "type": "object"
+    },
+    "BlockOverride": {
+      "additionalProperties": false,
+      "description": "How one video words or decorates a block of the doc, keyed by the block's id.",
+      "properties": {
+        "typing_speed_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typing Speed Ms"
+        },
+        "pause_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pause Ms"
+        },
+        "narration_start": {
+          "anyOf": [
+            {
+              "enum": [
+                "with_actions",
+                "after_actions"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Narration Start"
+        },
+        "timelapse": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 1,
+              "maximum": 1000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timelapse"
+        },
+        "expect_exit": {
+          "anyOf": [
+            {
+              "enum": [
+                "success",
+                "failure",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expect Exit"
+        },
+        "fast": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fast"
+        },
+        "narration": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Replaces the narration taken from the doc.",
+          "title": "Narration"
+        },
+        "before": {
+          "default": [],
+          "description": "Actions before the block's own.",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/Run"
+              },
+              {
+                "$ref": "#/$defs/TypeCommand"
+              },
+              {
+                "$ref": "#/$defs/Enter"
+              },
+              {
+                "$ref": "#/$defs/CtrlSequence"
+              },
+              {
+                "$ref": "#/$defs/Hold"
+              },
+              {
+                "$ref": "#/$defs/Wait"
+              },
+              {
+                "$ref": "#/$defs/Key"
+              },
+              {
+                "$ref": "#/$defs/Focus"
+              },
+              {
+                "$ref": "#/$defs/Reveal"
+              },
+              {
+                "$ref": "#/$defs/Diff"
+              },
+              {
+                "$ref": "#/$defs/ShowOverlay"
+              },
+              {
+                "$ref": "#/$defs/ShowBrowser"
+              },
+              {
+                "const": "enter",
+                "description": "Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``.",
+                "deprecated": true,
+                "deprecationMessage": "Write `key: Enter` instead."
+              },
+              {
+                "const": "diff",
+                "description": "Show the whole diff; short for {diff: true}."
+              }
+            ]
+          },
+          "title": "Before",
+          "type": "array"
+        },
+        "after": {
+          "default": [],
+          "description": "Actions after the block's own.",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/Run"
+              },
+              {
+                "$ref": "#/$defs/TypeCommand"
+              },
+              {
+                "$ref": "#/$defs/Enter"
+              },
+              {
+                "$ref": "#/$defs/CtrlSequence"
+              },
+              {
+                "$ref": "#/$defs/Hold"
+              },
+              {
+                "$ref": "#/$defs/Wait"
+              },
+              {
+                "$ref": "#/$defs/Key"
+              },
+              {
+                "$ref": "#/$defs/Focus"
+              },
+              {
+                "$ref": "#/$defs/Reveal"
+              },
+              {
+                "$ref": "#/$defs/Diff"
+              },
+              {
+                "$ref": "#/$defs/ShowOverlay"
+              },
+              {
+                "$ref": "#/$defs/ShowBrowser"
+              },
+              {
+                "const": "enter",
+                "description": "Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``.",
+                "deprecated": true,
+                "deprecationMessage": "Write `key: Enter` instead."
+              },
+              {
+                "const": "diff",
+                "description": "Show the whole diff; short for {diff: true}."
+              }
+            ]
+          },
+          "title": "After",
+          "type": "array"
+        }
+      },
+      "title": "BlockOverride",
+      "type": "object"
+    },
+    "HeadingOverlays": {
+      "additionalProperties": false,
+      "description": "Headings shown as overlays. ``heading_overlays: 3`` is short for ``{levels: 3}``.",
+      "properties": {
+        "levels": {
+          "description": "Show headings down to this level.",
+          "maximum": 6,
+          "minimum": 1,
+          "title": "Levels",
+          "type": "integer"
+        },
+        "breadcrumb": {
+          "default": false,
+          "description": "Show levels 2 and deeper as one overlay.",
+          "title": "Breadcrumb",
+          "type": "boolean"
+        },
+        "separator": {
+          "default": " \u203a ",
+          "description": "Between breadcrumb parts.",
+          "minLength": 1,
+          "title": "Separator",
+          "type": "string"
+        },
+        "max_length": {
+          "default": 50,
+          "description": "Breadcrumbs longer than this are shortened.",
+          "minimum": 10,
+          "title": "Max Length",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "levels"
+      ],
+      "title": "HeadingOverlays",
+      "type": "object"
+    },
+    "SceneDefaults": {
+      "additionalProperties": false,
+      "description": "Scene keys applied to every scene a markdown entry produces.",
+      "properties": {
+        "typing_speed_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typing Speed Ms"
+        },
+        "pause_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pause Ms"
+        },
+        "narration_start": {
+          "anyOf": [
+            {
+              "enum": [
+                "with_actions",
+                "after_actions"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Narration Start"
+        },
+        "timelapse": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 1,
+              "maximum": 1000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timelapse"
+        },
+        "expect_exit": {
+          "anyOf": [
+            {
+              "enum": [
+                "success",
+                "failure",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expect Exit"
+        },
+        "fast": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fast"
+        }
+      },
+      "title": "SceneDefaults",
+      "type": "object"
+    },
+    "MarkdownEntry": {
+      "additionalProperties": false,
+      "description": "A Markdown doc expanded into scenes where it stands in ``scenes``.",
+      "properties": {
+        "markdown": {
+          "description": "The Markdown file, relative to the spec.",
+          "minLength": 1,
+          "title": "Markdown",
+          "type": "string"
+        },
+        "sections": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sections to use, by TOC slug or title, with their nested headings; a list path picks one of several equal headings. Unset: the whole doc.",
+          "title": "Sections"
+        },
+        "id_prefix": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Start of the scene ids; defaults to the file stem.",
+          "title": "Id Prefix"
+        },
+        "narration": {
+          "anyOf": [
+            {
+              "enum": [
+                "all",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "all: speak every paragraph; none: only `say` comments. Defaults to the spec's.",
+          "title": "Narration"
+        },
+        "heading_overlays": {
+          "anyOf": [
+            {
+              "description": "Short for {levels: ...}.",
+              "maximum": 6,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "$ref": "#/$defs/HeadingOverlays"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "file_titles": {
+          "default": true,
+          "description": "Show the title of a file block as an overlay.",
+          "title": "File Titles",
+          "type": "boolean"
+        },
+        "images": {
+          "default": true,
+          "description": "Show images that stand on their own line in a browser view.",
+          "title": "Images",
+          "type": "boolean"
+        },
+        "tabs": {
+          "default": [],
+          "description": "Preferred content tab labels; otherwise each tab set's first tab is used.",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Tabs",
+          "type": "array"
+        },
+        "defaults": {
+          "$ref": "#/$defs/SceneDefaults",
+          "default": {
+            "typing_speed_ms": null,
+            "pause_ms": null,
+            "narration_start": null,
+            "timelapse": null,
+            "expect_exit": null,
+            "fast": null
+          }
+        },
+        "overrides": {
+          "default": {},
+          "description": "Per-block changes, keyed by the id in the block's attributes.",
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9_-]*$": {
+              "$ref": "#/$defs/BlockOverride"
+            }
+          },
+          "title": "Overrides",
+          "type": "object"
+        }
+      },
+      "required": [
+        "markdown"
+      ],
+      "title": "MarkdownEntry",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -1611,7 +2137,7 @@
     },
     "overlay_styles": {
       "default": {},
-      "description": "Named overlay styles, used as `overlay: {text: ..., style: <name>}`. `default` and `chapter` are built in and can be changed here.",
+      "description": "Named overlay styles, used as `overlay: {text: ..., style: <name>}`. The built-in styles (default, chapter, heading-1 to heading-4, breadcrumb, file) can be changed here.",
       "patternProperties": {
         "^[a-z0-9][a-z0-9_-]*$": {
           "$ref": "#/$defs/OverlayStyle"
@@ -1620,9 +2146,30 @@
       "title": "Overlay Styles",
       "type": "object"
     },
+    "narration": {
+      "default": "all",
+      "description": "Default narration rule of `markdown` entries in scenes.",
+      "enum": [
+        "all",
+        "none"
+      ],
+      "title": "Narration",
+      "type": "string"
+    },
     "scenes": {
       "items": {
-        "$ref": "#/$defs/Scene"
+        "if": {
+          "type": "object",
+          "required": [
+            "markdown"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/MarkdownEntry"
+        },
+        "else": {
+          "$ref": "#/$defs/Scene"
+        }
       },
       "minItems": 1,
       "title": "Scenes",

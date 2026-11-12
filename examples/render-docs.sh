@@ -1,12 +1,30 @@
 #!/usr/bin/env bash
-# Renders the recordings shown on the docs' Examples pages into docs/assets/examples.
-# Usage: examples/render-docs.sh [narratty build options, e.g. --runtime native]
+# Renders the recordings shown on the docs into docs/assets/examples.
+# Usage: examples/render-docs.sh [--only PATTERN] [narratty build options, e.g. --runtime native]
+#   --only PATTERN  renders only the specs whose path contains PATTERN (e.g. markdown)
+# Each spec gets <name>.fingerprint next to it (`narratty compile --fingerprint`): what its
+# videos show and say, Markdown sources included. A unit test fails when a spec or its
+# Markdown changed since its videos were rendered; re-render with --only and commit both.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 out=docs/assets/examples
 mkdir -p "$out"
 
-build() { narratty build "$@" --no-end-card; }
+only=""
+if [[ "${1:-}" == "--only" ]]; then
+  only=$2
+  shift 2
+fi
+
+selected() { [[ -z "$only" || "$1" == *"$only"* ]]; }
+fingerprint() { narratty compile --fingerprint "$1" >"${1%.narratty.yaml}.fingerprint"; }
+
+# build SPEC [options]: without the end card; records the fingerprint of specs in examples/.
+build() {
+  selected "$1" || return 0
+  narratty build "$@" --no-end-card
+  if [[ "$1" == examples/* ]]; then fingerprint "$1"; fi
+}
 
 for spec in examples/voices/*.narratty.yaml; do
   name=$(basename "$spec" .narratty.yaml)
@@ -24,6 +42,11 @@ build examples/subtitles/subtitles.narratty.yaml -o "$out/subtitles.mp4" "$@"
 build examples/subtitles/subtitles.narratty.yaml --draft -o "$out/draft.mp4" "$@"
 build examples/terminal-look/terminal-look.narratty.yaml -o "$out/terminal-look.mp4" "$@"
 build examples/cast/cast.narratty.yaml --format cast -o "$out/cast/cast.html" "$@"
-narratty build examples/end-card/end-card.narratty.yaml -o "$out/end-card.mp4" "$@"
+if selected examples/end-card/end-card.narratty.yaml; then
+  narratty build examples/end-card/end-card.narratty.yaml -o "$out/end-card.mp4" "$@"
+  fingerprint examples/end-card/end-card.narratty.yaml
+fi
 build examples/editor-layout/editor.narratty.yaml -o "$out/editor-layout.mp4" "$@"
+# The video of docs/user-guide/markdown.md, made from that page.
+build examples/markdown/markdown.narratty.yaml -o "$out/markdown.mp4" "$@"
 build examples/browser/browser.narratty.yaml -o "$out/browser.mp4" --yes "$@"   # needs network

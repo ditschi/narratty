@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,8 +28,16 @@ def base(tmp_path: Path) -> str:
     return str(tmp_path / "base dir")  # a space: the commands must quote it
 
 
+def _plain_path() -> str:
+    """PATH without delta and bat, so the diff is printed plain wherever the tests run."""
+    folders = os.environ.get("PATH", "").split(os.pathsep)
+    return os.pathsep.join(
+        folder for folder in folders if not any((Path(folder) / tool).exists() for tool in ("delta", "bat"))
+    )
+
+
 def _sh(command: str, cwd: Path, path: str | None = None) -> subprocess.CompletedProcess[str]:
-    env = {"PATH": path} if path else None
+    env = {**os.environ, "PATH": path or _plain_path()}
     return subprocess.run(
         ["/bin/sh", "-c", command], cwd=cwd, capture_output=True, text=True, check=False, env=env
     )
