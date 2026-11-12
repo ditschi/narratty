@@ -9,6 +9,46 @@ permissions:
   contents: read
   pull-requests: read
 jobs:
+  # ── 0. What changed: decides which jobs run; the ci-ok gate always reports ──
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      ci: ${{ steps.ci.outputs.ci }}
+      docker: ${{ steps.docker.outputs.docker }}
+    steps:
+      # CI runs unless every changed file is on this list.
+      - uses: dorny/paths-filter@v3
+        id: ci
+        with:
+          predicate-quantifier: every
+          filters: |
+            ci:
+              - "**"
+              - "!.gitignore"
+              - "!.codespellignore"
+              - "!.pre-commit-config.yaml"
+              - "!AGENTS.md"
+              - "!LICENSE"
+              - "!.vscode/**"
+              - "!.github/ISSUE_TEMPLATE/**"
+              - "!.github/dependabot.yml"
+      - uses: dorny/paths-filter@v3
+        id: docker
+        with:
+          filters: |
+            docker:
+              - Dockerfile
+              - .dockerignore
+              - docker/**
+              - agent/**
+              - src/**
+              - pyproject.toml
+              - uv.lock
+              - noxfile.py
+              - tests/integration/**
+              - .github/workflows/docker.yml
+              - .github/workflows/pr.yml
   # ── 1. Conventional Commits PR-title lint (primary gate for squash merges) ──
   lint-title:
     name: Lint PR title
@@ -36,6 +76,8 @@ jobs:
   # ── 2. Code quality ─────────────────────────────────────────────────────────
   quality:
     name: Quality gates (3.12)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -64,6 +106,8 @@ jobs:
   # ── Agent: narratty-agent (Go) ───────────────────────────────────────────────
   agent:
     name: Agent (Go)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -78,6 +122,8 @@ jobs:
   # ── 3. Tests: multi-Python matrix, macOS best effort ────────────────────────
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.os == 'macos-latest' }}
     strategy:
@@ -105,6 +151,8 @@ jobs:
   # ── Package: the wheel builds and installs, whatever the Docker image does ──
   package:
     name: Package (wheel install)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -126,6 +174,8 @@ jobs:
   # ── 4. Integration: real voices, VHS and ffmpeg ─────────────────────────────
   integration:
     name: Integration (3.12)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     env:
       NARRATTY_DATA_DIR: ${{ github.workspace }}/.narratty-data
@@ -169,6 +219,8 @@ jobs:
   # ── 5. CLI cold-start performance budgets ───────────────────────────────────
   performance:
     name: Performance budgets (3.12)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -185,6 +237,8 @@ jobs:
   # ── 6. Docs build (strict) ──────────────────────────────────────────────────
   docs-build:
     name: Docs build (strict)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -198,6 +252,15 @@ jobs:
         run: uv tool install nox
       - name: Build docs
         run: nox -s docs
+  # ── Docker image: built and smoke-tested when its inputs change ─────────────
+  docker:
+    name: Docker
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    permissions:
+      contents: read
+      packages: write # requested by docker.yml; PR runs never push
+    uses: ./.github/workflows/docker.yml
   # ── 7. Docs preview: pr-<N>/ on GitHub Pages, linked in a PR comment ────────
   # Forks get a read-only token, so only branches of this repo get a preview.
   docs-preview:
@@ -269,3 +332,16 @@ jobs:
             } else {
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
+  # ── The only required status check: skipped jobs pass, failed ones do not ──
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [changes, lint-title, quality, agent, tests, package, integration, performance, docs-build, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All jobs passed or were skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          [[ " $RESULTS " != *" failure "* && " $RESULTS " != *" cancelled "* ]]
