@@ -28,12 +28,13 @@
   narration: Ordered item.
 - source: constructs.md:32
   id: constructs-callouts-1
-  narration: A GitHub alert. The note body is spoken. An open collapsible is spoken.
+  narration: 'A GitHub alert. The note body is spoken. Warning: An open collapsible is spoken.'
 - source: constructs.md:61
   id: constructs-left-out-1
   narration: Kept for step 4.
   actions:
   - slide:
+      title: An image
       image: 
         data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR42mMM+FXNwMDAxMDAwMDAAAAVOwHJmu/WOAAAAABJRU5ErkJggg==
 - source: constructs.md:73

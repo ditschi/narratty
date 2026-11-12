@@ -117,17 +117,20 @@ the narration of the scene that runs it.
 | `console` block | `$ ` lines run, `> ` lines right after them continue them; other lines are output, not typed, and compared by [`narratty check`](#checking-docs-in-ci) |
 | `bash` / `sh` block | Each complete command runs (heredocs, `if`, `for` stay together); `# …` comments are not typed |
 | Other language with a `title` | Written to that file (hidden), then shown with `cat` and a file overlay |
+| Any language with `narratty="show"` | Shown as a highlighted code slide while the text around it is spoken; nothing is written or run (since 0.7), see [Code shown, not run](#code-shown-not-run) |
 | Other language without a `title` | Left out |
 | Inline code, links, emphasis | Read as plain text, so the [lexicon](voices.md#pronunciation) applies to inline code too |
 | List items | Read as sentences; a code block in an item runs like any other |
-| Quotes and GitHub alerts (`> [!NOTE]`) | Read like paragraphs, without the `[!NOTE]` marker |
-| Admonitions `!!!` and open collapsible blocks `???+` | Read without their title; code blocks inside run as usual |
+| Task list items `- [ ]`, `- [x]` | Read without the box (since 0.7) |
+| Footnotes `[^1]` | The marker is not read, the footnote itself not spoken (since 0.7), see [Footnotes](#footnotes) |
+| Quotes and GitHub alerts (`> [!NOTE]`) | Read like paragraphs, without the `[!NOTE]` marker; `[!WARNING]`, `[!CAUTION]` and `[!IMPORTANT]` start with their type (since 0.7) |
+| Admonitions `!!!` and open collapsible blocks `???+` | Read without their title; `warning`, `caution`, `danger` and `important` start with their type and title (since 0.7); code blocks inside run as usual |
 | Collapsed blocks `???` and `<details>` | Left out, with everything inside |
 | Content tabs `=== "…"` | One tab per tab set, see [below](#callouts-and-tabs) |
-| An image on a line of its own | Shown as a [slide](spec.md#slides) while the text around it is spoken, see [Images](#images) |
+| An image on a line of its own | Shown as a [slide](spec.md#slides), titled with its alt text, while the text around it is spoken, see [Images](#images) |
 | `mermaid` block | Drawn as a slide (since 0.6), see [Slides](#slides) |
 | Tables | Left out; with a `table` comment spoken row by row, with a `slide` comment shown (since 0.6), see [Tables](#tables) |
-| Images within text, raw HTML | Left out |
+| Images within text (badges), raw HTML | Left out |
 
 Every command waits until the prompt is back, so the next one starts after it has
 finished. A command that fails stops the build, as in a YAML spec; mark the block
@@ -144,6 +147,26 @@ Admonitions are spoken without their title, so a tip reads as part of the text.
 
 !!! tip "Short paragraphs"
     Keep paragraphs short. Each one is a sentence or two of narration.
+
+Warnings are different: a listener cannot see the box. Since 0.7, `warning`,
+`caution`, `danger` and `important` admonitions and alerts start with their type and,
+if given, their title.
+
+!!! warning "Slow first build"
+    The first build downloads the voice.
+
+The video says "Warning: Slow first build. The first build downloads the voice."
+`admonitions` in the entry changes the start per type, with a template of `{type}`,
+`{title}` (the title, else the type) and `{body}`; `admonitions: false` reads every
+type without a start.
+
+```yaml
+- markdown: docs/install.md
+  admonitions:
+    tip: "Tip: {body}"          # tips say so too
+    warning: "Careful: {body}"  # instead of "Warning: <title>. <body>"
+    important: "{body}"         # no start
+```
 
 Collapsed blocks are for readers only. The video leaves them out, with everything
 inside, including code blocks.
@@ -183,17 +206,39 @@ lists in `tabs`. This video picks the bash tab.
 Collapsible blocks that start open are spoken like admonitions. HTML `details` blocks
 are left out like collapsed ones.
 
+## Footnotes
+
+<!-- narratty: skip -->
+Since narratty 0.7.
+
+Footnote markers are not read, and the footnotes themselves are not spoken: they are
+asides for readers.[^aside] `footnotes: inline` in the entry speaks each footnote right
+after the sentence that refers to it.
+
+[^aside]: Like this one, which the video leaves out.
+
+```markdown
+The cache is shared between builds.[^1]
+
+[^1]: Each build only adds the scenes that changed.
+```
+
+With `footnotes: inline` the video says "The cache is shared between builds. Each
+build only adds the scenes that changed."
+
 ## Images
 
 An image on a line of its own is shown as a slide while the text around it is spoken.
+Its alt text is the slide's title (since 0.7); `image_titles: false` in the entry
+leaves titles out, and a `slide` comment's `title` replaces it.
 
 ![Overlays in a narratty video: a chapter title, a file name and a note](../assets/overlays.png)
 
 The image stays until the next command or heading, so it never covers what is typed.
 It is embedded in the spec, which keeps it working in the sandbox without network.
 
-Images within a sentence, remote images and formats other than PNG, JPEG, GIF, SVG
-and WebP are left out. `images: false` in the entry leaves out all images, and a
+Images within a sentence (such as badges), remote images and formats other than PNG,
+JPEG, GIF, SVG and WebP are left out. `images: false` in the entry leaves out all images, and a
 `skip` comment a single one. A `slide` comment gives it a title, see [Slides](#slides).
 
 ## Tables
@@ -248,6 +293,9 @@ snippet configures the spoken steps; the live table below is what those steps hi
 - `pause: 500ms` highlights each row that long before it is spoken.
 - `title`, `theme` and `rows` set the look of the slide, as in the `slide` comment.
 - Cells are read like paragraphs, so the lexicon applies to inline code in them.
+- A paragraph right before the comment that ends with a colon, such as "The steps
+  are:", introduces the table: it is spoken with the first row, while the slide is
+  shown (since 0.7). Other paragraphs are spoken before the slide appears.
 
 A `slide` comment shows a table without reading it, while the text after it is
 spoken. `rows: 8` splits a long table into pages of 8 rows; each `pause` comment in
@@ -381,6 +429,32 @@ The architecture has three parts.
 Like an image, the page is embedded in the spec, so it must be self-contained:
 styles inline, images inline as SVG or `data:` URLs.
 
+## Code shown, not run
+
+<!-- narratty: skip -->
+Since narratty 0.7.
+
+A block marked `narratty="show"` is shown as a syntax-highlighted slide while the
+text around it is spoken, like an image. Nothing is written or run, so it suits an
+API response or a config excerpt that is not a file in the project:
+
+The health endpoint answers with the version:
+
+```json {narratty="show"}
+{"status": "ok", "version": "0.7.0"}
+```
+
+This is its source:
+
+````markdown
+```json {narratty="show"}
+{"status": "ok", "version": "0.7.0"}
+```
+````
+
+`show` works with any language, also `console` (then nothing runs). A `title` becomes
+the slide title, and a `slide` comment before the block sets its title and theme.
+
 ## Doc comments
 
 HTML comments are invisible on the docs site and on GitHub. Those starting with
@@ -414,7 +488,8 @@ The [Compose file reference](https://docs.docker.com/compose/) lists every key.
 
 | Comment | Does |
 |---|---|
-| `skip` | Leaves the next paragraph or block out of the video |
+| `skip` | Leaves the next paragraph or block out of the video; before a heading, its overlay |
+| `skip-rest` | Leaves the rest of the section out, up to the next heading of the same or a higher level (since 0.7) |
 | `say` | Adds narration where it stands; `skip` plus `say` replaces a paragraph |
 | `overlay` | Shows an [overlay](spec.md#overlays) in the next scene; takes the same value as the action |
 | `hidden` | Runs setup commands in the recorded shell without showing them |
@@ -472,6 +547,7 @@ scenes: []
 | `hidden` | Runs the block without showing it (setup) |
 | `expect-failure` | The block's commands are expected to fail |
 | `any-output` | The output the block shows is not compared (since 0.6), see [Checking docs in CI](#checking-docs-in-ci) |
+| `show` | Shows the block as a code slide instead, see [Code shown, not run](#code-shown-not-run) (since 0.7) |
 
 !!! warning "Write attributes in braces"
     mkdocs renders `console narratty="no-run"` (without braces) as plain text. A
@@ -519,7 +595,7 @@ scenes:
 | Key | Default | Meaning |
 |---|---|---|
 | `markdown` | required | The doc, relative to the spec |
-| `sections` | whole doc | Headings by TOC slug or title; a list path such as `[compose, services]` picks one of several equal headings |
+| `sections` | whole doc | Headings by TOC slug or title; a list path such as `[compose, services]` picks one of several equal headings; `{include: [...], exclude: [...]}` also leaves sections out (since 0.7), see [Choosing sections](#choosing-sections) |
 | `narration` | spec's `narration` (`all`) | `all` speaks every paragraph, `none` only `say` comments |
 | `tabs` | `[]` | Preferred content tab labels; otherwise each tab set's first tab |
 | `heading_overlays` | none | Show headings down to this level, see [Heading overlays](#heading-overlays) |
@@ -527,11 +603,30 @@ scenes:
 | `images` | `true` | Show images on a line of their own and `mermaid` blocks, see [Images](#images) |
 | `id_prefix` | file stem | Start of the generated scene ids |
 | `check_output` | `true` | Let `narratty check` compare the output console blocks show, see [Checking docs in CI](#checking-docs-in-ci) (since 0.6) |
+| `footnotes` | `skip` | `inline` speaks each footnote after the sentence that refers to it, see [Footnotes](#footnotes) (since 0.7) |
+| `admonitions` | `{}` | Per type, how admonitions and alerts start, or `false`, see [Callouts and tabs](#callouts-and-tabs) (since 0.7) |
+| `image_titles` | `true` | Use an image's alt text as its slide title, see [Images](#images) (since 0.7) |
+| `lint` | `true` | Let `narratty validate` warn about the doc, see [Checking the result](#checking-the-result) (since 0.7) |
 | `defaults` | `{}` | Scene keys for every scene: `typing_speed_ms`, `pause_ms`, `fast`, `timelapse`, `narration_start`, `expect_exit` |
 | `overrides` | `{}` | Per block id: the same scene keys plus `narration` and `before` / `after` action lists |
 
 A missing section or an override for an id that is not in the doc is an error with
-a "did you mean". Transitions between docs are ordinary scenes, for example a hidden
+a "did you mean".
+
+### Choosing sections
+
+A list of sections picks them, in that order, with their nested headings. To leave
+out a section but keep the rest, intro included, exclude it (since 0.7):
+
+```yaml
+- markdown: CONTRIBUTING.md
+  sections: {exclude: [faq, troubleshooting]}
+- markdown: docs/guide.md
+  sections: {include: [install, usage], exclude: [windows]}  # usage without its windows part
+```
+
+Inside the doc, a `<!-- narratty: skip-rest -->` comment leaves out the rest of its
+section, up to the next heading of the same or a higher level. Transitions between docs are ordinary scenes, for example a hidden
 `run: cd other && clear` and a scene with an overlay.
 
 ## Heading overlays
@@ -612,5 +707,4 @@ committed video is older than its doc.
 ## Not supported yet
 
 - Comparing output in the editor layout.
-- Narration rules beyond `all` and `none`, and a "skip the rest" comment.
-- Configurable handling of admonitions per type.
+- Narration rules beyond `all` and `none`.

@@ -9,13 +9,14 @@ import re
 import shlex
 import unicodedata
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from narratty.spec.markdown import EntryError, ExpandedScene
 from narratty.spec.markdown.links import LinkError, resolve_link
 from narratty.spec.markdown.parse import (
+    FOOTNOTE,
     SENTENCE_END,
     Block,
     Code,
@@ -33,13 +34,15 @@ from narratty.spec.model import (
     HeadingOverlays,
     MarkdownEntry,
     MarkdownNarration,
+    SectionFilter,
     to_ms,
 )
 
 SHELL_LANGS = ("bash", "sh", "shell")
-BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure", "any-output")
+BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure", "any-output", "show")
 COMMENT_KINDS = (
     "skip",
+    "skip-rest",
     "say",
     "overlay",
     "hidden",
@@ -75,6 +78,8 @@ class Note:
 class Expansion:
     scenes: list[ExpandedScene]
     notes: list[Note]
+    warnings: list[Note] = field(default_factory=list)
+    """Authoring problems ``narratty validate`` warns about (see :mod:`.lint`)."""
 
 
 def build_scenes(
@@ -91,16 +96,43 @@ def build_scenes(
 # ── sections ──────────────────────────────────────────────────────────────────
 
 
-def select_sections(blocks: list[Block], sections: Sequence[str | list[str]] | None) -> list[tuple[int, int]]:
+def select_sections(
+    blocks: list[Block], sections: Sequence[str | list[str]] | SectionFilter | None
+) -> list[tuple[int, int]]:
     """``(start, end)`` ranges of ``blocks`` for the selected sections, in their order."""
+    if isinstance(sections, SectionFilter):
+        return _filter_sections(blocks, sections)
     if sections is None:
         return [(0, len(blocks))]
+    return _section_ranges(blocks, sections, ())
+
+
+def _section_ranges(
+    blocks: list[Block], sections: Sequence[str | list[str]], loc: tuple[int | str, ...]
+) -> list[tuple[int, int]]:
     headings = [index for index, block in enumerate(blocks) if isinstance(block, Heading)]
     ranges = []
     for number, selection in enumerate(sections):
         path = [selection] if isinstance(selection, str) else selection
-        start = _find(blocks, headings, path, (number,))
+        start = _find(blocks, headings, path, (*loc, number))
         ranges.append((start, _section_end(blocks, start)))
+    return ranges
+
+
+def _filter_sections(blocks: list[Block], sections: SectionFilter) -> list[tuple[int, int]]:
+    """The included sections (or the whole doc) without the excluded ones."""
+    if sections.include is None:
+        ranges = [(0, len(blocks))]
+    else:
+        ranges = _section_ranges(blocks, sections.include, ("include",))
+    for cut_start, cut_end in _section_ranges(blocks, sections.exclude, ("exclude",)):
+        kept = []
+        for start, end in ranges:
+            if cut_end <= start or end <= cut_start:
+                kept.append((start, end))
+                continue
+            kept += [part for part in ((start, cut_start), (cut_end, end)) if part[0] < part[1]]
+        ranges = kept
     return ranges
 
 
@@ -175,16 +207,27 @@ class _Builder:
         self.pages: list[dict[str, Any]] = []  # later pages of the table on screen
         self.pages_block: Block | None = None
         self.used: set[str] = set()
+        self.level = 0  # of the last heading
+        self.skip_rest: int | None = None  # a skip-rest comment leaves out blocks up to a heading this high
+        self.lead: tuple[Block, str] | None = None  # a table's lead-in paragraph
+        self.previous: Block | None = None  # the last block that is not a comment
 
     def add(self, blocks: list[Block]) -> None:
+        self.skip_rest = None
         for block in blocks:
+            if self.skipping_rest(block):
+                continue
             self.check_pending(block)
-            if isinstance(block, Heading):
+            if isinstance(block, Heading) and self.skip:
+                self.skip = False
+                self.heading(block, shown=False)
+                self.note(block, None, "heading: left out by a skip comment (no overlay)")
+            elif isinstance(block, Heading):
                 self.heading(block)
             elif isinstance(block, Comment):
                 self.comment(block)
             elif isinstance(block, Dropped):
-                self.note(block, None, f"{block.what}: not part of the video")
+                self.dropped(block)
             elif self.skip:
                 self.skip = False
                 if isinstance(block, Table):
@@ -193,6 +236,8 @@ class _Builder:
                 self.note(block, None, f"{_kind(block)}: left out by a skip comment")
             else:
                 self.content(block)
+            if not isinstance(block, Comment):
+                self.previous = block
         self.check_pending(None)
         self.flush()
 
@@ -207,6 +252,24 @@ class _Builder:
         if self.slide is not None and (block is None or not _visual(block)):
             self.no_block(self.slide, "slide", VISUALS)
 
+    def skipping_rest(self, block: Block) -> bool:
+        """Whether a skip-rest comment leaves ``block`` out (it notes why)."""
+        if self.skip_rest is None:
+            return False
+        if isinstance(block, Heading) and block.level <= self.skip_rest:
+            self.skip_rest = None
+            return False
+        if not (isinstance(block, Comment) and _COMMENT.match(block.text) is None):
+            self.note(block, None, f"{_kind(block)}: left out by a skip-rest comment")
+        return True
+
+    def dropped(self, block: Dropped) -> None:
+        why = block.why
+        if block.what == FOOTNOTE:
+            inline = self.entry.footnotes == "inline"
+            why = "spoken after the sentence that refers to it" if inline else "not spoken (footnotes: skip)"
+        self.note(block, None, f"{block.what}: {why}")
+
     def content(self, block: Block) -> None:
         if isinstance(block, Text):
             self.text(block)
@@ -219,10 +282,10 @@ class _Builder:
 
     # ── blocks ──
 
-    def heading(self, block: Heading) -> None:
+    def heading(self, block: Heading, *, shown: bool = True) -> None:
         self.flush()
         self.diagram = None
-        self.section, self.count = id_part(block.slug), 0
+        self.section, self.count, self.level = id_part(block.slug), 0, block.level
         # Overlays of headings that got no scene give way to this one.
         self.overlays = [
             (level, action) for level, action in self.overlays if level is None or level < block.level
@@ -231,6 +294,8 @@ class _Builder:
         if settings is None or block.level > settings.levels:
             return
         self.trail = {level: title for level, title in self.trail.items() if level < block.level}
+        if not shown:
+            return
         if settings.breadcrumb and block.level >= 2:
             self.trail[block.level] = block.title
         else:
@@ -239,7 +304,7 @@ class _Builder:
 
     def text(self, block: Text) -> None:
         if self.narration == "all":
-            self.spoken.append(block.text)
+            self.spoken.append(spoken_text(block, self.entry))
             self.unassigned.append((block, "paragraph: spoken"))
         else:
             self.note(block, None, "paragraph: not spoken (narration: none)")
@@ -251,6 +316,9 @@ class _Builder:
         kind, body = match["kind"], match["body"].strip()
         if kind == "skip":
             self.skip = True
+        elif kind == "skip-rest":
+            self.skip_rest = self.level or 6  # before the first heading: up to any heading
+            self.note(block, None, "skip-rest comment: the rest of the section is left out")
         elif kind == "say":
             self.spoken.append(" ".join(body.split()))
             self.unassigned.append((block, "say comment: spoken"))
@@ -375,6 +443,8 @@ class _Builder:
         if not path.is_file():
             raise fail(block.file, block.line, f"image not found: {block.src}")
         data = f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
+        if self.entry.image_titles and block.alt and "title" not in look:
+            look = {"title": block.alt, **look}
         self.diagram = None
         self.pending_view(block, {"slide": {**look, "image": data}}, "image: shown as a slide")
 
@@ -454,6 +524,26 @@ class _Builder:
         if "pause" in options:
             options["pause"] = _duration(options["pause"], block, "table comment: pause")
         self.table = (block, options)
+        self.lead = self.lead_in()
+
+    def lead_in(self) -> tuple[Block, str] | None:
+        """The paragraph right before a table comment, when it ends with a colon.
+
+        It introduces the table, so it is spoken with the first row instead of before
+        the slide.
+        """
+        paragraph = self.unassigned[-1][0] if self.unassigned else None
+        if not (self.spoken and isinstance(paragraph, Text) and paragraph is self.previous):
+            return None
+        return (self.unassigned[-1][0], self.spoken[-1]) if self.spoken[-1].endswith(":") else None
+
+    def take_lead(self) -> tuple[Block, str] | None:
+        """The table's lead-in paragraph, taken out of the narration before the table."""
+        lead, self.lead = self.lead, None
+        if lead is not None:
+            self.spoken.pop()
+            self.unassigned.pop()
+        return lead
 
     def show_table(self, block: Table) -> None:
         """A slide of the table, with a slide or table comment; left out otherwise."""
@@ -482,7 +572,11 @@ class _Builder:
         if isinstance(phrases, str):
             _check_fields(phrases, block.header, comment)
         pause = options.get("pause")
+        lead = self.take_lead()
         self.flush()
+        if lead is not None:  # spoken with the first row
+            self.spoken.append(lead[1])
+            self.unassigned.append((lead[0], "paragraph: spoken with the table's first row"))
         for number, (row, line) in enumerate(zip(block.rows, block.row_lines, strict=True), 1):
             source = Block(block.file, line)
             self.overlays.append((None, {"slide": {**look, "table": table, "highlight": number}}))
@@ -515,6 +609,9 @@ class _Builder:
                 block.line,
                 f"unknown narratty option {unknown[0]!r}; expected one of {', '.join(BLOCK_OPTIONS)}",
             )
+        if "show" in options:
+            self.show_code(block, options)
+            return
         if self.image and (block.lang == "console" or block.lang in SHELL_LANGS or block.title):
             self.flush()  # an image never covers commands
         if block.lang == "mermaid":
@@ -527,8 +624,24 @@ class _Builder:
             self.commands(block, options)
         elif block.title:
             self.file(block, options)
+        elif not block.lang:
+            self.note(block, None, "code block: left out (no language)")
         else:
-            self.note(block, None, f"{block.lang or 'code'} block: left out (no title)")
+            self.note(block, None, f'{block.lang} block: left out (no title; add a title or narratty="show")')
+
+    def show_code(self, block: Code, options: set[str]) -> None:
+        """A code slide while the text around it is spoken, like an image; nothing is written."""
+        if extra := sorted(options - {"show"}):
+            raise fail(block.file, block.line, f"{extra[0]!r} does not apply to blocks marked show")
+        look = self.take_slide() or {}
+        code = block.content.rstrip("\n")
+        if not code.strip():
+            raise fail(block.file, block.line, "the block marked show is empty")
+        if block.title and "title" not in look:
+            look = {"title": block.title, **look}
+        slide = {**look, "code": code} | ({"lang": block.lang} if block.lang else {})
+        self.diagram = None
+        self.pending_view(block, {"slide": slide}, f"{block.lang or 'code'} block: shown as a slide")
 
     def commands(self, block: Code, options: set[str]) -> None:
         commands = (
@@ -663,6 +776,12 @@ class _Builder:
 def _kind(block: Block) -> str:
     if isinstance(block, Image):
         return "image"
+    if isinstance(block, Heading):
+        return "heading"
+    if isinstance(block, Comment):
+        return "comment"
+    if isinstance(block, Dropped):
+        return block.what
     if isinstance(block, Table):
         return "table"
     return "paragraph" if isinstance(block, Text) else f"{getattr(block, 'lang', '') or 'code'} block"
@@ -670,7 +789,50 @@ def _kind(block: Block) -> str:
 
 def _visual(block: Block) -> bool:
     """Whether a slide comment can show ``block``."""
-    return isinstance(block, (Table, Image)) or (isinstance(block, Code) and block.lang == "mermaid")
+    return isinstance(block, (Table, Image)) or (
+        isinstance(block, Code) and (block.lang == "mermaid" or "show" in block.options)
+    )
+
+
+# ── spoken text ───────────────────────────────────────────────────────────────
+
+SAID_TYPES = ("warning", "caution", "danger", "important")
+"""Admonition and alert types whose type is spoken by default."""
+
+
+def spoken_text(block: Text, entry: MarkdownEntry) -> str:
+    """How a paragraph is spoken: footnotes inline (if so set), an admonition's type first."""
+    text = block.text
+    if entry.footnotes == "inline":
+        for at, note in reversed(block.footnotes):
+            if note:
+                text = f"{text[:at]} {_sentence(note)}{text[at:]}".strip()
+    if block.callout is not None:
+        text = callout_text(*block.callout, text, entry.admonitions)
+    return text
+
+
+def callout_text(kind: str, title: str | None, body: str, templates: dict[str, str] | bool) -> str:
+    """``body`` with the start ``templates`` (or the default) gives admonitions of ``kind``."""
+    name = kind.capitalize()
+    if templates is False:
+        return body
+    template = templates.get(kind) if isinstance(templates, dict) else None
+    if template is not None:
+        text = template.format(type=name, title=title or name, body=body)
+    elif kind not in SAID_TYPES:
+        return body
+    elif title and title.casefold() != kind:
+        text = f"{name}: {_sentence(title)} {body}"
+    else:
+        text = f"{name}: {body}"
+    text = " ".join(text.split())
+    return text if body else _sentence(text.rstrip(":"))
+
+
+def _sentence(text: str) -> str:
+    text = text.strip()
+    return text if text.endswith(SENTENCE_END) else f"{text}."
 
 
 def _bare(action: Any) -> dict[str, Any]:

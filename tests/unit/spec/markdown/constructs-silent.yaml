@@ -25,6 +25,7 @@
   narration: Kept for step 4.
   actions:
   - slide:
+      title: An image
       image: 
         data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR42mMM+FXNwMDAxMDAwMDAAAAVOwHJmu/WOAAAAABJRU5ErkJggg==
   typing_speed_ms: 20

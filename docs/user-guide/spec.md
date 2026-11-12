@@ -464,7 +464,7 @@ directory (`narratty doctor` shows where).
 
 Since narratty 0.6.
 
-A slide shows one table, Mermaid diagram, image or HTML page full screen over the
+A slide shows one table, Mermaid diagram, image, HTML page or piece of code full screen over the
 terminal, with an optional title, while the narration talks about it. Like a browser
 view it stays until its scene ends or `duration_ms` has passed, and a later slide or
 browser view in the same scene replaces it.
@@ -500,6 +500,8 @@ scenes:
 | `focus` | Mermaid node or subgraph ID to emphasize during narration (since 0.7) |
 | `image` | A PNG, JPEG, GIF, SVG or WebP file in the workspace, or a `data:` URL |
 | `html` | An HTML file in the workspace or a `data:` URL, shown as it is (no title or theme) |
+| `code` | Source code, syntax-highlighted and sized to fit (since 0.7) |
+| `lang` | Language of `code`, such as `json` or `yaml` (any [Pygments](https://pygments.org/languages/) name); unset or unknown: plain text (since 0.7) |
 | `title` | Text above the content |
 | `highlight` | Table row to highlight, from 1 |
 | `rows` | Table rows per page, a number (not the `rows` list inside `table`); the page with the highlighted row is shown, with a page counter |
@@ -532,9 +534,9 @@ scenes:
           focus: db
 ```
 
-Exactly one of `table`, `mermaid`, `image` and `html` is given. A table taller than
+Exactly one of `table`, `mermaid`, `image`, `html` and `code` is given. A table taller than
 the slide moves up so that the highlighted row stays in view. A Markdown doc makes
-slides from its tables, `mermaid` blocks and images; see
+slides from its tables, `mermaid` blocks, images and blocks marked `show`; see
 [Markdown input](markdown.md#slides).
 
 ## Spec versions
@@ -560,4 +562,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 | 0.3 | `run` action, `key: Enter` (the bare `- enter` still works), durations like `1.5s`, `wait: "pattern"`, `wait: {prompt: true}`, `timing.run_hold_ms`, `timing.pause_ms` and scene `pause_ms`, `tts.lexicon`, `subtitles`, `environment`, `sandbox.docker`, `terminal.layout`, overlays (`overlay`, `overlay_styles`), `browser`, `diff`, `focus`, `reveal`, scene `timelapse`, `expect_exit` and `fast` |
 | 0.5 | `requires.narratty`, `markdown` scene entries and the top-level `narration` ([Markdown input](markdown.md)), overlay styles `heading-1` to `heading-4`, `breadcrumb` and `file`, `browser` `address` and `data:` URLs |
 | 0.6 | `slide` action and `slides.theme`, Mermaid diagrams in browser views, `run` `expect_output`; in Markdown input the `table`, `slide`, `pause` and `spec` comments, `mermaid` blocks, `check_output` and the `any-output` block option |
-| 0.7 | `slide` `focus`; in Markdown input the `focus` comment, the `slide` comment's `focus` key and a list for the `table` comment's `say` |
+| 0.7 | `slide` `focus`, `code` and `lang`; in Markdown input the `focus` and `skip-rest` comments, the `slide` comment's `focus` key, a list for the `table` comment's `say`, the `show` block option, `sections` with `include` / `exclude`, and the entry keys `footnotes`, `admonitions`, `image_titles` and `lint` |

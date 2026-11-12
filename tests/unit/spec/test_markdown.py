@@ -372,7 +372,7 @@ def test_notes_explain_every_part(tmp_path: Path) -> None:
     assert notes == [
         (3, "doc-1", "paragraph: spoken"),
         (5, None, "table: not part of the video"),
-        (9, None, "yaml block: left out (no title)"),
+        (9, None, 'yaml block: left out (no title; add a title or narratty="show")'),
     ]
 
 

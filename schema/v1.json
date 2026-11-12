@@ -2153,6 +2153,66 @@
       "title": "SceneDefaults",
       "type": "object"
     },
+    "SectionFilter": {
+      "additionalProperties": false,
+      "description": "Sections to use and sections to leave out (since 0.7).",
+      "properties": {
+        "include": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sections to use, in this order; unset: the whole doc.",
+          "title": "Include"
+        },
+        "exclude": {
+          "default": [],
+          "description": "Sections left out, with their nested headings; the rest stays, intros included.",
+          "items": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            ]
+          },
+          "title": "Exclude",
+          "type": "array"
+        }
+      },
+      "title": "SectionFilter",
+      "type": "object"
+    },
     "MarkdownEntry": {
       "additionalProperties": false,
       "description": "A Markdown doc expanded into scenes where it stands in ``scenes``.",
@@ -2186,11 +2246,14 @@
               "type": "array"
             },
             {
+              "$ref": "#/$defs/SectionFilter"
+            },
+            {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Sections to use, by TOC slug or title, with their nested headings; a list path picks one of several equal headings. Unset: the whole doc.",
+          "description": "Sections to use, by TOC slug or title, with their nested headings; a list path picks one of several equal headings. Unset: the whole doc. {include: [...], exclude: [...]} also leaves sections out.",
           "title": "Sections"
         },
         "id_prefix": {
@@ -2267,6 +2330,48 @@
           "default": true,
           "description": "Let `narratty check` compare what commands print with the output shown in console blocks.",
           "title": "Check Output",
+          "type": "boolean"
+        },
+        "footnotes": {
+          "default": "skip",
+          "description": "skip: footnotes are not spoken; inline: each is spoken after the sentence that refers to it (since 0.7).",
+          "enum": [
+            "skip",
+            "inline"
+          ],
+          "title": "Footnotes",
+          "type": "string"
+        },
+        "admonitions": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "default": {},
+          "description": "How admonitions and alerts of a type start when spoken: a template with {type}, {title} and {body}, such as 'Careful: {body}'; false: never prefixed. warning, caution, danger and important say their type by default (since 0.7).",
+          "title": "Admonitions"
+        },
+        "image_titles": {
+          "default": true,
+          "description": "Show an image's alt text as its slide title (since 0.7).",
+          "title": "Image Titles",
+          "type": "boolean"
+        },
+        "lint": {
+          "default": true,
+          "description": "Let `narratty validate` warn about the doc's authoring problems (since 0.7).",
+          "title": "Lint",
           "type": "boolean"
         },
         "defaults": {

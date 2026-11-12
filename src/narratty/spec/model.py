@@ -624,17 +624,30 @@ def _or_levels(schema: dict[str, Any]) -> None:
 
 
 SectionPath = Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)]
+Section = Annotated[str, Field(min_length=1)] | SectionPath
+ADMONITION_FIELDS = ("type", "title", "body")
+
+
+class SectionFilter(_Model):
+    """Sections to use and sections to leave out (since 0.7)."""
+
+    include: list[Section] | None = Field(
+        None, min_length=1, description="Sections to use, in this order; unset: the whole doc."
+    )
+    exclude: list[Section] = Field(
+        [], description="Sections left out, with their nested headings; the rest stays, intros included."
+    )
 
 
 class MarkdownEntry(_Model):
     """A Markdown doc expanded into scenes where it stands in ``scenes``."""
 
     markdown: str = Field(min_length=1, description="The Markdown file, relative to the spec.")
-    sections: list[Annotated[str, Field(min_length=1)] | SectionPath] | None = Field(
+    sections: Annotated[list[Section], Field(min_length=1)] | SectionFilter | None = Field(
         None,
-        min_length=1,
         description="Sections to use, by TOC slug or title, with their nested headings; "
-        "a list path picks one of several equal headings. Unset: the whole doc.",
+        "a list path picks one of several equal headings. Unset: the whole doc. "
+        "{include: [...], exclude: [...]} also leaves sections out.",
     )
     id_prefix: str | None = Field(
         None, pattern=SCENE_ID_PATTERN, description="Start of the scene ids; defaults to the file stem."
@@ -656,6 +669,21 @@ class MarkdownEntry(_Model):
         description="Let `narratty check` compare what commands print with the output shown in "
         "console blocks.",
     )
+    footnotes: Literal["skip", "inline"] = Field(
+        "skip",
+        description="skip: footnotes are not spoken; inline: each is spoken after the sentence "
+        "that refers to it (since 0.7).",
+    )
+    admonitions: dict[Annotated[str, Field(min_length=1)], str] | Literal[False] = Field(
+        {},
+        description="How admonitions and alerts of a type start when spoken: a template with "
+        "{type}, {title} and {body}, such as 'Careful: {body}'; false: never prefixed. warning, "
+        "caution, danger and important say their type by default (since 0.7).",
+    )
+    image_titles: bool = Field(True, description="Show an image's alt text as its slide title (since 0.7).")
+    lint: bool = Field(
+        True, description="Let `narratty validate` warn about the doc's authoring problems (since 0.7)."
+    )
     defaults: SceneDefaults = SceneDefaults()
     overrides: dict[Annotated[str, Field(pattern=SCENE_ID_PATTERN)], BlockOverride] = Field(
         {}, description="Per-block changes, keyed by the id in the block's attributes."
@@ -665,6 +693,22 @@ class MarkdownEntry(_Model):
     @classmethod
     def _levels_shorthand(cls, value: Any) -> Any:
         return {"levels": value} if isinstance(value, int) and not isinstance(value, bool) else value
+
+    @field_validator("admonitions")
+    @classmethod
+    def _templates(cls, value: dict[str, str] | Literal[False]) -> dict[str, str] | Literal[False]:
+        import string
+
+        for kind, template in (value or {}).items():
+            try:
+                names = [name for _, name, _, _ in string.Formatter().parse(template) if name is not None]
+            except ValueError as error:
+                raise ValueError(f"{kind}: {error}") from error
+            if unknown := [name for name in names if name not in ADMONITION_FIELDS]:
+                raise ValueError(
+                    f"{kind}: unknown field {{{unknown[0]}}}; use {{type}}, {{title}} and {{body}}"
+                )
+        return {kind.lower(): template for kind, template in value.items()} if value else value
 
 
 # ── top-level sections ────────────────────────────────────────────────────────
