@@ -304,7 +304,7 @@ def test_placeholder_in_a_command_to_run_is_an_error(tmp_path: Path) -> None:
     assert line == 5
     assert message.startswith("<repo-url> is a placeholder; write it as $REPO_URL")
     no_run = '# Doc\n\n```bash {narratty="no-run"}\ngit clone <repo-url>\n```\n'
-    assert _expand(_doc(tmp_path, no_run))[0]["actions"][0] == {"type_command": "git clone <repo-url>"}
+    assert _expand(_doc(tmp_path, no_run))[0]["actions"][0] == {"run": ":", "show": "git clone <repo-url>"}
 
 
 @pytest.mark.parametrize(

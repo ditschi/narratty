@@ -900,8 +900,8 @@ scenes: []
 
 - `#id` names the block for `overrides` and the scene id; mkdocs also makes it a link
   anchor.
-- `narratty="…"` takes space-separated options: `no-run` (typed, then cancelled with
-  Ctrl+C), `hidden`
+- `narratty="…"` takes space-separated options: `no-run` (typed and left on screen; a
+  `run` with `show` runs `:` in its place, since 0.7), `hidden`
   (run, not shown) and `expect-failure`. Leaving a block out entirely is the `skip`
   comment.
 - Comments hold what the video adds (narration, overlays, setup); attributes describe

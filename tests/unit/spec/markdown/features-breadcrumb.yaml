@@ -57,9 +57,10 @@
   - overlay:
       text: Note
       style: file
-  - type_command: narratty build "$SPEC"
-  - hold: 1000
-  - ctrl_sequence: C-c
+  - run: ':'
+    show: narratty build "$SPEC"
+  - wait:
+      prompt: true
 - source: features.md:47
   id: features-fails
   actions:

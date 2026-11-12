@@ -468,7 +468,7 @@ scenes: []
 
 | Option | Does |
 |---|---|
-| `no-run` | Types the command, then cancels it with Ctrl+C |
+| `no-run` | Types the command and leaves it on screen without running it; before 0.7 it was cancelled with a visible `^C` |
 | `hidden` | Runs the block without showing it (setup) |
 | `expect-failure` | The block's commands are expected to fail |
 | `any-output` | The output the block shows is not compared (since 0.6), see [Checking docs in CI](#checking-docs-in-ci) |

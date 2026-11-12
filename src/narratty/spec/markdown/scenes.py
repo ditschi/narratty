@@ -53,7 +53,7 @@ COMMENT_KINDS = (
 SLIDE_KEYS = ("title", "theme", "rows", "html", "focus")
 TABLE_KEYS = ("say", "pause", "title", "theme", "rows")
 VISUALS = "a table, image or mermaid block"
-NO_RUN_HOLD_MS = 1000
+NOTHING = ":"  # the shell command that does nothing, run in place of a no-run command
 IMAGE_HOLD_MS = 3000  # an image scene without narration
 MAX_URL_CHARS = 2 * 1024 * 1024  # Chromium does not load longer URLs
 _COMMENT = re.compile(r"^\s*narratty:\s*(?P<kind>[\w-]*)(?P<body>.*)$", re.DOTALL)
@@ -535,7 +535,7 @@ class _Builder:
             console_commands(block.content) if block.lang == "console" else split_commands(block.content)
         )
         if "no-run" in options:
-            actions = [action for command in commands for action in _typed(command.text)]
+            actions = [action for command in commands for action in _shown(command.text)]
         else:
             _check_placeholders(commands, block, 1)
             actions = _runs(commands, outputs=self.entry.check_output and "any-output" not in options)
@@ -787,9 +787,9 @@ def expected_output(lines: Sequence[str]) -> str:
     return "\n".join(line.rstrip() for line in lines).strip("\n")
 
 
-def _typed(command: str) -> list[dict[str, Any]]:
-    """Type a command, let it be read, then cancel it with Ctrl+C."""
-    return [{"type_command": command}, {"hold": NO_RUN_HOLD_MS}, {"ctrl_sequence": "C-c"}]
+def _shown(command: str) -> list[dict[str, Any]]:
+    """Type a command and leave it on screen; ``:`` (do nothing) runs in its place."""
+    return [{"run": NOTHING, "show": command}, _wait()]
 
 
 def _check_placeholders(commands: Sequence[Command], block: Block, first_line: int) -> None:
