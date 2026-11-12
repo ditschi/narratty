@@ -1075,6 +1075,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#expected-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expected output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#overlays" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2101,6 +2112,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#expected-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expected output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#overlays" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2177,8 +2199,10 @@
 <h1 id="spec-reference">Spec reference<a class="headerlink" href="#spec-reference" title="Permanent link">&para;</a></h1>
 <p>A narratty video is described by a <code>.narratty.yaml</code> file. For a video made from a doc,
 it is mostly a <a href="../markdown/#the-markdown-entry"><code>markdown</code> entry</a> plus the voice and
-the look. <code>narratty init</code> writes a commented starter, <code>narratty validate</code> checks one,
-and <code>narratty schema</code> prints the JSON Schema.</p>
+the look, and a doc can also be built on its own with no YAML file at all
+(<a href="../markdown/#building-a-doc-on-its-own">Building a doc on its own</a>). <code>narratty init</code>
+writes a commented starter, <code>narratty validate</code> checks one, and <code>narratty schema</code>
+prints the JSON Schema.</p>
 <h2 id="editor-support">Editor support<a class="headerlink" href="#editor-support" title="Permanent link">&para;</a></h2>
 <p>The first line <code>narratty init</code> writes tells your editor where the schema is:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># yaml-language-server: $schema=https://raw.githubusercontent.com/ditschi/narratty/v0.2.0/schema/v1.json</span>
@@ -2196,15 +2220,43 @@ tag of the narratty version you have installed; development builds point at <cod
 </code></pre></div>
 <p>Unknown keys are errors, and <code>validate</code> reports every problem with its line and column,
 plus a "did you mean" for typos:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$ narratty validate demo.narratty.yaml
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did you mean 'type_command'?)
+<!-- narratty: hidden
+cat > demo.narratty.yaml <<'EOF'
+scenes:
+  - id: intro
+    actions:
+      - type_comand: ls
+EOF
+-->
+
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="gp">$ </span>narratty<span class="w"> </span>validate<span class="w"> </span>demo.narratty.yaml
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="go">error: demo.narratty.yaml: 1 problem</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="go">  demo.narratty.yaml:4:9: scenes[0].actions[0]: unknown action 'type_comand' (did you mean 'type_command'?)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="go">hint: Run `narratty schema` for the full list of keys.</span>
 </code></pre></div>
 <p>Valid lines that can be left out or written shorter are reported as hints; they do not
 fail validation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$ narratty validate demo.narratty.yaml
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>hint: demo.narratty.yaml:3:3: tts.voice: same as the default; leave it out
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>hint: demo.narratty.yaml:12:9: scenes[0].actions[2]: 'hold: auto' has no effect at the end of a scene; leave it out
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>ok demo.narratty.yaml: 2 scenes, 2 narrated, voice kokoro/af_heart
+<!-- narratty: hidden
+cat > demo.narratty.yaml <<'EOF'
+version: 1
+tts:
+  voice: af_heart
+scenes:
+  - id: intro
+    narration: A quick look at the files.
+    actions:
+      - run: ls
+  - id: outro
+    narration: That is all.
+    actions:
+      - hold: auto
+EOF
+-->
+
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gp">$ </span>narratty<span class="w"> </span>validate<span class="w"> </span>demo.narratty.yaml
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">hint: demo.narratty.yaml:3:3: tts.voice: same as the default; leave it out</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="go">hint: demo.narratty.yaml:12:9: scenes[1].actions[0]: 'hold: auto' has no effect at the end of a scene; leave it out</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="go">ok demo.narratty.yaml: 2 scenes, 2 narrated, voice kokoro/af_heart</span>
 </code></pre></div>
 <h2 id="durations">Durations<a class="headerlink" href="#durations" title="Permanent link">&para;</a></h2>
 <p>Every <code>*_ms</code> key and <code>hold</code> take milliseconds (<code>1500</code>) or a duration with a unit:
@@ -2731,7 +2783,7 @@ turns the doc's paragraphs and code blocks into scenes where it stands; see
 <tr>
 <td><code>run</code></td>
 <td><code>- run: ls -la</code></td>
-<td>Types the command, presses Enter, pauses <code>timing.run_hold_ms</code>; may set its own <code>expect_exit</code> (since 0.3)</td>
+<td>Types the command, presses Enter, pauses <code>timing.run_hold_ms</code>; may set its own <code>expect_exit</code> (since 0.3) and <code>expect_output</code> (since 0.6, see <a href="#expected-output">Expected output</a>)</td>
 </tr>
 <tr>
 <td><code>type_command</code></td>
@@ -2854,23 +2906,46 @@ anything with <code>shell: sh</code>. In the editor layout, the terminal pane's 
 checked. In a <a href="../environments/">project environment</a> the log is read from its container
 after recording. With bash 3.2 (macOS's default) narratty turns on shell history to read the
 command lines, so <code>key: Up</code> recalls earlier commands there.</p>
+<h3 id="expected-output">Expected output<a class="headerlink" href="#expected-output" title="Permanent link">&para;</a></h3>
+<p>Since narratty 0.6.</p>
+<p>A <code>run</code> action's <code>expect_output</code> is what the command prints. <code>narratty check</code> runs the
+commands without recording a video and compares; builds do not.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">version</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">python --version</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">      </span><span class="nt">expect_output</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Python 3...</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">prompt</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<ul>
+<li>The output is compared as plain text: colours and other escape sequences are left
+  out, a carriage return redraws its line, trailing spaces and blank lines at the
+  start and end do not count.</li>
+<li>A line <code>...</code> stands for any number of lines, also none; <code>...</code> within a line for any
+  text there.</li>
+<li>The output ends where the prompt is back, so follow the command with
+  <code>wait: {prompt: true}</code>. <a href="../markdown/#checking-docs-in-ci">Markdown input</a> does that
+  and fills in <code>expect_output</code> from the output a console block shows.</li>
+<li>Output is not compared in the editor layout, where tmux redraws it.</li>
+</ul>
+<p><code>narratty check</code> exits with code 8 and shows a diff for each command that printed
+something else.</p>
 <h3 id="overlays">Overlays<a class="headerlink" href="#overlays" title="Permanent link">&para;</a></h3>
 <p>Since narratty 0.3.</p>
 <p>An overlay shows text over the video, in a rounded, semi-transparent box: a chapter
 title, the file the narration talks about. It stays readable while the terminal
 scrolls.</p>
 <p><img alt="Overlays: a chapter, a file name, a custom style and text without a box" src="../../assets/overlays.png" /></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">overlay_styles</span><span class="p">:</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">position</span><span class="p">:</span><span class="w"> </span><span class="nv">top</span><span class="p p-Indicator">,</span><span class="nt"> size</span><span class="p">:</span><span class="w"> </span><span class="nv">small</span><span class="p p-Indicator">,</span><span class="nt"> color</span><span class="p">:</span><span class="w"> </span><span class="s">"#f1fa8c"</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nt">scenes</span><span class="p">:</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">setup</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Let's set up the project.</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">text</span><span class="p">:</span><span class="w"> </span><span class="s">"1</span><span class="nv"> </span><span class="s">·</span><span class="nv"> </span><span class="s">Setup"</span><span class="p p-Indicator">,</span><span class="nt"> style</span><span class="p">:</span><span class="w"> </span><span class="nv">chapter</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">make setup</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run the tests next</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">text</span><span class="p">:</span><span class="w"> </span><span class="nv">src/greet/__main__.py</span><span class="p p-Indicator">,</span><span class="nt"> style</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> duration_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">3000</span><span class="p p-Indicator">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">overlay_styles</span><span class="p">:</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">position</span><span class="p">:</span><span class="w"> </span><span class="nv">top</span><span class="p p-Indicator">,</span><span class="nt"> size</span><span class="p">:</span><span class="w"> </span><span class="nv">small</span><span class="p p-Indicator">,</span><span class="nt"> color</span><span class="p">:</span><span class="w"> </span><span class="s">"#f1fa8c"</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">setup</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Let's set up the project.</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">text</span><span class="p">:</span><span class="w"> </span><span class="s">"1</span><span class="nv"> </span><span class="s">·</span><span class="nv"> </span><span class="s">Setup"</span><span class="p p-Indicator">,</span><span class="nt"> style</span><span class="p">:</span><span class="w"> </span><span class="nv">chapter</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">make setup</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run the tests next</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">text</span><span class="p">:</span><span class="w"> </span><span class="nv">src/greet/__main__.py</span><span class="p p-Indicator">,</span><span class="nt"> style</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> duration_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">3000</span><span class="p p-Indicator">}</span>
 </code></pre></div>
 <p>The overlay appears where its action stands in the scene. It stays until the first
 of: <code>duration_ms</code> has passed, another overlay takes its position, or the scene ends.
@@ -2946,19 +3021,19 @@ they are drawn over the player and follow its clock.</p>
 example the rendered documentation next to its Markdown source. Chromium (which VHS
 records with) captures the page at the video's width; the view covers the terminal
 under an address bar until its scene ends.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">sandbox</span><span class="p">:</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">full</span><span class="w">       </span><span class="c1"># only for web pages; local files need no network</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nt">scenes</span><span class="p">:</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">page</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is the page you should see.</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">browser</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"https://github.com/ditschi/narratty"</span><span class="p p-Indicator">,</span><span class="nt"> scroll</span><span class="p">:</span><span class="w"> </span><span class="nv">1400</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The built documentation looks like this.</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mkdocs build</span>
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="s">"Documentation</span><span class="nv"> </span><span class="s">built"</span>
-<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">browser</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="nv">site/index.html</span><span class="p p-Indicator">,</span><span class="nt"> scroll</span><span class="p">:</span><span class="w"> </span><span class="nv">auto</span><span class="p p-Indicator">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">sandbox</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">full</span><span class="w">       </span><span class="c1"># only for web pages; local files need no network</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">page</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is the page you should see.</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">browser</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"https://github.com/ditschi/narratty"</span><span class="p p-Indicator">,</span><span class="nt"> scroll</span><span class="p">:</span><span class="w"> </span><span class="nv">1400</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The built documentation looks like this.</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mkdocs build</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="s">"Documentation</span><span class="nv"> </span><span class="s">built"</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">browser</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="nv">site/index.html</span><span class="p p-Indicator">,</span><span class="nt"> scroll</span><span class="p">:</span><span class="w"> </span><span class="nv">auto</span><span class="p p-Indicator">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3014,27 +3089,27 @@ directory (<code>narratty doctor</code> shows where).</p>
 terminal, with an optional title, while the narration talks about it. Like a browser
 view it stays until its scene ends or <code>duration_ms</code> has passed, and a later slide or
 browser view in the same scene replaces it.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">slides</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">theme</span><span class="p">:</span><span class="w"> </span><span class="nv">dark</span><span class="p p-Indicator">}</span><span class="w">              </span><span class="c1"># the default; light is the other look</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nt">scenes</span><span class="p">:</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">risks</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pinch points are the highest risk. Keep the guard closed.</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Safety risks</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">          </span><span class="nt">table</span><span class="p">:</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">            </span><span class="nt">header</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Hazard</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Severity</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Mitigation</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">            </span><span class="nt">rows</span><span class="p">:</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Pinch point</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">high</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Keep the guard closed</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Hot surface</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">medium</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Wear `gloves`</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">          </span><span class="nt">highlight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flow</span>
-<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A spec becomes a video in three steps.</span>
-<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="nv">Build flow</span><span class="p p-Indicator">,</span><span class="nt"> mermaid</span><span class="p">:</span><span class="w"> </span><span class="s">"flowchart</span><span class="nv"> </span><span class="s">LR\n</span><span class="nv">  </span><span class="s">spec</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">plan</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">build</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">mp4"</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">screenshot</span>
-<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is the result.</span>
-<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="nv">docs/assets/overlays.png</span><span class="p p-Indicator">,</span><span class="nt"> theme</span><span class="p">:</span><span class="w"> </span><span class="nv">light</span><span class="p p-Indicator">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">slides</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">theme</span><span class="p">:</span><span class="w"> </span><span class="nv">dark</span><span class="p p-Indicator">}</span><span class="w">              </span><span class="c1"># the default; light is the other look</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">risks</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pinch points are the highest risk. Keep the guard closed.</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Safety risks</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">          </span><span class="nt">table</span><span class="p">:</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">            </span><span class="nt">header</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Hazard</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Severity</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Mitigation</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">            </span><span class="nt">rows</span><span class="p">:</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Pinch point</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">high</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Keep the guard closed</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Hot surface</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">medium</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Wear `gloves`</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">          </span><span class="nt">highlight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flow</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A spec becomes a video in three steps.</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="nv">Build flow</span><span class="p p-Indicator">,</span><span class="nt"> mermaid</span><span class="p">:</span><span class="w"> </span><span class="s">"flowchart</span><span class="nv"> </span><span class="s">LR\n</span><span class="nv">  </span><span class="s">spec</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">plan</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">build</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">mp4"</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">screenshot</span>
+<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is the result.</span>
+<a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="nv">docs/assets/overlays.png</span><span class="p p-Indicator">,</span><span class="nt"> theme</span><span class="p">:</span><span class="w"> </span><span class="nv">light</span><span class="p p-Indicator">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3096,8 +3171,8 @@ renamed or changes its meaning. New keys, actions and short forms keep the versi
 so every <code>version: 1</code> spec keeps working with newer narratty releases.</p>
 <p>A spec that uses newer keys needs a newer narratty, which <code>version</code> does not tell.
 <code>requires.narratty</code> does:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">requires</span><span class="p">:</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">narratty</span><span class="p">:</span><span class="w"> </span><span class="s">"&gt;=0.3"</span><span class="w">   </span><span class="c1"># uses run, key: Enter and durations</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">requires</span><span class="p">:</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">narratty</span><span class="p">:</span><span class="w"> </span><span class="s">"&gt;=0.3"</span><span class="w">   </span><span class="c1"># uses run, key: Enter and durations</span>
 </code></pre></div>
 <p>narratty checks it before anything else in the spec, so an older narratty that knows
 the key reports the version to install instead of the keys it does not know. Releases
@@ -3120,7 +3195,7 @@ before 0.5 do not know <code>requires.narratty</code> and reject it as an unknow
 </tr>
 <tr>
 <td>0.6</td>
-<td><code>slide</code> action and <code>slides.theme</code>, Mermaid diagrams in browser views; in Markdown input the <code>table</code>, <code>slide</code> and <code>pause</code> comments and <code>mermaid</code> blocks</td>
+<td><code>slide</code> action and <code>slides.theme</code>, Mermaid diagrams in browser views, <code>run</code> <code>expect_output</code>; in Markdown input the <code>table</code>, <code>slide</code>, <code>pause</code> and <code>spec</code> comments, <code>mermaid</code> blocks, <code>check_output</code> and the <code>any-output</code> block option</td>
 </tr>
 </tbody>
 </table>

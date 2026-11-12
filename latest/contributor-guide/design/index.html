@@ -2284,6 +2284,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#docs-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs first
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docs first">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-doc-on-its-own" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A doc on its own
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#narratty-init---markdown-doc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        narratty init --markdown DOC
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#comparing-output-narratty-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparing output: narratty check
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#milestones" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3015,6 +3065,56 @@
     <span class="md-ellipsis">
       
         Tests and docs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs first
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docs first">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-doc-on-its-own" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A doc on its own
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#narratty-init---markdown-doc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        narratty init --markdown DOC
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#comparing-output-narratty-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparing output: narratty check
       
     </span>
   </a>
@@ -4570,6 +4670,52 @@ Slides are made from the doc's own lines, so they always match it.</p>
   browser tests that need Chromium (skipped without <code>mermaid.min.js</code>).</li>
 <li><code>docs/user-guide/markdown.md</code> gets a section per feature, which the Markdown example
   video includes; <code>docs/user-guide/spec.md</code> documents the <code>slide</code> action.</li>
+</ul>
+<h2 id="docs-first">Docs first<a class="headerlink" href="#docs-first" title="Permanent link">&para;</a></h2>
+<p>Agreed on 2026-11-12 and implemented for 0.6, after the docs started to present a
+Markdown doc as the recommended source of a video. All additive: <code>run</code> gets
+<code>expect_output</code>, the markdown entry <code>check_output</code>, Markdown the <code>spec</code> comment and the
+<code>any-output</code> block option; there is a new command <code>check</code> and a new exit code 8.</p>
+<h3 id="a-doc-on-its-own">A doc on its own<a class="headerlink" href="#a-doc-on-its-own" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Every command that takes <code>SPEC</code> also takes a <code>.md</code> / <code>.markdown</code> file. The loader
+  (<code>spec/markdown/implicit.py</code>) turns it into the spec it implies: one <code>markdown</code>
+  entry for the whole doc.</li>
+<li>A <code>&lt;!-- narratty: spec … --&gt;</code> comment holds YAML. Keys of a markdown entry
+  (<code>sections</code>, <code>heading_overlays</code>, …) move into the entry, the rest stay top-level.
+  The YAML is padded with blank lines to its line in the doc, so ruamel's positions
+  are the doc's lines, also for keys moved into the entry. <code>scenes</code> is an error; two
+  <code>spec</code> comments are too. A YAML spec pointing at the doc ignores the comment.</li>
+<li>Why a comment and not front matter: GitHub renders front matter as a table, and
+  narratty's rule is that what only the video needs is invisible on the page.</li>
+<li><code>workspace.source</code> defaults to the doc's git root (written into the implied spec, so
+  <code>compile</code> shows it): docs assume commands run from the repository root. Outside a
+  repository it is the doc's folder.</li>
+<li>Sandboxed runs mount the compiled spec as <code>/spec/&lt;stem&gt;.narratty.yaml</code>, so the
+  container reads YAML, not Markdown.</li>
+</ul>
+<h3 id="narratty-init---markdown-doc"><code>narratty init --markdown DOC</code><a class="headerlink" href="#narratty-init---markdown-doc" title="Permanent link">&para;</a></h3>
+<p>Writes <code>&lt;stem&gt;.narratty.yaml</code> in the current directory with <code>markdown: &lt;doc relative
+to it&gt;</code> and commented <code>sections</code>, <code>heading_overlays</code>, an intro scene, <code>tts</code> and
+<code>workspace</code>. It validates without hints.</p>
+<h3 id="comparing-output-narratty-check">Comparing output: <code>narratty check</code><a class="headerlink" href="#comparing-output-narratty-check" title="Permanent link">&para;</a></h3>
+<ul>
+<li>In a console block, the lines after a <code>$</code> command up to the next <code>$</code> line are its
+  output; <code>&gt;</code> only continues a command right after it (before, any later <code>&gt;</code> line
+  did). With <code>check_output</code> (default true) and without <code>any-output</code>, a command with
+  output lines gets <code>expect_output</code>. Commands without output lines are not compared.</li>
+<li><code>narratty check SPEC</code> plans a draft (no TTS, no end card) and plays the script in the
+  asciicast recorder with fast pauses: no VHS, ffmpeg or voice. The recorder notes the
+  raw-output offset at each Enter and where each prompt wait succeeded; a command's
+  output is the text between its last Enter and the prompt, without escape sequences,
+  <code>\r</code> redraws and the prompt line. It then checks exit codes and outputs.</li>
+<li>Matching: trailing spaces and surrounding blank lines are ignored; a line <code>...</code>
+  matches any lines, <code>...</code> in a line any text (doctest's ELLIPSIS). A mismatch shows a
+  unified diff and exits with 8 (<code>OutputError</code>).</li>
+<li>VHS builds do not compare output: VHS exposes no output stream, and <code>Wait+Screen</code>
+  only sees the top of the buffer. The editor layout is not compared either: the
+  recorder sees tmux's redraws, not the shell's output.</li>
+<li>Sandboxed, <code>check</code> runs in the narratty image like <code>build</code>, without fetching a voice.</li>
 </ul>
 <hr />
 <h2 id="milestones">Milestones<a class="headerlink" href="#milestones" title="Permanent link">&para;</a></h2>

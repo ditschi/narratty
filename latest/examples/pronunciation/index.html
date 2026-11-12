@@ -1728,8 +1728,11 @@ searchable. The lexicon tells the engine how to say them. See
 </code></pre></div>
 <p><code>kubectl</code> needs no entry: it is in the built-in lexicon. Put entries shared by several
 specs in <code>narratty.lexicon.toml</code> in the repository or <code>~/.config/narratty/lexicon.toml</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>narratty<span class="w"> </span>lexicon<span class="w"> </span>check<span class="w"> </span>examples/lexicon/lexicon.narratty.yaml<span class="w">   </span><span class="c1"># words that may need an entry</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>narratty<span class="w"> </span>lexicon<span class="w"> </span>show<span class="w"> </span>examples/lexicon/lexicon.narratty.yaml<span class="w">    </span><span class="c1"># merged entries and their source</span>
+<p><code>lexicon check</code> lists words that may need an entry, <code>lexicon show</code> the merged entries
+and where each comes from:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gp">$ </span>narratty<span class="w"> </span>lexicon<span class="w"> </span>check<span class="w"> </span>examples/lexicon/lexicon.narratty.yaml
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">every unusual word has a lexicon entry</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="gp">$ </span>narratty<span class="w"> </span>lexicon<span class="w"> </span>show<span class="w"> </span>examples/lexicon/lexicon.narratty.yaml
 </code></pre></div>
 
 

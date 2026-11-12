@@ -1789,6 +1789,8 @@
 
 
 <h1 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h1>
+<p><code>SPEC</code> is a <code>.narratty.yaml</code> file or, since 0.6, a Markdown doc built on its own with
+the spec it implies (see <a href="../markdown/#building-a-doc-on-its-own">Building a doc on its own</a>).</p>
 <table>
 <thead>
 <tr>
@@ -1800,6 +1802,10 @@
 <tr>
 <td><code>narratty init [FILE] [--force]</code></td>
 <td>Write a commented starter spec (default <code>demo.narratty.yaml</code>)</td>
+</tr>
+<tr>
+<td><code>narratty init --markdown DOC [FILE]</code></td>
+<td>Write a spec that makes the video from <code>DOC</code> (default <code>&lt;doc&gt;.narratty.yaml</code>) (since 0.6)</td>
 </tr>
 <tr>
 <td><code>narratty validate SPEC</code></td>
@@ -1882,6 +1888,10 @@
 <td>Build an <a href="../building/#asciicast-with-narration">asciicast with narration</a></td>
 </tr>
 <tr>
+<td><code>narratty check SPEC</code></td>
+<td>Run the commands without recording; check their exit codes and <a href="../spec/#expected-output">output</a> (since 0.6)</td>
+</tr>
+<tr>
 <td><code>narratty env shell SPEC</code></td>
 <td>Open a shell in the spec's <a href="../environments/">project environment</a></td>
 </tr>
@@ -1900,7 +1910,7 @@
 </tbody>
 </table>
 <p><code>plan</code>, <code>tape</code>, <code>render</code> and <code>build</code> take <code>--end-card</code> / <code>--no-end-card</code> to override
-<a href="../spec/#end_card"><code>end_card</code></a>. <code>build</code> and <code>render</code> also take <code>--workspace-mode</code>,
+<a href="../spec/#end_card"><code>end_card</code></a>. <code>build</code>, <code>render</code> and <code>check</code> also take <code>--workspace-mode</code>,
 <code>--keep-workspace</code>, <code>--allow-dirty</code>, <code>--network</code>, <code>--allow-host</code> and <code>--yes</code>; see
 <a href="../container/">Sandboxed runs</a>. They take <code>--env-image</code>, <code>--no-env</code>, <code>--keep-env</code> and <code>--rebuild-env</code> for
 <a href="../environments/">project environments</a>. Every command that runs the pipeline takes
@@ -1967,6 +1977,10 @@
 <tr>
 <td>7</td>
 <td>a recorded command exited contrary to its <code>expect_exit</code></td>
+</tr>
+<tr>
+<td>8</td>
+<td>a command printed other output than its <code>expect_output</code> (<code>narratty check</code>)</td>
 </tr>
 </tbody>
 </table>
