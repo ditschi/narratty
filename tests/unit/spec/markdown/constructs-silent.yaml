@@ -2,9 +2,11 @@
   id: constructs-1
   actions:
   - run: echo hello
+    expect_output: hello
   - wait:
       prompt: true
   - run: "printf '%s\\n' \\\na b"
+    expect_output: "a\nb"
   - wait:
       prompt: true
   typing_speed_ms: 20

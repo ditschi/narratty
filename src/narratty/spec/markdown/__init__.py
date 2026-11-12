@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any
 from narratty.spec.model import MarkdownEntry, MarkdownNarration
 
 if TYPE_CHECKING:
+    from ruamel.yaml.comments import CommentedMap
+
     from narratty.spec.markdown.scenes import Expansion
 
 
@@ -52,3 +54,17 @@ def explain_entry(entry: MarkdownEntry, path: Path, narration: MarkdownNarration
 
     blocks = parse_blocks(read_source(path, entry.tabs))
     return build_scenes(blocks, entry, path, narration)
+
+
+def spec_comment_text(path: Path) -> str:
+    """The YAML of the doc's ``spec`` comment (see :mod:`.implicit`)."""
+    from narratty.spec.markdown.implicit import spec_comment_text as text
+
+    return text(path)
+
+
+def implied_spec(data: CommentedMap, doc: Path) -> CommentedMap:
+    """The spec of a doc built on its own (see :mod:`.implicit`)."""
+    from narratty.spec.markdown.implicit import implied_spec as implied
+
+    return implied(data, doc)

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from narratty.spec.loader import Document, parse_document, position, read_spec_text, to_plain
+from narratty.spec.model import Run
 
 
 @dataclass(frozen=True)
@@ -58,7 +59,7 @@ def compile_document(document: Document, spec_file: Path) -> str:
     yaml.indent(mapping=2, sequence=4, offset=2)
     out = io.StringIO()
     yaml.dump(data, out)
-    return out.getvalue()
+    return out.getvalue().lstrip("\n")  # a doc's spec comment keeps its line numbers with blank lines
 
 
 def compile_spec(spec_file: Path) -> str:
@@ -71,9 +72,22 @@ def fingerprint(spec_file: Path) -> str:
 
     Unchanged by moved lines, comments and newly added defaults; a committed video can
     store it to notice when its spec or Markdown source has changed since it was rendered.
+    ``expect_output`` is left out: only ``narratty check`` reads it.
     """
     spec = parse_document(read_spec_text(spec_file), spec_file).spec
-    return hashlib.sha256(spec.model_dump_json(exclude_defaults=True).encode()).hexdigest()
+    scenes = [
+        scene.model_copy(
+            update={
+                "actions": [
+                    action.model_copy(update={"expect_output": None}) if isinstance(action, Run) else action
+                    for action in scene.actions
+                ]
+            }
+        )
+        for scene in spec.scenes
+    ]
+    shown = spec.model_copy(update={"scenes": scenes})
+    return hashlib.sha256(shown.model_dump_json(exclude_defaults=True).encode()).hexdigest()
 
 
 def container_spec(spec_file: Path, cache: Path) -> Path | None:

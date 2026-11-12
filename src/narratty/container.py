@@ -204,12 +204,14 @@ def delegate(
     sandbox: SandboxRequest | None = None,
     ignore_exit: bool = False,
     runner: Runner | None = None,
+    voice: bool = True,
 ) -> int | None:
     """Run ``narratty <command>`` in a container when ``runtime`` resolves to one.
 
     ``sandbox`` is given for commands that run the demo; they get the prepared
     workspace and the spec's sandbox permissions. In a project environment the host
-    checks the exit codes afterwards (``ignore_exit`` as for ``build``). Returns the
+    checks the exit codes afterwards (``ignore_exit`` as for ``build``). ``voice``: the
+    command synthesizes narration, so the voice is downloaded first. Returns the
     container's exit code, or None when the command should run natively.
     """
     from narratty.doctor import CONTAINER_TOOLS
@@ -226,7 +228,7 @@ def delegate(
             f"{tool.name} is not installed", hint=f"{tool.install_hint}, or use --runtime native."
         )
     spec = load_spec(spec_path)  # fail fast on the host, with host paths in the messages
-    if "--draft" not in extra_args:
+    if voice and "--draft" not in extra_args:
         _ensure_voice(spec.tts.provider, spec.tts.voice)
     chosen_image = image_ref(override=image)
     base = _Invocation(command, spec_path.resolve(), resolved.runtime, chosen_image, extra_args)
@@ -256,6 +258,7 @@ class _Invocation:
         self, command: str, spec_file: Path, engine: Runtime, image: str, extra: Sequence[str]
     ) -> None:
         from narratty.paths import cache_dir, data_dir
+        from narratty.spec.loader import is_markdown
         from narratty.tts.lexicon import ENV_OVERRIDE, export_host_entries
 
         cache, data = cache_dir(), data_dir()
@@ -263,14 +266,16 @@ class _Invocation:
             directory.mkdir(parents=True, exist_ok=True)
         self.engine, self.image = engine, image
         self.spec_file = spec_file  # the mounted spec may be a compiled copy elsewhere
+        # A doc is mounted as the spec it implies, compiled (see use_compiled_spec).
+        name = f"{spec_file.stem}.narratty.yaml" if is_markdown(spec_file) else spec_file.name
         self.mounts = [
-            Mount(spec_file, f"/spec/{spec_file.name}", read_only=True),
+            Mount(spec_file, f"/spec/{name}", read_only=True),
             Mount(cache.resolve(), "/cache"),
             Mount(data.resolve(), "/data", read_only=True),
         ]
         self.volumes: list[str] = []
         self.groups: list[str] = []
-        self.args = [command, f"/spec/{spec_file.name}", "--runtime", "native", "--offline", *extra]
+        self.args = [command, f"/spec/{name}", "--runtime", "native", "--offline", *extra]
         self.env = {"NARRATTY_DATA_DIR": "/data", "NARRATTY_CACHE_DIR": "/cache"}
         # The user's and the project's lexicon files are not mounted; hand over their merged entries.
         lexicon = export_host_entries(spec_file, cache / "lexicons")

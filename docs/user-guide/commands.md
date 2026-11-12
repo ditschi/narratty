@@ -1,8 +1,12 @@
 # Commands
 
+`SPEC` is a `.narratty.yaml` file or, since 0.6, a Markdown doc built on its own with
+the spec it implies (see [Building a doc on its own](markdown.md#building-a-doc-on-its-own)).
+
 | Command | Does |
 |---|---|
 | `narratty init [FILE] [--force]` | Write a commented starter spec (default `demo.narratty.yaml`) |
+| `narratty init --markdown DOC [FILE]` | Write a spec that makes the video from `DOC` (default `<doc>.narratty.yaml`) (since 0.6) |
 | `narratty validate SPEC` | Check a spec; report every problem, and hints for redundant lines, with line and column |
 | `narratty schema` | Print the spec's JSON Schema |
 | `narratty compile SPEC [-o FILE]` | Print the spec with its [Markdown entries](markdown.md) expanded (since 0.5) |
@@ -23,13 +27,14 @@
 | `narratty build SPEC --fast` | Fill long pauses with still frames instead of recording them ([fast pauses](building.md#fast-pauses)) |
 | `narratty build SPEC --ignore-exit` | Don't check exit codes, except where the spec sets `expect_exit` ([exit codes](spec.md#exit-codes)) |
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
+| `narratty check SPEC` | Run the commands without recording; check their exit codes and [output](spec.md#expected-output) (since 0.6) |
 | `narratty env shell SPEC` | Open a shell in the spec's [project environment](environments.md) |
 | `narratty env build SPEC [--rebuild-env]` | Build the environment's image and print its tag |
 | `narratty env up SPEC` | Start the environment and keep it; `build`, `render` and `env shell` reuse it |
 | `narratty env down SPEC` | Remove what `env up` started |
 
 `plan`, `tape`, `render` and `build` take `--end-card` / `--no-end-card` to override
-[`end_card`](spec.md#end_card). `build` and `render` also take `--workspace-mode`,
+[`end_card`](spec.md#end_card). `build`, `render` and `check` also take `--workspace-mode`,
 `--keep-workspace`, `--allow-dirty`, `--network`, `--allow-host` and `--yes`; see
 [Sandboxed runs](container.md). They take `--env-image`, `--no-env`, `--keep-env` and `--rebuild-env` for
 [project environments](environments.md). Every command that runs the pipeline takes
@@ -53,3 +58,4 @@
 | 5 | render or mux failure |
 | 6 | sync verification failure |
 | 7 | a recorded command exited contrary to its `expect_exit` |
+| 8 | a command printed other output than its `expect_output` (`narratty check`) |

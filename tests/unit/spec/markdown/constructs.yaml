@@ -3,9 +3,11 @@
   narration: Intro with inline code, a link and emphasis. It spans two lines.
   actions:
   - run: echo hello
+    expect_output: hello
   - wait:
       prompt: true
   - run: "printf '%s\\n' \\\na b"
+    expect_output: "a\nb"
   - wait:
       prompt: true
 - source: constructs.md:15

@@ -21,7 +21,7 @@ from narratty.render import media, timelapse
 from narratty.render.narration import Placement, build_track
 from narratty.render.subtitles import Narrated, SubtitleFiles, cues_for, to_srt
 from narratty.spec import load_spec
-from narratty.spec.model import ShowBrowser, ShowOverlay, ShowSlide, Spec
+from narratty.spec.model import Run, ShowBrowser, ShowOverlay, ShowSlide, Spec
 from narratty.timeline import Timeline, build_timeline
 from narratty.tts.lexicon import load_lexicon
 from narratty.tts.registry import get_provider
@@ -30,6 +30,7 @@ from narratty.workspace import PreparedWorkspace, export_artifacts, prepare_work
 
 if TYPE_CHECKING:
     from narratty.container import SandboxRequest
+    from narratty.render.cast import Recording
     from narratty.render.overlays import OverlayImage
     from narratty.render.pauses import Insert, JobWatch
     from narratty.render.script import HelperPlacement
@@ -296,7 +297,7 @@ def collect_exit_log(bridge: Sequence[str] | None, remote: Path, work: Path) -> 
         (work / "exits.log").write_text(text, encoding="utf-8")
 
 
-def check_exits(planned: Plan, work: Path, output: Path, *, ignore_exit: bool = False) -> None:
+def check_exits(planned: Plan, work: Path, output: Path | None, *, ignore_exit: bool = False) -> None:
     """Fail when a command's exit code contradicts its ``expect_exit``.
 
     ``ignore_exit`` makes ``any`` the default; a scene's or action's own setting wins.
@@ -661,10 +662,7 @@ def build_cast(
     ``fast`` skips the rest of a long pause once the output has been quiet for a moment.
     ``ignore_exit`` as in :func:`build`.
     """
-    from narratty.bridge import shim_env
-    from narratty.render.cast import record
     from narratty.render.player import player_page, player_theme
-    from narratty.render.script import build_script
 
     say = log or (lambda _message: None)
     outputs = CastOutputs((output or default_output(spec_path, ".html")).resolve())
@@ -678,25 +676,7 @@ def build_cast(
         environment_bridge(planned, ws, sandbox, say) as bridge,
     ):
         say(f"recording {len(planned.timeline.scenes)} scenes as an asciicast")
-        env = {**os.environ, **recording_env(spec)}
-        placement = placement_for(planned, work, bridge, sandbox)
-        if placement.bridged:
-            env = shim_env(work / "shims", bridge or [], env)
-        recording = record(
-            build_script(
-                spec,
-                planned.timeline,
-                exit_log=(exit_log := fresh_exit_log(work, bridge)),
-                placement=placement,
-            ),
-            terminal=spec.terminal,
-            cwd=ws.path,
-            env=env,
-            title=spec.meta.title,
-            fast=fast,
-            shell=placement.shell(spec),
-        )
-        collect_exit_log(bridge, exit_log, work)
+        recording = _record_cast(planned, work, ws, bridge, sandbox, fast=fast)
         outputs.page.parent.mkdir(parents=True, exist_ok=True)
         outputs.cast.write_text(recording.cast, encoding="utf-8")
         say("mixing narration")
@@ -732,6 +712,84 @@ def build_cast(
         _export_artifacts(planned, ws.path, outputs.page, say)
         check_exits(planned, work, outputs.page, ignore_exit=ignore_exit)
     return BuildResult(outputs.page, planned.timeline.total_ms, recording.duration_ms, tuple(used))
+
+
+def _record_cast(
+    planned: Plan,
+    work: Path,
+    ws: PreparedWorkspace,
+    bridge: list[str] | None,
+    sandbox: SandboxRequest | None,
+    *,
+    fast: bool,
+) -> Recording:
+    """Play the script in a pseudo-terminal; the exit log ends up in ``work``."""
+    from narratty.bridge import shim_env
+    from narratty.render.cast import record
+    from narratty.render.script import build_script
+
+    spec = planned.spec
+    env = {**os.environ, **recording_env(spec)}
+    placement = placement_for(planned, work, bridge, sandbox)
+    if placement.bridged:
+        env = shim_env(work / "shims", bridge or [], env)
+    exit_log = fresh_exit_log(work, bridge)
+    recording = record(
+        build_script(spec, planned.timeline, exit_log=exit_log, placement=placement),
+        terminal=spec.terminal,
+        cwd=ws.path,
+        env=env,
+        title=spec.meta.title,
+        fast=fast,
+        shell=placement.shell(spec),
+    )
+    collect_exit_log(bridge, exit_log, work)
+    return recording
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    """How many commands ran and how many of them had their output compared."""
+
+    commands: int
+    compared: int
+
+
+def check(
+    spec_path: Path,
+    *,
+    work_dir: Path | None = None,
+    workspace: WorkspaceOptions | None = None,
+    ignore_exit: bool = False,
+    sandbox: SandboxRequest | None = None,
+    log: Log | None = None,
+) -> CheckResult:
+    """Run the spec's commands as a recording would, without video, voice or end card.
+
+    Fails when a command's exit code contradicts its ``expect_exit`` (``ignore_exit`` as
+    in :func:`build`) or its output its ``expect_output``.
+    """
+    from narratty.render import outputs
+
+    say = log or (lambda _message: None)
+    planned = plan(spec_path, end_card=False, draft=True, log=say)
+    # In the editor layout the shell's output reaches the recorder through tmux, redrawn.
+    editor = planned.spec.terminal.layout == "editor"
+    if editor:
+        say("output is not compared in the editor layout; checking exit codes only")
+    warn_unenforced_sandbox(planned.spec, say, sandbox)
+    with (
+        work_directory(work_dir) as work,
+        workspace_for(planned, workspace or WorkspaceOptions(), sandbox, log=say) as ws,
+        environment_bridge(planned, ws, sandbox, say) as bridge,
+    ):
+        say(f"running {len(planned.timeline.scenes)} scenes")
+        recording = _record_cast(planned, work, ws, bridge, sandbox, fast=True)
+        check_exits(planned, work, None, ignore_exit=ignore_exit)
+    if not editor:
+        outputs.check(planned.spec, recording.submitted)
+    runs = [action for scene in planned.spec.scenes for action in scene.actions if isinstance(action, Run)]
+    return CheckResult(len(runs), 0 if editor else len(outputs.expectations(planned.spec)))
 
 
 def verify(result: BuildResult, *, max_drift: float) -> None:

@@ -23,6 +23,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from narratty.errors import RenderError
 from narratty.render.pauses import SETTLE_MS, STILL_MS
@@ -42,6 +43,9 @@ from narratty.render.script import (
 from narratty.render.shell_hooks import SHELL_ARGV
 from narratty.spec.model import Terminal
 from narratty.timeline import timelapse_layout
+
+if TYPE_CHECKING:
+    from narratty.render.outputs import Submitted
 
 # VHS's defaults: 60 px padding; a monospace cell is about 0.6 × 1.2 font sizes.
 _PADDING_PX = 60
@@ -81,7 +85,7 @@ def ctrl_char(char: str) -> str:
 _POLL = 0.1
 
 _CLEAR = re.compile(r"\x1b\[2J|\x1bc")
-_ESCAPE = re.compile(
+ESCAPE = re.compile(
     r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\x1b[()*+].|\x1b[@-Z\\-_]|\x1b."
 )
 
@@ -103,7 +107,7 @@ class ScreenText:
         if cleared:
             self.lines = [""]
             data = data[cleared[-1].end() :]
-        for char in _ESCAPE.sub("", data):
+        for char in ESCAPE.sub("", data):
             if char == "\n":
                 self.lines.append("")
             elif char == "\r":
@@ -150,6 +154,11 @@ class Recorder:
         self.narration_offsets: dict[str, float] = {}
         self._paused = 0.0  # pause time not waited out (``fast``), still counted as shown
         self._last_output = 0.0
+        self.raw: list[str] = []  # all output, for checking what commands printed
+        self._raw_length = 0
+        self._typed = ""
+        self.enters: list[tuple[str, int]] = []  # (typed line, raw offset) at each Enter
+        self.prompts: list[int] = []  # raw offsets where the prompt was back
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
         try:
@@ -239,6 +248,8 @@ class Recorder:
         if text:
             self._output(text)
             self.screen.feed(text)
+            self.raw.append(text)
+            self._raw_length += len(text)
         return True
 
     def _output(self, text: str) -> None:
@@ -272,10 +283,12 @@ class Recorder:
         """Perform one script step."""
         match step:
             case Type(text, speed):
+                self._typed += text
                 self._keys(list(text), speed)
             case Press(key, speed, count):
-                self._keys([KEYS[key]] * (count or 1), speed)
+                self._press(key, speed, count or 1)
             case Ctrl(char):
+                self._typed = ""
                 self._keys([ctrl_char(char)], 0)
             case Sleep(ms) if self._may_skip(ms):
                 self._pause(ms / 1000)
@@ -358,6 +371,16 @@ class Recorder:
             self.send(key)
             self.pump(speed_ms / 1000)
 
+    def _press(self, key: str, speed_ms: int, count: int) -> None:
+        """Press ``key``; for Enter, note the line it submits and where its output starts."""
+        if key != "Enter":
+            self._keys([KEYS[key]] * count, speed_ms)
+            return
+        for _ in range(count):
+            self.enters.append((self._typed.strip(), self._raw_length))
+            self._typed = ""
+            self._keys([KEYS[key]], speed_ms)
+
     def _wait(self, pattern: str, timeout_ms: int, *, line: bool = False, fail: str | None = None) -> None:
         regex, failed = re.compile(pattern), re.compile(fail) if fail else None
 
@@ -366,6 +389,8 @@ class Recorder:
             return bool(regex.search(text) or (failed and failed.search(text)))
 
         found = self.pump(timeout_ms / 1000, matches)
+        if found and line:
+            self.prompts.append(self._raw_length)
         if failed and (error := failed.search(self.screen.text)) and not regex.search(self.screen.text):
             raise RenderError(error.group(1).strip())
         if not found:
@@ -390,6 +415,8 @@ class Recording:
     scene_starts_ms: dict[str, int]
     narration_offsets_ms: dict[str, int] = field(default_factory=dict)  # timelapse scenes
     cues_ms: dict[str, int] = field(default_factory=dict)
+    submitted: tuple[Submitted, ...] = ()
+    """Each line typed at the prompt and what it printed (see ``narratty.render.outputs``)."""
 
 
 def record(
@@ -407,6 +434,8 @@ def record(
     ``fast`` skips the rest of a pause longer than ``SETTLE_MS`` once the output has been
     quiet for ``STILL_MS``; the recording's clock moves on as if it had waited.
     """
+    from narratty.render.outputs import captured
+
     cols, rows = terminal_size(terminal)
     shell_env = {**env, "TERM": "xterm-256color", "COLUMNS": str(cols), "LINES": str(rows)}
     recorder = Recorder(
@@ -426,10 +455,12 @@ def record(
     }
     events = [*recorder.events, (duration, "o", "")]  # the last event sets the length
     lines = [json.dumps(header), *(json.dumps([round(t, 6), kind, data]) for t, kind, data in events)]
+    submitted = captured("".join(recorder.raw), recorder.enters, recorder.prompts)
     return Recording(
         "\n".join(lines) + "\n",
         round(duration * 1000),
         {label: round(start * 1000) for label, start in recorder.marks.items()},
         {label: round(offset * 1000) for label, offset in recorder.narration_offsets.items()},
         {label: round(at * 1000) for label, at in recorder.cues.items()},
+        tuple(submitted),
     )

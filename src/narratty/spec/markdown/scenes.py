@@ -37,8 +37,8 @@ from narratty.spec.model import (
 )
 
 SHELL_LANGS = ("bash", "sh", "shell")
-BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure")
-COMMENT_KINDS = ("skip", "say", "overlay", "hidden", "browser", "pause", "table", "slide")
+BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure", "any-output")
+COMMENT_KINDS = ("skip", "say", "overlay", "hidden", "browser", "pause", "table", "slide", "spec")
 SLIDE_KEYS = ("title", "theme", "rows", "html")
 TABLE_KEYS = ("say", "pause", "title", "theme", "rows")
 VISUALS = "a table, image or mermaid block"
@@ -243,26 +243,29 @@ class _Builder:
         elif kind == "overlay":
             self.overlays.append((None, {"overlay": _yaml_value(body, block, kind)}))
             self.unassigned.append((block, "overlay comment"))
-        elif kind == "browser":
-            self.browser_comment(block, body)
-        elif kind == "pause":
-            self.pause(block, body)
-        elif kind == "table":
-            self.table_comment(block, body)
-        elif kind == "slide":
-            self.slide_comment(block, body)
-        elif kind == "hidden":
-            commands = split_commands(body)
-            _check_placeholders(commands, block, 0)
-            scene_id = self.next_id(None)
-            self.emit(block, {"id": scene_id, "hidden": True, "actions": _runs(commands)})
-            self.note(block, scene_id, f"hidden comment: {len(commands)} command(s), not shown")
+        elif kind == "spec":
+            self.note(block, None, "spec comment: used when the doc is built on its own")
+        elif handler := {
+            "browser": self.browser_comment,
+            "pause": self.pause,
+            "table": self.table_comment,
+            "slide": self.slide_comment,
+            "hidden": self.hidden_comment,
+        }.get(kind):
+            handler(block, body)
         else:
             raise fail(
                 block.file,
                 block.line,
                 f"unknown narratty comment {kind!r}; expected one of {', '.join(COMMENT_KINDS)}",
             )
+
+    def hidden_comment(self, block: Comment, body: str) -> None:
+        commands = split_commands(body)
+        _check_placeholders(commands, block, 0)
+        scene_id = self.next_id(None)
+        self.emit(block, {"id": scene_id, "hidden": True, "actions": _runs(commands)})
+        self.note(block, scene_id, f"hidden comment: {len(commands)} command(s), not shown")
 
     def browser_comment(self, block: Comment, body: str) -> None:
         """Open a page from where the next paragraph starts: a URL, or one of its links."""
@@ -471,7 +474,7 @@ class _Builder:
             actions = [action for command in commands for action in _typed(command.text)]
         else:
             _check_placeholders(commands, block, 1)
-            actions = _runs(commands)
+            actions = _runs(commands, outputs=self.entry.check_output and "any-output" not in options)
         extra = {"expect_exit": "failure"} if "expect-failure" in options else {}
         scene_id = self.next_id(block)
         how = "typed, not run" if "no-run" in options else "run"
@@ -699,9 +702,23 @@ def _wait() -> dict[str, Any]:
     return {"wait": {"prompt": True}}
 
 
-def _runs(commands: Sequence[Command]) -> list[dict[str, Any]]:
-    """Run each command and wait until it has finished (``run`` does not wait)."""
-    return [action for command in commands for action in ({"run": command.text}, _wait())]
+def _runs(commands: Sequence[Command], *, outputs: bool = False) -> list[dict[str, Any]]:
+    """Run each command and wait until it has finished (``run`` does not wait).
+
+    With ``outputs``, a command the block shows output for expects that output.
+    """
+    actions: list[dict[str, Any]] = []
+    for command in commands:
+        run: dict[str, Any] = {"run": command.text}
+        if outputs and (expected := expected_output(command.output)):
+            run["expect_output"] = expected
+        actions += [run, _wait()]
+    return actions
+
+
+def expected_output(lines: Sequence[str]) -> str:
+    """The output lines without trailing spaces and surrounding blank lines."""
+    return "\n".join(line.rstrip() for line in lines).strip("\n")
 
 
 def _typed(command: str) -> list[dict[str, Any]]:
@@ -723,18 +740,23 @@ def _check_placeholders(commands: Sequence[Command], block: Block, first_line: i
 
 
 def console_commands(content: str) -> list[Command]:
-    """``$ `` lines of a console block, with their ``> `` continuation lines."""
-    raw: list[tuple[str, int]] = []
+    """``$ `` lines of a console block, with their ``> `` continuation lines and their output."""
+    raw: list[tuple[str, int, list[str]]] = []
+    continues = False
     for offset, line in enumerate(content.splitlines()):
         if line.startswith("$ ") or line == "$":
-            raw.append((line[2:], offset))
-        elif line.startswith("> ") and raw:
-            raw[-1] = (raw[-1][0] + "\n" + line[2:], raw[-1][1])
+            raw.append((line[2:], offset, []))
+            continues = True
+        elif continues and line.startswith("> "):
+            raw[-1] = (raw[-1][0] + "\n" + line[2:], raw[-1][1], [])
+        elif raw:
+            raw[-1][2].append(line)
+            continues = False
     commands = []
-    for text, offset in raw:
+    for text, offset, output in raw:
         command = clean_command(text)
         if command.text.strip():
-            commands.append(Command(command.text, offset, command.placeholders))
+            commands.append(Command(command.text, offset, command.placeholders, output))
     return commands
 
 

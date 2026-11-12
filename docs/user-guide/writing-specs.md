@@ -1,9 +1,9 @@
 # Writing specs
 
-Most videos start from a [Markdown doc](markdown.md); the spec then points at the doc
-and sets the voice and the look. Write scenes in YAML for what a doc doesn't hold: an
-intro or outro, a transition between docs, hidden setup, or a demo with no doc behind
-it. This page is about those scenes.
+A [Markdown doc](markdown.md) can be built on its own, or a spec points at it and sets
+the voice and the look. Write scenes in YAML for what a doc doesn't hold: an intro or
+outro, a transition between docs, hidden setup, or a demo with no doc behind it. This
+page is about those scenes.
 
 A good spec reads like a script: narration and the commands, nothing else. The
 defaults cover the common case, so write only what differs from them.

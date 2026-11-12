@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import re
+
 from narratty.spec.schema import schema_url
 
 _TEMPLATE = """\
@@ -37,3 +40,29 @@ scenes:
 def render_template(version: str) -> str:
     """The starter spec, with the schema line pointing at ``version``'s schema."""
     return _TEMPLATE.replace("{schema_url}", schema_url(version))
+
+
+_MARKDOWN_TEMPLATE = """\
+# yaml-language-server: $schema={schema_url}
+# The video of {doc}: its paragraphs are spoken, its code blocks run.
+# Write only what differs from the defaults; `narratty schema` lists every key.
+
+# tts:
+#   voice: af_heart               # `narratty voices` lists the options
+# workspace:
+#   source: .                     # directory the commands run in (a throwaway copy by default)
+
+scenes:
+  # - id: intro                   # scenes written here can stand before and after the doc
+  #   narration: A short tour of the project.
+  - markdown: {doc}
+    # sections: [install, usage]  # only these sections, by heading; unset: the whole doc
+    # heading_overlays: 2         # show the headings down to level 2 over the video
+"""
+
+
+def render_markdown_template(version: str, doc: str) -> str:
+    """A starter spec for the Markdown doc at ``doc`` (relative to the spec)."""
+    value = doc if re.fullmatch(r"[\w./-]+", doc) else json.dumps(doc)
+    text = _MARKDOWN_TEMPLATE.replace("{schema_url}", schema_url(version))
+    return text.replace("markdown: {doc}", f"markdown: {value}").replace("{doc}", doc)
