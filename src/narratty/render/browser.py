@@ -65,6 +65,8 @@ NEEDS_MERMAID_JS = (
 NEEDS_FONTAWESOME = (
     "[...document.querySelectorAll('.mermaid')].some(e => /\\bfa:[\\w-]+/.test(e.textContent))"
 )
+# The focus ID names exactly one node or subgraph: its data-id, or its SVG id without the
+# diagram's prefix (Mermaid 11 writes "<svg id>-flowchart-<node id>-<n>" and "<svg id>-<subgraph id>").
 RUN_MERMAID_JS = (
     "mermaid.initialize({startOnLoad: false, theme: document.body.dataset.mermaidTheme || 'default', "
     "fontFamily: 'DejaVu Sans, Noto Color Emoji, sans-serif'});"
@@ -72,15 +74,20 @@ RUN_MERMAID_JS = (
     ".then(() => {"
     "const focus = document.body.dataset.mermaidFocus;"
     "if (!focus) return;"
-    "const targets = [...document.querySelectorAll('svg [id], svg [data-id]')];"
-    "const matches = e => [e.id, e.getAttribute('data-id'), e.getAttribute('aria-label')]"
-    ".filter(Boolean).some(value => value === focus || "
-    "value.split(/[^\\w-]+/).some(part => part === focus) || value.includes('-' + focus + '-'));"
-    "const target = targets.find(matches);"
-    "if (!target) throw new Error('no Mermaid node or subgraph with id ' + focus + "
-    "' (rendered ids: ' + targets.map(e => e.id || e.getAttribute('data-id'))"
-    ".filter(Boolean).join(', ') + ')');"
-    "target.classList.add('narratty-focus');"
+    "const name = e => {"
+    "if (e.hasAttribute('data-id')) return e.getAttribute('data-id');"
+    "const svg = e.closest('svg');"
+    "const id = svg && svg.id && e.id.startsWith(svg.id + '-') ? e.id.slice(svg.id.length + 1) : e.id;"
+    "const node = e.classList.contains('node') && /^flowchart-(.+)-\\d+$/.exec(id);"
+    "return node ? node[1] : id;"
+    "};"
+    "const targets = [...document.querySelectorAll('svg .node, svg .cluster')];"
+    "const found = targets.filter(e => name(e) === focus);"
+    "const ids = ' (rendered ids: ' + targets.map(name).filter(Boolean).join(', ') + ')';"
+    "if (!found.length) throw new Error('no Mermaid node or subgraph with id ' + focus + ids);"
+    "if (found.length > 1) throw new Error(found.length + ' Mermaid nodes or subgraphs have the id ' "
+    "+ focus + ids);"
+    "found[0].classList.add('narratty-focus');"
     "})"
     ".catch(e => { throw new Error((e && (e.message || e.str)) || String(e)); })"
 )
