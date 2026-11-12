@@ -1,30 +1,19 @@
 name: Docker image
-# PRs: build and test the image (amd64, not pushed), only when a path below changes;
-# the PR workflow's package job covers the wheel for everything else.
+# PRs (pr.yml calls this when the image inputs change): build and test the image
+# (amd64, not pushed); the PR workflow's package job covers the wheel for everything else.
 # main: push :edge.  Releases (release.yml calls this with the tag):
 # push :<version>, :<major.minor>, :latest.
 # The toolkit target is published the same way as narratty-toolkit.
 on:
-  pull_request:
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - docker/**
-      - agent/**
-      - src/**
-      - pyproject.toml
-      - uv.lock
-      - noxfile.py
-      - tests/integration/**
-      - .github/workflows/docker.yml
   push:
     branches: [main]
   workflow_call:
     inputs:
       ref:
-        description: Release tag to build, e.g. v1.2.3
+        description: Release tag to build, e.g. v1.2.3; empty for a PR build
         type: string
-        required: true
+        required: false
+        default: ""
 concurrency:
   group: docker-${{ inputs.ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

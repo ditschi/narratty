@@ -6,6 +6,7 @@ one with `narratty build <spec>`.
 
 | Example | Shows | Select with |
 |---|---|---|
+| [Markdown input](../user-guide/markdown.md) | A docs page turned into its own video | `markdown` entry |
 | [Voices and engines](voices.md) | Kokoro and Piper voices, English and German | `tts.provider`, `tts.voice` |
 | [Pronunciation](pronunciation.md) | Terms spelled as in the code, spoken correctly | `tts.lexicon` |
 | [Terminal look](terminal.md) | Theme, font, prompt, typing speed | `terminal` |

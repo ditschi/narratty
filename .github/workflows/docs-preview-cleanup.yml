@@ -1,0 +1,43 @@
+name: Docs preview cleanup
+on:
+  pull_request:
+    types: [closed]
+permissions:
+  contents: write
+jobs:
+  # Removes the pr-<N>/ docs preview that pr.yml deployed to GitHub Pages.
+  remove:
+    name: Remove docs preview
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      VERSION: pr-${{ github.event.pull_request.number }}
+      NO_MKDOCS_2_WARNING: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - name: Install docs deps
+        run: uv pip install -e ".[docs]" --system
+      - name: Configure git for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Delete the preview
+        run: |
+          for attempt in 1 2 3; do
+            git fetch --force origin gh-pages:gh-pages
+            if ! mike list --json | grep -q "\"version\": \"$VERSION\""; then
+              exit 0
+            fi
+            if mike delete --push "$VERSION"; then
+              exit 0
+            fi
+            sleep $((attempt * 15))
+          done
+          exit 1

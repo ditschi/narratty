@@ -1,5 +1,5 @@
 site_name: narratty
-site_description: Turn a YAML script into a narrated terminal video with local TTS, VHS rendering and automatic voiceover sync.
+site_description: Turn your docs into narrated terminal videos with local TTS, commands that really run and automatic voiceover sync.
 site_url: https://ditschi.github.io/narratty/
 repo_url: https://github.com/ditschi/narratty
 repo_name: ditschi/narratty
@@ -84,18 +84,23 @@ markdown_extensions:
 nav:
   - Home: index.md
   - User Guide:
-      - Installation: user-guide/installation.md
-      - Shell completion: user-guide/shell-completion.md
-      - Commands: user-guide/commands.md
-      - Spec reference: user-guide/spec.md
-      - Writing specs: user-guide/writing-specs.md
-      - Markdown input: user-guide/markdown.md
-      - Voices and audio cache: user-guide/voices.md
-      - Building a video: user-guide/building.md
-      - Sandboxed runs: user-guide/container.md
-      - Project environments: user-guide/environments.md
-      - Demo toolkit: user-guide/toolkit.md
-      - Configuration: user-guide/configuration.md
+      - Getting started:
+          - Installation: user-guide/installation.md
+          - Shell completion: user-guide/shell-completion.md
+      - From docs to video:
+          - Markdown input: user-guide/markdown.md
+          - Building a video: user-guide/building.md
+          - Voices and audio cache: user-guide/voices.md
+      - YAML scenes:
+          - Writing specs: user-guide/writing-specs.md
+          - Spec reference: user-guide/spec.md
+      - Where commands run:
+          - Sandboxed runs: user-guide/container.md
+          - Project environments: user-guide/environments.md
+          - Demo toolkit: user-guide/toolkit.md
+      - Reference:
+          - Commands: user-guide/commands.md
+          - Configuration: user-guide/configuration.md
   - Examples:
       - examples/index.md
       - Voices and engines: examples/voices.md

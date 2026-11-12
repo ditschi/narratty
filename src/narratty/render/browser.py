@@ -6,7 +6,11 @@ The view covers the picture under a slim address bar from there until its scene 
 or ``duration_ms`` has passed, and with ``scroll`` moves down the page meanwhile.
 
 The mp4 gets the bar and the page as images for ffmpeg (see ``overlays.filter_graph``);
-the cast page shows the same images over the player.
+the cast page shows the same images over the player. Slides (:mod:`.slides`) are views
+of a generated page, full screen without the bar.
+
+Mermaid diagrams (``.mermaid`` elements) on a page that does not draw them itself are
+drawn with a local ``mermaid.min.js`` before the capture, so they need no network.
 """
 
 from __future__ import annotations
@@ -23,14 +27,15 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from narratty.errors import MissingDependencyError, RenderError
+from narratty.render import slides
 from narratty.render.overlays import FADE_MS, OverlayImage
 from narratty.render.script import END_CUE, overlay_cue
-from narratty.spec.model import Browser, ShowBrowser, Spec, Terminal
+from narratty.spec.model import Browser, ShowBrowser, ShowSlide, Slide, Spec, Terminal
 
 CHROMIUM_NAMES = (
     "chromium",
@@ -46,21 +51,36 @@ ROD_BROWSERS = "~/.cache/rod/browser/*/chrome"
 MAX_SCREENS = 4
 SCROLL_PAUSE_MS = 1000
 SETTLE_MS = 500
+SLIDE_LOAD_MS = 5000
 STARTUP_S = 90
 PAGE_HEIGHT_JS = "Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0)"
+MERMAID_ENV = "NARRATTY_MERMAID_JS"
+MERMAID_FILE = "mermaid.min.js"
+# Diagrams not drawn yet, on a page that does not bring its own Mermaid.
+NEEDS_MERMAID_JS = (
+    "typeof window.mermaid === 'undefined' && [...document.querySelectorAll('.mermaid')]"
+    ".some(e => !e.shadowRoot && !e.querySelector('svg') && !e.dataset.processed)"
+)
+RUN_MERMAID_JS = (
+    "mermaid.initialize({startOnLoad: false, theme: document.body.dataset.mermaidTheme || 'default'});"
+    "mermaid.run({querySelector: '.mermaid'})"
+    ".catch(e => { throw new Error((e && (e.message || e.str)) || String(e)); })"
+)
 
 
 @dataclass(frozen=True)
 class View:
-    """One browser view as it appears in the output."""
+    """One browser view or slide (then ``browser`` is None) as it appears in the output."""
 
-    browser: Browser
+    browser: Browser | None
     start_ms: int
     end_ms: int
+    scene_id: str = ""
+    slide: Slide | None = None
 
 
 def schedule(spec: Spec, times: Mapping[str, int]) -> list[View]:
-    """Every browser view of ``spec`` with its start and end, given scene and cue ``times``.
+    """Every browser view and slide of ``spec`` with its start and end, given scene and cue ``times``.
 
     A later view in the same scene replaces an earlier one.
     """
@@ -70,21 +90,25 @@ def schedule(spec: Spec, times: Mapping[str, int]) -> list[View]:
     for number, scene in enumerate(visible):
         scene_end = times[visible[number + 1].id] if number + 1 < len(visible) else end
         for index, action in enumerate(scene.actions):
-            if not isinstance(action, ShowBrowser):
+            if isinstance(action, ShowBrowser):
+                view = View(action.browser, 0, 0, scene.id)
+                duration = action.browser.duration_ms
+            elif isinstance(action, ShowSlide):
+                view = View(None, 0, 0, scene.id, action.slide)
+                duration = action.slide.duration_ms
+            else:
                 continue
             start = times[overlay_cue(scene.id, index)]
-            stop = scene_end
-            if action.browser.duration_ms is not None:
-                stop = min(stop, start + action.browser.duration_ms)
+            stop = scene_end if duration is None else min(scene_end, start + duration)
             if views and views[-1].end_ms > start:
-                views[-1] = View(views[-1].browser, views[-1].start_ms, start)
-            views.append(View(action.browser, start, stop))
+                views[-1] = replace(views[-1], end_ms=start)
+            views.append(replace(view, start_ms=start, end_ms=stop))
     return [view for view in views if view.end_ms > view.start_ms]
 
 
 def scaled(views: Sequence[View], factor: float) -> list[View]:
     """``views`` with every time multiplied by ``factor`` (planned → rendered length)."""
-    return [View(v.browser, round(v.start_ms * factor), round(v.end_ms * factor)) for v in views]
+    return [replace(v, start_ms=round(v.start_ms * factor), end_ms=round(v.end_ms * factor)) for v in views]
 
 
 # ── capture ───────────────────────────────────────────────────────────────────
@@ -102,6 +126,20 @@ def find_chromium() -> str:
     raise MissingDependencyError(
         "browser views need Chromium or Chrome",
         hint="install chromium, or render in the narratty image (--runtime docker)",
+    )
+
+
+def find_mermaid() -> Path:
+    """Path of ``mermaid.min.js``: ``NARRATTY_MERMAID_JS``, else the one in the data directory."""
+    from narratty.paths import data_dir
+
+    path = Path(os.environ.get(MERMAID_ENV) or data_dir() / MERMAID_FILE)
+    if path.is_file():
+        return path
+    raise MissingDependencyError(
+        f"Mermaid diagrams need {MERMAID_FILE}, which is not at {path}",
+        hint=f"render in the narratty image (--runtime docker), or put {MERMAID_FILE} "
+        f"from the mermaid npm package at {path} or name its path in {MERMAID_ENV}",
     )
 
 
@@ -238,12 +276,15 @@ def capture(
                 raise RenderError(f"browser: could not load {url}: {navigation['errorText']}")
             tools.wait_for("Page.loadEventFired", load_ms / 1000)
             time.sleep(SETTLE_MS / 1000)  # web fonts, late layout
-            page_px = tools.call(
-                "Runtime.evaluate",
-                session,
-                expression=PAGE_HEIGHT_JS,
-                returnByValue=True,
-            )["result"].get("value", view_px)
+            if _evaluate(tools, session, NEEDS_MERMAID_JS):
+                _evaluate(tools, session, find_mermaid().read_text(encoding="utf-8"), timeout_s=60)
+                try:
+                    _evaluate(tools, session, RUN_MERMAID_JS, timeout_s=60, await_promise=True)
+                except RenderError as error:
+                    raise RenderError(f"browser: Mermaid cannot draw a diagram: {error.message}") from error
+            page_px = _evaluate(tools, session, PAGE_HEIGHT_JS)
+            if page_px is None:
+                page_px = view_px
             if scroll == "auto":
                 distance = max(0, min(int(page_px), view_px * MAX_SCREENS) - view_px)
             else:
@@ -270,6 +311,26 @@ def capture(
                 os.killpg(process.pid, signal.SIGKILL)
             process.wait()
     return distance
+
+
+def _evaluate(
+    tools: _DevTools, session: str, expression: str, *, timeout_s: float = 30, await_promise: bool = False
+) -> Any:
+    """The value of ``expression`` in the page; a thrown error becomes a :class:`RenderError`."""
+    reply = tools.call(
+        "Runtime.evaluate",
+        session,
+        timeout_s=timeout_s,
+        expression=expression,
+        returnByValue=True,
+        awaitPromise=await_promise,
+    )
+    if details := reply.get("exceptionDetails"):
+        exception = details.get("exception") or {}
+        message = exception.get("description") or exception.get("value") or details.get("text", "")
+        lines = [line for line in str(message).splitlines() if not line.startswith("    at ")]
+        raise RenderError("\n".join(lines).removeprefix("Error: ").strip())
+    return reply["result"].get("value")
 
 
 # ── drawing ───────────────────────────────────────────────────────────────────
@@ -307,10 +368,10 @@ def draw_bar(url: str, width: int, height: int, path: Path) -> Path:
 
 @dataclass(frozen=True)
 class Shot:
-    """A captured view: the bar, the page and how far it scrolls."""
+    """A captured view: the bar (none for a slide), the page and how far it scrolls."""
 
     view: View
-    bar: Path
+    bar: Path | None
     page: Path
     view_px: int
     scroll_px: int
@@ -327,32 +388,51 @@ def shoot(spec: Spec, views: Sequence[View], workspace: Path, directory: Path) -
     if not views:
         return []
     chromium = find_chromium()
-    width, height = spec.terminal.width, spec.terminal.height
-    bar_px = bar_height(spec.terminal)
-    view_px = height - bar_px
     shots = []
     for number, view in enumerate(views):
-        browser = view.browser
-        url = page_url(browser.url, workspace)
-        check_network(spec, url)
-        page = directory / f"browser-{number}.png"
-        scroll_px = capture(url, width, view_px, browser.scroll, browser.load_ms, page, chromium=chromium)
-        bar = draw_bar(browser.address or browser.url, width, bar_px, directory / f"browser-{number}-bar.png")
-        shots.append(Shot(view, bar, page, view_px, scroll_px))
+        try:
+            shots.append(_shoot(spec, view, workspace, directory, number, chromium))
+        except RenderError as error:
+            if not view.scene_id:
+                raise
+            raise RenderError(f"scene {view.scene_id}: {error.message}", hint=error.hint) from error
     return shots
 
 
+def _shoot(spec: Spec, view: View, workspace: Path, directory: Path, number: int, chromium: str) -> Shot:
+    width, height = spec.terminal.width, spec.terminal.height
+    page = directory / f"browser-{number}.png"
+    if view.slide is not None:
+        if view.slide.html is not None:
+            url = page_url(view.slide.html, workspace)
+        else:
+            html_file = directory / f"slide-{number}.html"
+            html_file.parent.mkdir(parents=True, exist_ok=True)
+            html_file.write_text(slides.page(view.slide, spec.slides.theme, workspace), encoding="utf-8")
+            url = html_file.as_uri()
+        capture(url, width, height, "none", SLIDE_LOAD_MS, page, chromium=chromium)
+        return Shot(view, None, page, height, 0)
+    browser = view.browser
+    assert browser is not None
+    bar_px = bar_height(spec.terminal)
+    url = page_url(browser.url, workspace)
+    check_network(spec, url)
+    scroll_px = capture(url, width, height - bar_px, browser.scroll, browser.load_ms, page, chromium=chromium)
+    bar = draw_bar(browser.address or browser.url, width, bar_px, directory / f"browser-{number}-bar.png")
+    return Shot(view, bar, page, height - bar_px, scroll_px)
+
+
 def images(shots: Sequence[Shot], bar_px: int) -> list[OverlayImage]:
-    """Each shot as two images for ffmpeg: the page (scrolling) and the bar above it."""
+    """Each shot as images for ffmpeg: the page (scrolling) and the bar above it."""
     result = []
     for shot in shots:
         start, end = shot.view.start_ms, shot.view.end_ms
+        top = str(bar_px) if shot.bar else "0"
         result.append(
-            OverlayImage(
-                shot.page, "0", str(bar_px), start, end, shot.view_px, shot.scroll_px, shot.scroll_ms
-            )
+            OverlayImage(shot.page, "0", top, start, end, shot.view_px, shot.scroll_px, shot.scroll_ms)
         )
-        result.append(OverlayImage(shot.bar, "0", "0", start, end))
+        if shot.bar:
+            result.append(OverlayImage(shot.bar, "0", "0", start, end))
     return result
 
 
@@ -368,9 +448,9 @@ def page_views(shots: Sequence[Shot], terminal: Terminal) -> list[dict[str, Any]
             "start": shot.view.start_ms / 1000,
             "end": shot.view.end_ms / 1000,
             "scroll": [shot.scroll_ms[0] / 1000, shot.scroll_ms[1] / 1000],
-            "bar": data_url(shot.bar),
+            "bar": data_url(shot.bar) if shot.bar else None,
             "page": data_url(shot.page),
-            "bar_height": round(100 * bar_height(terminal) / width, 3),
+            "bar_height": round(100 * bar_height(terminal) / width, 3) if shot.bar else 0,
             "view_height": round(100 * shot.view_px / width, 3),
             "scroll_by": round(100 * shot.scroll_px / width, 3),
             "fade": FADE_MS / 1000,

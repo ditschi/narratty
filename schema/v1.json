@@ -1003,6 +1003,9 @@
                 "$ref": "#/$defs/ShowBrowser"
               },
               {
+                "$ref": "#/$defs/ShowSlide"
+              },
+              {
                 "const": "enter",
                 "description": "Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``.",
                 "deprecated": true,
@@ -1167,6 +1170,222 @@
         "overlay"
       ],
       "title": "ShowOverlay",
+      "type": "object"
+    },
+    "ShowSlide": {
+      "additionalProperties": false,
+      "description": "Show a slide over the terminal from this point: a table, diagram, image or HTML page.",
+      "properties": {
+        "slide": {
+          "$ref": "#/$defs/Slide"
+        }
+      },
+      "required": [
+        "slide"
+      ],
+      "title": "ShowSlide",
+      "type": "object"
+    },
+    "Slide": {
+      "additionalProperties": false,
+      "description": "Exactly one of table, mermaid, image or html, shown full screen.",
+      "properties": {
+        "title": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shown above the content.",
+          "title": "Title"
+        },
+        "table": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SlideTable"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mermaid": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A Mermaid diagram's source.",
+          "title": "Mermaid"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An image file in the workspace (PNG, JPEG, GIF, SVG, WebP) or a data: URL.",
+          "title": "Image"
+        },
+        "html": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An HTML file in the workspace or a data: URL, shown as it is.",
+          "title": "Html"
+        },
+        "highlight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Table row to highlight, from 1; it picks the page.",
+          "title": "Highlight"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Table rows per page; unset: one page.",
+          "title": "Rows"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Table page to show; defaults to the highlighted row's.",
+          "title": "Page"
+        },
+        "theme": {
+          "anyOf": [
+            {
+              "enum": [
+                "dark",
+                "light"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "dark or light; defaults to slides.theme.",
+          "title": "Theme"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "description": "Milliseconds",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "e.g. 1.5s, 800ms, 2m",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hide after this long; by default it stays until the scene ends.",
+          "title": "Duration Ms"
+        }
+      },
+      "title": "Slide",
+      "type": "object"
+    },
+    "SlideTable": {
+      "additionalProperties": false,
+      "description": "A table; cells are inline Markdown (`code`, **bold**, links).",
+      "properties": {
+        "header": {
+          "default": [],
+          "description": "Column titles; none for a table without a header row.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Header",
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "minItems": 1,
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rows"
+      ],
+      "title": "SlideTable",
+      "type": "object"
+    },
+    "Slides": {
+      "additionalProperties": false,
+      "properties": {
+        "theme": {
+          "default": "dark",
+          "description": "Look of every slide: dark or light.",
+          "enum": [
+            "dark",
+            "light"
+          ],
+          "title": "Theme",
+          "type": "string"
+        }
+      },
+      "title": "Slides",
       "type": "object"
     },
     "Terminal": {
@@ -1656,6 +1875,9 @@
                 "$ref": "#/$defs/ShowBrowser"
               },
               {
+                "$ref": "#/$defs/ShowSlide"
+              },
+              {
                 "const": "enter",
                 "description": "Press Enter. Legacy form of ``key: Enter``, written as the bare string ``enter``.",
                 "deprecated": true,
@@ -1710,6 +1932,9 @@
               },
               {
                 "$ref": "#/$defs/ShowBrowser"
+              },
+              {
+                "$ref": "#/$defs/ShowSlide"
               },
               {
                 "const": "enter",
@@ -1969,7 +2194,7 @@
         },
         "images": {
           "default": true,
-          "description": "Show images that stand on their own line in a browser view.",
+          "description": "Show images that stand on their own line, and Mermaid diagrams, as slides.",
           "title": "Images",
           "type": "boolean"
         },
@@ -2155,6 +2380,12 @@
       ],
       "title": "Narration",
       "type": "string"
+    },
+    "slides": {
+      "$ref": "#/$defs/Slides",
+      "default": {
+        "theme": "dark"
+      }
     },
     "scenes": {
       "items": {

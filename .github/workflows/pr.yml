@@ -9,6 +9,61 @@ permissions:
   contents: read
   pull-requests: read
 jobs:
+  # ── 0. What changed: decides which jobs run; the ci-ok gate always reports ──
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      ci: ${{ steps.ci.outputs.ci }}
+      docker: ${{ steps.docker.outputs.docker }}
+      videos: ${{ steps.videos.outputs.videos }}
+    steps:
+      # CI runs unless every changed file is on this list.
+      - uses: dorny/paths-filter@v3
+        id: ci
+        with:
+          predicate-quantifier: every
+          filters: |
+            ci:
+              - "**"
+              - "!.gitignore"
+              - "!.codespellignore"
+              - "!.pre-commit-config.yaml"
+              - "!AGENTS.md"
+              - "!LICENSE"
+              - "!.vscode/**"
+              - "!.github/ISSUE_TEMPLATE/**"
+              - "!.github/dependabot.yml"
+      - uses: dorny/paths-filter@v3
+        id: docker
+        with:
+          filters: |
+            docker:
+              - Dockerfile
+              - .dockerignore
+              - docker/**
+              - agent/**
+              - src/**
+              - pyproject.toml
+              - uv.lock
+              - noxfile.py
+              - tests/integration/**
+              - .github/workflows/docker.yml
+              - .github/workflows/pr.yml
+      # What the docs videos made from Markdown depend on.
+      - uses: dorny/paths-filter@v3
+        id: videos
+        with:
+          filters: |
+            videos:
+              - docs/**
+              - examples/**
+              - src/**
+              - pyproject.toml
+              - uv.lock
+              - docker/**
+              - .github/actions/render-docs-videos/**
+              - .github/workflows/pr.yml
   # ── 1. Conventional Commits PR-title lint (primary gate for squash merges) ──
   lint-title:
     name: Lint PR title
@@ -36,6 +91,8 @@ jobs:
   # ── 2. Code quality ─────────────────────────────────────────────────────────
   quality:
     name: Quality gates (3.12)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -64,6 +121,8 @@ jobs:
   # ── Agent: narratty-agent (Go) ───────────────────────────────────────────────
   agent:
     name: Agent (Go)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -78,6 +137,8 @@ jobs:
   # ── 3. Tests: multi-Python matrix, macOS best effort ────────────────────────
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.os == 'macos-latest' }}
     strategy:
@@ -105,6 +166,8 @@ jobs:
   # ── Package: the wheel builds and installs, whatever the Docker image does ──
   package:
     name: Package (wheel install)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -126,6 +189,8 @@ jobs:
   # ── 4. Integration: real voices, VHS and ffmpeg ─────────────────────────────
   integration:
     name: Integration (3.12)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     env:
       NARRATTY_DATA_DIR: ${{ github.workspace }}/.narratty-data
@@ -169,6 +234,8 @@ jobs:
   # ── 5. CLI cold-start performance budgets ───────────────────────────────────
   performance:
     name: Performance budgets (3.12)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -185,6 +252,8 @@ jobs:
   # ── 6. Docs build (strict) ──────────────────────────────────────────────────
   docs-build:
     name: Docs build (strict)
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -198,40 +267,130 @@ jobs:
         run: uv tool install nox
       - name: Build docs
         run: nox -s docs
-  # ── 7. Docs videos made from Markdown ───────────────────────────────────────
-  # The docs deploy renders them; here they are rendered when something they depend
-  # on changed, and uploaded so reviewers can watch them.
+  # ── Docker image: built and smoke-tested when its inputs change ─────────────
+  docker:
+    name: Docker
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    permissions:
+      contents: read
+      packages: write # requested by docker.yml; PR runs never push
+    uses: ./.github/workflows/docker.yml
+  # ── Docs videos made from Markdown ─────────────────────────────────────────
+  # The docs deploys render them; here they are rendered when something they depend
+  # on changed, uploaded for review and put into the docs preview.
   docs-videos:
     name: Docs videos
+    needs: changes
+    if: needs.changes.outputs.videos == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Anything the videos depend on changed?
-        id: changes
-        run: |
-          paths=(docs examples src pyproject.toml uv.lock docker .github/actions/render-docs-videos)
-          if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- "${paths[@]}"; then
-            echo "render=false" >>"$GITHUB_OUTPUT"
-          else
-            echo "render=true" >>"$GITHUB_OUTPUT"
-          fi
       - uses: actions/setup-python@v6
-        if: steps.changes.outputs.render == 'true'
         with:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v7
-        if: steps.changes.outputs.render == 'true'
       - name: Install narratty
-        if: steps.changes.outputs.render == 'true'
         run: uv pip install -e . --system
       - name: Render
-        if: steps.changes.outputs.render == 'true'
         uses: ./.github/actions/render-docs-videos
       - uses: actions/upload-artifact@v7
-        if: steps.changes.outputs.render == 'true'
         with:
           name: docs-videos
           path: docs/assets/examples/markdown.mp4
           if-no-files-found: error
+  # ── 7. Docs preview: pr-<N>/ on GitHub Pages, linked in a PR comment ────────
+  # Forks get a read-only token, so only branches of this repo get a preview.
+  docs-preview:
+    name: Docs preview
+    runs-on: ubuntu-latest
+    needs: [docs-build, docs-videos]
+    # Also when no video was rendered (docs-videos skipped), not when rendering failed.
+    if: >-
+      !cancelled() && needs.docs-build.result == 'success' && needs.docs-videos.result != 'failure'
+      && github.event.pull_request.head.repo.full_name == github.repository && github.event.action != 'edited'
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      VERSION: pr-${{ github.event.pull_request.number }}
+      NO_MKDOCS_2_WARNING: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - name: Install docs deps
+        run: uv pip install -e ".[docs]" --system
+      - name: Docs videos
+        if: needs.docs-videos.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: docs-videos
+          path: docs/assets/examples
+      - name: Configure git for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Deploy preview (hidden from the version selector)
+        run: |
+          # Other previews and the main deploy push to gh-pages too; retry on a race.
+          for attempt in 1 2 3; do
+            git fetch --force origin gh-pages:gh-pages
+            if mike deploy --push --title "PR #${{ github.event.pull_request.number }}" --prop-set hidden=true "$VERSION"; then
+              exit 0
+            fi
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: Write the comment
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          url="https://ditschi.github.io/narratty/$VERSION/"
+          pages=$(git diff --name-only --diff-filter=AM "$BASE_SHA" HEAD -- 'docs/*.md' \
+            | sed -e 's|^docs/||' -e 's|index\.md$||' -e 's|\.md$|/|')
+          {
+            echo "<!-- docs-preview -->"
+            echo "**Docs preview** for ${HEAD_SHA:0:7}: $url"
+            if [ -n "$pages" ]; then
+              echo
+              echo "Changed pages:"
+              for page in $pages; do echo "- [${page:-home}]($url$page)"; done
+            fi
+            echo
+            echo "_Updated on every push; removed when the PR is closed._"
+          } > "$RUNNER_TEMP/comment.md"
+      - name: Post or update the comment
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const body = require("fs").readFileSync(`${process.env.RUNNER_TEMP}/comment.md`, "utf8");
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const old = comments.find((c) => c.user.type === "Bot" && c.body.startsWith("<!-- docs-preview -->"));
+            if (old) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: old.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+  # ── The only required status check: skipped jobs pass, failed ones do not ──
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [changes, lint-title, quality, agent, tests, package, integration, performance, docs-build, docker, docs-videos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All jobs passed or were skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          [[ " $RESULTS " != *" failure "* && " $RESULTS " != *" cancelled "* ]]

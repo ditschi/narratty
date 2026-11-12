@@ -7,6 +7,7 @@ of being silently ignored.
 from __future__ import annotations
 
 import re
+from pathlib import PurePosixPath
 from typing import Annotated, Any, Literal
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
@@ -332,6 +333,95 @@ class ShowBrowser(_Model):
         return {"url": value} if isinstance(value, str) else value
 
 
+SlideTheme = Literal["dark", "light"]
+SLIDE_CONTENT = ("table", "mermaid", "image", "html")
+SLIDE_IMAGE_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".webp": "image/webp",
+}
+
+
+class SlideTable(_Model):
+    """A table; cells are inline Markdown (`code`, **bold**, links)."""
+
+    header: list[str] = Field([], description="Column titles; none for a table without a header row.")
+    rows: list[list[str]] = Field(min_length=1)
+
+
+class Slide(_Model):
+    """Exactly one of table, mermaid, image or html, shown full screen."""
+
+    title: str | None = Field(None, min_length=1, description="Shown above the content.")
+    table: SlideTable | None = None
+    mermaid: str | None = Field(None, min_length=1, description="A Mermaid diagram's source.")
+    image: str | None = Field(
+        None,
+        min_length=1,
+        description="An image file in the workspace (PNG, JPEG, GIF, SVG, WebP) or a data: URL.",
+    )
+    html: str | None = Field(
+        None, min_length=1, description="An HTML file in the workspace or a data: URL, shown as it is."
+    )
+    highlight: int | None = Field(
+        None, ge=1, description="Table row to highlight, from 1; it picks the page."
+    )
+    rows: int | None = Field(None, ge=1, description="Table rows per page; unset: one page.")
+    page: int | None = Field(None, ge=1, description="Table page to show; defaults to the highlighted row's.")
+    theme: SlideTheme | None = Field(None, description="dark or light; defaults to slides.theme.")
+    duration_ms: Annotated[Duration, Field(gt=0)] | None = Field(
+        None, description="Hide after this long; by default it stays until the scene ends."
+    )
+
+    @model_validator(mode="after")
+    def _one_content(self) -> Slide:
+        given = [key for key in SLIDE_CONTENT if getattr(self, key) is not None]
+        if len(given) != 1:
+            raise ValueError(f"a slide needs exactly one of: {', '.join(SLIDE_CONTENT)}")
+        if self.table is None and (self.highlight or self.rows or self.page):
+            raise ValueError("highlight, rows and page only apply to table slides")
+        if self.html is not None and (self.title or self.theme):
+            raise ValueError("an html slide is shown as it is; title and theme do not apply")
+        if self.html is not None and "://" in self.html:
+            raise ValueError("html takes a file or a data: URL; show web pages with the browser action")
+        if self.image is not None and not self.image.startswith("data:"):
+            suffix = PurePosixPath(self.image).suffix.lower()
+            if suffix not in SLIDE_IMAGE_TYPES:
+                raise ValueError(
+                    f"slide images are {', '.join(SLIDE_IMAGE_TYPES)}, not {suffix or 'no suffix'}"
+                )
+        if self.table is not None:
+            count = len(self.table.rows)
+            if self.highlight and self.highlight > count:
+                raise ValueError(f"highlight {self.highlight}: the table has {count} rows")
+            pages = -(-count // self.rows) if self.rows else 1
+            if self.page and self.page > pages:
+                raise ValueError(f"page {self.page}: the table has {pages} page(s)")
+        return self
+
+    @property
+    def shown_page(self) -> int:
+        """The table page on screen (1 without pages)."""
+        if self.page:
+            return self.page
+        if self.rows and self.highlight:
+            return (self.highlight - 1) // self.rows + 1
+        return 1
+
+
+class ShowSlide(_Model):
+    """Show a slide over the terminal from this point: a table, diagram, image or HTML page."""
+
+    slide: Slide
+
+
+class Slides(_Model):
+    theme: SlideTheme = Field("dark", description="Look of every slide: dark or light.")
+
+
 ACTION_KEYS = (
     "run",
     "type_command",
@@ -345,6 +435,7 @@ ACTION_KEYS = (
     "diff",
     "overlay",
     "browser",
+    "slide",
 )
 BARE_ACTIONS = ("enter", "diff")
 EDITOR_ACTIONS = ("focus", "reveal")
@@ -377,7 +468,8 @@ Action = Annotated[
     | Annotated[Reveal, Tag("reveal")]
     | Annotated[Diff, Tag("diff")]
     | Annotated[ShowOverlay, Tag("overlay")]
-    | Annotated[ShowBrowser, Tag("browser")],
+    | Annotated[ShowBrowser, Tag("browser")]
+    | Annotated[ShowSlide, Tag("slide")],
     Discriminator(
         _action_tag,
         custom_error_type="invalid_action",
@@ -449,6 +541,8 @@ class Scene(_Model):
             raise ValueError("a hidden scene cannot show an overlay")
         if self.hidden and any(isinstance(a, ShowBrowser) for a in self.actions):
             raise ValueError("a hidden scene cannot show a browser")
+        if self.hidden and any(isinstance(a, ShowSlide) for a in self.actions):
+            raise ValueError("a hidden scene cannot show a slide")
         return self
 
 
@@ -519,7 +613,10 @@ class MarkdownEntry(_Model):
     )
     heading_overlays: HeadingOverlays | None = Field(None, json_schema_extra=_or_levels)
     file_titles: bool = Field(True, description="Show the title of a file block as an overlay.")
-    images: bool = Field(True, description="Show images that stand on their own line in a browser view.")
+    images: bool = Field(
+        True,
+        description="Show images that stand on their own line, and Mermaid diagrams, as slides.",
+    )
     tabs: list[Annotated[str, Field(min_length=1)]] = Field(
         [], description="Preferred content tab labels; otherwise each tab set's first tab is used."
     )
@@ -780,6 +877,7 @@ class Spec(_Model):
     narration: MarkdownNarration = Field(
         "all", description="Default narration rule of `markdown` entries in scenes."
     )
+    slides: Slides = Slides()
     scenes: list[Scene] = Field(min_length=1)
 
     @field_validator("end_card", mode="before")

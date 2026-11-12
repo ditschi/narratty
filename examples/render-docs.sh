@@ -2,7 +2,7 @@
 # Renders the recordings shown on the docs into docs/assets/examples; CI renders the ones
 # made from Markdown (examples/render-ci-videos.sh), which are not committed.
 # Usage: examples/render-docs.sh [--only PATTERN] [narratty build options, e.g. --runtime native]
-#   --only PATTERN  renders only the specs whose path contains PATTERN (e.g. markdown)
+#   --only PATTERN  renders only the specs whose path contains PATTERN (e.g. browser)
 # Each spec gets <name>.fingerprint next to it (`narratty compile --fingerprint`): what its
 # videos show and say, Markdown sources included. A unit test fails when a spec or its
 # Markdown changed since its videos were rendered; re-render with --only and commit both.
