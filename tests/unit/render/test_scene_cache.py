@@ -290,3 +290,52 @@ def test_leftovers_of_interrupted_writes_are_counted_and_pruned_when_stale(tmp_p
     removed = cache.prune(-1)
     assert (removed.partial, removed.bytes) == (2, 7)
     assert young.is_file(), "a write younger than an hour may belong to a running build"
+
+
+def test_git_ignored_files_count_by_size_and_time_not_content(tmp_path: Path) -> None:
+    import os
+    import shutil
+    import subprocess
+
+    if shutil.which("git") is None:
+        pytest.skip("needs git")
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / ".gitignore").write_text("node_modules/\n", encoding="utf-8")
+    tracked, ignored = tmp_path / "app.js", tmp_path / "node_modules" / "dep.js"
+    ignored.parent.mkdir()
+    tracked.write_text("one", encoding="utf-8")
+    ignored.write_text("one", encoding="utf-8")
+
+    def rewrite(path: Path, text: str) -> None:
+        info = path.stat()
+        path.write_text(text, encoding="utf-8")
+        os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns))
+
+    before = workspace_digest(tmp_path)
+    rewrite(ignored, "two")
+    assert workspace_digest(tmp_path) == before, "an ignored file's contents are not read"
+    ignored.write_text("three", encoding="utf-8")
+    after_ignored = workspace_digest(tmp_path)
+    assert after_ignored != before, "its size and modification time still count"
+    rewrite(tracked, "two")
+    assert workspace_digest(tmp_path) != after_ignored, "files Git tracks count by contents"
+    untracked = tmp_path / "notes.txt"
+    untracked.write_text("one", encoding="utf-8")
+    with_untracked = workspace_digest(tmp_path)
+    rewrite(untracked, "two")
+    assert workspace_digest(tmp_path) != with_untracked, "untracked, not ignored files too"
+
+
+def test_workspace_digest_reads_every_file_outside_git(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    monkeypatch.setattr(scene_cache, "_git_files", lambda root: None)
+    data = tmp_path / "data.txt"
+    data.write_text("one", encoding="utf-8")
+    before = workspace_digest(tmp_path)
+    info = data.stat()
+    data.write_text("two", encoding="utf-8")
+    os.utime(data, ns=(info.st_atime_ns, info.st_mtime_ns))
+    assert workspace_digest(tmp_path) != before

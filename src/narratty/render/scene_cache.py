@@ -45,15 +45,39 @@ def scene_keys(spec: Spec, timeline: Timeline, recording_context: str) -> dict[s
     return keys
 
 
+def _git_files(root: Path) -> set[str] | None:
+    """Tracked and untracked, not ignored files under ``root``; None outside a Git work tree."""
+    git = shutil.which("git")
+    if git is None:
+        return None
+    result = subprocess.run(  # noqa: S603
+        [git, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=root,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return {os.fsdecode(name) for name in result.stdout.split(b"\0") if name}
+
+
+def _canonical(path: Path) -> Path:
+    # The walk starts at a resolved root and does not follow links: only links need resolving.
+    return path.resolve() if path.is_symlink() else path
+
+
 def workspace_digest(
     workspace: Path, *, exclude: frozenset[Path] = frozenset(), ignore_bytecode: bool = False
 ) -> str:
     """Hash the workspace files before the recorded commands run.
 
     Only the files count, not the Git history: a commit that changes no file keeps the key.
+    In a Git work tree, files Git ignores (``.venv``, ``node_modules``, build output) count
+    by size and modification time instead of their contents, which is much cheaper.
     """
     root = workspace.resolve()
     excluded = {path.resolve() for path in exclude}
+    listed = _git_files(root)
     digest = hashlib.sha256()
     for directory, folders, files in os.walk(root, followlinks=False):
         parent = Path(directory)
@@ -62,17 +86,20 @@ def workspace_digest(
             for folder in folders
             if folder != ".git"
             and not (ignore_bytecode and folder == "__pycache__")
-            and (parent / folder).resolve() not in excluded
+            and _canonical(parent / folder) not in excluded
         )
         for name in sorted([*folders, *files]):
             path = parent / name
-            if path.resolve() in excluded:
+            if _canonical(path) in excluded:
                 continue
             info = path.lstat()
-            digest.update(os.fsencode(str(path.relative_to(root))) + b"\0")
+            relative = path.relative_to(root).as_posix()
+            digest.update(os.fsencode(relative) + b"\0")
             digest.update(str(info.st_mode).encode() + b"\0")
             if stat.S_ISLNK(info.st_mode):
                 digest.update(os.fsencode(os.readlink(path)))
+            elif stat.S_ISREG(info.st_mode) and listed is not None and relative not in listed:
+                digest.update(f"{info.st_size}:{info.st_mtime_ns}".encode())
             elif stat.S_ISREG(info.st_mode):
                 with path.open("rb") as source:
                     for chunk in iter(lambda: source.read(1024 * 1024), b""):
