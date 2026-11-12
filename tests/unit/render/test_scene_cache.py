@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+import pytest
+
+from narratty.render import scene_cache
 from narratty.render.scene_cache import SceneCache, scene_keys, workspace_digest
 from narratty.spec.loader import parse_spec
 from narratty.timeline import build_timeline
@@ -49,9 +52,45 @@ def test_recording_is_shared_by_prefix_keys(tmp_path: Path) -> None:
     cache.put({"first": "first", "second": "second"}, video, {"first": 100, "second": 2000}, 4000)
     first, second = cache.get("first"), cache.get("second")
     assert first is not None and second is not None
-    assert first.video == second.video and (first.cut_ms, second.cut_ms) == (2000, 4000)
-    assert first.video.read_bytes() == b"video"
-    assert first.starts_ms == {"first": 100, "second": 2000}
+    assert [part.video for part in first.parts] == [part.video for part in second.parts]
+    assert (first.cut_ms, second.cut_ms) == (2000, 4000)
+    assert first.parts[0].video.read_bytes() == b"video"
+    assert (first.parts[0].start_ms, first.parts[0].end_ms) == (0, 2000)
+    assert first.starts_ms == {"first": 100}
+    assert second.starts_ms == {"first": 100, "second": 2000}
+
+
+def test_reused_scenes_keep_their_footage_and_fresh_scenes_chain_onto_it(tmp_path: Path) -> None:
+    cache = SceneCache(tmp_path)
+    original = tmp_path / "original.mp4"
+    original.write_bytes(b"original")
+    keys = {"a": "a1", "b": "b1", "c": "c1"}
+    cache.put(keys, original, {"a": 100, "b": 2000, "c": 4000}, 6000)
+    base = cache.get("b1")
+    assert base is not None
+    before = (cache.root / "keys" / "a1.json").read_text(encoding="utf-8")
+    fresh = tmp_path / "fresh.mp4"
+    fresh.write_bytes(b"fresh")
+    # The fresh recording replays a and b hidden; c starts at 700 ms in it.
+    cache.put(
+        {"a": "a1", "b": "b1", "c": "c2", "d": "d2"},
+        fresh,
+        {"a": 100, "b": 2000, "c": 4000, "d": 5000},
+        7000,
+        base=base,
+        video_starts_ms={"c": 700, "d": 1700},
+        video_end_ms=3700,
+    )
+    assert (cache.root / "keys" / "a1.json").read_text(encoding="utf-8") == before
+    assert cache.get("b1") == base, "a reused entry is not pointed at the joined video"
+    chained = cache.get("c2")
+    assert chained is not None
+    assert [(part.video.read_bytes(), part.start_ms, part.end_ms) for part in chained.parts] == [
+        (b"original", 0, 4000),
+        (b"fresh", 700, 1700),
+    ]
+    assert chained.cut_ms == 5000 and chained.starts_ms == {"a": 100, "b": 2000, "c": 4000}
+    assert len(list((cache.root / "videos").glob("*.mp4"))) == 2, "no joined video is stored"
 
 
 def test_damaged_or_missing_cache_entries_are_misses(tmp_path: Path) -> None:
@@ -60,7 +99,8 @@ def test_damaged_or_missing_cache_entries_are_misses(tmp_path: Path) -> None:
     entries.mkdir(parents=True)
     (entries / "broken.json").write_text("{", encoding="utf-8")
     (entries / "escape.json").write_text(
-        '{"video":"../other.mp4","starts_ms":{},"end_ms":0}', encoding="utf-8"
+        '{"parts":[{"video":"../other.mp4","start_ms":0,"end_ms":10}],"starts_ms":{},"cut_ms":10}',
+        encoding="utf-8",
     )
     assert cache.get("missing") is None
     assert cache.get("broken") is None
@@ -98,9 +138,204 @@ def test_prune_preserves_recordings_referenced_by_fresh_entries(tmp_path: Path) 
     os.utime(cache.root / "keys" / "first.json", (old, old))
     recording = cache.get("second")
     assert recording is not None
-    os.utime(recording.video, (old, old))
+    video = recording.parts[0].video
+    os.utime(video, (old, old))
     removed = cache.prune(100)
     assert (removed.entries, removed.recordings) == (1, 0)
-    assert recording.video.is_file()
+    assert video.is_file()
     removed = cache.prune(-1)
     assert (removed.entries, removed.recordings, removed.bytes) == (1, 1, 5)
+
+
+def test_tool_fingerprint_covers_vhs_version_fonts_and_image(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    outputs = {"vhs": "vhs version v0.12.1", "fc-list": "DejaVu Sans\nJetBrains Mono"}
+    monkeypatch.setattr(scene_cache.shutil, "which", lambda name: name if name in outputs else None)
+    monkeypatch.setattr(scene_cache, "_output", lambda argv: outputs[argv[0]])
+    monkeypatch.setattr(scene_cache, "IMAGE_ID_FILE", tmp_path / "image-id")
+    monkeypatch.setattr(scene_cache.Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("NARRATTY_IMAGE_ID", raising=False)
+    before = scene_cache.tool_fingerprint()
+    outputs["fc-list"] = "JetBrains Mono\nDejaVu Sans"
+    assert scene_cache.tool_fingerprint() == before, "font order does not matter"
+    outputs["fc-list"] += "\nNoto Color Emoji"
+    with_emoji = scene_cache.tool_fingerprint()
+    assert with_emoji != before
+    outputs["vhs"] = "vhs version v0.13.0"
+    assert scene_cache.tool_fingerprint() != with_emoji
+    upgraded = scene_cache.tool_fingerprint()
+    (tmp_path / "image-id").write_text("build-1\n", encoding="utf-8")
+    assert scene_cache.tool_fingerprint() != upgraded
+    rebuilt = scene_cache.tool_fingerprint()
+    monkeypatch.setenv("NARRATTY_IMAGE_ID", "sha256:abc")
+    assert scene_cache.tool_fingerprint() != rebuilt
+    pulled = scene_cache.tool_fingerprint()
+    (tmp_path / ".cache" / "rod" / "browser" / "chromium-1321438").mkdir(parents=True)
+    assert scene_cache.tool_fingerprint() != pulled, "go-rod's downloaded browser counts"
+
+
+def test_browser_symlinks_are_fingerprinted_by_their_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    real = tmp_path / "chromium-real"
+    real.write_text("v1", encoding="utf-8")
+    link = tmp_path / "chromium"
+    link.symlink_to(real)
+    monkeypatch.setattr(scene_cache.shutil, "which", lambda name: str(link) if name == "chromium" else None)
+    monkeypatch.setattr(scene_cache, "_output", lambda argv: "")
+    before = scene_cache.tool_fingerprint()
+    assert before["tools"]["chromium"][0] == str(real)
+    real.write_text("version 2", encoding="utf-8")
+    os.utime(real, ns=(1, 1))
+    assert scene_cache.tool_fingerprint() != before
+
+
+def test_only_output_shaping_environment_variables_change_the_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(scene_cache, "tool_fingerprint", dict)
+    monkeypatch.setattr(scene_cache, "workspace_digest", lambda *args, **kwargs: "files")
+    before = scene_cache.recording_context(tmp_path)
+    monkeypatch.setenv("SSH_AUTH_SOCK", "/tmp/agent.1")
+    monkeypatch.setenv("TOKEN", "first")
+    assert scene_cache.recording_context(tmp_path) == before
+    with_token = scene_cache.recording_context(tmp_path, passthrough=["TOKEN"])
+    assert with_token != before, "the spec's env_passthrough values reach the shell"
+    monkeypatch.setenv("TOKEN", "second")
+    assert scene_cache.recording_context(tmp_path, passthrough=["TOKEN"]) != with_token
+    monkeypatch.setenv("LC_TIME", "de_DE.UTF-8")
+    assert scene_cache.recording_context(tmp_path) != before
+
+
+def test_workspace_digest_ignores_commits_that_change_no_file(tmp_path: Path) -> None:
+    import shutil
+    import subprocess
+
+    if shutil.which("git") is None:
+        pytest.skip("needs git")
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+    (tmp_path / "file.txt").write_text("one", encoding="utf-8")
+    git("init", "-q")
+    git("add", "file.txt")
+    git("commit", "-q", "-m", "first")
+    before = workspace_digest(tmp_path)
+    git("commit", "-q", "--allow-empty", "-m", "second")
+    assert workspace_digest(tmp_path) == before
+
+
+def test_a_read_only_cache_still_returns_hits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache = SceneCache(tmp_path)
+    video = tmp_path / "recording.mp4"
+    video.write_bytes(b"video")
+    cache.put({"first": "first", "second": "second"}, video, {"first": 0, "second": 2000}, 4000)
+
+    def read_only(self: Path, *args: object, **kwargs: object) -> None:
+        raise PermissionError(13, "Read-only file system", str(self))
+
+    monkeypatch.setattr(Path, "touch", read_only)
+    assert cache.get("first") is not None
+
+
+def test_entries_that_exist_but_cannot_be_used_are_told_apart(tmp_path: Path) -> None:
+    cache = SceneCache(tmp_path)
+    (cache.root / "keys").mkdir(parents=True)
+    (cache.root / "keys" / "broken.json").write_text("{", encoding="utf-8")
+    assert cache.has("broken") and cache.get("broken") is None
+    assert not cache.has("missing")
+
+
+def test_a_failed_write_leaves_no_partial_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache = SceneCache(tmp_path)
+    video = tmp_path / "recording.mp4"
+    video.write_bytes(b"video")
+
+    def full_disk(source: Path, target: Path) -> None:
+        Path(target).write_bytes(b"vi")
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(scene_cache.shutil, "copyfile", full_disk)
+    with pytest.raises(OSError, match="No space"):
+        cache.put({"first": "first", "second": "second"}, video, {"first": 0, "second": 2000}, 4000)
+    assert list((cache.root / "videos").iterdir()) == []
+
+
+def test_leftovers_of_interrupted_writes_are_counted_and_pruned_when_stale(tmp_path: Path) -> None:
+    import os
+    import time
+
+    cache = SceneCache(tmp_path)
+    (cache.root / "videos").mkdir(parents=True)
+    (cache.root / "keys").mkdir(parents=True)
+    old_video = cache.root / "videos" / "a.mp4.part"
+    old_entry = cache.root / "keys" / "k.json.0123abcd.part"
+    young = cache.root / "videos" / "b.mp4.part"
+    for path, content in ((old_video, b"12345"), (old_entry, b"{}"), (young, b"123")):
+        path.write_bytes(content)
+    old = time.time() - 7200
+    for path in (old_video, old_entry):
+        os.utime(path, (old, old))
+    stats = cache.stats()
+    assert (stats.entries, stats.recordings, stats.partial, stats.bytes) == (0, 0, 3, 10)
+    removed = cache.prune(-1)
+    assert (removed.partial, removed.bytes) == (2, 7)
+    assert young.is_file(), "a write younger than an hour may belong to a running build"
+
+
+def test_git_ignored_files_count_by_size_and_time_not_content(tmp_path: Path) -> None:
+    import os
+    import shutil
+    import subprocess
+
+    if shutil.which("git") is None:
+        pytest.skip("needs git")
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / ".gitignore").write_text("node_modules/\n", encoding="utf-8")
+    tracked, ignored = tmp_path / "app.js", tmp_path / "node_modules" / "dep.js"
+    ignored.parent.mkdir()
+    tracked.write_text("one", encoding="utf-8")
+    ignored.write_text("one", encoding="utf-8")
+
+    def rewrite(path: Path, text: str) -> None:
+        info = path.stat()
+        path.write_text(text, encoding="utf-8")
+        os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns))
+
+    before = workspace_digest(tmp_path)
+    rewrite(ignored, "two")
+    assert workspace_digest(tmp_path) == before, "an ignored file's contents are not read"
+    ignored.write_text("three", encoding="utf-8")
+    after_ignored = workspace_digest(tmp_path)
+    assert after_ignored != before, "its size and modification time still count"
+    rewrite(tracked, "two")
+    assert workspace_digest(tmp_path) != after_ignored, "files Git tracks count by contents"
+    untracked = tmp_path / "notes.txt"
+    untracked.write_text("one", encoding="utf-8")
+    with_untracked = workspace_digest(tmp_path)
+    rewrite(untracked, "two")
+    assert workspace_digest(tmp_path) != with_untracked, "untracked, not ignored files too"
+
+
+def test_workspace_digest_reads_every_file_outside_git(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    monkeypatch.setattr(scene_cache, "_git_files", lambda root: None)
+    data = tmp_path / "data.txt"
+    data.write_text("one", encoding="utf-8")
+    before = workspace_digest(tmp_path)
+    info = data.stat()
+    data.write_text("two", encoding="utf-8")
+    os.utime(data, ns=(info.st_atime_ns, info.st_mtime_ns))
+    assert workspace_digest(tmp_path) != before

@@ -252,24 +252,23 @@ def encode_mp3(audio: Path, out: Path, *, runner: Runner = _run) -> None:
 
 
 def join_recordings(
-    prefix: Path,
-    suffix: Path,
+    parts: Sequence[tuple[Path, int, int | None]],
     out: Path,
     *,
-    prefix_frames: int,
-    suffix_start_frame: int,
     framerate: int,
     runner: Runner = _run,
 ) -> None:
-    """Join a cached prefix to a fresh recording at frame-aligned boundaries."""
-    graph = (
-        f"[0:v]trim=end_frame={prefix_frames},setpts=PTS-STARTPTS[first];"
-        f"[1:v]trim=start_frame={suffix_start_frame},setpts=PTS-STARTPTS[second];"
-        "[first][second]concat=n=2:v=1:a=0[out]"
-    )
-    argv = [
-        require("ffmpeg"), "-y", "-v", "error", "-i", str(prefix), "-i", str(suffix),
-        "-filter_complex", graph, "-map", "[out]", "-an", "-c:v", "libx264",
+    """Join ``(video, first frame, end frame or None)`` parts at frame-aligned boundaries."""
+    argv = [require("ffmpeg"), "-y", "-v", "error"]
+    graph = []
+    for index, (video, start, end) in enumerate(parts):
+        argv += ["-i", str(video)]
+        trim = f"start_frame={start}" + (f":end_frame={end}" if end is not None else "")
+        graph.append(f"[{index}:v]trim={trim},setpts=PTS-STARTPTS[p{index}]")
+    labels = "".join(f"[p{index}]" for index in range(len(parts)))
+    graph.append(f"{labels}concat=n={len(parts)}:v=1:a=0[out]")
+    argv += [
+        "-filter_complex", ";".join(graph), "-map", "[out]", "-an", "-c:v", "libx264",
         "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", "-r", str(framerate), str(out),
     ]  # fmt: skip
     result = runner(argv)

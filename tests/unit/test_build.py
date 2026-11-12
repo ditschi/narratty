@@ -212,7 +212,12 @@ def test_build_scene_cache_reuses_prefix_and_invalidates_changed_input(
 
     def render(plan: Plan, video: Path, *args: Any, **kwargs: Any) -> Layout:
         calls.append(kwargs)
-        video.write_bytes(b"video")
+        video.write_bytes(b"joined" if kwargs["cached_prefix"] else b"video")
+        if kwargs["cached_prefix"]:
+            fresh = kwargs["fresh"]
+            fresh.video = video.with_name("recording.mp4")
+            fresh.video.write_bytes(b"fresh")
+            fresh.positions = {"scene-b": 400, "cue-end": 1400}
         return Layout((), {"a": 0, "b": 2000}, {"a": 0, "b": 0}, {"end": 3000})
 
     monkeypatch.setattr("narratty.build.render_silent", render)
@@ -222,6 +227,11 @@ def test_build_scene_cache_reuses_prefix_and_invalidates_changed_input(
     assert calls[0]["cached_prefix"] is None
     assert calls[1]["replay_scenes"] == frozenset({"a"})
     assert calls[1]["cached_prefix"] is not None
+    from narratty.render.scene_cache import SceneCache
+
+    videos = (SceneCache(tmp_path / "cache").root / "videos").glob("*.mp4")
+    assert sorted(path.read_bytes() for path in videos) == [b"fresh", b"video"], "joins are not stored"
+    assert [part.video.read_bytes() for part in calls[1]["cached_prefix"].parts] == [b"video"]
     build(planned.spec_path, scene_cache=True, refresh_scene_cache=True, workspace=options)
     assert calls[2]["cached_prefix"] is None
     changed = planned.spec.scenes[0].model_copy(update={"pause_ms": 700})
@@ -231,6 +241,59 @@ def test_build_scene_cache_reuses_prefix_and_invalidates_changed_input(
     build(planned.spec_path, scene_cache=True, workspace=options)
     assert calls[3]["cached_prefix"] is None
     assert fake.mux_kwargs["burn"] is False
+
+
+def test_build_survives_a_scene_cache_it_cannot_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.build import WorkspaceOptions, build
+    from narratty.render.scene_cache import SceneCache
+    from narratty.render.timelapse import Layout
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    planned = _plan(workspace)
+    monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr("narratty.build.plan", lambda *args, **kwargs: planned)
+    monkeypatch.setattr("narratty.build.build_track", lambda placements, *_: placements)
+    FakeMedia(monkeypatch, 3000)
+    monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(3000, True, True, 30))
+
+    def render(plan: Plan, video: Path, *args: Any, **kwargs: Any) -> Layout:
+        video.write_bytes(b"video")
+        return Layout((), {"a": 0, "b": 2000}, {"a": 0, "b": 0}, {"end": 3000})
+
+    def read_only(*args: Any, **kwargs: Any) -> None:
+        raise PermissionError(13, "Permission denied", "/cache/scenes/videos")
+
+    monkeypatch.setattr("narratty.build.render_silent", render)
+    monkeypatch.setattr(SceneCache, "put", read_only)
+    logs: list[str] = []
+    result = build(
+        planned.spec_path,
+        scene_cache=True,
+        workspace=WorkspaceOptions("rw", allow_dirty=True),
+        log=logs.append,
+    )
+    assert result.output.name.endswith(".mp4")
+    assert any(line.startswith("scene cache not updated: ") for line in logs), logs
+
+
+def test_scene_cache_is_off_for_native_snapshots(tmp_path: Path) -> None:
+    from narratty.build import _scene_cache_plan
+    from narratty.workspace import PreparedWorkspace
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    planned = _plan(workspace)
+    snapshot = PreparedWorkspace(tmp_path / "snap" / "workspace", "snapshot", workspace, tmp_path / "snap")
+    logs: list[str] = []
+    work = tmp_path / "work"
+    plan = _scene_cache_plan(
+        planned, snapshot, tmp_path / "o.mp4", work, None, fast=False, refresh=False, log=logs.append
+    )
+    assert plan is None
+    assert any("new path each build" in line for line in logs), logs
 
 
 def test_subtitle_files_show_the_spec_text(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -344,13 +407,17 @@ def test_fast_render_repeats_frames_of_still_pauses(tmp_path: Path, monkeypatch:
 
 
 def test_cached_prefix_is_joined_to_fresh_scenes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from narratty.build import plan, render_silent
-    from narratty.render.scene_cache import SceneRecording
+    from narratty.build import FreshFootage, plan, render_silent
+    from narratty.render.scene_cache import Footage, SceneRecording
 
     FakeVhs(monkeypatch, [])
-    monkeypatch.setattr(
-        media, "join_recordings", lambda first, second, out, **kwargs: out.write_bytes(b"joined")
-    )
+    joined: list[Any] = []
+
+    def join(parts: Any, out: Path, **kwargs: Any) -> None:
+        joined.extend(parts)
+        out.write_bytes(b"joined")
+
+    monkeypatch.setattr(media, "join_recordings", join)
     spec = tmp_path / "demo.narratty.yaml"
     spec.write_text(
         "end_card: false\nscenes:\n  - id: a\n    actions: [{run: 'echo a'}]\n"
@@ -360,7 +427,9 @@ def test_cached_prefix_is_joined_to_fresh_scenes(tmp_path: Path, monkeypatch: py
     planned = plan(spec, draft=True)
     work = tmp_path / "work"
     work.mkdir()
-    previous = SceneRecording(tmp_path / "old.mp4", {"a": 300, "b": 2000}, 4000, 2000)
+    first, second = Footage(tmp_path / "old.mp4", 0, 1000), Footage(tmp_path / "older.mp4", 500, 1500)
+    previous = SceneRecording((first, second), {"a": 300}, 2000)
+    fresh = FreshFootage()
     layout = render_silent(
         planned,
         tmp_path / "silent.mp4",
@@ -369,11 +438,14 @@ def test_cached_prefix_is_joined_to_fresh_scenes(tmp_path: Path, monkeypatch: py
         cache_markers=True,
         cached_prefix=previous,
         replay_scenes=frozenset({"a"}),
+        fresh=fresh,
     )
     assert layout is not None
     assert layout.scene_starts_ms["a"] == 300
     assert layout.scene_starts_ms["b"] == 2000
     assert (tmp_path / "silent.mp4").read_bytes() == b"joined"
+    assert [part[0] for part in joined] == [first.video, second.video, fresh.video]
+    assert fresh.video == work / "recording.mp4" and "scene-b" in fresh.positions
 
 
 def test_fast_render_fails_when_a_pause_kept_changing(

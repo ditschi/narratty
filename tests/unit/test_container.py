@@ -149,6 +149,7 @@ def test_scene_cache_container_has_stable_hostname_and_relative_exclusions(
     monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(container, "_ensure_voice", lambda *args: None)
     monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr(container, "_image_id", lambda engine, image: f"sha256:{engine.value}-{image}")
     spec = _write_spec(tmp_path)
     calls: list[list[str]] = []
     delegate(
@@ -166,6 +167,7 @@ def test_scene_cache_container_has_stable_hostname_and_relative_exclusions(
     exclusion = next(item for item in argv if item.startswith("NARRATTY_SCENE_CACHE_EXCLUSIONS="))
     names = json.loads(exclusion.partition("=")[2])
     assert "proj/demo.narratty.yaml" in names and "proj/demo.narratty.mp4" in names
+    assert "NARRATTY_IMAGE_ID=sha256:docker-img:test" in argv, "the scene cache keys footage to the image"
 
 
 def test_draft_fetches_no_voice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

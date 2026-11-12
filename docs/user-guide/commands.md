@@ -16,7 +16,7 @@ the spec it implies (see [Building a doc on its own](markdown.md#building-a-doc-
 | `narratty tts SPEC [--offline]` | Synthesize all narration clips and print their lengths |
 | `narratty lexicon show SPEC` | List the [pronunciation lexicon](voices.md#pronunciation) entries and where each comes from |
 | `narratty lexicon check SPEC` | List narration words that look hard to pronounce and have no entry |
-| `narratty cache info` / `prune [--older-than 30d] [--all] [--scenes]` | Inspect caches or prune audio (or, with `--scenes`, recording) cache |
+| `narratty cache info` / `prune [--older-than 30d] [--all] [--scenes]` | Inspect caches or prune the audio cache (or, with `--scenes`, the [scene recording cache](building.md#scene-recording-cache), including leftovers of interrupted builds) |
 | `narratty plan SPEC [--draft]` | Print the timeline and total length |
 | `narratty plan SPEC --sources` | List where each scene comes from (Markdown file and line) and what was left out (since 0.5) |
 | `narratty tape SPEC [-o VIDEO]` | Print the VHS tape |
