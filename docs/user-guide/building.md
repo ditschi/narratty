@@ -15,11 +15,11 @@ narratty build demo.narratty.yaml -o out/tour.mp4 --work-dir out/work
    and pauses to fill each scene.
 4. **Recording.** VHS records a silent video, running the shell in
    `workspace.source`.
-5. **Mix.** Every clip is placed at the start of its scene in one narration track,
-   which is muxed onto the video as AAC.
-6. **Check.** The result must contain video and audio, and its length must be
-   within `--max-drift` of the plan (10% by default). Otherwise the build exits
-   with code 6.
+5. **Mix.** Every clip is placed at the start of its scene as recorded, in one
+   narration track, which is muxed onto the video as AAC.
+6. **Check.** The result must contain video and audio, and no narration may run
+   past the end of its scene by more than `--max-drift` of its length (10% by
+   default). Otherwise the build exits with code 6.
 
 After the last scene and the tail comes the end card (4 s by default; see
 [`end_card`](spec.md#end_card)); `--no-end-card` leaves it out.
@@ -195,7 +195,7 @@ Seeking needs a server that supports range requests, as most static hosts do.
 
 | Command | Shows |
 |---|---|
-| `narratty plan SPEC` | Each scene's start, action time, narration length and the total |
+| `narratty plan SPEC` | Each scene's start, action time, narration length and the total, with [measured command durations](#measured-command-durations) |
 | `narratty plan SPEC --draft` | The same with estimated narration lengths, without TTS |
 | `narratty tape SPEC` | The generated VHS tape |
 | `narratty render SPEC` | Records only the silent video (`demo.silent.mp4`) |
@@ -207,18 +207,65 @@ typed. Set `narration_start: after_actions` on a scene to speak only after its
 actions. The pause that fills a scene goes where the scene has `hold: auto`, or
 after its actions otherwise.
 
-VHS's real timing differs from its nominal timing by a few percent, depending on the
-machine. narratty measures the recorded video and stretches the clip positions to
-match, so each clip still starts with its scene.
+The recording notes where each scene really started, and for `after_actions` where
+its actions really ended. Each clip is placed there, so a command that takes longer
+than planned moves only its own scene's narration; later scenes stay in sync, and
+`hold: auto` (explain, then run) and `after_actions` (run, then explain) keep their
+order. Subtitles follow the clips; overlays, headings, slides, table rows and Mermaid
+focus follow the moments they were recorded at.
+
+A longer scene only adds a pause, so the drift check does not compare the video's
+length with the plan. It fails when a narration runs into the next scene, and names
+the scene and why, e.g. `intro (0.80s over: scene recorded 0.80s shorter than
+planned)`. Shorter narration overruns are logged as warnings. The CLI still prints
+the video's and the plan's length.
+
+When VHS writes no scene markers, the planned clip positions are stretched to the
+video's length instead.
+
+### Dropped frames
+
+VHS takes frames in real time. On a busy machine it misses some, and the video comes
+out shorter than the time it recorded, so everything on screen happens too early.
+narratty compares the two right after recording. When the video is more than 3% (and
+at least half a second) short, it logs a warning naming both lengths and stretches
+the recording back to real time, repeating frames, before anything is placed on it.
+Typing then looks a little less smooth, but the narration matches. Build on a quieter
+machine for the best picture.
+
+### Measured command durations
+
+The plan counts a `run` as its typing plus `timing.run_hold_ms`; it cannot know that
+`make` takes twelve seconds. [`narratty check`](commands.md) runs every command anyway
+and notes how long each took, from Enter until the shell was back:
+
+```console
+$ narratty check demo.narratty.yaml
+recorded how long 6 commands took; plans now wait for the slow ones: build (12.3s)
+```
+
+`plan`, `tape` and `build` then pause after such a command until it is done (plus
+0.3 s), so its output is on screen before the scene goes on, the narration's fill
+shrinks accordingly, and `plan` shows realistic lengths. They log the commands they
+wait for, and `plan` lists the scenes that use measurements.
+
+- Measurements are kept in the [cache directory](voices.md#audio-cache)
+  (`command-durations.json`), keyed by the spec's title, the shell, the layout, the
+  scene and the command. Changing a command forgets its measurement; run `check`
+  again to update them.
+- A command stopped with a control key (`C-c`) or still running at the end is not
+  measured. A `wait` needs no measurement: it blocks until the output is there.
+- `timing.measured_durations: false` plans with `run_hold_ms` only, e.g. for builds
+  that must not depend on an earlier `check`.
 
 ## Things to know
 
 - **`wait` matches the whole screen**, including the command you just typed. Wait for
   text that only the command's output contains, e.g. `wait: {screen: "Build
   succeeded"}` rather than a word that also appears in the command.
-- **Slow commands** make the video longer than planned. Give the scene a larger
-  `hold`, or move the slow part into a hidden scene. The drift check reports how far
-  off the video is.
+- **Slow commands** make their scene longer than planned, but only that scene. Run
+  `narratty check` first, so the plan [waits for them](#measured-command-durations), or
+  move the slow part into a hidden scene.
 - **Hidden scenes** run without being recorded and clear the screen afterwards, which
   makes them good for setup such as `cd`, exporting variables or warming caches.
 - **The workspace** is a throwaway snapshot by default, so demos can build and write

@@ -125,6 +125,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `tail_ms` | `1000` | Time the last frame stays on screen |
 | `run_hold_ms` | `500` | Pause after each `run` action (since 0.3) |
 | `pause_ms` | `100` | Pause after each `key` and `ctrl_sequence` (since 0.3) |
+| `measured_durations` | `true` | Pause after each `run` as long as [`narratty check`](building.md#measured-command-durations) measured its command, when that is longer than `run_hold_ms` (since 0.7) |
 
 ## `terminal`
 

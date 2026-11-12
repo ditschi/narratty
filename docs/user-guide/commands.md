@@ -28,7 +28,7 @@ the spec it implies (see [Building a doc on its own](markdown.md#building-a-doc-
 | `narratty build SPEC --scene-cache [--refresh-scene-cache]` | Reuse unchanged recordings, or force a fresh recording ([scene cache](building.md#scene-recording-cache)) |
 | `narratty build SPEC --ignore-exit` | Don't check exit codes, except where the spec sets `expect_exit` ([exit codes](spec.md#exit-codes)) |
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
-| `narratty check SPEC` | Run the commands without recording; check their exit codes and [output](spec.md#expected-output) (since 0.6) |
+| `narratty check SPEC` | Run the commands without recording; check their exit codes and [output](spec.md#expected-output) (since 0.6), and record how long they take for [later plans](building.md#measured-command-durations) (since 0.7) |
 | `narratty env shell SPEC` | Open a shell in the spec's [project environment](environments.md) |
 | `narratty env build SPEC [--rebuild-env]` | Build the environment's image and print its tag |
 | `narratty env up SPEC` | Start the environment and keep it; `build`, `render` and `env shell` reuse it |

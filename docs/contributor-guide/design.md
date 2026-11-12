@@ -483,10 +483,11 @@ flowchart LR
 4. **timeline**: compute each scene's start and length (below).
 5. **tape**: emit the byte-stable `.tape`.
 6. **render**: `vhs scene.tape` → silent `video.mp4`.
-7. **mux**: build the narration track by placing each clip at its scene start
-   (`adelay` + `amix`, or a generated silence-padded concat), then mux onto the video.
-8. **verify**: ffprobe the result; fail if total video length differs from the
-   timeline by more than a threshold (default 250 ms), warn above 100 ms.
+7. **mux**: build the narration track by placing each clip at its scene's recorded
+   start (see [Sync model](#sync-model)), then mux onto the video.
+8. **verify**: ffprobe the result; fail if a narration runs past its scene's
+   recorded end by more than `--max-drift` of its length (without markers: if the
+   total length differs from the timeline by more than `--max-drift`).
 
 ---
 
@@ -508,11 +509,47 @@ Rev 2 makes the timeline explicit:
   `Sleep (scene_ms - action_ms)` after the actions. `hold: auto` is where that fill
   goes if it appears mid-scene.
 - Scenes without narration use their literal timing. `hidden` scenes contribute 0 ms.
-- The mux places clip *n* at `lead_in_ms + Σ scene_ms[0..n-1]`, so an error in one
-  scene never accumulates into later scenes' audio.
-- Known limit: a command whose output takes longer than its scene's fill (or a `wait`
-  that blocks long) stretches the video. `verify` catches this; the fix in the spec is
-  a larger `hold` or moving the slow command into a `hidden` scene.
+- The plan puts clip *n* at `lead_in_ms + Σ scene_ms[0..n-1]`; the mux puts it at
+  its scene's *recorded* start (below), so an error in one scene never accumulates
+  into later scenes' audio.
+
+### Per-scene alignment (0.7)
+
+Rev 2 placed clips at planned times and stretched the whole track linearly to the
+measured video length. Real time differs per scene (a slow command, a long `wait`,
+VHS dropping frames under load), so `hold: auto` and `after_actions` drifted by 1–3 s
+and one slow scene shifted all later narration (found in the dual-use study).
+
+- **Markers.** Every MP4 build takes a VHS `Screenshot` at each visible scene start,
+  at each cue (overlays, browser views, slides, the end) and, for `after_actions`
+  scenes, at a `narration:<scene>` cue where the actions ended. VHS logs each command
+  as it runs it; `render/timelapse.py` turns the log times into video positions.
+  `narratty render` (silent only) skips them.
+- **Mapping.** `sync.narration_starts` puts each clip at its scene's recorded start
+  plus its planned offset, at its narration cue for `after_actions`, or at the
+  timelapse offset. Subtitles use the placed clips; overlays and views use their cue
+  positions (`overlays.schedule`, `browser.schedule`). Without markers,
+  `sync.linear_starts` stretches the plan as before. The cast build uses the same
+  mapping with its recorder's marks.
+- **Drift.** A longer scene only adds silence, so `verify` no longer compares total
+  lengths when markers exist. `sync.overruns` finds narrations that end after their
+  scene (the next scene's start, or the end cue), including clips the track pushed
+  back; one longer than `--max-drift` × its length fails with exit 6, naming the
+  scene and the cause (recorded shorter than planned / started late after the
+  previous narration). Smaller ones are warnings.
+- **Dropped frames.** VHS captures on a ticker and writes frames at a fixed rate, so
+  missed ticks make the video shorter than the logged recording time. Right after
+  recording, `sync.retime_factor` compares the two; above 3% and 500 ms the recording
+  is stretched back with `setpts` + `fps` (frames repeat) and a warning is logged.
+  Positions inside the video still assume the drops were spread evenly; matching
+  marker screenshots to frames would remove that assumption.
+- **Measured commands.** `narratty check` records how long each `run` ran (the cast
+  recorder polls the pty's foreground process group from Enter until the shell has
+  it back) in `<cache>/command-durations.json`, keyed by title, shell, layout, scene
+  and command (`durations.py`). `build_timeline` turns a measurement longer than
+  `run_hold_ms` into that `run`'s pause (`SceneTiming.run_holds`, plus 300 ms), so
+  `plan`, `tape` and `build` give slow commands their time. Opt out with
+  `timing.measured_durations: false`.
 
 ---
 
