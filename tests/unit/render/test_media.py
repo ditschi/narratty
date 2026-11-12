@@ -68,6 +68,33 @@ def test_encode_mp3(tmp_path: Path) -> None:
         media.encode_mp3(Path("a.wav"), tmp_path / "a.mp3", runner=FakeRunner(returncode=1))
 
 
+def test_join_recordings_uses_frame_boundaries(tmp_path: Path) -> None:
+    runner = FakeRunner()
+    media.join_recordings(
+        Path("old.mp4"),
+        Path("new.mp4"),
+        tmp_path / "out.mp4",
+        prefix_frames=45,
+        suffix_start_frame=3,
+        framerate=30,
+        runner=runner,
+    )
+    argv = runner.calls[0][0]
+    graph = argv[argv.index("-filter_complex") + 1]
+    assert "trim=end_frame=45" in graph and "trim=start_frame=3" in graph
+    assert "concat=n=2:v=1:a=0" in graph
+    with pytest.raises(RenderError, match="join cached scenes"):
+        media.join_recordings(
+            Path("old.mp4"),
+            Path("new.mp4"),
+            tmp_path / "out.mp4",
+            prefix_frames=45,
+            suffix_start_frame=3,
+            framerate=30,
+            runner=FakeRunner(returncode=1),
+        )
+
+
 def test_run_vhs_logs_lines_with_times(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(media.shutil, "which", lambda name: f"/usr/bin/{name}")
     calls: list[tuple[list[str], dict[str, object]]] = []

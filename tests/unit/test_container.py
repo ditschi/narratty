@@ -141,6 +141,33 @@ def test_delegate_mounts_and_arguments(tmp_path: Path, monkeypatch: pytest.Monke
     assert lexicon.startswith("NARRATTY_LEXICON=/cache/lexicons/"), "host lexicon levels travel via the cache"
 
 
+def test_scene_cache_container_has_stable_hostname_and_relative_exclusions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(container, "_ensure_voice", lambda *args: None)
+    monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
+    spec = _write_spec(tmp_path)
+    calls: list[list[str]] = []
+    delegate(
+        "build",
+        spec,
+        runtime=Runtime.DOCKER,
+        image="img:test",
+        output=spec.with_suffix(".mp4"),
+        extra_args=["--scene-cache"],
+        sandbox=SandboxRequest(WorkspaceOptions(mode="rw")),
+        runner=lambda argv: calls.append(list(argv)) or 0,
+    )
+    argv = calls[0]
+    assert argv[argv.index("--hostname") + 1] == "narratty"
+    exclusion = next(item for item in argv if item.startswith("NARRATTY_SCENE_CACHE_EXCLUSIONS="))
+    names = json.loads(exclusion.partition("=")[2])
+    assert "proj/demo.narratty.yaml" in names and "proj/demo.narratty.mp4" in names
+
+
 def test_draft_fetches_no_voice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr("narratty.tts.piper.PiperProvider.is_installed", lambda self, voice: False)

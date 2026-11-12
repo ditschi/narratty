@@ -237,11 +237,13 @@ def build_tape(
     exit_log: Path | None = None,
     placement: HelperPlacement | None = None,
     fast: bool = False,
+    replay_scenes: frozenset[str] = frozenset(),
 ) -> Tape:
     """The tape rendering ``spec`` into ``output`` (see :func:`generate_tape`).
 
     ``fast`` shortens long pauses (see ``narratty.render.pauses``); a scene's own
-    ``fast`` overrides it.
+    ``fast`` overrides it. ``replay_scenes`` runs visible scenes without recording
+    them; their actions still run in the same shell.
     """
     term = spec.terminal
     tape = _Writer(fast, marks)
@@ -271,7 +273,14 @@ def build_tape(
         tape.steps([Sleep(timeline.lead_in_ms)])
     for scene in spec.scenes:
         tape.raw("")
-        tape.steps(scene_steps(spec, scene, timeline.scene(scene.id), placement=placement))
+        steps = scene_steps(spec, scene, timeline.scene(scene.id), placement=placement)
+        if scene.id in replay_scenes and not scene.hidden:
+            steps = [
+                Hide(),
+                *(step for step in steps if not isinstance(step, Hide | Show | Mark | Cue | TimelapseEnd)),
+                Show(),
+            ]
+        tape.steps(steps)
     tape.raw("")
     tape.steps([Cue(END_CUE)])
     if timeline.tail_ms:

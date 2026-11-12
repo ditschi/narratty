@@ -27,6 +27,38 @@ After the last scene and the tail comes the end card (4 s by default; see
 With `--work-dir` the tape, the silent video and the narration track are kept for
 inspection.
 
+## Scene Recording Cache
+
+```bash
+narratty build demo.narratty.yaml --scene-cache
+narratty build demo.narratty.yaml --scene-cache --refresh-scene-cache
+narratty cache info
+narratty cache prune --scenes --older-than 30d
+```
+
+The opt-in scene cache reuses the longest unchanged prefix of the silent recording.
+It replays those scenes hidden in the same shell to restore their state, records the
+remaining scenes and joins the video. The last visible scene is always recorded again.
+Commands and waits in reused scenes still run, so the cache saves recording work, not
+the time spent running commands or waiting. A changed scene invalidates it and all
+following scenes. Narration can change without invalidating the footage when its
+duration and the rest of the scene timing stay the same.
+
+The cache fingerprints the workspace contents, scene inputs, timeline, recorder code,
+available tools and process environment. The spec and generated output files are
+excluded from the workspace fingerprint. It cannot track every external dependency:
+network responses, time, files outside the workspace, symlink targets, running services
+and commands that read the excluded files can change the result. Replayed commands may
+also produce different state than the cached footage shows. Use
+`--refresh-scene-cache` with `--scene-cache` to force a fresh recording after such a
+change, and for final builds where reproducibility matters.
+
+Caching currently requires at least two visible scenes and falls back to a normal
+recording with drafts, fast pauses, timelapses, overlays, browser views, slides or a
+project environment. It applies only to MP4 builds. Sandboxed scene-cache builds use
+the stable container hostname `narratty`. `cache prune --scenes --all` removes all
+scene recordings without touching the audio cache.
+
 ## Subtitles
 
 ```bash

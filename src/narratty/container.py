@@ -13,6 +13,7 @@ and runs hardened: no network, all capabilities dropped, read-only root filesyst
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -73,6 +74,7 @@ class ContainerSpec:
     groups: Sequence[str] = ()
     entrypoint: str | None = None
     interactive: bool = False
+    hostname: str | None = None
 
 
 def _user_flags(engine: Runtime) -> list[str]:
@@ -101,6 +103,8 @@ def run_argv(spec: ContainerSpec) -> list[str]:
         argv += ["--group-add", group]
     if spec.interactive:
         argv += ["--interactive"]
+    if spec.hostname:
+        argv += ["--hostname", spec.hostname]
     if spec.entrypoint:
         argv += ["--entrypoint", spec.entrypoint]
     for mount in spec.mounts:
@@ -314,6 +318,7 @@ class _Invocation:
             stdout_is_tty(),
             self.volumes,
             self.groups,
+            hostname="narratty" if "--scene-cache" in self.args else None,
         )
 
 
@@ -337,6 +342,24 @@ class _ExitCheck:
             check(spec, log, default="any" if self.ignore_exit else "success", output=self.output)
 
 
+def _scene_cache_exclusions(
+    invocation: _Invocation, source: Path, spec_file: Path, exits: _ExitCheck | None
+) -> None:
+    if "--scene-cache" not in invocation.args:
+        return
+    relative = []
+    output = exits.output if exits else None
+    generated = (
+        (output, output.with_suffix(".srt"), output.with_suffix(".vtt"), output.with_suffix(".artifacts"))
+        if output
+        else ()
+    )
+    for path in (spec_file, *generated):
+        if path is not None and path.resolve().is_relative_to(source):
+            relative.append(str(path.resolve().relative_to(source)))
+    invocation.env["NARRATTY_SCENE_CACHE_EXCLUSIONS"] = json.dumps(relative)
+
+
 def _run_demo(
     invocation: _Invocation,
     spec: Spec,
@@ -354,6 +377,8 @@ def _run_demo(
     from narratty.workspace import prepare_workspace
 
     spec_file = invocation.spec_file
+    source = Plan.source_of(spec_file, spec)
+    _scene_cache_exclusions(invocation, source, spec_file, exits)
     sandbox = approved_sandbox(spec_file, spec, request)
     environment = resolve(spec.environment, request.environment)
     if environment is None:
@@ -389,7 +414,6 @@ def _run_demo(
         log(f"using the environment {session.container} from `narratty env up`")
         invocation.mounts.append(Mount(path, CONTAINER_WORKSPACE))
         return record(session)
-    source = Plan.source_of(spec_file, spec)
     with prepare_workspace(
         source,
         request.workspace.mode or spec.workspace.mode,

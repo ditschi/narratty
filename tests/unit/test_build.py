@@ -192,6 +192,47 @@ def test_draft_build_burns_in_the_narration(tmp_path: Path, monkeypatch: pytest.
     assert "Hello there." in fake.srt
 
 
+def test_build_scene_cache_reuses_prefix_and_invalidates_changed_input(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import replace
+
+    from narratty.build import WorkspaceOptions, build
+    from narratty.render.timelapse import Layout
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    planned = _plan(workspace)
+    monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr("narratty.build.plan", lambda *args, **kwargs: planned)
+    monkeypatch.setattr("narratty.build.build_track", lambda placements, *_: placements)
+    fake = FakeMedia(monkeypatch, 3000)
+    monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(3000, True, True, 30.0))
+    calls: list[dict[str, Any]] = []
+
+    def render(plan: Plan, video: Path, *args: Any, **kwargs: Any) -> Layout:
+        calls.append(kwargs)
+        video.write_bytes(b"video")
+        return Layout((), {"a": 0, "b": 2000}, {"a": 0, "b": 0}, {"end": 3000})
+
+    monkeypatch.setattr("narratty.build.render_silent", render)
+    options = WorkspaceOptions("rw", allow_dirty=True)
+    build(planned.spec_path, scene_cache=True, workspace=options)
+    build(planned.spec_path, scene_cache=True, workspace=options)
+    assert calls[0]["cached_prefix"] is None
+    assert calls[1]["replay_scenes"] == frozenset({"a"})
+    assert calls[1]["cached_prefix"] is not None
+    build(planned.spec_path, scene_cache=True, refresh_scene_cache=True, workspace=options)
+    assert calls[2]["cached_prefix"] is None
+    changed = planned.spec.scenes[0].model_copy(update={"pause_ms": 700})
+    planned = replace(
+        planned, spec=planned.spec.model_copy(update={"scenes": [changed, planned.spec.scenes[1]]})
+    )
+    build(planned.spec_path, scene_cache=True, workspace=options)
+    assert calls[3]["cached_prefix"] is None
+    assert fake.mux_kwargs["burn"] is False
+
+
 def test_subtitle_files_show_the_spec_text(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from narratty.build import WorkspaceOptions, build
     from narratty.draft import estimate_ms
@@ -300,6 +341,39 @@ def test_fast_render_repeats_frames_of_still_pauses(tmp_path: Path, monkeypatch:
     assert "Sleep 1000ms" in (tmp_path / "work" / "scene.tape").read_text(encoding="utf-8")
     [(frame, count)] = fake.repeated
     assert count > 0 and frame >= 0
+
+
+def test_cached_prefix_is_joined_to_fresh_scenes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from narratty.build import plan, render_silent
+    from narratty.render.scene_cache import SceneRecording
+
+    FakeVhs(monkeypatch, [])
+    monkeypatch.setattr(
+        media, "join_recordings", lambda first, second, out, **kwargs: out.write_bytes(b"joined")
+    )
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(
+        "end_card: false\nscenes:\n  - id: a\n    actions: [{run: 'echo a'}]\n"
+        "  - id: b\n    actions: [{run: 'echo b'}]\n",
+        encoding="utf-8",
+    )
+    planned = plan(spec, draft=True)
+    work = tmp_path / "work"
+    work.mkdir()
+    previous = SceneRecording(tmp_path / "old.mp4", {"a": 300, "b": 2000}, 4000, 2000)
+    layout = render_silent(
+        planned,
+        tmp_path / "silent.mp4",
+        work,
+        tmp_path,
+        cache_markers=True,
+        cached_prefix=previous,
+        replay_scenes=frozenset({"a"}),
+    )
+    assert layout is not None
+    assert layout.scene_starts_ms["a"] == 300
+    assert layout.scene_starts_ms["b"] == 2000
+    assert (tmp_path / "silent.mp4").read_bytes() == b"joined"
 
 
 def test_fast_render_fails_when_a_pause_kept_changing(

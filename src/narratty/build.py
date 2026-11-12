@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import subprocess
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from narratty.render.cast import Recording
     from narratty.render.overlays import OverlayImage
     from narratty.render.pauses import Insert, JobWatch
+    from narratty.render.scene_cache import SceneCache, SceneRecording
     from narratty.render.script import HelperPlacement
     from narratty.render.tape import Tape
     from narratty.spec.model import Environment
@@ -317,6 +319,9 @@ def render_silent(
     fast: bool = False,
     log: Log | None = None,
     request: SandboxRequest | None = None,
+    cache_markers: bool = False,
+    cached_prefix: SceneRecording | None = None,
+    replay_scenes: frozenset[str] = frozenset(),
 ) -> timelapse.Layout | None:
     """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``.
 
@@ -338,20 +343,31 @@ def render_silent(
     tape_path = work / "scene.tape"
     filling = uses_fast(planned.spec, fast)
     framerate = DRAFT_FRAMERATE if planned.draft else FRAMERATE
-    measured = planned.timeline.has_timelapse or has_overlays(planned.spec) or has_browsers(planned.spec)
+    measured = (
+        cache_markers
+        or planned.timeline.has_timelapse
+        or has_overlays(planned.spec)
+        or has_browsers(planned.spec)
+    )
     marks = (work / "marks").resolve() if measured else None
     recording = work / "recording.mp4" if marks or filling else video
     if marks:
         marks.mkdir(parents=True, exist_ok=True)
+    timeline = planned.timeline
+    if cached_prefix is not None:
+        from dataclasses import replace
+
+        timeline = replace(timeline, lead_in_ms=0)
     tape = build_tape(
         planned.spec,
-        planned.timeline,
+        timeline,
         recording.resolve(),
         framerate=framerate,
         marks=marks,
         exit_log=(exit_log := fresh_exit_log(work, bridge)),
         placement=(placement := placement_for(planned, work, bridge, request)),
         fast=fast,
+        replay_scenes=replay_scenes,
     )
     tape_path.write_text(tape.text, encoding="utf-8")
     jobs = None
@@ -384,6 +400,37 @@ def render_silent(
 
     positions = timelapse.marker_positions(vhs_log, marks, recorded.duration_ms)
     positions = shift_positions(positions, inserts, recorded.frame_rate)
+    return _finish_recording(planned, recording, video, positions, cached_prefix, replay_scenes, framerate)
+
+
+def _finish_recording(
+    planned: Plan,
+    recording: Path,
+    video: Path,
+    positions: dict[str, int],
+    cached_prefix: SceneRecording | None,
+    replay_scenes: frozenset[str],
+    framerate: int,
+) -> timelapse.Layout:
+    if cached_prefix is not None:
+        first = next(
+            scene.id for scene in planned.spec.scenes if not scene.hidden and scene.id not in replay_scenes
+        )
+        prefix_frames = round(cached_prefix.cut_ms * framerate / 1000)
+        suffix_frame = round(positions[f"scene-{first}"] * framerate / 1000)
+        media.join_recordings(
+            cached_prefix.video,
+            recording,
+            video,
+            prefix_frames=prefix_frames,
+            suffix_start_frame=suffix_frame,
+            framerate=framerate,
+        )
+        positions = {
+            key: round((prefix_frames + round(value * framerate / 1000) - suffix_frame) * 1000 / framerate)
+            for key, value in positions.items()
+        } | {f"scene-{scene_id}": cached_prefix.starts_ms[scene_id] for scene_id in replay_scenes}
+        return timelapse.layout(planned.timeline, positions)
     layout = timelapse.layout(planned.timeline, positions)
     if layout.segments:
         timelapse.speed_up(recording, layout.segments, video, framerate=framerate)
@@ -526,6 +573,103 @@ def overlay_images(
     return browser.images(shots, browser.bar_height(spec.terminal)) + images(spec, shown, work / "overlays")
 
 
+def _cache_exclusions(ws: PreparedWorkspace, paths: Sequence[Path]) -> frozenset[Path]:
+    excluded = set()
+    for path in paths:
+        resolved = path.resolve()
+        if resolved.is_relative_to(ws.path.resolve()):
+            excluded.add(resolved)
+        elif resolved.is_relative_to(ws.source.resolve()):
+            excluded.add(ws.path / resolved.relative_to(ws.source.resolve()))
+    try:
+        relative_paths = json.loads(os.environ.get("NARRATTY_SCENE_CACHE_EXCLUSIONS", "[]"))
+        for value in relative_paths:
+            relative = Path(value)
+            if not relative.is_absolute() and ".." not in relative.parts:
+                excluded.add(ws.path / relative)
+    except (ValueError, TypeError):
+        pass
+    return frozenset(excluded)
+
+
+@dataclass(frozen=True)
+class SceneCachePlan:
+    """The cache entries and reusable prefix selected for a build."""
+
+    cache: SceneCache
+    keys: dict[str, str]
+    prefix: SceneRecording | None
+    replay: frozenset[str]
+
+
+def _scene_cache_plan(
+    planned: Plan,
+    ws: PreparedWorkspace,
+    output: Path,
+    work: Path,
+    bridge: Sequence[str] | None,
+    *,
+    fast: bool,
+    refresh: bool,
+    log: Log,
+) -> SceneCachePlan | None:
+    from narratty.render.scene_cache import SceneCache, recording_context, scene_keys
+    from narratty.render.tape import FRAMERATE
+
+    visible = [scene.id for scene in planned.spec.scenes if not scene.hidden]
+    unsupported = (
+        planned.draft
+        or fast
+        or planned.timeline.has_timelapse
+        or has_overlays(planned.spec)
+        or has_browsers(planned.spec)
+        or bridge is not None
+        or any(scene.fast for scene in planned.spec.scenes)
+        or sum(not scene.hidden for scene in planned.spec.scenes) < 2
+    )
+    if unsupported:
+        log("scene cache unavailable for this build; recording all scenes")
+        return None
+    cache = SceneCache(cache_dir())
+    exclusions = _cache_exclusions(
+        ws,
+        (
+            planned.spec_path,
+            output,
+            output.with_suffix(".srt"),
+            output.with_suffix(".vtt"),
+            output.with_suffix(".artifacts"),
+            work,
+            cache_dir(),
+        ),
+    )
+    keys = scene_keys(planned.spec, planned.timeline, recording_context(ws.path, exclude=exclusions))
+    selected = None
+    replay: frozenset[str] = frozenset()
+    if not refresh:
+        for index, scene_id in enumerate(visible[:-1]):
+            candidate = cache.get(keys[scene_id])
+            prefix = visible[: index + 1]
+            if candidate is None or any(name not in candidate.starts_ms for name in prefix):
+                continue
+            try:
+                info = media.probe(candidate.video)
+            except RenderError:
+                continue
+            starts = [candidate.starts_ms[name] for name in prefix]
+            if (
+                info.has_video
+                and abs(info.frame_rate - FRAMERATE) < 0.01
+                and info.duration_ms >= candidate.cut_ms
+                and starts == sorted(starts)
+                and starts[-1] < candidate.cut_ms
+            ):
+                selected, replay = candidate, frozenset(prefix)
+    if selected is not None:
+        log(f"reusing {len(replay)} cached scenes; replaying their commands hidden")
+    return SceneCachePlan(cache, keys, selected, replay)
+
+
 def build(
     spec_path: Path,
     output: Path | None = None,
@@ -541,6 +685,8 @@ def build(
     ignore_exit: bool = False,
     sandbox: SandboxRequest | None = None,
     log: Log | None = None,
+    scene_cache: bool = False,
+    refresh_scene_cache: bool = False,
 ) -> BuildResult:
     """Run the full pipeline and verify the result.
 
@@ -560,13 +706,38 @@ def build(
         workspace_for(planned, workspace or WorkspaceOptions(), sandbox, log=say) as ws,
         environment_bridge(planned, ws, sandbox, say) as bridge,
     ):
+        cache = (
+            _scene_cache_plan(
+                planned, ws, output, work, bridge, fast=fast, refresh=refresh_scene_cache, log=say
+            )
+            if scene_cache
+            else None
+        )
         say(f"recording {len(planned.timeline.scenes)} scenes with VHS")
         silent = work / "silent.mp4"
+        render_options: dict[str, Any] = {}
+        if cache is not None:
+            render_options = {
+                "cache_markers": True,
+                "cached_prefix": cache.prefix,
+                "replay_scenes": cache.replay,
+            }
         layout = render_silent(
-            planned, silent, work, ws.path, bridge, fast=fast or draft, log=say, request=sandbox
+            planned,
+            silent,
+            work,
+            ws.path,
+            bridge,
+            fast=fast or draft,
+            log=say,
+            request=sandbox,
+            **render_options,
         )
         video_ms = media.probe(silent).duration_ms
-        if layout is None or not layout.segments:
+        if cache is not None and layout is not None:
+            expected_ms = planned.timeline.total_ms
+            placements = place_clips_at(planned, layout.scene_starts_ms, layout.narration_offsets_ms)
+        elif layout is None or not layout.segments:
             expected_ms, placements = planned.timeline.total_ms, place_clips(planned, video_ms)
         else:
             expected_ms = layout.expected_ms(planned.timeline)
@@ -592,6 +763,14 @@ def build(
             SubtitleFiles.beside(output).write(cues)
         _export_artifacts(planned, ws.path, output, say)
         check_exits(planned, work, output, ignore_exit=ignore_exit)
+        if cache is not None and layout is not None:
+            verify(BuildResult(output, expected_ms, video_ms, tuple(used)), max_drift=max_drift)
+            cache.cache.put(
+                {scene.id: cache.keys[scene.id] for scene in planned.spec.scenes if not scene.hidden},
+                silent,
+                layout.scene_starts_ms,
+                layout.cues_ms["end"],
+            )
     result = BuildResult(output, expected_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
     return result

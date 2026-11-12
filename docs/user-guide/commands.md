@@ -16,7 +16,7 @@ the spec it implies (see [Building a doc on its own](markdown.md#building-a-doc-
 | `narratty tts SPEC [--offline]` | Synthesize all narration clips and print their lengths |
 | `narratty lexicon show SPEC` | List the [pronunciation lexicon](voices.md#pronunciation) entries and where each comes from |
 | `narratty lexicon check SPEC` | List narration words that look hard to pronounce and have no entry |
-| `narratty cache info` / `prune [--older-than 30d] [--all]` | Inspect or prune the audio cache |
+| `narratty cache info` / `prune [--older-than 30d] [--all] [--scenes]` | Inspect caches or prune audio (or, with `--scenes`, recording) cache |
 | `narratty plan SPEC [--draft]` | Print the timeline and total length |
 | `narratty plan SPEC --sources` | List where each scene comes from (Markdown file and line) and what was left out (since 0.5) |
 | `narratty tape SPEC [-o VIDEO]` | Print the VHS tape |
@@ -25,6 +25,7 @@ the spec it implies (see [Building a doc on its own](markdown.md#building-a-doc-
 | `narratty build SPEC --subtitles MODE` | Add [subtitles](building.md#subtitles): `none`, `files`, `track` or `burn` |
 | `narratty build SPEC --draft` | Build a fast [draft](building.md#draft) (`demo.draft.mp4`) |
 | `narratty build SPEC --fast` | Fill long pauses with still frames instead of recording them ([fast pauses](building.md#fast-pauses)) |
+| `narratty build SPEC --scene-cache [--refresh-scene-cache]` | Reuse unchanged recordings, or force a fresh recording ([scene cache](building.md#scene-recording-cache)) |
 | `narratty build SPEC --ignore-exit` | Don't check exit codes, except where the spec sets `expect_exit` ([exit codes](spec.md#exit-codes)) |
 | `narratty build SPEC --format cast [-o PAGE]` | Build an [asciicast with narration](building.md#asciicast-with-narration) |
 | `narratty check SPEC` | Run the commands without recording; check their exit codes and [output](spec.md#expected-output) (since 0.6) |
