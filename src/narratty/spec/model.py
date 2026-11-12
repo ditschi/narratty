@@ -639,11 +639,17 @@ class SectionFilter(_Model):
     )
 
 
+Sections = Annotated[
+    Annotated[list[Section], Field(min_length=1), Tag("sections")] | Annotated[SectionFilter, Tag("filter")],
+    Discriminator(lambda value: "filter" if isinstance(value, (dict, SectionFilter)) else "sections"),
+]
+
+
 class MarkdownEntry(_Model):
     """A Markdown doc expanded into scenes where it stands in ``scenes``."""
 
     markdown: str = Field(min_length=1, description="The Markdown file, relative to the spec.")
-    sections: Annotated[list[Section], Field(min_length=1)] | SectionFilter | None = Field(
+    sections: Sections | None = Field(
         None,
         description="Sections to use, by TOC slug or title, with their nested headings; "
         "a list path picks one of several equal headings. Unset: the whole doc. "

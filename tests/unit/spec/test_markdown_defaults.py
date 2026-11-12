@@ -264,3 +264,15 @@ def test_other_paragraphs_before_a_table_stay_before_it(tmp_path: Path) -> None:
 def test_a_lead_in_must_stand_right_before_the_table(tmp_path: Path) -> None:
     body = "# Doc\n\nThe snippet:\n\n```markdown\nx\n```\n\n<!-- narratty: table -->\n" + TABLE
     assert _narration(tmp_path, body)[0] == "The snippet:"
+
+
+def test_section_filter_errors_name_one_form(tmp_path: Path) -> None:
+    from narratty.spec.loader import parse_document
+
+    _doc(tmp_path, GUIDE)
+    with pytest.raises(SpecError) as info:
+        parse_document(
+            "scenes:\n  - markdown: doc.md\n    sections: {exclud: [faq]}\n", tmp_path / "s.narratty.yaml"
+        )
+    (issue,) = info.value.issues
+    assert issue.message == "unknown key 'exclud' (did you mean 'exclude'?)"

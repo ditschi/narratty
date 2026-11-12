@@ -2226,27 +2226,31 @@
         "sections": {
           "anyOf": [
             {
-              "items": {
-                "anyOf": [
-                  {
-                    "minLength": 1,
-                    "type": "string"
+              "oneOf": [
+                {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    ]
                   },
-                  {
-                    "items": {
-                      "minLength": 1,
-                      "type": "string"
-                    },
-                    "minItems": 1,
-                    "type": "array"
-                  }
-                ]
-              },
-              "minItems": 1,
-              "type": "array"
-            },
-            {
-              "$ref": "#/$defs/SectionFilter"
+                  "minItems": 1,
+                  "type": "array"
+                },
+                {
+                  "$ref": "#/$defs/SectionFilter"
+                }
+              ]
             },
             {
               "type": "null"
