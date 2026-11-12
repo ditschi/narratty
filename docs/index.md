@@ -2,18 +2,36 @@
 
 ![narratty](assets/logo.svg){ width="320" }
 
-Turn a YAML script into a narrated terminal video. narratty types your commands in a
-real terminal (VHS), speaks the narration with local text-to-speech (Kokoro or Piper)
-and keeps voice and picture in sync. It runs sandboxed in Docker or Podman, or
-natively.
+Turn your docs into narrated terminal videos. narratty reads a Markdown doc, speaks
+its paragraphs with local text-to-speech (Kokoro or Piper) and runs its code blocks
+in a real terminal (VHS), keeping voice and picture in sync. It runs sandboxed in
+Docker or Podman, or natively.
+
+## Why narratty
+
+- **One source, read or watched.** Some people like to read a doc at their own pace,
+  others to watch someone use the tool or to listen while they follow along. The video
+  is made from the doc itself, so everyone gets the same content, and subtitles come
+  from the same text.
+- **Docs that are checked.** Every command in the video really runs. One that fails
+  stops the build, so a doc whose commands no longer work does not build. A
+  [draft build](user-guide/building.md#draft) in CI checks this without TTS.
+- **Videos that stay current.** Change the doc, rebuild the video.
+  `narratty compile --fingerprint` tells when a committed video is older than its doc.
+- **The doc stays a doc.** Plain Markdown needs no markup. What only the video needs
+  goes into HTML comments and code block attributes, invisible on GitHub and mkdocs.
+
+A short YAML spec points at the doc and sets the voice and the look. Scenes written
+in YAML cover what a doc doesn't hold: an intro, a transition between docs, hidden
+setup, or a demo with no doc behind it.
 
 ## Features
 
-- **Spec to video:** a `.narratty.yaml` file becomes an MP4, or an asciicast with
-  narration and a player page (`--format cast`).
 - **[Markdown input](user-guide/markdown.md):** a Markdown doc becomes the video; its
-  paragraphs are the narration and its code blocks run in the terminal, so docs and
-  video stay in step.
+  paragraphs are the narration, its code blocks run in the terminal, and tables,
+  images and `mermaid` diagrams become slides.
+- **Output:** an MP4, or an asciicast with narration and a player page
+  (`--format cast`).
 - **[Local voices](user-guide/voices.md):** Kokoro (natural sounding, the default) or Piper
   (many languages), no cloud service. Narration and typing stay in sync, and audio is
   cached.
@@ -26,8 +44,9 @@ natively.
   rounded box over the video, with reusable styles.
 - **[Browser views](user-guide/spec.md#browser-views):** a web page or local HTML file
   as Chromium renders it, scrolling while the narration talks about it.
-- **Scripting:** hidden setup scenes, waits for screen output, key presses and
-  per-scene typing speed.
+- **[YAML scenes](user-guide/writing-specs.md):** intros, transitions and demos without
+  a doc; hidden setup scenes, waits for screen output, key presses and per-scene
+  typing speed.
 - **[Editor layout](user-guide/toolkit.md#editor-layout):** a file explorer with
   preview above the shell, `focus` and `reveal` actions, and a `diff` of what the demo
   changed.
@@ -41,26 +60,38 @@ natively.
 
 ## Quick start
 
+Write the doc as usual:
+
+````markdown title="hello.md"
+# Hello
+
+This is a quick tour of the repository layout.
+
+```console
+$ ls -la
+```
+````
+
+Point a spec at it:
+
+```yaml title="hello.narratty.yaml"
+scenes:
+  - markdown: hello.md
+```
+
+Build the video:
+
 ```bash
 uv tool install narratty            # or: pipx install narratty
-narratty init                       # writes demo.narratty.yaml
-narratty validate demo.narratty.yaml
-narratty build demo.narratty.yaml   # writes demo.mp4
+narratty validate hello.narratty.yaml
+narratty build hello.narratty.yaml  # writes hello.mp4
 ```
 
-A minimal spec:
-
-```yaml
-scenes:
-  - id: intro
-    narration: This is a quick tour of the repository layout.
-    actions:
-      - run: ls -la
-```
-
-Each scene lasts as long as its actions or its narration, whichever is longer. See
+Each scene lasts as long as its commands or its narration, whichever is longer. See
+[Markdown input](user-guide/markdown.md) for what a doc can hold,
 [Building a video](user-guide/building.md) for how timing works and the
-[spec reference](user-guide/spec.md) for every key.
+[spec reference](user-guide/spec.md) for every key. `narratty init` writes a
+commented starter spec with YAML scenes.
 
 ## Where it runs
 

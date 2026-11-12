@@ -4,28 +4,46 @@
 
 # narratty
 
-Turn a YAML script into a narrated terminal video. narratty types your commands in a
-real terminal ([VHS](https://github.com/charmbracelet/vhs)), speaks the narration with
-local text-to-speech ([Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or
-[Piper](https://github.com/OHF-Voice/piper1-gpl)) and keeps voice and picture in
+Turn your docs into narrated terminal videos. narratty reads a Markdown doc, speaks
+its paragraphs with local text-to-speech
+([Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or
+[Piper](https://github.com/OHF-Voice/piper1-gpl)) and runs its code blocks in a real
+terminal ([VHS](https://github.com/charmbracelet/vhs)), keeping voice and picture in
 sync. It runs sandboxed in Docker or Podman, or natively.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+- **One source, read or watched:** readers read the doc, others watch or listen to
+  the video made from it.
+- **Docs that are checked:** every command really runs; one that fails stops the
+  build.
+- **Videos that stay current:** change the doc, rebuild the video.
+
+````markdown
+<!-- hello.md -->
+# Hello
+
+This is a quick tour of the repository layout.
+
+```console
+$ eza --tree --level=1 .
+```
+````
+
 ```yaml
-# demo.narratty.yaml
+# hello.narratty.yaml
 scenes:
-  - id: intro
-    narration: This is a quick tour of the repository layout.
-    actions:
-      - run: eza --tree --level=1 .
+  - markdown: hello.md
 ```
 
 ```bash
-uv tool install narratty            # or: pipx install narratty
-narratty build demo.narratty.yaml   # writes demo.mp4
-narratty build demo.narratty.yaml -f cast  # demo.cast + demo.mp3 + demo.html
+uv tool install narratty             # or: pipx install narratty
+narratty build hello.narratty.yaml   # writes hello.mp4
+narratty build hello.narratty.yaml -f cast  # hello.cast + hello.mp3 + hello.html
 ```
+
+Scenes written in YAML cover what a doc doesn't hold: an intro, a transition between
+docs, hidden setup, or a demo with no doc behind it.
 
 With Docker or Podman installed, the build runs in the `ghcr.io/ditschi/narratty`
 image and needs nothing else on the host. Without one, `narratty doctor` lists the
@@ -35,10 +53,11 @@ tools native mode needs.
 
 ## Features
 
-- **Spec to video:** a `.narratty.yaml` file becomes an MP4, or an asciicast with
-  narration and a player page (`--format cast`).
 - **Markdown input:** a Markdown doc becomes the video; its paragraphs are the
-  narration and its code blocks run in the terminal.
+  narration, its code blocks run in the terminal, and tables, images and `mermaid`
+  diagrams become slides.
+- **Output:** an MP4, or an asciicast with narration and a player page
+  (`--format cast`).
 - **Local voices:** Kokoro (natural sounding, the default) or Piper
   (many languages), no cloud service. Narration and typing stay in sync, and audio is
   cached.
@@ -51,8 +70,8 @@ tools native mode needs.
   with reusable styles.
 - **Browser views:** a web page or local HTML file as Chromium renders it, scrolling
   while the narration talks about it.
-- **Scripting:** hidden setup scenes, waits for screen output, key presses and
-  per-scene typing speed.
+- **YAML scenes:** intros, transitions and demos without a doc; hidden setup scenes,
+  waits for screen output, key presses and per-scene typing speed.
 - **Editor layout:** a file explorer with preview above the shell
   (`terminal.layout: editor`), `focus` and `reveal` actions, and a `diff` of what the
   demo changed.

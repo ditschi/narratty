@@ -1,4 +1,4 @@
-"""narratty: narrated terminal videos from a YAML spec.
+"""narratty: narrated terminal videos from Markdown docs and YAML specs.
 
 Public command and import package are both ``narratty``.
 """
