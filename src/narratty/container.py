@@ -236,14 +236,18 @@ def delegate(
         _ensure_voice(spec.tts.provider, spec.tts.voice)
     chosen_image = image_ref(override=image)
     base = _Invocation(command, spec_path.resolve(), resolved.runtime, chosen_image, extra_args)
-    base.use_compiled_spec()
-    if output is not None:
-        base.add_output(output)
-    if work_dir is not None:
-        base.add_work_dir(work_dir)
-    if sandbox is None:
-        return run(base.container(), runner=runner)
-    return _run_demo(base, spec, sandbox, runner, _ExitCheck(output, ignore_exit))
+    try:
+        base.use_compiled_spec()
+        if output is not None:
+            base.add_output(output)
+        if work_dir is not None:
+            base.add_work_dir(work_dir)
+        if sandbox is None:
+            return run(base.container(), runner=runner)
+        return _run_demo(base, spec, sandbox, runner, _ExitCheck(output, ignore_exit))
+    finally:
+        if base.compiled is not None:  # it holds hidden commands, which may set secrets
+            base.compiled.unlink(missing_ok=True)
 
 
 def _ensure_voice(provider_name: str, voice: str) -> None:
@@ -285,6 +289,7 @@ class _Invocation:
         lexicon = export_host_entries(spec_file, cache / "lexicons")
         self.env[ENV_OVERRIDE] = f"/cache/lexicons/{lexicon.name}"
         self.network = "none"
+        self.compiled: Path | None = None
 
     def use_compiled_spec(self) -> None:
         """Mount the expanded spec when it has Markdown entries; their docs are not mounted."""
@@ -292,7 +297,7 @@ class _Invocation:
         from narratty.spec.compile import container_spec
 
         spec = self.mounts[0]
-        compiled = container_spec(spec.host, cache_dir())
+        self.compiled = compiled = container_spec(spec.host, cache_dir())
         if compiled is not None:
             self.mounts[0] = Mount(compiled, spec.container, read_only=True)
 

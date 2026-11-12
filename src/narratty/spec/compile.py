@@ -91,16 +91,24 @@ def fingerprint(spec_file: Path) -> str:
 
 
 def container_spec(spec_file: Path, cache: Path) -> Path | None:
-    """A compiled copy of the spec to mount into a container, or None when it has no Markdown."""
+    """A compiled copy of the spec to mount into a container, or None when it has no Markdown.
+
+    It holds every command, including those of ``hidden`` comments, so it is readable
+    only by you and the caller removes it once the container is done.
+    """
+    import tempfile
+
     document = parse_document(read_spec_text(spec_file), spec_file)
     if not has_markdown(document):
         return None
     text = compile_document(document, spec_file)
     folder = cache / "compiled"
     folder.mkdir(parents=True, exist_ok=True)
-    path = folder / f"{hashlib.sha256(text.encode()).hexdigest()[:12]}-{spec_file.name}"
-    path.write_text(text, encoding="utf-8")
-    return path
+    prefix = f"{hashlib.sha256(text.encode()).hexdigest()[:12]}-"
+    handle, name = tempfile.mkstemp(prefix=prefix, suffix=f"-{spec_file.name}", dir=folder)  # mode 0600
+    with os.fdopen(handle, "w", encoding="utf-8") as file:
+        file.write(text)
+    return Path(name)
 
 
 def sources(spec_file: Path) -> list[Source]:

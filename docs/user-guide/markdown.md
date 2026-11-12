@@ -491,6 +491,13 @@ screen. The value comes from [`sandbox.env`](spec.md#sandbox), from
 `export`. A command to run that still contains a placeholder like `<url>` is an
 error with the hint to write it as `$URL`.
 
+Secrets belong in `sandbox.env_passthrough`: the value stays in your environment and
+is never written anywhere. A `hidden` comment's commands are part of the spec, so they
+travel with it: narratty keeps them out of error messages and out of `exits.log`
+(which records `<hidden: scene #n>` instead), and removes the compiled spec it mounts
+into the container after the run, but a kept `--work-dir` still holds them in its
+tape. Use a hidden `export` only for values that are not secret.
+
 ## The `markdown` entry
 
 A YAML spec decides everything at section level and above: which docs, which sections
