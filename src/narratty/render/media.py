@@ -188,8 +188,13 @@ def mux(
     out.parent.mkdir(parents=True, exist_ok=True)
     argv = [require("ffmpeg"), "-y", "-v", "error", "-i", str(video), "-i", str(audio)]
     for overlay in overlays:
-        # A still image, looped until its overlay ends.
-        argv += ["-loop", "1", "-t", f"{overlay.end_ms / 1000:.3f}", "-i", str(overlay.path)]
+        # A still image, looped only while shown: frames queued from t=0 exhausted memory on long videos.
+        argv += [
+            "-loop", "1",
+            "-itsoffset", f"{overlay.start_ms / 1000:.3f}",
+            "-t", f"{(overlay.end_ms - overlay.start_ms) / 1000:.3f}",
+            "-i", str(overlay.path),
+        ]  # fmt: skip
     maps = ["-map", "1:a:0"]
     # -shortest would also stop at the last subtitle, so a soft track ends at the video instead.
     length = ["-shortest"]

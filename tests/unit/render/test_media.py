@@ -163,10 +163,12 @@ def test_mux_with_overlays_reencodes(tmp_path: Path) -> None:
     overlay = OverlayImage(tmp_path / "o.png", "10", "10", 500, 1500)
     media.mux(Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", overlays=[overlay], runner=runner)
     argv = runner.calls[-1][0]
-    assert argv[argv.index("-loop") + 1 : argv.index("-loop") + 6] == [
+    assert argv[argv.index("-loop") + 1 : argv.index("-loop") + 8] == [
         "1",
+        "-itsoffset",
+        "0.500",
         "-t",
-        "1.500",
+        "1.000",
         "-i",
         str(overlay.path),
     ]
