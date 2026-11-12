@@ -424,8 +424,8 @@ def wait_timeout(timeout_ms: int, pattern: str | None, scene: str | None) -> Ren
             f"timed out after {timeout_ms} ms{where} waiting for the prompt to come back",
             hint="The command may still run (a server, a pager, a question for input): stop it "
             "with `C-c`, send it to the background with its output redirected, or raise "
-            "wait.timeout_ms. The prompt must be the last thing printed; late output from a "
-            "background job hides it.",
+            "wait.timeout_ms. Late output from a background job hides the prompt: redirect it "
+            "(`server > server.log &`).",
             scene=scene,
         )
     return RenderError(
