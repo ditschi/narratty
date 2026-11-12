@@ -90,6 +90,7 @@ nav:
       - From docs to video:
           - Markdown input: user-guide/markdown.md
           - Building a video: user-guide/building.md
+          - Docs for reading and listening: user-guide/dual-use.md
           - Voices and audio cache: user-guide/voices.md
       - YAML scenes:
           - Writing specs: user-guide/writing-specs.md
@@ -115,4 +116,5 @@ nav:
       - Development setup: contributor-guide/dev-setup.md
       - Release process: contributor-guide/release-process.md
       - Design notes: contributor-guide/design.md
+      - Dual-use study: contributor-guide/dual-use-study.md
   - Changelog: changelog.md
