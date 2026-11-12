@@ -48,7 +48,8 @@ def test_expect_exit_is_unset_by_default() -> None:
 
 def test_typed_commands_are_the_lines_submitted_with_enter() -> None:
     assert typed_commands(_spec()) == [
-        Typed("setup", "cd demo"),
+        Typed("setup", "cd demo", hidden=1),
+        Typed("setup", "clear", "any", internal=True),
         Typed("build", "make all"),
         Typed("broken", "cat missing"),
         Typed("flaky", "curl example.org"),
@@ -77,7 +78,7 @@ def test_all_expectations_met() -> None:
 def test_failures_are_reported_per_scene() -> None:
     entries = [Exit(1, "cd demo"), Exit(2, "make all"), Exit(0, "cat missing")]
     assert problems(_spec(), entries) == [
-        "scene 'setup': `cd demo` exited with 1",
+        "scene 'setup': hidden command 1 exited with 1",
         "scene 'build': `make all` exited with 2",
         "scene 'broken' expects a command to fail, but `cat missing` succeeded",
     ]
@@ -243,3 +244,82 @@ def test_masked_runs_report_the_exit_code_of_what_ran(tmp_path: Path) -> None:
     )
     printed = recording.submitted[-1].output
     assert "1\r\n2\r\n... (3 more lines)" in printed
+
+
+HIDDEN_CLEARS = """\
+end_card: false
+scenes:
+  - id: install-shown
+    actions: [{type_command: "pip install tally"}, {ctrl_sequence: C-c}]
+  - id: install
+    hidden: true
+    actions: [{run: "export TOKEN=s3cret"}, {run: clear}]
+  - id: broken
+    expect_exit: failure
+    actions: [{run: "tally --bogus"}]
+  - id: again
+    hidden: true
+    actions: [{run: clear}]
+  - id: last
+    actions: [{run: "tally report"}]
+"""
+
+
+def test_a_clear_in_a_hidden_scene_does_not_shift_attribution(tmp_path: Path) -> None:
+    """narratty's own clear after a hidden scene is logged too; it must not take a later `clear`."""
+    log = tmp_path / "exits.log"
+    log.write_text(
+        "0\texport TOKEN=s3cret\n0\tclear\n0\tclear\n2\ttally --bogus\n0\tclear\n0\tclear\n0\ttally report\n",
+        encoding="utf-8",
+    )
+    spec = _spec(HIDDEN_CLEARS)
+    assert [(t and t.scene_id, t and t.internal) for t, _ in assign(spec, parse_log(log.read_text()))] == [
+        ("install", False),
+        ("install", False),
+        ("install", True),
+        ("broken", False),
+        ("again", False),
+        ("again", True),
+        ("last", False),
+    ]
+    check(spec, log)
+
+
+def test_hidden_command_lines_are_redacted_from_the_log_and_messages(tmp_path: Path) -> None:
+    log = tmp_path / "exits.log"
+    log.write_text("1\texport TOKEN=s3cret\n0\tclear\n0\tclear\n2\ttally --bogus\n", encoding="utf-8")
+    with pytest.raises(CommandError) as raised:
+        check(_spec(HIDDEN_CLEARS), log)
+    assert "s3cret" not in str(raised.value)
+    assert "scene 'install': hidden command 1 exited with 1" in str(raised.value)
+    text = log.read_text(encoding="utf-8")
+    assert "s3cret" not in text
+    assert text.splitlines()[:2] == ["1\t<hidden: install #1>", "0\t<hidden: install #2>"]
+    assert "2\ttally --bogus" in text
+
+
+def test_redaction_leaves_logs_without_hidden_scenes_alone(tmp_path: Path) -> None:
+    log = tmp_path / "exits.log"
+    original = "0\tmake lint\n2\tmake typo\n"
+    log.write_text(original, encoding="utf-8")
+    check(_spec(RUN_SPEC), log, default="any")
+    assert log.read_text(encoding="utf-8") == original
+
+
+def test_hidden_clear_with_a_real_shell(tmp_path: Path) -> None:
+    if not shutil.which("bash"):
+        pytest.skip("bash is not installed")
+    spec = parse_spec(
+        HIDDEN_CLEARS.replace(
+            "end_card: false", "end_card: false\nterminal: {shell: bash, typing_speed_ms: 5}"
+        )
+        .replace("tally --bogus", "false")
+        .replace("tally report", "true"),
+        tmp_path / "t.narratty.yaml",
+    )
+    log = tmp_path / "exits.log"
+    log.write_text("", encoding="utf-8")
+    steps = build_script(spec, build_timeline(spec, {}), exit_log=log)
+    record(steps, terminal=spec.terminal, cwd=tmp_path, env=os.environ, title="T")
+    check(spec, log)
+    assert "s3cret" not in log.read_text(encoding="utf-8")

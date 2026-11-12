@@ -8,13 +8,22 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import os
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from narratty.errors import NarrattyError
 from narratty.spec.loader import Document, parse_document, position, read_spec_text, to_plain
 from narratty.spec.model import Run
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+# Scene id -> Markdown file:line, handed to a container that only gets the compiled spec.
+SCENE_SOURCES_ENV = "NARRATTY_SCENE_SOURCES"
 
 
 @dataclass(frozen=True)
@@ -91,16 +100,24 @@ def fingerprint(spec_file: Path) -> str:
 
 
 def container_spec(spec_file: Path, cache: Path) -> Path | None:
-    """A compiled copy of the spec to mount into a container, or None when it has no Markdown."""
+    """A compiled copy of the spec to mount into a container, or None when it has no Markdown.
+
+    It holds every command, including those of ``hidden`` comments, so it is readable
+    only by you and the caller removes it once the container is done.
+    """
+    import tempfile
+
     document = parse_document(read_spec_text(spec_file), spec_file)
     if not has_markdown(document):
         return None
     text = compile_document(document, spec_file)
     folder = cache / "compiled"
     folder.mkdir(parents=True, exist_ok=True)
-    path = folder / f"{hashlib.sha256(text.encode()).hexdigest()[:12]}-{spec_file.name}"
-    path.write_text(text, encoding="utf-8")
-    return path
+    prefix = f"{hashlib.sha256(text.encode()).hexdigest()[:12]}-"
+    handle, name = tempfile.mkstemp(prefix=prefix, suffix=f"-{spec_file.name}", dir=folder)  # mode 0600
+    with os.fdopen(handle, "w", encoding="utf-8") as file:
+        file.write(text)
+    return Path(name)
 
 
 def sources(spec_file: Path) -> list[Source]:
@@ -157,3 +174,52 @@ def _flow_leaves(value: Any, depth: int = 0) -> Any:
 
 def _relative(path: Path, spec_file: Path) -> str:
     return os.path.relpath(path.resolve(), spec_file.resolve().parent)
+
+
+def scene_sources(spec_file: Path) -> dict[str, str]:
+    """``file:line`` of each scene that came from Markdown, the file relative to the cwd."""
+    try:
+        document = parse_document(read_spec_text(spec_file), spec_file)
+    except (NarrattyError, OSError):
+        return {}
+    found = {}
+    for scene, origin in zip(document.spec.scenes, document.origins, strict=False):
+        if not isinstance(origin, int):
+            found[scene.id] = f"{os.path.relpath(origin.file)}:{origin.line}"
+    return found
+
+
+def _sources_for(spec_file: Path) -> dict[str, str]:
+    handed = os.environ.get(SCENE_SOURCES_ENV)
+    if handed:
+        try:
+            data = json.loads(handed)
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            return {str(key): str(value) for key, value in data.items()}
+    return scene_sources(spec_file)
+
+
+def locate(error: NarrattyError, spec_file: Path) -> None:
+    """Add the Markdown ``file:line`` of the error's scene to its message, when known."""
+    if not error.scene:
+        return
+    source = _sources_for(spec_file).get(error.scene)
+    named = f"scene {error.scene!r}"
+    if named in error.message:
+        if source and source not in error.message:
+            error.message = error.message.replace(named, f"{named} ({source})", 1)
+    else:
+        error.message += f" (scene {error.scene!r}" + (f", {source})" if source else ")")
+    error.args = (error.message,)
+
+
+@contextmanager
+def located(spec_file: Path) -> Iterator[None]:
+    """Errors raised inside name the scene and the Markdown line they happened at."""
+    try:
+        yield
+    except NarrattyError as error:
+        locate(error, spec_file)
+        raise

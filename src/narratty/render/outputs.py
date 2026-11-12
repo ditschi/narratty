@@ -51,11 +51,16 @@ def captured(raw: str, enters: Sequence[tuple[str, int]], prompts: Sequence[int]
     return found
 
 
+# zsh's PROMPT_SP before each prompt: a mark (`%`, `#` for root), spaces to the end of the
+# line and `\r \r`. After output without a final newline it moves the prompt to the next line.
+_PROMPT_SP = re.compile(r"[%#]? {8,}\r \r")
+
+
 def plain_lines(text: str, prompt: str) -> list[str]:
     """``text`` as the lines a reader sees: no escape sequences, the rest of the typed
     line and the prompt that follows the output left out."""
     lines = []
-    for row in ESCAPE.sub("", text).split("\n"):
+    for row in _PROMPT_SP.sub("\n", ESCAPE.sub("", text)).split("\n"):
         row = row.removesuffix("\r").rsplit("\r", 1)[-1]  # a lone \r redraws the line
         kept: list[str] = []
         for char in row:
@@ -67,6 +72,8 @@ def plain_lines(text: str, prompt: str) -> list[str]:
     lines = lines[1:]  # the rest of the typed line, before its line break
     if lines and prompt.strip() and lines[-1].startswith(prompt.rstrip()):
         lines.pop()
+    elif lines and prompt.strip() and lines[-1].endswith(prompt.rstrip()):
+        lines[-1] = lines[-1].removesuffix(prompt.rstrip())  # output without a final newline
     while lines and not lines[-1]:
         lines.pop()
     while lines and not lines[0]:

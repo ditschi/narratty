@@ -153,9 +153,14 @@ def prompt_setup(shell: str, prompt: str, exit_log: Path | None = None) -> str:
 
 
 def prompt_pattern(prompt: str) -> str:
-    """A line holding only ``prompt`` (RE2 and Python syntax): the last command has finished."""
+    """A line ending in ``prompt`` (RE2 and Python syntax): the last command has finished.
+
+    The prompt starts the line, or follows output that did not end with a newline
+    (``printf '{"a":1}'`` leaves ``{"a":1}$ ``); after a space it would also match a
+    typed line such as ``echo $``.
+    """
     escaped = re.sub(r"([\\.^$|?*+()\[\]{}])", r"\\\1", prompt.rstrip())
-    return f"^{escaped}\\s*$"
+    return f"(?:^|\\S){escaped}\\s*$"
 
 
 def hidden(steps: list[Step], settle_ms: int = 300) -> list[Step]:

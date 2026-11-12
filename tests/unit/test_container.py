@@ -10,6 +10,7 @@ import pytest
 from narratty import container
 from narratty.build import WorkspaceOptions
 from narratty.container import ContainerSpec, Mount, SandboxRequest, delegate, image_ref, run_argv
+from narratty.container import ensure_image as real_ensure_image
 from narratty.errors import MissingDependencyError
 from narratty.runtime import Runtime
 
@@ -181,6 +182,12 @@ def test_draft_fetches_no_voice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert code == 0
 
 
+def _mounted_spec(argv: Sequence[str]) -> tuple[Path, str]:
+    mounted = next(argv[i + 1] for i, arg in enumerate(argv) if arg == "--volume" and "/spec/" in argv[i + 1])
+    host, target, _ = mounted.rsplit(":", 2)
+    return Path(host), target
+
+
 def test_markdown_specs_are_mounted_expanded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The container gets no Markdown docs, so it gets the compiled spec instead."""
     monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
@@ -189,15 +196,20 @@ def test_markdown_specs_are_mounted_expanded(tmp_path: Path, monkeypatch: pytest
     spec = tmp_path / "demo.narratty.yaml"
     spec.write_text("scenes:\n  - markdown: doc.md\n", encoding="utf-8")
     calls: list[list[str]] = []
+    texts: list[str] = []
     delegate(
-        "plan", spec, runtime=Runtime.DOCKER, image="img:test", extra_args=["--draft"], runner=calls.append
+        "plan",
+        spec,
+        runtime=Runtime.DOCKER,
+        image="img:test",
+        extra_args=["--draft"],
+        runner=lambda argv: calls.append(list(argv)) or texts.append(_mounted_spec(argv)[0].read_text()) or 0,
     )
-    argv = calls[0]
-    mounted = next(argv[i + 1] for i, arg in enumerate(argv) if arg == "--volume" and "/spec/" in argv[i + 1])
-    host, target, _ = mounted.rsplit(":", 2)
+    host, target = _mounted_spec(calls[0])
     assert target == "/spec/demo.narratty.yaml"
-    assert Path(host).parent == tmp_path / "cache" / "compiled"
-    assert "id: doc-1" in Path(host).read_text(encoding="utf-8")
+    assert host.parent == tmp_path / "cache" / "compiled"
+    assert "id: doc-1" in texts[0]
+    assert not host.exists(), "the compiled copy (with hidden commands) is removed after the run"
 
     calls.clear()
     monkeypatch.setattr(container, "_ensure_voice", lambda provider, voice: None)
@@ -213,12 +225,23 @@ def test_a_doc_is_mounted_as_its_compiled_spec(tmp_path: Path, monkeypatch: pyte
     doc = tmp_path / "guide.md"
     doc.write_text("# Guide\n\nHello.\n", encoding="utf-8")
     calls: list[list[str]] = []
-    delegate("check", doc, runtime=Runtime.DOCKER, image="img:test", voice=False, runner=calls.append)
+    modes: list[int] = []
+
+    def runner(argv: Sequence[str]) -> int:
+        calls.append(list(argv))
+        host = _mounted_spec(argv)[0]
+        assert "id: guide-1" in host.read_text(encoding="utf-8")
+        modes.append(host.stat().st_mode & 0o777)
+        return 0
+
+    delegate("check", doc, runtime=Runtime.DOCKER, image="img:test", voice=False, runner=runner)
     argv = calls[0]
-    mounted = next(argv[i + 1] for i, arg in enumerate(argv) if arg == "--volume" and "/spec/" in argv[i + 1])
-    host, target, _ = mounted.rsplit(":", 2)
-    assert target == "/spec/guide.narratty.yaml", "inside, the compiled YAML is read as a spec"
-    assert "id: guide-1" in Path(host).read_text(encoding="utf-8")
+    assert _mounted_spec(argv)[1] == "/spec/guide.narratty.yaml", (
+        "inside, the compiled YAML is read as a spec"
+    )
+    assert modes == [0o600]
+    sources = next(a for a in argv if a.startswith("NARRATTY_SCENE_SOURCES="))
+    assert "guide.md:" in sources, "errors inside name the doc's lines"
     assert argv[argv.index("img:test") + 1 : argv.index("img:test") + 3] == [
         "check",
         "/spec/guide.narratty.yaml",
@@ -442,3 +465,67 @@ def test_the_host_checks_exit_codes_logged_in_the_environment(
         )
         == 0
     )
+
+
+def test_a_missing_image_is_announced_and_pulled(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import subprocess
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(container, "_image_id", lambda engine, image: "")
+
+    def fake_run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        assert kwargs["stdout"] is not subprocess.PIPE, "the engine's progress stays visible"
+        return subprocess.CompletedProcess(argv, 0, None, "")
+
+    monkeypatch.setattr(container.subprocess, "run", fake_run)
+    real_ensure_image(Runtime.DOCKER, "ghcr.io/ditschi/narratty:edge")
+    assert calls == [["docker", "pull", "ghcr.io/ditschi/narratty:edge"]]
+    assert "pulling ghcr.io/ditschi/narratty:edge (this can take a while)" in capsys.readouterr().err
+
+
+def test_a_present_image_is_not_pulled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(container, "_image_id", lambda engine, image: "sha256:abc")
+    monkeypatch.setattr(container.subprocess, "run", lambda *a, **k: pytest.fail("pulled"))
+    real_ensure_image(Runtime.PODMAN, "img:test")
+
+
+def test_a_failed_pull_is_a_narratty_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+
+    monkeypatch.setattr(container, "_image_id", lambda engine, image: "")
+    denied = "Error response from daemon: pull access denied for img, repository does not exist"
+    monkeypatch.setattr(
+        container.subprocess, "run", lambda argv, **k: subprocess.CompletedProcess(argv, 1, None, denied)
+    )
+    with pytest.raises(
+        MissingDependencyError, match="could not pull img:test: .*pull access denied"
+    ) as raised:
+        real_ensure_image(Runtime.DOCKER, "img:test")
+    assert (
+        raised.value.hint
+        and "NARRATTY_IMAGE" in raised.value.hint
+        and "--runtime native" in raised.value.hint
+    )
+
+
+def test_output_paths_are_shown_as_the_host_sees_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.container import HOST_OUTPUT_ENV, host_path
+
+    monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(container, "_ensure_voice", lambda *args: None)
+    spec = _write_spec(tmp_path)
+    calls: list[list[str]] = []
+    delegate("tts", spec, runtime=Runtime.DOCKER, image="img:test", output=tmp_path / "o" / "v.mp4",
+             runner=lambda argv: calls.append(list(argv)) or 0)  # fmt: skip
+    assert f"{HOST_OUTPUT_ENV}={tmp_path / 'o'}" in calls[0]
+
+    monkeypatch.setenv(HOST_OUTPUT_ENV, "/home/me/videos")
+    assert host_path(Path("/out/x.mp4")) == Path("/home/me/videos/x.mp4")
+    assert host_path(Path("/work/x.mp4")) == Path("/work/x.mp4")
+    monkeypatch.delenv(HOST_OUTPUT_ENV)
+    assert host_path(Path("/out/x.mp4")) == Path("/out/x.mp4")

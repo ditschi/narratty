@@ -103,6 +103,16 @@ RUN_MERMAID_JS = (
 )
 
 
+def capture_note(spec: Spec) -> str | None:
+    """The log line for drawing the spec's browser views and slides, or None without any."""
+    actions = [action for scene in spec.scenes for action in scene.actions]
+    views = sum(isinstance(action, ShowBrowser) for action in actions)
+    shown = sum(isinstance(action, ShowSlide) for action in actions)
+    parts = [f"{views} browser view{'s' if views != 1 else ''}"] if views else []
+    parts += [f"{shown} slide{'s' if shown != 1 else ''}"] if shown else []
+    return f"capturing {' and '.join(parts)}" if parts else None
+
+
 @dataclass(frozen=True)
 class View:
     """One browser view or slide (then ``browser`` is None) as it appears in the output."""

@@ -63,7 +63,21 @@ class SpecError(NarrattyError):
         summary = f"{file}: {count} problem{'s' if count != 1 else ''}\n" + "\n".join(
             f"  {issue.render(file)}" for issue in issues
         )
-        super().__init__(summary, hint="Run `narratty schema` for the full list of keys.")
+        super().__init__(summary, hint=_hint(issues))
+
+
+SCHEMA_HINT = "Run `narratty schema` for the full list of keys."
+YAML_HINT = (
+    "Quote YAML values that contain `{`, `}`, `[`, `:` followed by a space, `#` or a leading "
+    '`/`, `*` or `&`: `{title: "GET /orders/{id}"}`.'
+)
+
+
+def _hint(issues: list[Issue]) -> str:
+    """How to fix ``issues``: quoting for YAML that does not parse, else the schema."""
+    if issues and all("invalid YAML" in issue.message for issue in issues):
+        return YAML_HINT
+    return SCHEMA_HINT
 
 
 def _field_names(model: type[BaseModel], seen: set[type[BaseModel]] | None = None) -> set[str]:

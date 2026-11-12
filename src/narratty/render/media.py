@@ -116,13 +116,80 @@ def run_vhs(
     except (subprocess.CalledProcessError, OSError):
         from narratty.sh import error_in
 
-        if message := error_in("\n".join(line.text for line in log)):
-            raise RenderError(message) from None
+        text = "\n".join(line.text for line in log)
+        if message := error_in(text):
+            raise RenderError(message, scene=failed_scene(tape, text)) from None
+        if timeout := vhs_timeout(tape, text):
+            raise timeout from None
         tail = "\n".join(line.text for line in log[-5:] if line.text) or "no output"
         raise RenderError(
             f"VHS failed:\n{tail}", hint=f"The tape is at {tape}; run `vhs {tape}` to debug."
         ) from None
     return log
+
+
+_VHS_TIMEOUT = re.compile(r'timeout waiting for "(Line|Screen) ')
+_VHS_WAIT = re.compile(r"^Wait (\d+)ms ", re.MULTILINE)
+_TAPE_SCENE = re.compile(r"# scene: (\S+)")
+
+
+def failed_scene(tape: Path, log: str) -> str | None:
+    """The scene of the last ``Wait`` VHS ran, from its log and the tape's scene comments.
+
+    VHS echoes each command as it runs, ``Wait`` ones as ``Wait <ms>ms ...``; the tape
+    has one ``Wait+`` line for each, after the ``# scene:`` comment of its scene.
+    """
+    count = len(_VHS_WAIT.findall(log))
+    if not count:
+        return None
+    try:
+        lines = tape.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    scene = None
+    for line in lines:
+        if found := _TAPE_SCENE.match(line):
+            scene = found.group(1)
+        elif line.startswith("Wait+"):
+            count -= 1
+            if count == 0:
+                return scene
+        elif line == "# end card":
+            scene = None
+    return None
+
+
+def vhs_timeout(tape: Path, log: str) -> RenderError | None:
+    """The error for a VHS ``Wait`` that timed out, naming its scene; None for other failures."""
+    from narratty.render.cast import wait_timeout
+
+    found = _VHS_TIMEOUT.search(log)
+    if found is None:
+        return None
+    waits = _VHS_WAIT.findall(log)
+    timeout_ms = int(waits[-1]) if waits else 0
+    pattern = None
+    if found.group(1) == "Screen":
+        rest = log[found.end() :].split('" to match ', 1)[0]
+        pattern = rest
+    return wait_timeout(timeout_ms, pattern, failed_scene(tape, log))
+
+
+def drift_hint(drift: float) -> str:
+    """What to do about a video ``drift`` (relative) longer or shorter than planned."""
+    if drift >= 0:
+        return (
+            "A command or `wait` took longer than its scene; add a `hold` or move slow "
+            "commands into a hidden scene."
+        )
+    try:
+        average = f" (load average {os.getloadavg()[0]:.1f})"
+    except OSError:
+        average = ""
+    return (
+        f"VHS dropped frames; the machine may be overloaded{average}. Build again when it is idle, "
+        "or check the timing with a lower frame rate (--draft)."
+    )
 
 
 @dataclass(frozen=True)

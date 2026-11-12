@@ -225,6 +225,10 @@ def environment_bridge(
             log(f"using the environment {kept[0].container} from `narratty env up`")
         yield kept[0].exec_bridge()
         return
+    if log:  # --runtime native is about narratty's own tools; the spec still asks for this
+        log(
+            "the demo shell runs in the spec's environment, also with --runtime native; --no-env runs it here"
+        )
     request = request or SandboxRequest()
     sandbox = approved_sandbox(planned.spec_path, planned.spec, request)
     with provide(
@@ -807,7 +811,9 @@ def build(
             srt = work / "subtitles.srt"
             srt.write_text(to_srt(cues), encoding="utf-8")
         if has_browsers(planned.spec):
-            say("capturing browser views")
+            from narratty.render.browser import capture_note
+
+            say(capture_note(planned.spec) or "capturing browser views")
         overlays = overlay_images(planned, video_ms, work, ws.path, layout)
         if overlays:
             say(f"drawing {len(overlays)} overlays")
@@ -952,7 +958,7 @@ def build_cast(
         if has_browsers(spec):
             from narratty.render import browser
 
-            say("capturing browser views")
+            say(browser.capture_note(spec) or "capturing browser views")
             shots = browser.shoot(spec, browser.schedule(spec, times), ws.path, work / "browser")
             views = browser.page_views(shots, spec.terminal)
         page = player_page(
@@ -1076,6 +1082,5 @@ def verify(result: BuildResult, *, max_drift: float) -> None:
         raise SyncError(
             f"the video is {result.video_ms / 1000:.2f}s long but the timeline planned "
             f"{result.expected_ms / 1000:.2f}s ({result.drift:+.0%})",
-            hint="A command or `wait` took longer than its scene; add a `hold` or move slow "
-            "commands into a hidden scene.",
+            hint=media.drift_hint(result.drift),
         )

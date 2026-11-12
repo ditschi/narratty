@@ -84,6 +84,22 @@ def _skip(dest: Path) -> Callable[[str, list[str]], set[str]]:
     return ignore
 
 
+def _clone(root: Path, clone: Path, cwd: Path) -> None:
+    """Clone ``root`` locally, without hard links when they cannot cross filesystems.
+
+    ``git clone --local`` hard-links objects; when the repository and the snapshot
+    area are on different filesystems (a repo under a tmpfs ``/tmp`` and the cache in
+    your home) some git versions fail with "Invalid cross-device link" instead of
+    copying, so retry with ``--no-hardlinks``.
+    """
+    args = ["clone", "--quiet", "--local", "--no-checkout"]
+    result = _git([*args, str(root), str(clone)], cwd)
+    if result.returncode != 0:
+        shutil.rmtree(clone, ignore_errors=True)
+        result = _git([*args, "--no-hardlinks", str(root), str(clone)], cwd)
+    _check(result, "git clone")
+
+
 def snapshot(source: Path, dest: Path, *, include_uncommitted: bool = True) -> Path:
     """Copy ``source`` into ``dest``; returns the path corresponding to ``source``."""
     root = git_root(source)
@@ -99,7 +115,7 @@ def snapshot(source: Path, dest: Path, *, include_uncommitted: bool = True) -> P
             root, clone, symlinks=True, ignore=lambda d, names: skip(d, names) | ({".git"} & set(names))
         )
         return clone / source.relative_to(root)
-    _check(_git(["clone", "--quiet", "--local", "--no-checkout", str(root), str(clone)], dest), "git clone")
+    _clone(root, clone, dest)
     _check(_git(["checkout", "--quiet", "--detach", head.stdout.decode().strip()], clone), "git checkout")
     if include_uncommitted:
         for name in dirty_files(root):

@@ -1147,3 +1147,18 @@ def test_a_read_table_can_stay_after_its_rows(tmp_path: Path) -> None:
 def test_hold_must_name_a_block_or_heading(tmp_path: Path) -> None:
     message, _ = _error(tmp_path, "# Doc\n\n<!-- narratty: slide {hold: forever} -->\n![x](x.png)\n")
     assert message == "slide comment: hold must be next-block or next-heading, got 'forever'"
+
+
+def test_yaml_errors_in_comments_hint_at_quoting(tmp_path: Path) -> None:
+    from narratty.spec.loader import SCHEMA_HINT, SpecError, load_spec
+
+    doc = tmp_path / "doc.md"
+    doc.write_text("# Doc\n\n<!-- narratty: overlay {text: GET /orders/{id}} -->\n\n```bash\nls\n```\n")
+    with pytest.raises(SpecError) as raised:
+        load_spec(doc)
+    assert "invalid YAML" in raised.value.message
+    assert raised.value.hint and "Quote" in raised.value.hint and "schema" not in raised.value.hint
+    doc.write_text("# Doc\n\n<!-- narratty: overlay {text: hi, colour: red} -->\n\n```bash\nls\n```\n")
+    with pytest.raises(SpecError) as raised:
+        load_spec(doc)
+    assert raised.value.hint == SCHEMA_HINT, "a schema violation keeps the schema hint"

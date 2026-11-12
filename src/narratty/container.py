@@ -131,6 +131,17 @@ def stdout_is_tty() -> bool:
 
 
 CONTAINER_WORKSPACE = "/work"
+CONTAINER_OUTPUT = "/out"
+# The host directory mounted at CONTAINER_OUTPUT, so messages name the files you get.
+HOST_OUTPUT_ENV = "NARRATTY_HOST_OUTPUT"
+
+
+def host_path(path: Path) -> Path:
+    """``path`` as the host sees it, when it is in the container's output directory."""
+    host = os.environ.get(HOST_OUTPUT_ENV)
+    if not host or not path.is_relative_to(CONTAINER_OUTPUT):
+        return path
+    return Path(host) / path.relative_to(CONTAINER_OUTPUT)
 
 
 @dataclass(frozen=True)
@@ -235,15 +246,59 @@ def delegate(
     if voice and "--draft" not in extra_args:
         _ensure_voice(spec.tts.provider, spec.tts.voice)
     chosen_image = image_ref(override=image)
+    ensure_image(resolved.runtime, chosen_image)
     base = _Invocation(command, spec_path.resolve(), resolved.runtime, chosen_image, extra_args)
-    base.use_compiled_spec()
-    if output is not None:
-        base.add_output(output)
-    if work_dir is not None:
-        base.add_work_dir(work_dir)
-    if sandbox is None:
-        return run(base.container(), runner=runner)
-    return _run_demo(base, spec, sandbox, runner, _ExitCheck(output, ignore_exit))
+    try:
+        base.use_compiled_spec()
+        if output is not None:
+            base.add_output(output)
+        if work_dir is not None:
+            base.add_work_dir(work_dir)
+        if sandbox is None:
+            return run(base.container(), runner=runner)
+        return _run_demo(base, spec, sandbox, runner, _ExitCheck(output, ignore_exit))
+    finally:
+        if base.compiled is not None:  # it holds hidden commands, which may set secrets
+            base.compiled.unlink(missing_ok=True)
+
+
+def ensure_image(engine: Runtime, image: str) -> None:
+    """Pull ``image`` unless it is there, saying so first: narratty's image is about 2 GB.
+
+    The engine's progress goes to stderr (stdout is for data); a failed pull becomes a
+    :class:`~narratty.errors.MissingDependencyError` with what to do instead.
+    """
+    from narratty.errors import MissingDependencyError
+    from narratty.ui.console import err
+
+    if _image_id(engine, image):
+        return
+    err.print(
+        f"pulling {image} (this can take a while)…",
+        highlight=False,
+        soft_wrap=True,
+        emoji=False,
+        markup=False,
+    )
+    try:
+        progress: int | None = sys.stderr.fileno()
+    except (AttributeError, ValueError, OSError):
+        progress = None  # stderr is not a file (captured); the engine inherits stdout
+    try:
+        result = subprocess.run(  # noqa: S603
+            [engine.value, "pull", image], stdout=progress, stderr=subprocess.PIPE, text=True, check=False
+        )
+    except OSError as error:
+        detail, code = str(error), 1
+    else:
+        detail, code = result.stderr.strip(), result.returncode
+    if code != 0:
+        raise MissingDependencyError(
+            f"could not pull {image}: {detail or f'{engine.value} pull exited with {code}'}",
+            hint="Set NARRATTY_IMAGE (or --image) to an image you have or can pull, log in to its "
+            f"registry (`{engine.value} login`), or use --runtime native with the tools installed "
+            "(`narratty doctor`).",
+        )
 
 
 def _ensure_voice(provider_name: str, voice: str) -> None:
@@ -285,22 +340,27 @@ class _Invocation:
         lexicon = export_host_entries(spec_file, cache / "lexicons")
         self.env[ENV_OVERRIDE] = f"/cache/lexicons/{lexicon.name}"
         self.network = "none"
+        self.compiled: Path | None = None
 
     def use_compiled_spec(self) -> None:
         """Mount the expanded spec when it has Markdown entries; their docs are not mounted."""
         from narratty.paths import cache_dir
-        from narratty.spec.compile import container_spec
+        from narratty.spec.compile import SCENE_SOURCES_ENV, container_spec, scene_sources
 
         spec = self.mounts[0]
-        compiled = container_spec(spec.host, cache_dir())
+        self.compiled = compiled = container_spec(spec.host, cache_dir())
         if compiled is not None:
             self.mounts[0] = Mount(compiled, spec.container, read_only=True)
+            # Errors inside name the Markdown line of their scene, which only the host knows.
+            if sources := scene_sources(spec.host):
+                self.env[SCENE_SOURCES_ENV] = json.dumps(sources)
 
     def add_output(self, output: Path) -> None:
         output = output.resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
-        self.mounts.append(Mount(output.parent, "/out"))
-        self.args += ["--output", f"/out/{output.name}"]
+        self.mounts.append(Mount(output.parent, CONTAINER_OUTPUT))
+        self.args += ["--output", f"{CONTAINER_OUTPUT}/{output.name}"]
+        self.env[HOST_OUTPUT_ENV] = str(output.parent)
 
     def add_work_dir(self, work_dir: Path) -> None:
         work_dir.mkdir(parents=True, exist_ok=True)

@@ -81,8 +81,19 @@ def test_verify_accepts_small_drift(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
 def test_verify_rejects_large_drift(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(13000, True, True))
-    with pytest.raises(SyncError, match=r"\+30%"):
+    with pytest.raises(SyncError, match=r"\+30%") as raised:
         verify(_result(tmp_path, 13000), max_drift=0.1)
+    assert raised.value.hint and "took longer" in raised.value.hint
+
+
+def test_a_shorter_video_blames_dropped_frames(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(8000, True, True))
+    monkeypatch.setattr(media.os, "getloadavg", lambda: (7.25, 5.0, 3.0))
+    with pytest.raises(SyncError, match=r"-20%") as raised:
+        verify(_result(tmp_path, 8000), max_drift=0.1)
+    hint = raised.value.hint or ""
+    assert "took longer" not in hint
+    assert "dropped frames" in hint and "load average 7.2" in hint
 
 
 def test_verify_needs_both_streams(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -115,10 +126,14 @@ def test_environment_bridge_natively(tmp_path: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.setattr("narratty.runtime.container_engine", lambda: "podman")
     monkeypatch.setattr("narratty.environment.running", lambda engine, spec_path: None)
     workspace = PreparedWorkspace(tmp_path, "rw", tmp_path)
-    with environment_bridge(_env_plan(tmp_path), workspace, None) as bridge:
+    logged: list[str] = []
+    with environment_bridge(_env_plan(tmp_path), workspace, None, logged.append) as bridge:
         assert bridge is not None
         assert bridge[:2] == ["podman", "exec"] and bridge[-1] == "env-1"
     assert started[0]["with_agent"] is False and started[0]["engine"] == "podman"
+    assert any("--runtime native" in line and "--no-env" in line for line in logged), (
+        "a native run says why it still starts a container"
+    )
 
 
 def test_environment_bridge_reuses_a_kept_environment(

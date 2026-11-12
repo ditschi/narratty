@@ -219,6 +219,8 @@ match, so each clip still starts with its scene.
 - **Slow commands** make the video longer than planned. Give the scene a larger
   `hold`, or move the slow part into a hidden scene. The drift check reports how far
   off the video is.
+- **A video shorter than planned** means VHS dropped frames, usually because the
+  machine was busy; the error shows the load average. Build again when it is idle.
 - **Hidden scenes** run without being recorded and clear the screen afterwards, which
   makes them good for setup such as `cd`, exporting variables or warming caches.
 - **The workspace** is a throwaway snapshot by default, so demos can build and write

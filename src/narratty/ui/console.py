@@ -16,6 +16,7 @@ err = Console(stderr=True)
 
 def print_error(error: NarrattyError) -> None:
     """Render an error (message + optional next-step hint) to stderr."""
-    err.print(f"[bold red]error:[/] {escape(error.message)}", highlight=False, soft_wrap=True)
+    # emoji=False: image tags and paths such as `img:x:` are not emoji codes.
+    err.print(f"[bold red]error:[/] {escape(error.message)}", highlight=False, soft_wrap=True, emoji=False)
     if error.hint:
-        err.print(f"[dim]hint:[/] {escape(error.hint)}", highlight=False, soft_wrap=True)
+        err.print(f"[dim]hint:[/] {escape(error.hint)}", highlight=False, soft_wrap=True, emoji=False)

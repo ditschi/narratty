@@ -24,3 +24,9 @@ def _isolated_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 def _rootful_docker(monkeypatch: pytest.MonkeyPatch) -> None:
     """Container user flags as with a rootful daemon, whatever this machine runs."""
     monkeypatch.setattr("narratty.runtime.docker_is_rootless", lambda: False)
+
+
+@pytest.fixture(autouse=True)
+def _images_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Never pull container images; ``test_container`` tests ``ensure_image`` itself."""
+    monkeypatch.setattr("narratty.container.ensure_image", lambda engine, image: None)
