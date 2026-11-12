@@ -232,30 +232,34 @@ class _Builder:
             if self.waiting is not None and not self.continues(block):
                 self.finish_waiting()
             self.check_pending(block)
-            if isinstance(block, Heading) and self.skip:
-                self.skip = False
-                self.heading(block, shown=False)
-                self.note(block, None, "heading: left out by a skip comment (no overlay)")
-            elif isinstance(block, Heading):
-                self.heading(block)
-            elif isinstance(block, Comment):
-                self.comment(block)
-            elif isinstance(block, Dropped):
-                self.dropped(block)
-            elif self.skip:
-                self.skip = False
-                if isinstance(block, Table):
-                    self.table = None
-                self.slide = self.run = None
-                self.note(block, None, f"{_kind(block)}: left out by a skip comment")
-            else:
-                self.content(block)
+            self.dispatch(block)
             if not isinstance(block, Comment):
                 self.previous = block
         if self.waiting is not None:
             self.finish_waiting()
         self.check_pending(None)
         self.flush()
+
+    def dispatch(self, block: Block) -> None:
+        """Hand ``block`` to the method for its kind."""
+        if isinstance(block, Heading) and self.skip:
+            self.skip = False
+            self.heading(block, shown=False)
+            self.note(block, None, "heading: left out by a skip comment (no overlay)")
+        elif isinstance(block, Heading):
+            self.heading(block)
+        elif isinstance(block, Comment):
+            self.comment(block)
+        elif isinstance(block, Dropped):
+            self.dropped(block)
+        elif self.skip:
+            self.skip = False
+            if isinstance(block, Table):
+                self.table = None
+            self.slide = self.run = None
+            self.note(block, None, f"{_kind(block)}: left out by a skip comment")
+        else:
+            self.content(block)
 
     def continues(self, block: Block) -> bool:
         """Whether ``block`` belongs to the text after a ``say: after`` block."""
@@ -683,13 +687,7 @@ class _Builder:
         self.pages, self.pages_block = pages[1:], block
 
     def code(self, block: Code) -> None:
-        options = {word for word in block.options if "=" not in word}
-        keyed = dict(word.split("=", 1) for word in block.options if "=" in word)
-        if unknown := sorted(options - set(BLOCK_OPTIONS)) or sorted(set(keyed) - set(RUN_KEYS)):
-            expected = ", ".join([*BLOCK_OPTIONS, *(f"{key}=…" for key in RUN_KEYS)])
-            raise fail(
-                block.file, block.line, f"unknown narratty option {unknown[0]!r}; expected one of {expected}"
-            )
+        options, keyed = _block_options(block)
         if "show" in options:
             self.show_code(block, options)
             return
@@ -922,6 +920,17 @@ def _check_hold(options: dict[str, Any], block: Comment, kind: str) -> None:
             block.line,
             f"{kind} comment: hold must be {' or '.join(HOLDS)}, got {options['hold']!r}",
         )
+
+
+def _block_options(block: Code) -> tuple[set[str], dict[str, str]]:
+    """The words and the ``key=value`` options of a block's ``narratty="…"`` attribute."""
+    options = {word for word in block.options if "=" not in word}
+    keyed = dict(word.split("=", 1) for word in block.options if "=" in word)
+    if unknown := sorted(options - set(BLOCK_OPTIONS)) or sorted(set(keyed) - set(RUN_KEYS)):
+        expected = ", ".join([*BLOCK_OPTIONS, *(f"{key}=…" for key in RUN_KEYS)])
+        message = f"unknown narratty option {unknown[0]!r}; expected one of {expected}"
+        raise fail(block.file, block.line, message)
+    return options, keyed
 
 
 def _shell(block: Block) -> bool:
