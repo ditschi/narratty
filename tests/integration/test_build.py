@@ -66,6 +66,47 @@ def test_build_produces_a_synced_video(spec: Path, tmp_path: Path) -> None:
     assert (spec.parent / "demo" / "one.txt").exists(), "rw mode runs in place"
 
 
+SLOW_SPEC = """\
+meta: {title: Slow commands}
+end_card: false
+terminal: {width: 800, height: 400}
+timing: {measured_durations: false}
+scenes:
+  - id: explain
+    narration: First the voice explains, then the command runs.
+    actions:
+      - hold: auto
+      - run: "sleep 3; echo $((40 + 2))-built"
+      - wait: {screen: "42-built", timeout_ms: 10000}
+  - id: after
+    narration: This is said once the command is done.
+    narration_start: after_actions
+    actions:
+      - run: "sleep 2; echo $((40 + 2))-tested"
+      - wait: {screen: "42-tested", timeout_ms: 10000}
+  - id: wrap
+    narration: And the last scene still starts in sync.
+"""
+
+
+def test_slow_commands_move_only_their_own_scene(tmp_path: Path) -> None:
+    from narratty.build import plan
+
+    path = tmp_path / "slow.narratty.yaml"
+    path.write_text(SLOW_SPEC, encoding="utf-8")
+    work = tmp_path / "work"
+    # About 4 s longer than planned: linear stretching would fail the default 10% drift.
+    result = build(path, work_dir=work, workspace=WorkspaceOptions(mode="rw"))
+    assert result.drift > 0.10 and result.overruns == ()
+    assert "# cue: narration:after" in (work / "scene.tape").read_text(encoding="utf-8")
+    planned = plan(path).timeline
+    starts = {p.scene_id: p.start_ms for p in result.placements}
+    assert abs(starts["explain"] - planned.scene("explain").audio_start_ms) < 300
+    # Each `sleep` outlasts its 500 ms pause: by 2.5 s in `explain`, 1.5 s in `after`.
+    assert starts["after"] - planned.scene("after").audio_start_ms > 2500 + 1500 - 600
+    assert starts["wrap"] - planned.scene("wrap").audio_start_ms > 2500 + 1500 - 600
+
+
 def test_build_command_leaves_the_workspace_alone(spec: Path) -> None:
     result = CliRunner().invoke(app, ["build", str(spec), "-o", str(spec.parent / "out.mp4")])
     assert result.exit_code == 0, result.output

@@ -83,6 +83,8 @@ def ctrl_char(char: str) -> str:
 
 # How often a pause checks whether a running command has finished.
 _POLL = 0.1
+# A command not seen running this long after its Enter counts as done (it was quick).
+_START_GRACE = 0.2
 
 _CLEAR = re.compile(r"\x1b\[2J|\x1bc")
 ESCAPE = re.compile(
@@ -185,6 +187,9 @@ class Recorder:
         self.prompts: list[int] = []  # raw offsets where the prompt was back
         self.scene: str | None = None  # the scene being played, hidden ones too
         self._entered = 0  # the output chunk at the last Enter
+        # Seconds from each Enter until its command finished (None: not seen to finish).
+        self.took: list[float | None] = []
+        self._pending: list[tuple[int, float, bool]] = []  # (index in took, Enter time, seen running)
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
         try:
@@ -252,15 +257,31 @@ class Recorder:
         """Record output for ``seconds``, or until ``until()`` holds (then True)."""
         deadline = self._clock() + seconds
         while True:
+            self._watch_commands()
             if until is not None and until():
                 return True
             remaining = deadline - self._clock()
             if remaining <= 0:
                 return False
-            ready, _, _ = select.select([self._fd], [], [], remaining)
+            ready, _, _ = select.select(
+                [self._fd], [], [], min(remaining, _POLL) if self._pending else remaining
+            )
             if ready and not self._read():
                 time.sleep(remaining)  # the shell is gone; let the time pass
                 return until() if until is not None else False
+
+    def _watch_commands(self) -> None:
+        """Note when the commands submitted since the last check have finished."""
+        if not self._pending:
+            return
+        now, running = self._clock(), self.running_command()
+        pending = []
+        for index, started, seen in self._pending:
+            if not running and (seen or now - started >= _START_GRACE):
+                self.took[index] = now - started if seen else 0.0  # never seen running: quick
+            else:
+                pending.append((index, started, seen or running))
+        self._pending = pending
 
     def _read(self) -> bool:
         try:
@@ -315,6 +336,7 @@ class Recorder:
                 self._press(key, speed, count or 1)
             case Ctrl(char):
                 self._typed = ""
+                self._pending = []  # stopped by hand: how long it ran says nothing
                 self._keys([ctrl_char(char)], 0)
             case Sleep(ms) if self._may_skip(ms):
                 self._pause(ms / 1000)
@@ -407,6 +429,8 @@ class Recorder:
             self.enters.append((self._typed.strip(), self._raw_length))
             self._entered = len(self.raw)
             self._typed = ""
+            self._pending.append((len(self.took), self._clock(), False))
+            self.took.append(None)
             self._keys([KEYS[key]], speed_ms)
 
     def _wait(self, pattern: str, timeout_ms: int, *, line: bool = False, fail: str | None = None) -> None:
@@ -473,6 +497,8 @@ class Recording:
     cues_ms: dict[str, int] = field(default_factory=dict)
     submitted: tuple[Submitted, ...] = ()
     """Each line typed at the prompt and what it printed (see ``narratty.render.outputs``)."""
+    took_ms: tuple[tuple[str, int | None], ...] = ()
+    """Each line submitted with Enter and how long its command ran (None: not seen to end)."""
 
 
 def record(
@@ -525,4 +551,8 @@ def record(
         {label: round(offset * 1000) for label, offset in recorder.narration_offsets.items()},
         {label: round(at * 1000) for label, at in recorder.cues.items()},
         tuple(submitted),
+        tuple(
+            (line, None if took is None else round(took * 1000))
+            for (line, _), took in zip(recorder.enters, recorder.took, strict=True)
+        ),
     )

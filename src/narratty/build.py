@@ -23,6 +23,7 @@ from narratty.render.narration import Placement, build_track
 from narratty.render.subtitles import Narrated, SubtitleFiles, cues_for, to_srt
 from narratty.spec import load_spec
 from narratty.spec.model import Run, ShowBrowser, ShowOverlay, ShowSlide, Spec
+from narratty.sync import Overrun, end_of_scenes, linear_starts, narration_starts, overruns, too_far
 from narratty.timeline import Timeline, build_timeline
 from narratty.tts.lexicon import load_lexicon
 from narratty.tts.registry import get_provider
@@ -87,19 +88,23 @@ def plan(
 
     ``end_card`` overrides the spec and the user's config (see ``narratty.end_card``).
     A ``draft`` skips TTS: it has no clips and estimated narration lengths (see
-    ``narratty.draft``).
+    ``narratty.draft``). Commands wait as long as ``narratty check`` measured them (see
+    ``narratty.durations``).
     """
+    from narratty import durations
+
     spec = with_end_card(load_spec(spec_path), end_card)
+    measured = durations.load(spec, cache_dir(), log)
     if draft:
         from narratty.draft import estimated_audio_ms
 
-        return Plan(spec_path, spec, (), build_timeline(spec, estimated_audio_ms(spec)), draft=True)
+        return Plan(spec_path, spec, (), build_timeline(spec, estimated_audio_ms(spec), measured), draft=True)
     provider = get_provider(spec.tts.provider, data_dir())
     lexicon = load_lexicon(spec_path, spec.tts)
     clips = synthesize_spec(
         spec, provider, AudioCache(cache_dir()), download=not offline, lexicon=lexicon, log=log
     )
-    timeline = build_timeline(spec, {clip.scene_id: clip.duration_ms for clip in clips})
+    timeline = build_timeline(spec, {clip.scene_id: clip.duration_ms for clip in clips}, measured)
     return Plan(spec_path, spec, tuple(clips), timeline)
 
 
@@ -327,6 +332,7 @@ def render_silent(
     cached_prefix: SceneRecording | None = None,
     replay_scenes: frozenset[str] = frozenset(),
     fresh: FreshFootage | None = None,
+    align: bool = True,
 ) -> timelapse.Layout | None:
     """Write the tape into ``work`` and record it with VHS in ``workspace`` into ``video``.
 
@@ -337,27 +343,23 @@ def render_silent(
     ``fast: true`` do so without it. A pause whose screen was not still fails the build,
     except in a draft, which only logs it.
 
-    With timelapse scenes, overlays or browser views, the tape also takes markers: the
-    timelapse scenes are sped up into ``video`` and the returned layout says where each
-    scene and cue landed.
+    With ``align`` (or timelapse scenes, overlays, browser views, the scene cache) the
+    tape takes markers, so the returned layout says where each scene and cue landed
+    (see ``narratty.sync``); timelapse scenes are sped up into ``video``, and a
+    recording that lost frames is stretched back to the time it took. Without markers,
+    or when VHS logged none that were only wanted for ``align``, the result is None.
 
     ``cached_prefix`` footage is joined before the recording of the scenes after
     ``replay_scenes``; ``fresh`` then learns where that recording is and its markers.
     """
-    from narratty.bridge import shim_env
     from narratty.draft import FRAMERATE as DRAFT_FRAMERATE
     from narratty.render.tape import FRAMERATE, build_tape, uses_fast
 
     tape_path = work / "scene.tape"
     filling = uses_fast(planned.spec, fast)
     framerate = DRAFT_FRAMERATE if planned.draft else FRAMERATE
-    measured = (
-        cache_markers
-        or planned.timeline.has_timelapse
-        or has_overlays(planned.spec)
-        or has_browsers(planned.spec)
-    )
-    marks = (work / "marks").resolve() if measured else None
+    needs_marks = cache_markers or _needs_markers(planned)
+    marks = (work / "marks").resolve() if needs_marks or align else None
     recording = work / "recording.mp4" if marks or filling else video
     if marks:
         marks.mkdir(parents=True, exist_ok=True)
@@ -378,22 +380,13 @@ def render_silent(
         replay_scenes=replay_scenes,
     )
     tape_path.write_text(tape.text, encoding="utf-8")
-    jobs = None
-    if filling:
-        from narratty.render.pauses import JobWatch
-
-        jobs = JobWatch(tape.pauses)
-    extra_env = recording_env(planned.spec)
-    if placement.bridged:
-        extra_env["PATH"] = shim_env(work / "shims", bridge or [], os.environ)["PATH"]
-    vhs_log = media.run_vhs(
-        tape_path, workspace, extra_env=extra_env, on_line=_progress_watch(jobs) if jobs else None
-    )
+    vhs_log, jobs = _run_tape(planned, tape, tape_path, workspace, work, bridge, placement, filling=filling)
     collect_exit_log(bridge, exit_log, work)
     if not recording.is_file():
         raise RenderError(f"VHS finished but wrote no video to {recording}")
     if jobs is None and marks is None:
         return None
+    recording = _restore_dropped_frames(recording, vhs_log, work, framerate, log) if marks else recording
     recorded = media.probe(recording)
     inserts: list[Insert] = []
     if jobs is not None:
@@ -406,13 +399,84 @@ def render_silent(
         return None
     from narratty.render.pauses import shift_positions
 
-    positions = timelapse.marker_positions(vhs_log, marks, recorded.duration_ms)
-    positions = shift_positions(positions, inserts, recorded.frame_rate)
+    found = _marker_positions(vhs_log, marks, recorded.duration_ms, required=needs_marks, log=log)
+    if found is None:
+        recording.replace(video)
+        return None
+    positions = shift_positions(found, inserts, recorded.frame_rate)
     if fresh is not None:
         fresh.video, fresh.positions = recording, dict(positions)
     return _finish_recording(
         planned, recording, video, positions, cached_prefix, replay_scenes, framerate, recorded.frame_rate
     )
+
+
+def _run_tape(
+    planned: Plan,
+    tape: Tape,
+    tape_path: Path,
+    workspace: Path,
+    work: Path,
+    bridge: Sequence[str] | None,
+    placement: HelperPlacement,
+    *,
+    filling: bool,
+) -> tuple[list[media.LogLine], JobWatch | None]:
+    """Record ``tape_path`` with VHS; with ``filling``, watch the commands during its pauses."""
+    from narratty.bridge import shim_env
+
+    jobs = None
+    if filling:
+        from narratty.render.pauses import JobWatch
+
+        jobs = JobWatch(tape.pauses)
+    extra_env = recording_env(planned.spec)
+    if placement.bridged:
+        extra_env["PATH"] = shim_env(work / "shims", bridge or [], os.environ)["PATH"]
+    vhs_log = media.run_vhs(
+        tape_path, workspace, extra_env=extra_env, on_line=_progress_watch(jobs) if jobs else None
+    )
+    return vhs_log, jobs
+
+
+def _needs_markers(planned: Plan) -> bool:
+    """Whether the recording cannot be used without markers (timelapse, overlays, views)."""
+    return planned.timeline.has_timelapse or has_overlays(planned.spec) or has_browsers(planned.spec)
+
+
+def _marker_positions(
+    vhs_log: list[media.LogLine], marks: Path, video_ms: int, *, required: bool, log: Log | None
+) -> dict[str, int] | None:
+    """The markers' positions; None when VHS logged none and they were only wanted for sync."""
+    try:
+        return timelapse.marker_positions(vhs_log, marks, video_ms)
+    except RenderError:
+        if required:
+            raise
+    if log:
+        log("VHS logged no scene markers; placing narration by the planned timing")
+    return None
+
+
+def _restore_dropped_frames(
+    recording: Path, vhs_log: list[media.LogLine], work: Path, framerate: int, log: Log | None
+) -> Path:
+    """``recording``, stretched to the time VHS spent on it if it lost frames (see narratty.sync)."""
+    from narratty.sync import retime_factor
+
+    took_ms, video_ms = timelapse.recorded_ms(vhs_log), media.probe(recording).duration_ms
+    factor = retime_factor(video_ms, took_ms)
+    if factor is None:
+        return recording
+    if log:
+        log(
+            f"warning: VHS recorded {took_ms / 1000:.2f}s into a {video_ms / 1000:.2f}s video "
+            f"({video_ms / took_ms - 1:+.0%}); it dropped frames, the machine was probably busy. "
+            "Stretching the recording back to real time"
+        )
+    retimed = work / "retimed.mp4"
+    timelapse.retime(recording, factor, retimed, framerate=framerate)
+    return retimed
 
 
 def _finish_recording(
@@ -522,6 +586,8 @@ class BuildResult:
     expected_ms: int
     video_ms: int
     placements: tuple[Placement, ...]
+    # Placed per scene (see narratty.sync): the scenes whose narration ran over, else None.
+    overruns: tuple[Overrun, ...] | None = None
 
     @property
     def drift(self) -> float:
@@ -532,20 +598,15 @@ class BuildResult:
 def place_clips(planned: Plan, video_ms: int) -> list[Placement]:
     """Clip positions, stretched by the ratio of rendered to planned length.
 
-    VHS runs slightly faster or slower than its nominal timing (a few percent,
-    depending on the machine); scaling keeps each clip at its scene's actual start.
+    The fallback when the recording has no scene markers (see ``narratty.sync``).
     """
     starts = scaled_starts(planned, video_ms)
     return [Placement(clip.scene_id, clip.path, starts[clip.scene_id]) for clip in planned.clips]
 
 
 def scaled_starts(planned: Plan, video_ms: int) -> dict[str, int]:
-    """Narration start of each narrated scene, stretched like :func:`place_clips`."""
-    scale = video_ms / planned.timeline.total_ms if planned.timeline.total_ms else 1.0
-    return {
-        scene.id: round(planned.timeline.scene(scene.id).audio_start_ms * scale)
-        for scene in planned.spec.narrated_scenes
-    }
+    """Narration start of each visible scene, stretched like :func:`place_clips`."""
+    return linear_starts(planned.timeline, video_ms)
 
 
 def subtitle_mode(planned: Plan, override: str | None) -> str:
@@ -793,18 +854,20 @@ def build(
             **render_options,
         )
         video_ms = media.probe(silent).duration_ms
-        if cache is not None and layout is not None:
-            expected_ms = planned.timeline.total_ms
-            placements = place_clips_at(planned, layout.scene_starts_ms, layout.narration_offsets_ms)
-        elif layout is None or not layout.segments:
-            expected_ms, placements = planned.timeline.total_ms, place_clips(planned, video_ms)
+        if layout is None:
+            expected_ms, wanted = planned.timeline.total_ms, scaled_starts(planned, video_ms)
         else:
             expected_ms = layout.expected_ms(planned.timeline)
-            placements = place_clips_at(planned, layout.scene_starts_ms, layout.narration_offsets_ms)
+            wanted = aligned_starts(
+                planned, layout.scene_starts_ms, layout.narration_offsets_ms, layout.cues_ms
+            )
+        placements = [Placement(clip.scene_id, clip.path, wanted[clip.scene_id]) for clip in planned.clips]
         say("mixing narration")
         track = work / "narration.wav"
         used = build_track(placements, video_ms, track)
-        starts = scaled_starts(planned, video_ms) | {p.scene_id: p.start_ms for p in used}
+        placed = {p.scene_id: p.start_ms for p in used}
+        starts = wanted | placed
+        late = None if layout is None else _overruns(planned, layout, video_ms, placed, wanted, say)
         cues = cues_for(narrations(planned, starts))
         srt: Path | None = None
         if mode in ("track", "burn") and cues:
@@ -824,15 +887,31 @@ def build(
             SubtitleFiles.beside(output).write(cues)
         _export_artifacts(planned, ws.path, output, say)
         check_exits(planned, work, output, ignore_exit=ignore_exit)
+        result = BuildResult(output, expected_ms, video_ms, tuple(used), late)
         if cache is not None and layout is not None:
-            verify(BuildResult(output, expected_ms, video_ms, tuple(used)), max_drift=max_drift)
+            verify(result, max_drift=max_drift)
             try:
                 _store_scenes(cache, planned, silent, layout, fresh)
             except OSError as error:  # a full disk or read-only cache must not fail the build
                 say(f"scene cache not updated: {error}")
-    result = BuildResult(output, expected_ms, video_ms, tuple(used))
     verify(result, max_drift=max_drift)
     return result
+
+
+def _overruns(
+    planned: Plan,
+    layout: timelapse.Layout,
+    video_ms: int,
+    placed: dict[str, int],
+    wanted: dict[str, int],
+    say: Log,
+) -> tuple[Overrun, ...]:
+    """Scenes whose narration runs past their end in the video; each is logged."""
+    end = end_of_scenes(layout.cues_ms, video_ms)
+    found = overruns(planned.timeline, layout.scene_starts_ms, end, placed, wanted)
+    for item in found:
+        say(f"warning: narration runs past the end of scene {item.describe()}")
+    return tuple(found)
 
 
 def _store_scenes(
@@ -883,22 +962,29 @@ class CastOutputs:
 
 
 def place_clips_at(
-    planned: Plan, scene_starts_ms: dict[str, int], offsets_ms: dict[str, int] | None = None
+    planned: Plan,
+    scene_starts_ms: dict[str, int],
+    offsets_ms: dict[str, int] | None = None,
+    cues_ms: dict[str, int] | None = None,
 ) -> list[Placement]:
-    """Clip positions at the recorded start of each scene.
+    """Clip positions at the recorded start of each scene (see :func:`aligned_starts`)."""
+    starts = aligned_starts(planned, scene_starts_ms, offsets_ms, cues_ms)
+    return [Placement(clip.scene_id, clip.path, starts[clip.scene_id]) for clip in planned.clips]
 
-    ``offsets_ms`` overrides the planned narration offset (timelapse scenes).
+
+def aligned_starts(
+    planned: Plan,
+    scene_starts_ms: dict[str, int],
+    offsets_ms: dict[str, int] | None = None,
+    cues_ms: dict[str, int] | None = None,
+) -> dict[str, int]:
+    """Narration starts relative to each scene's recorded start (see ``narratty.sync``).
+
+    ``offsets_ms`` overrides the planned narration offset (timelapse scenes); a recorded
+    narration cue in ``cues_ms`` places an ``after_actions`` narration where the actions
+    actually ended.
     """
-    offsets = offsets_ms or {}
-    return [
-        Placement(
-            clip.scene_id,
-            clip.path,
-            scene_starts_ms[clip.scene_id]
-            + offsets.get(clip.scene_id, planned.timeline.scene(clip.scene_id).audio_offset_ms),
-        )
-        for clip in planned.clips
-    ]
+    return narration_starts(planned.timeline, scene_starts_ms, cues_ms, offsets_ms)
 
 
 def build_cast(
@@ -942,7 +1028,9 @@ def build_cast(
         outputs.cast.write_text(recording.cast, encoding="utf-8")
         say("mixing narration")
         track = work / "narration.wav"
-        placements = place_clips_at(planned, recording.scene_starts_ms, recording.narration_offsets_ms)
+        placements = place_clips_at(
+            planned, recording.scene_starts_ms, recording.narration_offsets_ms, recording.cues_ms
+        )
         used = build_track(placements, recording.duration_ms, track)
         media.encode_mp3(track, outputs.audio)
         if subtitle_mode(planned, subtitles) != "none":
@@ -1028,7 +1116,8 @@ def check(
     """Run the spec's commands as a recording would, without video, voice or end card.
 
     Fails when a command's exit code contradicts its ``expect_exit`` (``ignore_exit`` as
-    in :func:`build`) or its output its ``expect_output``.
+    in :func:`build`) or its output its ``expect_output``. Records how long each ``run``
+    took for later plans (see ``narratty.durations``).
     """
     from narratty.render import outputs
 
@@ -1048,6 +1137,7 @@ def check(
         say(f"running {len(planned.timeline.scenes)} scenes")
         recording = _record_cast(planned, work, ws, bridge, sandbox, fast=True)
         check_exits(planned, work, None, ignore_exit=ignore_exit)
+        _record_durations(planned.spec, recording, say)
     if not editor:
         outputs.check(planned.spec, recording.submitted)
     runs = [action for scene in planned.spec.scenes for action in scene.actions if isinstance(action, Run)]
@@ -1073,14 +1163,49 @@ def unmasked(spec: Spec) -> Spec:
     return spec.model_copy(update={"scenes": scenes})
 
 
+def _record_durations(spec: Spec, recording: Recording, say: Log) -> None:
+    """Keep how long each ``run`` took (see ``narratty.durations``); never fails the check."""
+    from narratty import durations
+
+    measured = durations.match_runs(spec, recording.took_ms)
+    if not measured:
+        return
+    try:
+        durations.DurationStore(cache_dir()).record(spec, measured)
+    except OSError as error:
+        say(f"command durations not recorded: {error}")
+        return
+    slow = durations.describe(spec, measured)
+    say(
+        f"recorded how long {len(measured)} commands took"
+        + (f"; plans now wait for the slow ones: {slow}" if slow else "")
+    )
+
+
 def verify(result: BuildResult, *, max_drift: float) -> None:
-    """Fail when the output lacks a stream or drifted beyond ``max_drift``."""
+    """Fail when the output lacks a stream or drifted beyond ``max_drift``.
+
+    With per-scene placement (``result.overruns`` set), drift is judged per scene: a
+    narration may run past its scene's end by ``max_drift`` of its length. Otherwise
+    the video's length is compared with the plan.
+    """
     info = media.probe(result.output)
     if not (info.has_video and info.has_audio):
         raise RenderError(f"{result.output} is missing its {'audio' if info.has_video else 'video'} stream")
-    if abs(result.drift) > max_drift:
+    if result.overruns is not None:
+        _verify_scenes(result.overruns, max_drift)
+    elif abs(result.drift) > max_drift:
         raise SyncError(
             f"the video is {result.video_ms / 1000:.2f}s long but the timeline planned "
             f"{result.expected_ms / 1000:.2f}s ({result.drift:+.0%})",
             hint=media.drift_hint(result.drift),
+        )
+
+
+def _verify_scenes(found: Sequence[Overrun], max_drift: float) -> None:
+    if failing := too_far(found, max_drift):
+        raise SyncError(
+            "narration runs past the end of its scene in: " + ", ".join(item.describe() for item in failing),
+            hint="A scene recorded shorter than planned usually means VHS dropped frames on a busy "
+            "machine; build again with less load.",
         )

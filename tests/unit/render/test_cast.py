@@ -265,3 +265,24 @@ def test_check_sees_the_prompt_in_real_shells(shell: str, tmp_path: Path) -> Non
     assert "hi" in "".join(str(e[2]) for e in events if e[1] == "o")
     spec = _prompt_scene("""printf '{"a":1}'""").replace("terminal: {", f"terminal: {{shell: {shell}, ")
     _record(spec, tmp_path, audio_ms=10)
+
+
+def test_record_measures_how_long_each_command_ran(tmp_path: Path) -> None:
+    spec = parse_spec(
+        "end_card: false\ntiming: {lead_in_ms: 0, tail_ms: 0, run_hold_ms: 1000}\n"
+        "terminal: {typing_speed_ms: 5}\nscenes:\n  - id: a\n    actions:\n"
+        "      - run: sleep 0.6\n      - run: 'true'\n      - run: sleep 5\n      - ctrl_sequence: C-c\n"
+        "      - run: echo done\n",
+        tmp_path / "t.narratty.yaml",
+    )
+    recording = record(
+        build_script(spec, build_timeline(spec, {})),
+        terminal=spec.terminal,
+        cwd=tmp_path,
+        env=os.environ,
+        title="T",
+    )
+    took = {line: ms for line, ms in recording.took_ms if line}
+    assert took["sleep 0.6"] is not None and 550 <= took["sleep 0.6"] < 3000
+    assert took["true"] is not None and took["true"] < 500
+    assert took["sleep 5"] is None, "stopped with C-c, so not measured"

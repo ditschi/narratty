@@ -1627,6 +1627,12 @@
           "default": 100,
           "description": "Pause after each `key` and `ctrl_sequence`.",
           "title": "Pause Ms"
+        },
+        "measured_durations": {
+          "default": true,
+          "description": "Wait after each `run` as long as `narratty check` measured its command; false plans with `run_hold_ms` only.",
+          "title": "Measured Durations",
+          "type": "boolean"
         }
       },
       "title": "Timing",
@@ -2499,7 +2505,8 @@
         "lead_in_ms": 300,
         "tail_ms": 1000,
         "run_hold_ms": 500,
-        "pause_ms": 100
+        "pause_ms": 100,
+        "measured_durations": true
       }
     },
     "terminal": {

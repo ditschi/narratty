@@ -585,3 +585,68 @@ def test_a_shown_command_takes_the_time_of_its_typing() -> None:
         Path("t.narratty.yaml"),
     )
     assert build_timeline(spec, {}).scene("a").action_ms == 30
+
+
+def test_verify_judges_per_scene_placement_by_its_overruns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import replace
+
+    from narratty.sync import Overrun
+
+    monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(20000, True, True))
+    aligned = replace(_result(tmp_path, 20000), overruns=())
+    verify(aligned, max_drift=0.1)  # twice as long as planned, but every narration fits its scene
+    clipped = replace(aligned, overruns=(Overrun("intro", 800, 4000, 5000, 4200),))
+    with pytest.raises(SyncError, match=r"intro \(0.80s over: scene recorded 0.80s shorter than planned\)"):
+        verify(clipped, max_drift=0.1)
+    verify(clipped, max_drift=0.25)
+
+
+def test_aligned_starts_use_the_recorded_scene_starts(tmp_path: Path) -> None:
+    from narratty.build import aligned_starts
+
+    assert aligned_starts(_plan(tmp_path), {"a": 40, "b": 4000}) == {"a": 40, "b": 4000}
+
+
+def test_render_stretches_a_recording_that_dropped_frames(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.build import plan, render_silent
+    from narratty.render import timelapse
+
+    fake = FakeVhs(monkeypatch, [])
+    took: list[int] = []
+    stretched: list[float] = []
+
+    def run_vhs(tape: Path, cwd: Path, **kwargs: Any) -> list[media.LogLine]:
+        log = fake._run(tape, cwd, **kwargs)
+        took.append(timelapse.recorded_ms(log))
+        return log
+
+    def probe(path: Path) -> media.MediaInfo:
+        # VHS wrote 80% of the recorded time; the stretched copy has all of it.
+        duration = took[0] if path.name == "retimed.mp4" else took[0] * 8 // 10
+        return media.MediaInfo(duration, True, False, 30.0)
+
+    def retime(video: Path, factor: float, out: Path, **kwargs: Any) -> None:
+        stretched.append(factor)
+        out.write_bytes(b"retimed")
+
+    monkeypatch.setattr(media, "run_vhs", run_vhs)
+    monkeypatch.setattr(media, "probe", probe)
+    monkeypatch.setattr(timelapse, "retime", retime)
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(
+        "end_card: false\nscenes:\n  - id: a\n    narration: One.\n    actions: [{run: 'echo a'}]\n"
+        "  - id: b\n    actions: [{run: 'echo b'}]\n",
+        encoding="utf-8",
+    )
+    work = tmp_path / "work"
+    work.mkdir()
+    logs: list[str] = []
+    layout = render_silent(plan(spec, draft=True), tmp_path / "v.mp4", work, tmp_path, log=logs.append)
+    assert stretched == [pytest.approx(1.25)]
+    assert any("dropped frames" in line for line in logs)
+    assert layout is not None and set(layout.scene_starts_ms) == {"a", "b"}
+    assert (tmp_path / "v.mp4").read_bytes() == b"retimed"

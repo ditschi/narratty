@@ -11,6 +11,10 @@ shifts the narration of the next.
 A timelapse scene is recorded in real time and sped up afterwards, so its length is
 only known after recording (see :func:`timelapse_layout`); the plan counts its
 deterministic actions, sped up.
+
+``measured`` command durations (recorded by ``narratty check``, see
+``narratty.durations``) lengthen the pause after a ``run`` whose command takes longer
+than ``timing.run_hold_ms``, so the output is there before the scene goes on.
 """
 
 from __future__ import annotations
@@ -58,6 +62,23 @@ def action_ms(action: Action, pace: Pacing) -> int:
     return 0
 
 
+# Kept after a measured command's end, so its last output is on screen before going on.
+MEASURED_SETTLE_MS = 300
+
+
+def run_holds(
+    spec: Spec, scene: Scene, measured: Mapping[tuple[str, int], int]
+) -> tuple[tuple[int, int], ...]:
+    """``(action index, pause)`` for each ``run`` whose measured command outlasts its pause."""
+    base = spec.timing.run_hold_ms
+    holds = []
+    for index, action in enumerate(scene.actions):
+        took = measured.get((scene.id, index))
+        if isinstance(action, Run) and took is not None and took > base:
+            holds.append((index, took + MEASURED_SETTLE_MS))
+    return tuple(holds)
+
+
 @dataclass(frozen=True)
 class SceneTiming:
     """Where one scene sits in the video."""
@@ -72,6 +93,11 @@ class SceneTiming:
     timelapse: float | None = None
     hold_ms: int = 0  # timelapse only: narration plus buffer, waited for after the speed-up
     narration_after: bool = False
+    run_holds: tuple[tuple[int, int], ...] = ()  # (action index, pause) from measured commands
+
+    def run_hold(self, index: int, default: int) -> int:
+        """Pause after the ``run`` at ``actions[index]``: measured, else ``default``."""
+        return dict(self.run_holds).get(index, default)
 
     @property
     def length_ms(self) -> int:
@@ -127,23 +153,41 @@ def timelapse_layout(sped_ms: int, hold_ms: int, *, narration_after: bool) -> tu
     return 0, max(0, hold_ms - sped_ms)
 
 
-def build_timeline(spec: Spec, audio_ms: Mapping[str, int]) -> Timeline:
-    """Compute the timeline from the spec and each narrated scene's clip length."""
+def build_timeline(
+    spec: Spec, audio_ms: Mapping[str, int], measured: Mapping[tuple[str, int], int] | None = None
+) -> Timeline:
+    """Compute the timeline from the spec and each narrated scene's clip length.
+
+    ``measured`` maps ``(scene id, action index)`` of a ``run`` to how long its command
+    took (see ``narratty.durations``).
+    """
     buffer = spec.timing.narration_buffer_ms
     cursor = spec.timing.lead_in_ms
     timings: list[SceneTiming] = []
     for scene in spec.scenes:
         pace = pacing(spec, scene)
+        holds = run_holds(spec, scene, measured or {})
         actions = sum(action_ms(action, pace) for action in scene.actions)
+        actions += sum(hold - pace.run_hold_ms for _, hold in holds)
         audio = audio_ms.get(scene.id, 0) if scene.narration else 0
         if scene.hidden:
-            timings.append(SceneTiming(scene.id, True, cursor, actions, 0, 0, 0))
+            timings.append(SceneTiming(scene.id, True, cursor, actions, 0, 0, 0, run_holds=holds))
             continue
         if scene.timelapse:
             hold = audio + buffer if audio else 0
             after = scene.narration_start == "after_actions"
             timing = SceneTiming(
-                scene.id, False, cursor, actions, audio, 0, 0, scene.timelapse, hold, narration_after=after
+                scene.id,
+                False,
+                cursor,
+                actions,
+                audio,
+                0,
+                0,
+                scene.timelapse,
+                hold,
+                narration_after=after,
+                run_holds=holds,
             )
             timings.append(timing)
             cursor += timing.length_ms
@@ -152,7 +196,7 @@ def build_timeline(spec: Spec, audio_ms: Mapping[str, int]) -> Timeline:
             offset, fill = actions, audio + buffer if audio else 0
         else:
             offset, fill = 0, max(0, audio + buffer - actions) if audio else 0
-        timing = SceneTiming(scene.id, False, cursor, actions, audio, fill, offset)
+        timing = SceneTiming(scene.id, False, cursor, actions, audio, fill, offset, run_holds=holds)
         timings.append(timing)
         cursor += timing.length_ms
     end_card = spec.end_card.duration_ms if spec.end_card.enabled else 0

@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from narratty import diff, editor, sh
@@ -364,6 +364,17 @@ def overlay_cue(scene_id: str, index: int) -> str:
     return f"overlay:{scene_id}:{index}"
 
 
+def narration_cue(scene_id: str) -> str:
+    """Label of the cue where a scene with ``narration_start: after_actions`` starts talking."""
+    return f"narration:{scene_id}"
+
+
+def _paced(pace: Pacing, timing: SceneTiming, index: int) -> Pacing:
+    """``pace`` with the measured pause after the ``run`` at ``actions[index]``, if any."""
+    hold = timing.run_hold(index, pace.run_hold_ms)
+    return pace if hold == pace.run_hold_ms else replace(pace, run_hold_ms=hold)
+
+
 def _sends_keys(action: Action) -> bool:
     return not isinstance(action, Hold | Wait | ShowOverlay | ShowBrowser | ShowSlide)
 
@@ -390,7 +401,7 @@ def _timelapse_steps(scene: Scene, timing: SceneTiming, pace: Pacing, context: C
         for step in (
             [Cue(overlay_cue(scene.id, index))]
             if isinstance(action, ShowOverlay | ShowBrowser | ShowSlide)
-            else action_steps(action, pace, context)
+            else action_steps(action, _paced(pace, timing, index), context)
         )
     ]
     if context.editor and any(isinstance(action, Diff) for action in scene.actions):
@@ -433,13 +444,22 @@ def scene_steps(
         if popup and _sends_keys(action):
             steps += close_popup()
             popup = False
-        steps += action_steps(action, pace, context)
+        steps += action_steps(action, _paced(pace, timing, index), context)
         popup = popup or (context.editor and isinstance(action, Diff))
-    if not filled and timing.fill_ms:
-        steps.append(Sleep(timing.fill_ms))
+    steps += _closing_fill(scene, timing, filled=filled)
     if popup:
         steps += close_popup()
     return _end_hidden(steps, context) if scene.hidden else steps
+
+
+def _closing_fill(scene: Scene, timing: SceneTiming, *, filled: bool) -> list[Step]:
+    """The fill after the actions; ``after_actions`` marks where its narration starts."""
+    steps: list[Step] = []
+    if scene.narration_start == "after_actions" and not scene.hidden and timing.audio_ms:
+        steps.append(Cue(narration_cue(scene.id)))  # where the actions really ended
+    if not filled and timing.fill_ms:
+        steps.append(Sleep(timing.fill_ms))
+    return steps
 
 
 def end_card_steps(

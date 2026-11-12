@@ -812,6 +812,11 @@ class Timing(_Model):
     tail_ms: Duration = Field(1000, ge=0)
     run_hold_ms: Duration = Field(500, ge=0, description="Pause after each `run` action.")
     pause_ms: Duration = Field(100, ge=0, description="Pause after each `key` and `ctrl_sequence`.")
+    measured_durations: bool = Field(
+        True,
+        description="Wait after each `run` as long as `narratty check` measured its command; "
+        "false plans with `run_hold_ms` only.",
+    )
 
 
 class Terminal(_Model):
