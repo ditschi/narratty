@@ -400,7 +400,9 @@ def render_silent(
 
     positions = timelapse.marker_positions(vhs_log, marks, recorded.duration_ms)
     positions = shift_positions(positions, inserts, recorded.frame_rate)
-    return _finish_recording(planned, recording, video, positions, cached_prefix, replay_scenes, framerate)
+    return _finish_recording(
+        planned, recording, video, positions, cached_prefix, replay_scenes, framerate, recorded.frame_rate
+    )
 
 
 def _finish_recording(
@@ -411,13 +413,17 @@ def _finish_recording(
     cached_prefix: SceneRecording | None,
     replay_scenes: frozenset[str],
     framerate: int,
+    recorded_framerate: float,
 ) -> timelapse.Layout:
     if cached_prefix is not None:
+        prefix_framerate = media.probe(cached_prefix.video).frame_rate
+        if prefix_framerate <= 0 or recorded_framerate <= 0:
+            raise RenderError("cannot join cached scenes without a known video frame rate")
         first = next(
             scene.id for scene in planned.spec.scenes if not scene.hidden and scene.id not in replay_scenes
         )
-        prefix_frames = round(cached_prefix.cut_ms * framerate / 1000)
-        suffix_frame = round(positions[f"scene-{first}"] * framerate / 1000)
+        prefix_frames = round(cached_prefix.cut_ms * prefix_framerate / 1000)
+        suffix_frame = round(positions[f"scene-{first}"] * recorded_framerate / 1000)
         media.join_recordings(
             cached_prefix.video,
             recording,
@@ -426,8 +432,9 @@ def _finish_recording(
             suffix_start_frame=suffix_frame,
             framerate=framerate,
         )
+        prefix_output_frames = round(prefix_frames * framerate / prefix_framerate)
         positions = {
-            key: round((prefix_frames + round(value * framerate / 1000) - suffix_frame) * 1000 / framerate)
+            key: _joined_position(value, prefix_output_frames, suffix_frame, recorded_framerate, framerate)
             for key, value in positions.items()
         } | {f"scene-{scene_id}": cached_prefix.starts_ms[scene_id] for scene_id in replay_scenes}
         return timelapse.layout(planned.timeline, positions)
@@ -437,6 +444,15 @@ def _finish_recording(
     else:
         recording.replace(video)
     return layout
+
+
+def _joined_position(
+    position_ms: int, prefix_frames: int, suffix_frame: int, suffix_rate: float, output_rate: int
+) -> int:
+    """Position a suffix marker after the cached prefix in the joined video."""
+    suffix_frames = round(position_ms * suffix_rate / 1000) - suffix_frame
+    output_frames = prefix_frames + suffix_frames * output_rate / suffix_rate
+    return round(output_frames * 1000 / output_rate)
 
 
 def _progress_watch(jobs: JobWatch) -> Callable[[media.LogLine, int], None]:
@@ -614,7 +630,6 @@ def _scene_cache_plan(
     log: Log,
 ) -> SceneCachePlan | None:
     from narratty.render.scene_cache import SceneCache, recording_context, scene_keys
-    from narratty.render.tape import FRAMERATE
 
     visible = [scene.id for scene in planned.spec.scenes if not scene.hidden]
     unsupported = (
@@ -650,24 +665,40 @@ def _scene_cache_plan(
         for index, scene_id in enumerate(visible[:-1]):
             candidate = cache.get(keys[scene_id])
             prefix = visible[: index + 1]
-            if candidate is None or any(name not in candidate.starts_ms for name in prefix):
+            if candidate is None:
+                log(f"scene cache miss through {scene_id}: no matching entry")
+                continue
+            if any(name not in candidate.starts_ms for name in prefix):
+                log(f"scene cache entry through {scene_id} is missing a scene boundary")
                 continue
             try:
                 info = media.probe(candidate.video)
             except RenderError:
+                log(f"scene cache entry through {scene_id} has an unreadable recording")
                 continue
-            starts = [candidate.starts_ms[name] for name in prefix]
-            if (
-                info.has_video
-                and abs(info.frame_rate - FRAMERATE) < 0.01
-                and info.duration_ms >= candidate.cut_ms
-                and starts == sorted(starts)
-                and starts[-1] < candidate.cut_ms
-            ):
+            if reason := _scene_recording_problem(candidate, info, prefix):
+                log(f"scene cache entry through {scene_id} is incompatible: {reason}")
+            else:
                 selected, replay = candidate, frozenset(prefix)
     if selected is not None:
         log(f"reusing {len(replay)} cached scenes; replaying their commands hidden")
     return SceneCachePlan(cache, keys, selected, replay)
+
+
+def _scene_recording_problem(
+    candidate: SceneRecording, info: media.MediaInfo, prefix: list[str]
+) -> str | None:
+    """Whether a cached recording can safely supply the given scene prefix."""
+    starts = [candidate.starts_ms[name] for name in prefix]
+    if not info.has_video:
+        return "recording has no video stream"
+    if info.frame_rate <= 0:
+        return "recording has no known frame rate"
+    if info.duration_ms < candidate.cut_ms:
+        return f"recording ends at {info.duration_ms} ms before cut {candidate.cut_ms} ms"
+    if starts != sorted(starts) or starts[-1] >= candidate.cut_ms:
+        return "scene boundaries are not ordered before the cut"
+    return None
 
 
 def build(

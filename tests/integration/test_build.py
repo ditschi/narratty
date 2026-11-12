@@ -123,10 +123,12 @@ def test_build_reuses_scene_prefix_and_invalidates_changed_scenes(
     options = WorkspaceOptions("rw", allow_dirty=True)
     logs: list[str] = []
     build(path, workspace=options, scene_cache=True, max_drift=0.3, log=logs.append)
+    entries = list((tmp_path / "cache" / "scenes" / "keys").glob("*.json"))
+    assert entries, f"first build did not store scene entries: {logs}"
     path.write_text(text.replace("echo old", "echo new"), encoding="utf-8")
     work = tmp_path / "work"
     result = build(path, workspace=options, work_dir=work, scene_cache=True, max_drift=0.3, log=logs.append)
-    assert any("reusing 2 cached scenes" in line for line in logs)
+    assert any("reusing 2 cached scenes" in line for line in logs), "\n".join(logs)
     assert "# scene: first" not in (work / "scene.tape").read_text(encoding="utf-8")
     assert '0\ttest "$CACHE_TEST" = ready' in (work / "exits.log").read_text(encoding="utf-8")
     assert media.probe(result.output).has_video

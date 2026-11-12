@@ -207,7 +207,7 @@ def test_build_scene_cache_reuses_prefix_and_invalidates_changed_input(
     monkeypatch.setattr("narratty.build.plan", lambda *args, **kwargs: planned)
     monkeypatch.setattr("narratty.build.build_track", lambda placements, *_: placements)
     fake = FakeMedia(monkeypatch, 3000)
-    monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(3000, True, True, 30.0))
+    monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(3000, True, True, 29.97))
     calls: list[dict[str, Any]] = []
 
     def render(plan: Plan, video: Path, *args: Any, **kwargs: Any) -> Layout:
