@@ -70,3 +70,22 @@ def test_a_slow_command_lengthens_its_scene_and_its_pause() -> None:
     assert measured.scene("build").fill_ms == 0
     steps = build_script(spec, measured)
     assert Sleep(hold) in steps and Sleep(500) in steps
+
+
+def test_check_records_durations_that_later_plans_use(tmp_path: Path) -> None:
+    from narratty.build import WorkspaceOptions, check, plan
+
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(
+        "meta: {title: Slow}\ntiming: {run_hold_ms: 200}\nterminal: {typing_speed_ms: 5}\nscenes:\n"
+        "  - id: slow\n    narration: This takes a moment.\n    actions: [{run: sleep 1.2}]\n"
+        "  - id: quick\n    actions: [{run: 'true'}]\n",
+        encoding="utf-8",
+    )
+    logs: list[str] = []
+    check(spec, workspace=WorkspaceOptions(mode="rw"), log=logs.append)
+    assert any("plans now wait for the slow ones: slow (1." in line for line in logs)
+    planned = plan(spec, draft=True)
+    [(index, hold)] = planned.timeline.scene("slow").run_holds
+    assert index == 0 and 1200 + MEASURED_SETTLE_MS <= hold < 4000
+    assert planned.timeline.scene("quick").run_holds == ()

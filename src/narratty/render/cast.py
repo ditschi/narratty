@@ -252,7 +252,7 @@ class Recorder:
         pending = []
         for index, started, seen in self._pending:
             if not running and (seen or now - started >= _START_GRACE):
-                self.took[index] = now - started
+                self.took[index] = now - started if seen else 0.0  # never seen running: quick
             else:
                 pending.append((index, started, seen or running))
         self._pending = pending

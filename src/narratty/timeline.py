@@ -73,7 +73,7 @@ def run_holds(
     holds = []
     for index, action in enumerate(scene.actions):
         took = measured.get((scene.id, index))
-        if isinstance(action, Run) and took is not None and took + MEASURED_SETTLE_MS > base:
+        if isinstance(action, Run) and took is not None and took > base:
             holds.append((index, took + MEASURED_SETTLE_MS))
     return tuple(holds)
 

@@ -25,7 +25,6 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from narratty.spec.model import Run, Spec
-from narratty.timeline import MEASURED_SETTLE_MS
 
 FILE = "command-durations.json"
 FORMAT = 1
@@ -117,7 +116,7 @@ class DurationStore:
 
 def describe(spec: Spec, measured: Mapping[Location, int]) -> str:
     """``scene (12.3s), scene (4.1s)`` for the commands that outlast ``run_hold_ms``."""
-    slow = [(loc, ms) for loc, ms in measured.items() if ms + MEASURED_SETTLE_MS > spec.timing.run_hold_ms]
+    slow = [(loc, ms) for loc, ms in measured.items() if ms > spec.timing.run_hold_ms]
     return ", ".join(f"{scene_id} ({ms / 1000:.1f}s)" for (scene_id, _), ms in slow)
 
 
