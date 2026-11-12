@@ -42,7 +42,8 @@ def pacing(spec: Spec, scene: Scene) -> Pacing:
 def action_ms(action: Action, pace: Pacing) -> int:
     """Deterministic duration of one action (``wait`` and ``hold: auto`` count as 0)."""
     if isinstance(action, Run):
-        return (len(action.run) + 1) * pace.speed + pace.run_hold_ms
+        typed = action.run if action.show is None else action.show  # the rest is typed hidden
+        return (len(typed) + 1) * pace.speed + pace.run_hold_ms
     if isinstance(action, TypeCommand):
         return len(action.type_command) * pace.speed
     if isinstance(action, Enter):

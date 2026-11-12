@@ -884,6 +884,34 @@
           "default": null,
           "description": "What the command prints, compared by `narratty check`. A line `...` stands for any lines, `...` within a line for any text.",
           "title": "Expect Output"
+        },
+        "show": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Typed on screen instead of `run`, which runs in its place without being shown (since 0.7). `narratty check` runs `run` as it is.",
+          "title": "Show"
+        },
+        "max_lines": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lines of output the video shows; the rest is cut with a note (since 0.7). `narratty check` sees all of it.",
+          "title": "Max Lines"
         }
       },
       "required": [
@@ -2377,6 +2405,31 @@
           "description": "Let `narratty validate` warn about the doc's authoring problems (since 0.7).",
           "title": "Lint",
           "type": "boolean"
+        },
+        "clear_on": {
+          "anyOf": [
+            {
+              "maximum": 6,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Clear the screen where a heading of this level or higher starts a section (since 0.7). Unset: never.",
+          "title": "Clear On"
+        },
+        "say": {
+          "default": "during",
+          "description": "When the text before a command block is spoken: before its commands are typed, or during them (since 0.7). A `run` comment changes it per block.",
+          "enum": [
+            "before",
+            "during"
+          ],
+          "title": "Say",
+          "type": "string"
         },
         "defaults": {
           "$ref": "#/$defs/SceneDefaults",

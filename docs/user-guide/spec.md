@@ -263,7 +263,7 @@ A long step (a download, a build) can be shown sped up instead of hidden:
 
 | Action | Example | Does |
 |---|---|---|
-| `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms`; may set its own `expect_exit` (since 0.3) and `expect_output` (since 0.6, see [Expected output](#expected-output)) |
+| `run` | `- run: ls -la` | Types the command, presses Enter, pauses `timing.run_hold_ms`; may set its own `expect_exit` (since 0.3) and `expect_output` (since 0.6, see [Expected output](#expected-output)), `show` and `max_lines` (since 0.7, see [Shown commands](#shown-commands)) |
 | `type_command` | `- type_command: "ls -la"` | Types the text, without Enter |
 | `ctrl_sequence` | `- ctrl_sequence: C-c` | Presses Ctrl plus a key |
 | `key` | `- key: Enter` or `- key: Down 3` | Presses a key, optionally repeated |
@@ -357,6 +357,39 @@ commands without recording a video and compares; builds do not.
 
 `narratty check` exits with code 8 and shows a diff for each command that printed
 something else.
+
+### Shown commands
+
+Since narratty 0.7.
+
+A `run` action can show something else than it runs. `show` is the command typed on
+screen; `run` runs in its place, and the video shows its output. `max_lines` cuts the
+output after that many lines and ends it with `... (N more lines)`.
+
+```yaml
+- id: install
+  narration: Install the package.
+  actions:
+    - run: pip install -e .          # what the video can run
+      show: pip install tally        # what readers type
+    - wait: {prompt: true}
+- id: tests
+  actions:
+    - run: pytest -v
+      max_lines: 10
+    - wait: {prompt: true}
+```
+
+- The shown command is typed at the scene's speed. After Enter, unrecorded, the line
+  is replaced by `run` and redrawn as the shown command, so no `^C` or second command
+  appears. `run` must be a single line; `show` may have several.
+- With `max_lines`, the command's output (stdout and stderr) goes through `awk`. The
+  command no longer writes to a terminal, so programs that colour their output only
+  for terminals print it plain. The exit code stays the command's (in bash, zsh and
+  fish).
+- Exit codes are checked as usual, those of `run`.
+- `narratty check` runs `run` as it is: without `show`, and without cutting the
+  output, so `expect_output` is compared with all of it.
 
 ### Overlays
 
@@ -563,4 +596,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 | 0.3 | `run` action, `key: Enter` (the bare `- enter` still works), durations like `1.5s`, `wait: "pattern"`, `wait: {prompt: true}`, `timing.run_hold_ms`, `timing.pause_ms` and scene `pause_ms`, `tts.lexicon`, `subtitles`, `environment`, `sandbox.docker`, `terminal.layout`, overlays (`overlay`, `overlay_styles`), `browser`, `diff`, `focus`, `reveal`, scene `timelapse`, `expect_exit` and `fast` |
 | 0.5 | `requires.narratty`, `markdown` scene entries and the top-level `narration` ([Markdown input](markdown.md)), overlay styles `heading-1` to `heading-4`, `breadcrumb` and `file`, `browser` `address` and `data:` URLs |
 | 0.6 | `slide` action and `slides.theme`, Mermaid diagrams in browser views, `run` `expect_output`; in Markdown input the `table`, `slide`, `pause` and `spec` comments, `mermaid` blocks, `check_output` and the `any-output` block option |
-| 0.7 | `slide` `focus`, `code` and `lang`; in Markdown input the `focus` and `skip-rest` comments, the `slide` comment's `focus` key, a list for the `table` comment's `say`, the `show` block option, `sections` with `include` / `exclude`, and the entry keys `footnotes`, `admonitions`, `image_titles` and `lint` |
+| 0.7 | `slide` `focus`, `code` and `lang`, `run` `show` and `max_lines`; in Markdown input the `focus`, `skip-rest`, `run` and `clear` comments, the `slide` comment's `focus` and `hold` keys, the `table` comment's `hold` and a list for its `say`, the `show` block option and the `say=…`, `instead=…`, `lines=…`, `until=…`, `then=…` and `timeout=…` block options, `sections` with `include` / `exclude`, and the entry keys `footnotes`, `admonitions`, `image_titles`, `lint`, `say` and `clear_on` |

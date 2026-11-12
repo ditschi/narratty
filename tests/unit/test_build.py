@@ -9,7 +9,16 @@ from typing import Any
 
 import pytest
 
-from narratty.build import BuildResult, CastOutputs, Plan, default_output, place_clips, place_clips_at, verify
+from narratty.build import (
+    BuildResult,
+    CastOutputs,
+    Plan,
+    default_output,
+    place_clips,
+    place_clips_at,
+    unmasked,
+    verify,
+)
 from narratty.errors import RenderError, SyncError
 from narratty.render import media
 from narratty.spec.loader import parse_spec
@@ -541,3 +550,23 @@ def test_a_scene_can_opt_in_to_fast(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     (tmp_path / "work").mkdir()
     render_silent(planned, tmp_path / "v.mp4", tmp_path / "work", tmp_path)
     assert fake.repeated, "filled without --fast"
+
+
+def test_check_runs_masked_commands_as_they_are() -> None:
+    spec = parse_spec(
+        "scenes:\n  - id: a\n    actions:\n"
+        "      - {run: make, show: make all, max_lines: 3}\n      - run: ls\n",
+        Path("t.narratty.yaml"),
+    )
+    plain = unmasked(spec).scenes[0].actions
+    assert plain[0].model_dump(exclude_none=True) == {"run": "make"}
+    assert plain[1] is spec.scenes[0].actions[1]
+
+
+def test_a_shown_command_takes_the_time_of_its_typing() -> None:
+    spec = parse_spec(
+        "timing: {run_hold_ms: 0}\nterminal: {typing_speed_ms: 10}\n"
+        "scenes:\n  - id: a\n    actions: [{run: a-long-substitute, show: ab}]\n",
+        Path("t.narratty.yaml"),
+    )
+    assert build_timeline(spec, {}).scene("a").action_ms == 30

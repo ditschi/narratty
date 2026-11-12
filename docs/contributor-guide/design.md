@@ -900,8 +900,8 @@ scenes: []
 
 - `#id` names the block for `overrides` and the scene id; mkdocs also makes it a link
   anchor.
-- `narratty="…"` takes space-separated options: `no-run` (typed, then cancelled with
-  Ctrl+C), `hidden`
+- `narratty="…"` takes space-separated options: `no-run` (typed and left on screen; a
+  `run` with `show` runs `:` in its place, since 0.7), `hidden`
   (run, not shown) and `expect-failure`. Leaving a block out entirely is the `skip`
   comment.
 - Comments hold what the video adds (narration, overlays, setup); attributes describe
@@ -1147,6 +1147,32 @@ scenes:
   browser tests that need Chromium (skipped without `mermaid.min.js`).
 - `docs/user-guide/markdown.md` gets a section per feature, which the Markdown example
   video includes; `docs/user-guide/spec.md` documents the `slide` action.
+
+## Per-block control in Markdown
+
+Agreed on 2026-11-12 from the dual-use study and implemented for 0.7: authors control
+the order of voice and commands and the screen state per block without `overrides`,
+and without changing the commands readers copy. All additive (`version: 1`):
+
+| Wish | Decision |
+|---|---|
+| Explain, then run / run, then explain | `run {say: before\|during\|after}` comment or `say=…` attribute; the entry's `say` sets the default. `before` compiles to a leading `hold: auto`; `after` takes the text after the block, up to the next block, heading or `pause`, as narration with `narration_start: after_actions`, and the text before it gets a scene of its own |
+| Show one command, run another | `instead` key; the `run` action's new `show` (typed) next to `run` (runs). `check` runs `run` as it is and compares nothing: the doc's output belongs to the shown command |
+| `no-run` without `^C` | A `run: ":"` with `show`; an overlay note stays opt-in (`overlay` comment) |
+| Long output | `lines` key; the `run` action's `max_lines` pipes through `awk` (exit code kept with `PIPESTATUS`/`pipestatus`). `check` drops it and compares all output with the doc's `...` |
+| Servers, `tail -f` | `until`/`then`/`timeout` keys: `wait: {screen}`, the key, then the usual prompt wait |
+| Clear the screen | `clear` comment and entry `clear_on`: Ctrl+L (readline's clear-screen) leads the next visible scene with its heading overlays; no command, so exit codes keep their scenes |
+| Slide stays for the text after it | `hold: next-block\|next-heading` on `slide` and `table` comments repeats the slide action in the following text and pause scenes |
+
+- One `run` comment with keys, mirrored as `key=value` attribute words (shell-quoted),
+  rather than one comment kind per feature: one vocabulary in two places.
+- `show` and `max_lines` are recorded unseen: after the shown command is typed,
+  recording hides, Ctrl+U (Ctrl+C for a command with several lines) drops the line
+  and the real line is typed. It starts with
+  `sh -c 'printf "\033[%dA\r\033[J%b\n" …'`, which moves the cursor back over the rows
+  of the typed line (computed from `stty size` when it runs) and prints the shown
+  command, so the screen looks as if it had run. The exit log has the real line;
+  `exits.typed_commands` builds it with the spec's prompt and shell.
 
 ## Docs first
 

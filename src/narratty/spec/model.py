@@ -112,6 +112,29 @@ class Run(_Model):
         description="What the command prints, compared by `narratty check`. A line `...` stands for "
         "any lines, `...` within a line for any text.",
     )
+    show: str | None = Field(
+        None,
+        min_length=1,
+        description="Typed on screen instead of `run`, which runs in its place without being shown "
+        "(since 0.7). `narratty check` runs `run` as it is.",
+    )
+    max_lines: int | None = Field(
+        None,
+        ge=1,
+        description="Lines of output the video shows; the rest is cut with a note (since 0.7). "
+        "`narratty check` sees all of it.",
+    )
+
+    @model_validator(mode="after")
+    def _one_line_when_masked(self) -> Run:
+        if (self.show is not None or self.max_lines is not None) and "\n" in self.run.strip():
+            raise ValueError("with show or max_lines, run must be a single line")
+        return self
+
+    @property
+    def masked(self) -> bool:
+        """Whether the screen shows something else than the typed ``run`` (see ``show``)."""
+        return self.show is not None or self.max_lines is not None
 
 
 class Enter(_Model):
@@ -689,6 +712,18 @@ class MarkdownEntry(_Model):
     image_titles: bool = Field(True, description="Show an image's alt text as its slide title (since 0.7).")
     lint: bool = Field(
         True, description="Let `narratty validate` warn about the doc's authoring problems (since 0.7)."
+    )
+    clear_on: int | None = Field(
+        None,
+        ge=1,
+        le=6,
+        description="Clear the screen where a heading of this level or higher starts a section "
+        "(since 0.7). Unset: never.",
+    )
+    say: Literal["before", "during"] = Field(
+        "during",
+        description="When the text before a command block is spoken: before its commands are typed, "
+        "or during them (since 0.7). A `run` comment changes it per block.",
     )
     defaults: SceneDefaults = SceneDefaults()
     overrides: dict[Annotated[str, Field(pattern=SCENE_ID_PATTERN)], BlockOverride] = Field(

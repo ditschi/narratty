@@ -40,6 +40,11 @@ from narratty.spec.model import (
 
 SHELL_LANGS = ("bash", "sh", "shell")
 BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure", "any-output", "show")
+RUN_KEYS = ("say", "instead", "lines", "until", "then", "timeout")
+"""Keys of the ``run`` comment, also written ``key=value`` in a block's ``narratty="…"``."""
+SAY = ("before", "during", "after")
+UNTIL_TIMEOUT_MS = 30_000
+CLEAR = {"ctrl_sequence": "C-l"}  # readline's clear-screen: no command, nothing in the exit log
 COMMENT_KINDS = (
     "skip",
     "skip-rest",
@@ -51,12 +56,17 @@ COMMENT_KINDS = (
     "table",
     "slide",
     "focus",
+    "run",
+    "clear",
     "spec",
 )
-SLIDE_KEYS = ("title", "theme", "rows", "html", "focus")
-TABLE_KEYS = ("say", "pause", "title", "theme", "rows")
+LOOK_KEYS = ("title", "theme", "rows", "html", "focus")
+SLIDE_KEYS = (*LOOK_KEYS, "hold")
+TABLE_KEYS = ("say", "pause", "title", "theme", "rows", "hold")
+HOLDS = ("next-block", "next-heading")
+"""How long a slide stays for the text after it: up to the next block, or heading."""
 VISUALS = "a table, image or mermaid block"
-NO_RUN_HOLD_MS = 1000
+NOTHING = ":"  # the shell command that does nothing, run in place of a no-run command
 IMAGE_HOLD_MS = 3000  # an image scene without narration
 MAX_URL_CHARS = 2 * 1024 * 1024  # Chromium does not load longer URLs
 _COMMENT = re.compile(r"^\s*narratty:\s*(?P<kind>[\w-]*)(?P<body>.*)$", re.DOTALL)
@@ -204,6 +214,10 @@ class _Builder:
         self.diagram: dict[str, Any] | None = None  # the last Mermaid slide, reusable by focus comments
         self.pages: list[dict[str, Any]] = []  # later pages of the table on screen
         self.pages_block: Block | None = None
+        self.run: tuple[Comment, dict[str, Any]] | None = None  # a run comment's options
+        self.keep: str | None = None  # the hold of the slide comment being applied
+        self.held: tuple[dict[str, Any], str] | None = None  # a slide kept up, and until when
+        self.waiting: tuple[Code, str, list[dict[str, Any]], dict[str, Any]] | None = None  # say: after
         self.used: set[str] = set()
         self.level = 0  # of the last heading
         self.skip_rest: int | None = None  # a skip-rest comment leaves out blocks up to a heading this high
@@ -215,6 +229,8 @@ class _Builder:
         for block in blocks:
             if self.skipping_rest(block):
                 continue
+            if self.waiting is not None and not self.continues(block):
+                self.finish_waiting()
             self.check_pending(block)
             if isinstance(block, Heading) and self.skip:
                 self.skip = False
@@ -230,14 +246,34 @@ class _Builder:
                 self.skip = False
                 if isinstance(block, Table):
                     self.table = None
-                self.slide = None
+                self.slide = self.run = None
                 self.note(block, None, f"{_kind(block)}: left out by a skip comment")
             else:
                 self.content(block)
             if not isinstance(block, Comment):
                 self.previous = block
+        if self.waiting is not None:
+            self.finish_waiting()
         self.check_pending(None)
         self.flush()
+
+    def continues(self, block: Block) -> bool:
+        """Whether ``block`` belongs to the text after a ``say: after`` block."""
+        if isinstance(block, (Text, Dropped)) or self.skip:
+            return True
+        if isinstance(block, Comment):
+            match = _COMMENT.match(block.text)
+            return match is None or match["kind"] in ("say", "skip")
+        return False
+
+    def finish_waiting(self) -> None:
+        """The scene of a ``say: after`` block, with the text after it as its narration."""
+        assert self.waiting is not None
+        block, scene_id, actions, extra = self.waiting
+        self.waiting = None
+        if self.spoken:
+            extra = {**extra, "narration_start": "after_actions"}
+        self.scene(block, scene_id, actions, extra)
 
     def check_pending(self, block: Block | None) -> None:
         """Comments waiting for the next block must get one they apply to (None: section end)."""
@@ -249,6 +285,8 @@ class _Builder:
             self.no_block(self.table, "table", "a table")
         if self.slide is not None and (block is None or not _visual(block)):
             self.no_block(self.slide, "slide", VISUALS)
+        if self.run is not None and not (isinstance(block, Code) and _shell(block)):
+            self.no_block(self.run, "run", "a shell or console block")
 
     def skipping_rest(self, block: Block) -> bool:
         """Whether a skip-rest comment leaves ``block`` out (it notes why)."""
@@ -282,12 +320,14 @@ class _Builder:
 
     def heading(self, block: Heading, *, shown: bool = True) -> None:
         self.flush()
-        self.diagram = None
+        self.diagram = self.held = None
         self.section, self.count, self.level = id_part(block.slug), 0, block.level
         # Overlays of headings that got no scene give way to this one.
         self.overlays = [
             (level, action) for level, action in self.overlays if level is None or level < block.level
         ]
+        if self.entry.clear_on is not None and block.level <= self.entry.clear_on:
+            self.clear(block, f"heading: clears the screen (clear_on: {self.entry.clear_on})")
         settings = self.entry.heading_overlays
         if settings is None or block.level > settings.levels:
             return
@@ -332,6 +372,8 @@ class _Builder:
             "slide": self.slide_comment,
             "focus": self.focus_comment,
             "hidden": self.hidden_comment,
+            "run": self.run_comment,
+            "clear": self.clear_comment,
         }.get(kind):
             handler(block, body)
         else:
@@ -347,6 +389,21 @@ class _Builder:
         scene_id = self.next_id(None)
         self.emit(block, {"id": scene_id, "hidden": True, "actions": _runs(commands)})
         self.note(block, scene_id, f"hidden comment: {len(commands)} command(s), not shown")
+
+    def clear_comment(self, block: Comment, body: str) -> None:
+        if body:
+            raise fail(block.file, block.line, f"clear comment: takes no value, got {body!r}")
+        self.flush()  # the text before it stays with the screen it was written for
+        self.clear(block, "clear comment: clears the screen")
+
+    def clear(self, block: Block, what: str) -> None:
+        """Clear the screen when the next visible scene starts, with its heading overlays."""
+        if CLEAR not in (action for _, action in self.overlays):
+            self.overlays.append((None, CLEAR))
+            self.unassigned.append((block, what))
+
+    def run_comment(self, block: Comment, body: str) -> None:
+        self.run = (block, _run_options(_options(body, block, "run", RUN_KEYS), block, "run comment"))
 
     def browser_comment(self, block: Comment, body: str) -> None:
         """Open a page from where the next paragraph starts: a URL, or one of its links."""
@@ -393,7 +450,7 @@ class _Builder:
     def show_view(self, block: Block, action: dict[str, Any], what: str) -> None:
         """A browser view or slide from the next paragraph on, until the next command or heading."""
         self.flush()  # the page appears with its paragraph, not with the narration before
-        self.diagram = None
+        self.diagram = self.held = None
         self.pending_view(block, action, what)
 
     def pending_view(self, block: Block, action: dict[str, Any], what: str) -> None:
@@ -404,21 +461,36 @@ class _Builder:
 
     def slide_comment(self, block: Comment, body: str) -> None:
         options = _options(body, block, "slide", SLIDE_KEYS)
+        _check_hold(options, block, "slide")
         if "html" not in options:
             self.slide = (block, options)
             return
         name = str(options.pop("html"))
+        hold = options.pop("hold", None)
         path = block.file.parent / name
         if not path.is_file():
             raise fail(block.file, block.line, f"slide comment: file not found: {name}")
         html_url = _embed("text/html", path.read_bytes(), block, name)
-        self.show_view(block, {"slide": {**options, "html": html_url}}, f"slide comment: shows {name}")
+        slide = {**options, "html": html_url}
+        self.show_view(block, {"slide": slide}, f"slide comment: shows {name}")
+        self.hold_slide(slide, hold)
 
     def take_slide(self) -> dict[str, Any] | None:
-        """The pending slide comment's options, if any."""
-        options = self.slide[1] if self.slide is not None else None
+        """The pending slide comment's options, if any; its ``hold`` goes to ``keep``."""
+        options = dict(self.slide[1]) if self.slide is not None else None
         self.slide = None
+        self.keep = options.pop("hold", None) if options is not None else None
         return options
+
+    def hold_slide(self, slide: dict[str, Any], hold: str | None) -> None:
+        """Keep ``slide`` up for the text after it until the next block or heading (``hold``)."""
+        self.held = (slide, hold) if hold else None
+        self.keep = None
+
+    def update_held(self, slide: dict[str, Any]) -> None:
+        """The slide kept up changes (the next page of a table, another focus)."""
+        if self.held is not None:
+            self.held = (slide, self.held[1])
 
     def no_block(self, pending: tuple[Comment, dict[str, Any]], kind: str, expected: str) -> None:
         comment = pending[0]
@@ -444,7 +516,9 @@ class _Builder:
         if self.entry.image_titles and block.alt and "title" not in look:
             look = {"title": block.alt, **look}
         self.diagram = None
-        self.pending_view(block, {"slide": {**look, "image": data}}, "image: shown as a slide")
+        slide = {**look, "image": data}
+        self.pending_view(block, {"slide": slide}, "image: shown as a slide")
+        self.hold_slide(slide, self.keep)
 
     def show_diagram(self, block: Code) -> None:
         """A Mermaid diagram, shown like an image; the renderer draws it."""
@@ -454,6 +528,7 @@ class _Builder:
             return
         self.diagram = {**look, "mermaid": block.content}
         self.pending_view(block, {"slide": self.diagram}, "mermaid block: shown as a slide")
+        self.hold_slide(self.diagram, self.keep)
 
     def focus_comment(self, block: Comment, body: str) -> None:
         """Start a new narrated scene that focuses another node in the last Mermaid diagram.
@@ -484,6 +559,7 @@ class _Builder:
                 return
             raise fail(block.file, block.line, "focus comment: put it after the text for the previous step")
         self.flush()
+        self.update_held({**self.diagram, "focus": body})
         self.overlays.append((None, {"slide": {**self.diagram, "focus": body}}))
         self.unassigned.append((block, f"focus comment: highlights Mermaid target {body!r}"))
         self.image = True
@@ -497,6 +573,7 @@ class _Builder:
         page = self.pages.pop(0) if self.pages else None
         self.flush(pages=False)
         if page is not None:
+            self.update_held(page)
             if ms:
                 self.emit(block, {"id": self.next_id(None), "actions": [{"slide": page}, {"hold": ms}]})
             self.pending_view(block, {"slide": page}, f"pause comment: table page {page['page']}")
@@ -505,7 +582,8 @@ class _Builder:
             self.note(block, None, "pause comment: the scene ends here")
             return
         scene_id = self.next_id(None)
-        self.emit(block, {"id": scene_id, "actions": [{"hold": ms}]})
+        kept = [{"slide": self.held[0]}] if self.held is not None else []
+        self.emit(block, {"id": scene_id, "actions": [*kept, {"hold": ms}]})
         self.note(block, scene_id, f"pause comment: {ms} ms of silence")
 
     def table_comment(self, block: Comment, body: str) -> None:
@@ -521,6 +599,7 @@ class _Builder:
             )
         if "pause" in options:
             options["pause"] = _duration(options["pause"], block, "table comment: pause")
+        _check_hold(options, block, "table")
         self.table = (block, options)
         self.lead = self.lead_in()
 
@@ -566,7 +645,8 @@ class _Builder:
                 comment.line,
                 f"table comment: say has {len(phrases)} phrase(s) for {len(block.rows)} row(s)",
             )
-        look = {key: options[key] for key in SLIDE_KEYS if key in options} | (look or {})
+        look = {key: options[key] for key in LOOK_KEYS if key in options} | (look or {})
+        hold = options.get("hold", self.keep)
         if isinstance(phrases, str):
             _check_fields(phrases, block.header, comment)
         pause = options.get("pause")
@@ -587,6 +667,7 @@ class _Builder:
                 actions.append({"hold": IMAGE_HOLD_MS})
             extra = {"narration_start": "after_actions"} if pause and text else {}
             self.scene(source, self.next_id(None), actions, extra)
+        self.hold_slide({**look, "table": table}, hold)
 
     def show_pages(self, block: Table, look: dict[str, Any], table: dict[str, Any]) -> None:
         """A table shown, not read: its first page now, the next ones at ``pause`` comments."""
@@ -594,33 +675,42 @@ class _Builder:
         count = -(-len(block.rows) // per_page) if isinstance(per_page, int) and per_page > 0 else 1
         if count == 1:
             self.pending_view(block, {"slide": {**look, "table": table}}, "table: shown as a slide")
+            self.hold_slide({**look, "table": table}, self.keep)
             return
         pages = [{**look, "table": table, "page": number} for number in range(1, count + 1)]
         self.pending_view(block, {"slide": pages[0]}, f"table: shown as a slide, page 1 of {count}")
+        self.hold_slide(pages[0], self.keep)
         self.pages, self.pages_block = pages[1:], block
 
     def code(self, block: Code) -> None:
-        options = set(block.options)
-        if unknown := sorted(options - set(BLOCK_OPTIONS)):
+        options = {word for word in block.options if "=" not in word}
+        keyed = dict(word.split("=", 1) for word in block.options if "=" in word)
+        if unknown := sorted(options - set(BLOCK_OPTIONS)) or sorted(set(keyed) - set(RUN_KEYS)):
+            expected = ", ".join([*BLOCK_OPTIONS, *(f"{key}=…" for key in RUN_KEYS)])
             raise fail(
-                block.file,
-                block.line,
-                f"unknown narratty option {unknown[0]!r}; expected one of {', '.join(BLOCK_OPTIONS)}",
+                block.file, block.line, f"unknown narratty option {unknown[0]!r}; expected one of {expected}"
             )
         if "show" in options:
             self.show_code(block, options)
             return
-        if self.image and (block.lang == "console" or block.lang in SHELL_LANGS or block.title):
+        if self.image and (_shell(block) or block.title):
             self.flush()  # an image never covers commands
+        if self.held is not None and self.held[1] == "next-block" and (_shell(block) or block.title):
+            self.held = None
         if block.lang == "mermaid":
-            if options:
-                raise fail(
-                    block.file, block.line, f"{sorted(options)[0]!r} only applies to shell and console blocks"
-                )
+            if options or keyed:
+                first = sorted(options)[0] if options else f"{sorted(keyed)[0]}=…"
+                raise fail(block.file, block.line, f"{first!r} only applies to shell and console blocks")
             self.show_diagram(block)
-        elif block.lang == "console" or block.lang in SHELL_LANGS:
-            self.commands(block, options)
+        elif _shell(block):
+            run = self.run[1] if self.run is not None else {}
+            self.run = None
+            self.commands(block, options, run | _run_options(keyed, block, "narratty attribute"))
         elif block.title:
+            if keyed:
+                raise fail(
+                    block.file, block.line, f"'{sorted(keyed)[0]}=…' only applies to shell and console blocks"
+                )
             self.file(block, options)
         elif not block.lang:
             self.note(block, None, "code block: left out (no language)")
@@ -641,25 +731,63 @@ class _Builder:
         self.diagram = None
         self.pending_view(block, {"slide": slide}, f"{block.lang or 'code'} block: shown as a slide")
 
-    def commands(self, block: Code, options: set[str]) -> None:
+    def commands(self, block: Code, options: set[str], run: dict[str, Any]) -> None:
         commands = (
             console_commands(block.content) if block.lang == "console" else split_commands(block.content)
         )
-        if "no-run" in options:
-            actions = [action for command in commands for action in _typed(command.text)]
+        self.check_run(block, options, run, len(commands))
+        trim = {"max_lines": run["lines"]} if "lines" in run else {}
+        if "instead" in run:
+            actions = [{"run": run["instead"], "show": commands[0].text, **trim}, _wait()]
+            how = f"shown, `{run['instead']}` runs instead"
+        elif "no-run" in options:
+            actions = [action for command in commands for action in _shown(command.text)]
+            how = "typed, not run"
         else:
             _check_placeholders(commands, block, 1)
-            actions = _runs(commands, outputs=self.entry.check_output and "any-output" not in options)
+            outputs = self.entry.check_output and "any-output" not in options
+            actions = _runs(commands, outputs=outputs, trim=trim)
+            how = "run"
+        if "lines" in run:
+            how += f", output cut after {run['lines']} lines"
+        if "until" in run:
+            # Before the last command's prompt wait: wait for the pattern, then stop it.
+            actions[-1:-1] = [{"wait": {"screen": run["until"], "timeout_ms": run["timeout"]}}, run["then"]]
+            how += f", stopped once the screen matches /{run['until']}/"
         extra = {"expect_exit": "failure"} if "expect-failure" in options else {}
+        say = run.get("say", self.entry.say)
+        if say == "after" and "hidden" not in options:
+            self.flush()  # the text before the block is spoken first, on its own
         scene_id = self.next_id(block)
-        how = "typed, not run" if "no-run" in options else "run"
         if "hidden" in options:
             self.emit(block, {"id": scene_id, "hidden": True, "actions": actions, **extra})
             how += ", not shown"
+        elif say == "after":
+            self.diagram = None
+            self.waiting = (block, scene_id, actions, extra)
+            how += ", the text after it is spoken once it has finished"
         else:
             self.diagram = None
+            if say == "before" and self.spoken and "timelapse" not in self.defaults:
+                actions.insert(0, {"hold": "auto"})
+                how += ", typed once the text before it is spoken"
             self.scene(block, scene_id, actions, extra)
         self.note(block, scene_id, f"{block.lang} block: {len(commands)} command(s), {how}")
+
+    def check_run(self, block: Code, options: set[str], run: dict[str, Any], count: int) -> None:
+        """Options of a run comment or attribute that do not fit the block."""
+        if "hidden" in options and "say" in run:
+            raise fail(block.file, block.line, "say does not apply to hidden blocks")
+        if "no-run" in options and (
+            key := next((k for k in ("instead", "lines", "until") if k in run), None)
+        ):
+            raise fail(block.file, block.line, f"{key} does not apply to no-run blocks")
+        if "instead" in run and count != 1:
+            raise fail(
+                block.file, block.line, f"instead needs a block with one command; this one has {count}"
+            )
+        if not count and "until" in run:
+            raise fail(block.file, block.line, "until needs a block with a command")
 
     def file(self, block: Code, options: set[str]) -> None:
         assert block.title is not None
@@ -690,6 +818,8 @@ class _Builder:
         Table pages no ``pause`` comment brought up yet follow as silent scenes.
         """
         if self.spoken or self.image:
+            if self.held is not None and not self.image:  # the slide stays for this text
+                self.overlays.append((None, {"slide": self.held[0]}))
             first = self.unassigned[0][0] if self.unassigned else None
             assert first is not None
             hold = [] if self.spoken else [{"hold": IMAGE_HOLD_MS}]
@@ -783,6 +913,65 @@ def _kind(block: Block) -> str:
     if isinstance(block, Table):
         return "table"
     return "paragraph" if isinstance(block, Text) else f"{getattr(block, 'lang', '') or 'code'} block"
+
+
+def _check_hold(options: dict[str, Any], block: Comment, kind: str) -> None:
+    if "hold" in options and options["hold"] not in HOLDS:
+        raise fail(
+            block.file,
+            block.line,
+            f"{kind} comment: hold must be {' or '.join(HOLDS)}, got {options['hold']!r}",
+        )
+
+
+def _shell(block: Block) -> bool:
+    """Whether ``block`` holds commands (a console or shell block)."""
+    return isinstance(block, Code) and (block.lang == "console" or block.lang in SHELL_LANGS)
+
+
+def _run_options(raw: dict[str, Any], block: Block, what: str) -> dict[str, Any]:
+    """The options of a run comment or ``narratty`` attribute, checked and filled in."""
+    options = dict(raw)
+
+    def bad(message: str) -> Exception:
+        return fail(block.file, block.line, f"{what}: {message}")
+
+    if "say" in options and options["say"] not in SAY:
+        raise bad(f"say must be one of {', '.join(SAY)}, got {options['say']!r}")
+    if "instead" in options and (not isinstance(options["instead"], str) or not options["instead"].strip()):
+        raise bad("instead must be the command to run")
+    if "lines" in options:
+        lines = options["lines"]
+        if isinstance(lines, str) and lines.isdigit():
+            lines = int(lines)
+        if not isinstance(lines, int) or isinstance(lines, bool) or lines < 1:
+            raise bad(f"lines must be a number of lines such as 10, got {options['lines']!r}")
+        options["lines"] = lines
+    if "until" in options:
+        return options | _until(options, block, what)
+    if extra := [key for key in ("then", "timeout") if key in options]:
+        raise bad(f"{extra[0]} needs until")
+    return options
+
+
+def _until(options: dict[str, Any], block: Block, what: str) -> dict[str, Any]:
+    """``until``, ``then`` (as an action) and ``timeout`` (in ms) of run options."""
+    until = options["until"]
+    if not isinstance(until, str) or not until:
+        raise fail(block.file, block.line, f"{what}: until must be a regular expression")
+    try:
+        re.compile(until)
+    except re.error as error:
+        raise fail(
+            block.file, block.line, f"{what}: until is not a valid regular expression: {error}"
+        ) from error
+    then = options.get("then", "C-c")
+    if not isinstance(then, str):
+        raise fail(block.file, block.line, f"{what}: then must be a key such as C-c or q, got {then!r}")
+    return {
+        "then": {"ctrl_sequence": then} if then.startswith("C-") else {"key": then},
+        "timeout": _duration(options.get("timeout", UNTIL_TIMEOUT_MS), block, f"{what}: timeout"),
+    }
 
 
 def _visual(block: Block) -> bool:
@@ -928,14 +1117,17 @@ def _wait() -> dict[str, Any]:
     return {"wait": {"prompt": True}}
 
 
-def _runs(commands: Sequence[Command], *, outputs: bool = False) -> list[dict[str, Any]]:
+def _runs(
+    commands: Sequence[Command], *, outputs: bool = False, trim: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
     """Run each command and wait until it has finished (``run`` does not wait).
 
-    With ``outputs``, a command the block shows output for expects that output.
+    With ``outputs``, a command the block shows output for expects that output. ``trim``
+    (``max_lines``) is added to each ``run``.
     """
     actions: list[dict[str, Any]] = []
     for command in commands:
-        run: dict[str, Any] = {"run": command.text}
+        run: dict[str, Any] = {"run": command.text, **(trim or {})}
         if outputs and (expected := expected_output(command.output)):
             run["expect_output"] = expected
         actions += [run, _wait()]
@@ -947,9 +1139,9 @@ def expected_output(lines: Sequence[str]) -> str:
     return "\n".join(line.rstrip() for line in lines).strip("\n")
 
 
-def _typed(command: str) -> list[dict[str, Any]]:
-    """Type a command, let it be read, then cancel it with Ctrl+C."""
-    return [{"type_command": command}, {"hold": NO_RUN_HOLD_MS}, {"ctrl_sequence": "C-c"}]
+def _shown(command: str) -> list[dict[str, Any]]:
+    """Type a command and leave it on screen; ``:`` (do nothing) runs in its place."""
+    return [{"run": NOTHING, "show": command}, _wait()]
 
 
 def _check_placeholders(commands: Sequence[Command], block: Block, first_line: int) -> None:

@@ -32,7 +32,8 @@
 - source: constructs.md:73
   id: constructs-install
   actions:
-  - type_command: uv tool install narratty
-  - hold: 1000
-  - ctrl_sequence: C-c
+  - run: ':'
+    show: uv tool install narratty
+  - wait:
+      prompt: true
   typing_speed_ms: 20

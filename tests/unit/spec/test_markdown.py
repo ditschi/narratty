@@ -304,7 +304,7 @@ def test_placeholder_in_a_command_to_run_is_an_error(tmp_path: Path) -> None:
     assert line == 5
     assert message.startswith("<repo-url> is a placeholder; write it as $REPO_URL")
     no_run = '# Doc\n\n```bash {narratty="no-run"}\ngit clone <repo-url>\n```\n'
-    assert _expand(_doc(tmp_path, no_run))[0]["actions"][0] == {"type_command": "git clone <repo-url>"}
+    assert _expand(_doc(tmp_path, no_run))[0]["actions"][0] == {"run": ":", "show": "git clone <repo-url>"}
 
 
 @pytest.mark.parametrize(
@@ -847,3 +847,303 @@ def test_pages_too_large_to_embed(tmp_path: Path) -> None:
     (tmp_path / "big.html").write_bytes(b"x" * 1_600_000)
     message, _ = _error(tmp_path, "# Doc\n\n<!-- narratty: slide {html: big.html} -->\nText.\n")
     assert message == "big.html is too large to embed (Chromium loads data: URLs up to 2 MB)"
+
+
+# ── per-block control ─────────────────────────────────────────────────────────
+
+
+def test_say_before_types_once_the_text_is_spoken(tmp_path: Path) -> None:
+    body = "# Doc\n\nList it.\n\n<!-- narratty: run {say: before} -->\n```console\n$ ls\n```\n"
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert scene["narration"] == "List it."
+    assert scene["actions"] == [{"hold": "auto"}, {"run": "ls"}, {"wait": {"prompt": True}}]
+    attribute = '# Doc\n\nList it.\n\n```console {narratty="say=before"}\n$ ls\n```\n'
+    assert _expand(_doc(tmp_path, attribute)) == [{**scene, "source": "doc.md:5"}]
+
+
+def test_the_entry_can_say_before_every_block(tmp_path: Path) -> None:
+    body = (
+        '# Doc\n\n```console\n$ pwd\n```\n\nList it.\n\n```console {narratty="say=during"}\n$ ls\n```\n\n'
+        "Again.\n\n```console\n$ ls\n```\n"
+    )
+    scenes = _expand(_doc(tmp_path, body), say="before")
+    assert [scene["actions"][0] for scene in scenes] == [{"run": "pwd"}, {"run": "ls"}, {"hold": "auto"}]
+
+
+def test_say_after_speaks_the_text_after_the_block_once_it_has_run(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\nFirst this.\n\n<!-- narratty: run {say: after} -->\n```console\n$ ls\n```\n\n"
+        "It lists the files.\n\n<!-- narratty: say And more. -->\n\n## Next\n\nOther text.\n"
+    )
+    scenes = _expand(_doc(tmp_path, body))
+    assert [(scene["id"], scene.get("narration"), scene.get("narration_start")) for scene in scenes] == [
+        ("doc-1", "First this.", None),
+        ("doc-2", "It lists the files. And more.", "after_actions"),
+        ("doc-next-1", "Other text.", None),
+    ]
+    assert scenes[1]["actions"] == [{"run": "ls"}, {"wait": {"prompt": True}}]
+
+
+def test_say_after_without_text_after(tmp_path: Path) -> None:
+    body = '# Doc\n\n```console {narratty="say=after"}\n$ ls\n```\n\n```console\n$ pwd\n```\n'
+    scenes = _expand(_doc(tmp_path, body))
+    assert [(scene["id"], scene.get("narration_start")) for scene in scenes] == [
+        ("doc-1", None),
+        ("doc-2", None),
+    ]
+
+
+def test_instead_shows_the_readers_command_and_runs_another(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\n```console {narratty=\"instead='pip install -e .'\"}\n$ pip install tally\nInstalled\n```\n"
+    )
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert scene["actions"] == [
+        {"run": "pip install -e .", "show": "pip install tally"},
+        {"wait": {"prompt": True}},
+    ]
+    comment = '# Doc\n\n<!-- narratty: run {instead: "pip install -e ."} -->\n'
+    comment += "```console\n$ pip install <pkg>\n```\n"
+    assert _expand(_doc(tmp_path, comment))[0]["actions"][0]["show"] == "pip install <pkg>", (
+        "placeholders are fine"
+    )
+
+
+def test_lines_cut_the_output_on_screen_but_check_compares_all(tmp_path: Path) -> None:
+    body = '# Doc\n\n```console {narratty="lines=2"}\n$ seq 9\n1\n...\n$ ls\n```\n'
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert scene["actions"] == [
+        {"run": "seq 9", "max_lines": 2, "expect_output": "1\n..."},
+        {"wait": {"prompt": True}},
+        {"run": "ls", "max_lines": 2},
+        {"wait": {"prompt": True}},
+    ]
+
+
+def test_until_stops_a_long_running_command_before_the_prompt_wait(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\n<!-- narratty: run {until: Serving HTTP, timeout: 10s} -->\n"
+        "```console\n$ cd site\n$ python -m http.server\n```\n"
+    )
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert scene["actions"] == [
+        {"run": "cd site"},
+        {"wait": {"prompt": True}},
+        {"run": "python -m http.server"},
+        {"wait": {"screen": "Serving HTTP", "timeout_ms": 10000}},
+        {"ctrl_sequence": "C-c"},
+        {"wait": {"prompt": True}},
+    ]
+    less = "# Doc\n\n<!-- narratty: run {until: README, then: q} -->\n```console\n$ less README.md\n```\n"
+    assert _expand(_doc(tmp_path, less))[0]["actions"][1:3] == [
+        {"wait": {"screen": "README", "timeout_ms": 30000}},
+        {"key": "q"},
+    ]
+
+
+def test_run_options_in_the_plan(tmp_path: Path) -> None:
+    body = '# Doc\n\n```console {narratty="instead=true lines=3 until=x"}\n$ make\n```\n'
+    entry = MarkdownEntry.model_validate({"markdown": "doc.md"})
+    (note,) = explain_entry(entry, _doc(tmp_path, body), "all").notes
+    assert note.what == (
+        "console block: 1 command(s), shown, `true` runs instead, output cut after 3 lines, "
+        "stopped once the screen matches /x/"
+    )
+
+
+@pytest.mark.parametrize(
+    ("body", "message", "line"),
+    [
+        ("<!-- narratty: run {say: before} -->\nText.\n", "run comment: the next block is not a shell", 3),
+        ("<!-- narratty: run {sai: before} -->\n```sh\nls\n```\n", "run comment: unknown key 'sai'", 3),
+        (
+            "<!-- narratty: run {say: later} -->\n```sh\nls\n```\n",
+            "say must be one of before, during, after",
+            3,
+        ),
+        ('```sh {narratty="then=C-d"}\nls\n```\n', "narratty attribute: then needs until", 3),
+        ('```sh {narratty="lines=all"}\nls\n```\n', "lines must be a number of lines", 3),
+        ('```sh {narratty="until=("}\nls\n```\n', "until is not a valid regular expression", 3),
+        ('```sh {narratty="instead=true"}\nls\npwd\n```\n', "instead needs a block with one command", 3),
+        ('```sh {narratty="no-run lines=3"}\nls\n```\n', "lines does not apply to no-run blocks", 3),
+        ('```sh {narratty="hidden say=after"}\nls\n```\n', "say does not apply to hidden blocks", 3),
+        ('```sh {narratty="speed=3"}\nls\n```\n', "unknown narratty option 'speed'", 3),
+        ('```yaml {title="a.yaml" narratty="lines=3"}\na: 1\n```\n', "'lines=…' only applies to shell", 3),
+    ],
+)
+def test_run_option_errors(tmp_path: Path, body: str, message: str, line: int) -> None:
+    error, at = _error(tmp_path, "# Doc\n\n" + body)
+    assert message in error
+    assert at == line
+
+
+def test_a_skipped_block_takes_its_run_comment_along(tmp_path: Path) -> None:
+    body = "# Doc\n\n<!-- narratty: run {say: before} -->\n<!-- narratty: skip -->\n```sh\nls\n```\n\nText.\n"
+    assert _expand(_doc(tmp_path, body))[0]["narration"] == "Text."
+
+
+REAL = """\
+# Doc
+
+<!-- narratty: run {until: listening on, timeout: 5s} -->
+```console
+$ sh -c 'echo listening on 8000; sleep 60'
+listening on 8000
+...
+```
+
+```console {narratty="lines=2"}
+$ seq 5
+1
+...
+5
+```
+
+```console {narratty="no-run"}
+$ rm -rf /
+```
+
+```console {narratty="instead='echo substituted'"}
+$ pip install tally
+```
+"""
+
+
+@pytest.mark.parametrize("unmask", [False, True], ids=["video", "check"])
+def test_control_in_a_real_shell(tmp_path: Path, unmask: bool) -> None:
+    from narratty.build import unmasked
+    from narratty.render import exits, outputs
+    from narratty.render.cast import record
+
+    (tmp_path / "doc.md").write_text(REAL, encoding="utf-8")
+    spec = parse_document(
+        "terminal: {typing_speed_ms: 1}\nend_card: false\nscenes:\n  - markdown: doc.md\n",
+        tmp_path / "s.narratty.yaml",
+    ).spec
+    spec = unmasked(spec) if unmask else spec
+    log = tmp_path / "exits.log"
+    log.write_text("", encoding="utf-8")
+    steps = build_script(spec, build_timeline(spec, {}), exit_log=log)
+    recording = record(steps, terminal=spec.terminal, cwd=tmp_path, env=os.environ, title="T", fast=True)
+    entries = exits.parse_log(log.read_text(encoding="utf-8"))
+    assert [entry.status for entry in entries] == [130, 0, 0, 0], "the server is stopped with C-c"
+    assert exits.problems(spec, entries) == []
+    printed = {item.line: outputs.plain_lines(item.output, "$ ") for item in recording.submitted}
+    if unmask:
+        assert outputs.problems(spec, recording.submitted) == [], "check sees all of the output"
+        assert printed["seq 5"] == ["1", "2", "3", "4", "5"]
+    else:
+        trimmed = next(lines for line, lines in printed.items() if "seq 5" in line)
+        assert trimmed[1:] == ["1", "2", "... (3 more lines)"], "after the redrawn command line"
+        assert not any("rm -rf" in line for line in printed if not line.startswith("sh -c"))
+
+
+def test_clear_comment_clears_the_screen_with_the_next_scene(tmp_path: Path) -> None:
+    body = "# Doc\n\nBefore.\n\n<!-- narratty: clear -->\n\n<!-- narratty: hidden\ncd /tmp\n-->\n\n"
+    body += "After.\n\n```sh\nls\n```\n"
+    scenes = _expand(_doc(tmp_path, body))
+    assert [(scene["id"], scene.get("narration"), scene.get("actions", [])[:1]) for scene in scenes] == [
+        ("doc-1", "Before.", []),
+        ("doc-2", None, [{"run": "cd /tmp"}]),
+        ("doc-3", "After.", [{"ctrl_sequence": "C-l"}]),
+    ], "the hidden scene leaves it to the next visible one"
+
+
+def test_clear_on_clears_at_each_section_with_its_heading_overlay(tmp_path: Path) -> None:
+    body = (
+        '# Doc\n\nIntro.\n\n## A\n\n### A1\n\nText.\n\n## B\n\n```sh {narratty="hidden"}\nls\n```\n\nMore.\n'
+    )
+    scenes = _expand(_doc(tmp_path, body), clear_on=2, heading_overlays=2)
+    assert [(scene["id"], scene.get("actions")) for scene in scenes] == [
+        ("doc-1", [{"ctrl_sequence": "C-l"}, {"overlay": {"text": "Doc", "style": "heading-1"}}]),
+        ("doc-a1-1", [{"ctrl_sequence": "C-l"}, {"overlay": {"text": "A", "style": "heading-2"}}]),
+        ("doc-b-1", [{"run": "ls"}, {"wait": {"prompt": True}}]),
+        ("doc-b-2", [{"ctrl_sequence": "C-l"}, {"overlay": {"text": "B", "style": "heading-2"}}]),
+    ]
+
+
+def test_clear_comment_takes_no_value(tmp_path: Path) -> None:
+    assert (
+        _error(tmp_path, "# Doc\n\n<!-- narratty: clear all -->\n")[0]
+        == "clear comment: takes no value, got 'all'"
+    )
+
+
+HELD = """\
+# Doc
+
+<!-- narratty: slide {title: Parts, hold: HOLD} -->
+| Part | Does |
+|---|---|
+| A | a |
+
+The first part.
+
+<!-- narratty: pause 500ms -->
+
+The second part.
+
+<!-- narratty: pause -->
+
+A command.
+
+```sh
+ls
+```
+
+After the command.
+
+## Next
+
+Elsewhere.
+"""
+
+
+def _slide_titles(scenes: list[dict[str, Any]]) -> list[tuple[str | None, str | None]]:
+    return [
+        (
+            scene.get("narration"),
+            next((a["slide"]["title"] for a in scene.get("actions", []) if "slide" in a), None),
+        )
+        for scene in scenes
+    ]
+
+
+def test_a_held_slide_stays_for_the_text_up_to_the_next_block(tmp_path: Path) -> None:
+    scenes = _expand(_doc(tmp_path, HELD.replace("HOLD", "next-block")))
+    assert _slide_titles(scenes) == [
+        ("The first part.", "Parts"),
+        (None, "Parts"),
+        ("The second part.", "Parts"),
+        ("A command.", None),
+        ("After the command.", None),
+        ("Elsewhere.", None),
+    ]
+    assert scenes[1]["actions"][1] == {"hold": 500}
+    assert _slide_titles(_expand(_doc(tmp_path, HELD.replace(", hold: HOLD", ""))))[1:3] == [
+        (None, None),
+        ("The second part.", None),
+    ], "without hold, as before"
+
+
+def test_a_slide_held_to_the_next_heading_comes_back_after_commands(tmp_path: Path) -> None:
+    scenes = _expand(_doc(tmp_path, HELD.replace("HOLD", "next-heading")))
+    after = [("A command.", None), ("After the command.", "Parts"), ("Elsewhere.", None)]
+    assert _slide_titles(scenes)[3:] == after
+
+
+def test_a_read_table_can_stay_after_its_rows(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\n<!-- narratty: table {title: T, hold: next-block} -->\n"
+        "| A | B |\n|---|---|\n| 1 | 2 |\n\nAfter the table.\n"
+    )
+    scenes = _expand(_doc(tmp_path, body))
+    assert scenes[-1]["narration"] == "After the table."
+    assert scenes[-1]["actions"] == [
+        {"slide": {"title": "T", "table": {"header": ["A", "B"], "rows": [["1", "2"]]}}}
+    ]
+
+
+def test_hold_must_name_a_block_or_heading(tmp_path: Path) -> None:
+    message, _ = _error(tmp_path, "# Doc\n\n<!-- narratty: slide {hold: forever} -->\n![x](x.png)\n")
+    assert message == "slide comment: hold must be next-block or next-heading, got 'forever'"
