@@ -709,6 +709,77 @@ def test_markdown_mermaid_walkthrough_reuses_one_diagram_source(tmp_path: Path) 
     assert [_slides(scene)[0]["focus"] for scene in (first, second)] == ["a", "b"]
 
 
+@pytest.mark.parametrize(
+    "between",
+    [
+        "## Next\n\nA new section.\n\n",
+        "```bash\nls\n```\n\n",
+        "![x](pic.png)\n\n",
+        "<!-- narratty: slide -->\n| A |\n|---|\n| 1 |\n\n",
+        "<!-- narratty: browser https://example.com -->\nThe site.\n\n",
+    ],
+    ids=["heading", "command", "image", "table", "browser"],
+)
+def test_focus_comment_does_not_bring_back_an_old_diagram(tmp_path: Path, between: str) -> None:
+    (tmp_path / "pic.png").write_bytes(b"png")
+    body = "# Doc\n\n" + MERMAID + "The flow.\n\n" + between + "More.\n\n<!-- narratty: focus b -->\n"
+    message, _ = _error(tmp_path, body)
+    assert message.startswith("focus comment: no Mermaid diagram on screen")
+
+
+def test_focus_comment_still_follows_a_hidden_command(tmp_path: Path) -> None:
+    body = "# Doc\n\n" + MERMAID + "The flow.\n\n<!-- narratty: hidden ls -->\n\n<!-- narratty: focus b -->\n"
+    scenes = _expand(_doc(tmp_path, body))
+    assert _slides(scenes[-1]) == [{"mermaid": "flowchart LR\n  a[A & B] --> b\n", "focus": "b"}]
+
+
+@pytest.mark.parametrize(
+    ("keys", "note"),
+    [
+        ({"narration": "none"}, "focus comment: left out (narration: none)"),
+        ({"images": False}, "focus comment: left out (images: false)"),
+    ],
+)
+def test_focus_comment_is_left_out_with_the_diagram(
+    tmp_path: Path, keys: dict[str, object], note: str
+) -> None:
+    doc = _doc(tmp_path, "# Doc\n\n" + MERMAID + "The flow.\n\n<!-- narratty: focus b -->\n\nNext.\n")
+    entry = MarkdownEntry.model_validate({"markdown": doc.name, **keys})
+    expansion = explain_entry(entry, doc, entry.narration or "all")
+    assert note in [n.what for n in expansion.notes]
+    actions = [action for scene in expansion.scenes for action in scene.data.get("actions", [])]
+    assert not any(action.get("slide", {}).get("focus") for action in actions)
+
+
+def test_focus_comment_with_say_comments_and_narration_none(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\n" + MERMAID + "<!-- narratty: say The flow. -->\n\n"
+        "<!-- narratty: focus b -->\n\n<!-- narratty: say The end. -->\n"
+    )
+    first, second = _expand(_doc(tmp_path, body), narration="none")
+    assert [s.get("focus") for s in _slides(first) + _slides(second)] == [None, "b"]
+
+
+@pytest.mark.parametrize("body", ["", "a b", "api.gateway", "{focus: a}", "a;b"])
+def test_focus_comment_takes_one_id(tmp_path: Path, body: str) -> None:
+    doc = "# Doc\n\n" + MERMAID + f"The flow.\n\n<!-- narratty: focus {body} -->\n"
+    message, line = _error(tmp_path, doc)
+    assert message.startswith("focus comment: expected one Mermaid node or subgraph ID")
+    assert line == 9
+
+
+def test_focus_comment_takes_ids_with_dashes_and_digits(tmp_path: Path) -> None:
+    doc = "# Doc\n\n" + MERMAID + "The flow.\n\n<!-- narratty: focus api-gateway_2 -->\n\nNext.\n"
+    scenes = _expand(_doc(tmp_path, doc))
+    assert _slides(scenes[-1])[0]["focus"] == "api-gateway_2"
+
+
+def test_ragged_markdown_tables_get_even_rows(tmp_path: Path) -> None:
+    body = "# Doc\n\n<!-- narratty: slide -->\n| A | B |\n|---|---|\n| 1 |\n| 2 | 3 | 4 |\n\nRows.\n"
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert _slides(scene)[0]["table"]["rows"] == [["1", ""], ["2", "3"]]
+
+
 def test_slide_comment_shows_a_table_without_reading_it(tmp_path: Path) -> None:
     (scene,) = _expand(_doc(tmp_path, "# Doc\n\n<!-- narratty: slide -->\n" + SAFETY + "\nTwo risks.\n"))
     assert scene["narration"] == "Two risks."
