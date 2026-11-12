@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from narratty import diff, editor, sh
@@ -287,6 +287,12 @@ def narration_cue(scene_id: str) -> str:
     return f"narration:{scene_id}"
 
 
+def _paced(pace: Pacing, timing: SceneTiming, index: int) -> Pacing:
+    """``pace`` with the measured pause after the ``run`` at ``actions[index]``, if any."""
+    hold = timing.run_hold(index, pace.run_hold_ms)
+    return pace if hold == pace.run_hold_ms else replace(pace, run_hold_ms=hold)
+
+
 def _sends_keys(action: Action) -> bool:
     return not isinstance(action, Hold | Wait | ShowOverlay | ShowBrowser | ShowSlide)
 
@@ -313,7 +319,7 @@ def _timelapse_steps(scene: Scene, timing: SceneTiming, pace: Pacing, context: C
         for step in (
             [Cue(overlay_cue(scene.id, index))]
             if isinstance(action, ShowOverlay | ShowBrowser | ShowSlide)
-            else action_steps(action, pace, context)
+            else action_steps(action, _paced(pace, timing, index), context)
         )
     ]
     if context.editor and any(isinstance(action, Diff) for action in scene.actions):
@@ -351,7 +357,7 @@ def scene_steps(
         if popup and _sends_keys(action):
             steps += close_popup()
             popup = False
-        steps += action_steps(action, pace, context)
+        steps += action_steps(action, _paced(pace, timing, index), context)
         popup = popup or (context.editor and isinstance(action, Diff))
     steps += _closing_fill(scene, timing, filled=filled)
     if popup:

@@ -88,19 +88,23 @@ def plan(
 
     ``end_card`` overrides the spec and the user's config (see ``narratty.end_card``).
     A ``draft`` skips TTS: it has no clips and estimated narration lengths (see
-    ``narratty.draft``).
+    ``narratty.draft``). Commands wait as long as ``narratty check`` measured them (see
+    ``narratty.durations``).
     """
+    from narratty import durations
+
     spec = with_end_card(load_spec(spec_path), end_card)
+    measured = durations.load(spec, cache_dir(), log)
     if draft:
         from narratty.draft import estimated_audio_ms
 
-        return Plan(spec_path, spec, (), build_timeline(spec, estimated_audio_ms(spec)), draft=True)
+        return Plan(spec_path, spec, (), build_timeline(spec, estimated_audio_ms(spec), measured), draft=True)
     provider = get_provider(spec.tts.provider, data_dir())
     lexicon = load_lexicon(spec_path, spec.tts)
     clips = synthesize_spec(
         spec, provider, AudioCache(cache_dir()), download=not offline, lexicon=lexicon, log=log
     )
-    timeline = build_timeline(spec, {clip.scene_id: clip.duration_ms for clip in clips})
+    timeline = build_timeline(spec, {clip.scene_id: clip.duration_ms for clip in clips}, measured)
     return Plan(spec_path, spec, tuple(clips), timeline)
 
 
@@ -1105,7 +1109,8 @@ def check(
     """Run the spec's commands as a recording would, without video, voice or end card.
 
     Fails when a command's exit code contradicts its ``expect_exit`` (``ignore_exit`` as
-    in :func:`build`) or its output its ``expect_output``.
+    in :func:`build`) or its output its ``expect_output``. Records how long each ``run``
+    took for later plans (see ``narratty.durations``).
     """
     from narratty.render import outputs
 
@@ -1124,10 +1129,30 @@ def check(
         say(f"running {len(planned.timeline.scenes)} scenes")
         recording = _record_cast(planned, work, ws, bridge, sandbox, fast=True)
         check_exits(planned, work, None, ignore_exit=ignore_exit)
+        _record_durations(planned.spec, recording, say)
     if not editor:
         outputs.check(planned.spec, recording.submitted)
     runs = [action for scene in planned.spec.scenes for action in scene.actions if isinstance(action, Run)]
     return CheckResult(len(runs), 0 if editor else len(outputs.expectations(planned.spec)))
+
+
+def _record_durations(spec: Spec, recording: Recording, say: Log) -> None:
+    """Keep how long each ``run`` took (see ``narratty.durations``); never fails the check."""
+    from narratty import durations
+
+    measured = durations.match_runs(spec, recording.took_ms)
+    if not measured:
+        return
+    try:
+        durations.DurationStore(cache_dir()).record(spec, measured)
+    except OSError as error:
+        say(f"command durations not recorded: {error}")
+        return
+    slow = durations.describe(spec, measured)
+    say(
+        f"recorded how long {len(measured)} commands took"
+        + (f"; plans now wait for the slow ones: {slow}" if slow else "")
+    )
 
 
 def verify(result: BuildResult, *, max_drift: float) -> None:

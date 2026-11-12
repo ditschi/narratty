@@ -66,6 +66,11 @@ def plan_command(
     out.print(
         f"total: {_seconds(planned.timeline.total_ms)}" + (" (estimated)" if draft else ""), highlight=False
     )
+    if measured := [t.scene_id for t in planned.timeline.scenes if t.run_holds and not t.hidden]:
+        out.print(
+            f"with command durations measured by `narratty check` in: {', '.join(measured)}",
+            highlight=False,
+        )
 
 
 def _print_sources(spec: Path) -> None:
