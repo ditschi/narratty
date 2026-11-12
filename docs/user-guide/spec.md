@@ -512,7 +512,8 @@ scenes:
 For a diagram walkthrough, repeat the same source in successive scenes and change
 `focus`; each highlight stays in place for that scene's narration. `focus` is the ID
 from the diagram source (`api`, `api-gateway`, a subgraph's ID) and must name exactly
-one node or subgraph; otherwise the render fails and lists the IDs it found:
+one node or subgraph, or in a sequence diagram a participant (`C` for
+`participant C as Client`); otherwise the render fails and lists the IDs it found:
 
 ```yaml
 scenes:

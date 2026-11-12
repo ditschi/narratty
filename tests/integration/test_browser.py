@@ -171,6 +171,14 @@ def test_focus_takes_subgraphs_and_ids_with_dashes_and_digits(chromium: str, tmp
 
 
 @pytest.mark.usefixtures("mermaid")
+def test_focus_takes_sequence_participants(chromium: str, tmp_path: Path) -> None:
+    source = "sequenceDiagram\n  participant C as Client\n  actor S as Server\n  C->>S: request\n"
+    client = _accent_span(source, "C", chromium, tmp_path)
+    server = _accent_span(source, "S", chromium, tmp_path)
+    assert client[1] < server[0], "the client is on the left"
+
+
+@pytest.mark.usefixtures("mermaid")
 def test_focus_on_a_missing_id_lists_the_rendered_ones(chromium: str, tmp_path: Path) -> None:
     page = slides.page(
         Slide(mermaid="flowchart LR\n  api-gateway --> api\n", focus="gateway"), "dark", tmp_path

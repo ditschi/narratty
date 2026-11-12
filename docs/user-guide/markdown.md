@@ -406,7 +406,9 @@ heading, table, image, browser view or command block in between ends it. With
 `narration: none` and no `say` text before it, or with `images: false`, the comment is
 left out like the diagram. In YAML, repeat the slide action in one scene per focus
 ID instead. A node stays emphasized for its scene's narration unless `duration_ms` caps
-the slide.
+the slide. In a sequence diagram, `focus` takes a participant's ID, such as `C` for
+`participant C as Client`, and emphasizes both of its boxes (since 0.7).
+
 Mermaid labels can use Unicode emoji; the narratty image includes an emoji font. Its
 bundled Font Awesome 6 Solid icons use the `fa:` prefix, for example `fa:server` in
 Mermaid's icon syntax. Native renders can set `NARRATTY_FONTAWESOME_JSON` to an
