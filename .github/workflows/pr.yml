@@ -318,6 +318,10 @@ jobs:
       !cancelled() && needs.docs-build.result == 'success' && needs.docs-videos.result != 'failure'
       && github.event.pull_request.head.repo.full_name == github.repository
       && github.actor != 'dependabot[bot]' && github.event.pull_request.user.login != 'dependabot[bot]'
+    # Shared with docs-preview-cleanup.yml, so closing the PR cannot race a deploy.
+    concurrency:
+      group: docs-preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write

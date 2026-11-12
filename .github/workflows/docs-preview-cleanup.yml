@@ -4,15 +4,23 @@ on:
     types: [closed]
 permissions:
   contents: write
+  pull-requests: read
 jobs:
-  # Removes the pr-<N>/ docs preview that pr.yml deployed to GitHub Pages.
+  # Removes the pr-<N>/ docs preview that pr.yml deployed to GitHub Pages, and any other
+  # preview whose PR is closed (one whose cleanup failed or raced a deploy).
   remove:
     name: Remove docs preview
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: github.event.pull_request.head.repo.full_name == github.repository
+    # Shared with pr.yml's docs-preview job: waits for a deploy of this PR to finish.
+    concurrency:
+      group: docs-preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     env:
       VERSION: pr-${{ github.event.pull_request.number }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
       NO_MKDOCS_2_WARNING: "1"
     steps:
       - uses: actions/checkout@v7
@@ -29,14 +37,27 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Delete the preview
+      - name: Delete the previews
         run: |
+          # This PR's preview and those of other closed PRs; a PR whose state cannot be
+          # read keeps its preview.
+          stale() {
+            mike list --json | jq -r '.[].version | select(startswith("pr-"))' | while read -r version; do
+              if [ "$version" = "$VERSION" ]; then
+                echo "$version"
+              elif state=$(gh pr view "${version#pr-}" --json state --jq .state) && [ "$state" != OPEN ]; then
+                echo "$version"
+              fi
+            done
+          }
           for attempt in 1 2 3; do
             git fetch --force origin gh-pages:gh-pages
-            if ! mike list --json | grep -q "\"version\": \"$VERSION\""; then
+            mapfile -t versions < <(stale)
+            if [ "${#versions[@]}" -eq 0 ]; then
               exit 0
             fi
-            if mike delete --push "$VERSION"; then
+            echo "Deleting: ${versions[*]}"
+            if mike delete --push "${versions[@]}"; then
               exit 0
             fi
             sleep $((attempt * 15))
