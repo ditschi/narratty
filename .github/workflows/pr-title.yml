@@ -1,0 +1,35 @@
+name: PR title
+# Its own workflow: editing the title reruns only this check, not the PR workflow's jobs.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+permissions:
+  pull-requests: read
+jobs:
+  # Conventional Commits PR title: the commit message of the squash merge.
+  lint-title:
+    name: Lint PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^[a-z].+[^.]$
+          subjectPatternError: |
+            Subject must start lowercase and not end with a period.
