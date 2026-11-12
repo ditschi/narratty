@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Conventional Commits](https://www.conventionalcommits.org/) and is maintained by
 commitizen.
 
+## v0.6.0 (2026-11-12)
+
+### Feat
+
+- build Markdown docs directly, init --markdown and narratty check
+- **spec**: slides, tables, pauses and Mermaid diagrams
+
 ## v0.5.0 (2026-11-12)
 
 ### Feat
