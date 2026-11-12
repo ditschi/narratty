@@ -235,6 +235,7 @@ def delegate(
     if voice and "--draft" not in extra_args:
         _ensure_voice(spec.tts.provider, spec.tts.voice)
     chosen_image = image_ref(override=image)
+    ensure_image(resolved.runtime, chosen_image)
     base = _Invocation(command, spec_path.resolve(), resolved.runtime, chosen_image, extra_args)
     try:
         base.use_compiled_spec()
@@ -248,6 +249,39 @@ def delegate(
     finally:
         if base.compiled is not None:  # it holds hidden commands, which may set secrets
             base.compiled.unlink(missing_ok=True)
+
+
+def ensure_image(engine: Runtime, image: str) -> None:
+    """Pull ``image`` unless it is there, saying so first: narratty's image is about 2 GB.
+
+    The engine's progress goes to stderr (stdout is for data); a failed pull becomes a
+    :class:`~narratty.errors.MissingDependencyError` with what to do instead.
+    """
+    from narratty.errors import MissingDependencyError
+    from narratty.ui.console import err
+
+    if _image_id(engine, image):
+        return
+    err.print(f"pulling {image} (this can take a while)…", highlight=False, soft_wrap=True)
+    try:
+        progress: int | None = sys.stderr.fileno()
+    except (AttributeError, ValueError, OSError):
+        progress = None  # stderr is not a file (captured); the engine inherits stdout
+    try:
+        result = subprocess.run(  # noqa: S603
+            [engine.value, "pull", image], stdout=progress, stderr=subprocess.PIPE, text=True, check=False
+        )
+    except OSError as error:
+        detail, code = str(error), 1
+    else:
+        detail, code = result.stderr.strip(), result.returncode
+    if code != 0:
+        raise MissingDependencyError(
+            f"could not pull {image}: {detail or f'{engine.value} pull exited with {code}'}",
+            hint="Set NARRATTY_IMAGE (or --image) to an image you have or can pull, log in to its "
+            f"registry (`{engine.value} login`), or use --runtime native with the tools installed "
+            "(`narratty doctor`).",
+        )
 
 
 def _ensure_voice(provider_name: str, voice: str) -> None:

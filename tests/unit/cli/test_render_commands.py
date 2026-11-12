@@ -154,6 +154,13 @@ def test_plan_draft_estimates_without_tts(spec: Path, monkeypatch: pytest.Monkey
     assert "(estimated)" in plain(result.output)
 
 
+def test_plan_draft_starts_no_container(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("narratty.container.delegate", lambda *a, **k: pytest.fail("container started"))
+    result = runner.invoke(app, ["plan", str(spec), "--draft", "--runtime", "docker"], env={"COLUMNS": "200"})
+    assert result.exit_code == 0, result.output
+    assert "(estimated)" in plain(result.output)
+
+
 def test_build_draft_passes_its_options(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_build(spec_path: Path, output: Path | None, **kwargs: object) -> BuildResult:
         assert kwargs["draft"] is True

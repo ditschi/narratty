@@ -10,6 +10,7 @@ import pytest
 from narratty import container
 from narratty.build import WorkspaceOptions
 from narratty.container import ContainerSpec, Mount, SandboxRequest, delegate, image_ref, run_argv
+from narratty.container import ensure_image as real_ensure_image
 from narratty.errors import MissingDependencyError
 from narratty.runtime import Runtime
 
@@ -463,4 +464,48 @@ def test_the_host_checks_exit_codes_logged_in_the_environment(
             "render", spec, runtime=Runtime.DOCKER, image="img", sandbox=SandboxRequest(), ignore_exit=True
         )
         == 0
+    )
+
+
+def test_a_missing_image_is_announced_and_pulled(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import subprocess
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(container, "_image_id", lambda engine, image: "")
+
+    def fake_run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        assert kwargs["stdout"] is not subprocess.PIPE, "the engine's progress stays visible"
+        return subprocess.CompletedProcess(argv, 0, None, "")
+
+    monkeypatch.setattr(container.subprocess, "run", fake_run)
+    real_ensure_image(Runtime.DOCKER, "ghcr.io/ditschi/narratty:edge")
+    assert calls == [["docker", "pull", "ghcr.io/ditschi/narratty:edge"]]
+    assert "pulling ghcr.io/ditschi/narratty:edge (this can take a while)" in capsys.readouterr().err
+
+
+def test_a_present_image_is_not_pulled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(container, "_image_id", lambda engine, image: "sha256:abc")
+    monkeypatch.setattr(container.subprocess, "run", lambda *a, **k: pytest.fail("pulled"))
+    real_ensure_image(Runtime.PODMAN, "img:test")
+
+
+def test_a_failed_pull_is_a_narratty_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+
+    monkeypatch.setattr(container, "_image_id", lambda engine, image: "")
+    denied = "Error response from daemon: pull access denied for img, repository does not exist"
+    monkeypatch.setattr(
+        container.subprocess, "run", lambda argv, **k: subprocess.CompletedProcess(argv, 1, None, denied)
+    )
+    with pytest.raises(
+        MissingDependencyError, match="could not pull img:test: .*pull access denied"
+    ) as raised:
+        real_ensure_image(Runtime.DOCKER, "img:test")
+    assert (
+        raised.value.hint
+        and "NARRATTY_IMAGE" in raised.value.hint
+        and "--runtime native" in raised.value.hint
     )
