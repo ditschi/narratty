@@ -44,7 +44,8 @@ checks it), and each release tag serves its own copy.
 - PyPI and TestPyPI: add a *trusted publisher* for `ditschi/narratty`, workflow
   `release.yml`, environments `pypi` and `testpypi`.
 - GitHub: create the `pypi` and `testpypi` environments, and enable GitHub Pages from the
-  `gh-pages` branch for the docs.
+  `gh-pages` branch for the docs. Leave `gh-pages` unprotected: `squash-gh-pages.yml`
+  force-pushes it weekly to replace its history with one commit.
 - GHCR: after the first push, open the `narratty` and `narratty-toolkit` package
   settings on GitHub and set their visibility to public so `docker pull` works
   without logging in.

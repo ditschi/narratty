@@ -1,0 +1,31 @@
+name: Squash gh-pages
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  # mike adds a commit per docs deploy (videos included), and PR previews add more;
+  # only the latest tree is served, so the history is replaced by a single commit.
+  squash:
+    name: Squash gh-pages history
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+      - name: Replace the history with one commit
+        run: |
+          old=$(git rev-parse HEAD)
+          if [ "$(git rev-list --count HEAD)" -le 1 ]; then
+            echo "gh-pages already has a single commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan squashed
+          git commit -q -m "Docs as of $(date -u +%F) (squashed by squash-gh-pages.yml)"
+          # Fails instead of dropping a deploy that landed in the meantime.
+          git push --force-with-lease="gh-pages:$old" origin squashed:gh-pages
