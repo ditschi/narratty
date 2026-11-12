@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+import pytest
+
+from narratty.render import scene_cache
 from narratty.render.scene_cache import SceneCache, scene_keys, workspace_digest
 from narratty.spec.loader import parse_spec
 from narratty.timeline import build_timeline
@@ -104,3 +107,49 @@ def test_prune_preserves_recordings_referenced_by_fresh_entries(tmp_path: Path) 
     assert recording.video.is_file()
     removed = cache.prune(-1)
     assert (removed.entries, removed.recordings, removed.bytes) == (1, 1, 5)
+
+
+def test_tool_fingerprint_covers_vhs_version_fonts_and_image(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    outputs = {"vhs": "vhs version v0.12.1", "fc-list": "DejaVu Sans\nJetBrains Mono"}
+    monkeypatch.setattr(scene_cache.shutil, "which", lambda name: name if name in outputs else None)
+    monkeypatch.setattr(scene_cache, "_output", lambda argv: outputs[argv[0]])
+    monkeypatch.setattr(scene_cache, "IMAGE_ID_FILE", tmp_path / "image-id")
+    monkeypatch.setattr(scene_cache.Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("NARRATTY_IMAGE_ID", raising=False)
+    before = scene_cache.tool_fingerprint()
+    outputs["fc-list"] = "JetBrains Mono\nDejaVu Sans"
+    assert scene_cache.tool_fingerprint() == before, "font order does not matter"
+    outputs["fc-list"] += "\nNoto Color Emoji"
+    with_emoji = scene_cache.tool_fingerprint()
+    assert with_emoji != before
+    outputs["vhs"] = "vhs version v0.13.0"
+    assert scene_cache.tool_fingerprint() != with_emoji
+    upgraded = scene_cache.tool_fingerprint()
+    (tmp_path / "image-id").write_text("build-1\n", encoding="utf-8")
+    assert scene_cache.tool_fingerprint() != upgraded
+    rebuilt = scene_cache.tool_fingerprint()
+    monkeypatch.setenv("NARRATTY_IMAGE_ID", "sha256:abc")
+    assert scene_cache.tool_fingerprint() != rebuilt
+    pulled = scene_cache.tool_fingerprint()
+    (tmp_path / ".cache" / "rod" / "browser" / "chromium-1321438").mkdir(parents=True)
+    assert scene_cache.tool_fingerprint() != pulled, "go-rod's downloaded browser counts"
+
+
+def test_browser_symlinks_are_fingerprinted_by_their_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    real = tmp_path / "chromium-real"
+    real.write_text("v1", encoding="utf-8")
+    link = tmp_path / "chromium"
+    link.symlink_to(real)
+    monkeypatch.setattr(scene_cache.shutil, "which", lambda name: str(link) if name == "chromium" else None)
+    monkeypatch.setattr(scene_cache, "_output", lambda argv: "")
+    before = scene_cache.tool_fingerprint()
+    assert before["tools"]["chromium"][0] == str(real)
+    real.write_text("version 2", encoding="utf-8")
+    os.utime(real, ns=(1, 1))
+    assert scene_cache.tool_fingerprint() != before

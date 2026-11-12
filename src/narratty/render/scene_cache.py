@@ -83,24 +83,86 @@ def workspace_digest(
     return digest.hexdigest()
 
 
+# Where the narratty image records the ID it was given at build time (see the Dockerfile).
+IMAGE_ID_FILE = Path("/opt/narratty/image-id")
+IMAGE_ID_ENV = "NARRATTY_IMAGE_ID"
+_TOOLS = ("vhs", "ttyd", "ffmpeg", "ffprobe", "bash", "zsh", "fish", "tmux")
+# Where VHS's browser launcher (go-rod) looks for a browser on Linux and macOS.
+_BROWSERS = (
+    "chrome",
+    "google-chrome",
+    "chromium",
+    "chromium-browser",
+    "/opt/google/chrome/chrome",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/snap/bin/chromium",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+)
+
+
+def _file_identity(executable: str) -> tuple[str, int, int] | None:
+    """The resolved file behind ``executable``, with its size and modification time."""
+    try:
+        real = Path(executable).resolve()
+        if real.name == "snap" and Path(executable).parent == Path("/snap/bin"):
+            # Snap commands all link to /usr/bin/snap; the revision is in the package's path.
+            real = Path("/snap", Path(executable).name, "current").resolve()
+        info = real.stat()
+    except OSError:
+        return None
+    return str(real), info.st_size, info.st_mtime_ns
+
+
+def _output(argv: list[str]) -> str:
+    try:
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=30, check=False)  # noqa: S603
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout + result.stderr
+
+
+def tool_fingerprint() -> dict[str, Any]:
+    """The recorder's tools, browser, fonts and image, as far as they change the footage."""
+    tools = {}
+    for name in (*_TOOLS, *_BROWSERS):
+        executable = shutil.which(name)
+        if executable and (identity := _file_identity(executable)):
+            tools[name] = identity
+    rod = Path.home() / ".cache" / "rod" / "browser"
+    try:
+        downloaded = sorted(path.name for path in rod.iterdir())
+    except OSError:
+        downloaded = []
+    vhs, fc_list = shutil.which("vhs"), shutil.which("fc-list")
+    fonts = sorted(_output([fc_list]).splitlines()) if fc_list else []
+    try:
+        image_file = IMAGE_ID_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        image_file = ""
+    return {
+        "tools": tools,
+        "rod_browsers": downloaded,
+        "vhs_version": _output([vhs, "--version"]).strip() if vhs else "",
+        "fonts": _digest(fonts),
+        "image": [os.environ.get(IMAGE_ID_ENV, ""), image_file],
+    }
+
+
 def recording_context(workspace: Path, *, exclude: frozenset[Path] = frozenset()) -> str:
     """Fingerprint the workspace, recorder code, tools and stable process environment."""
-    tools = {}
-    for name in ("vhs", "ttyd", "ffmpeg", "ffprobe", "chromium", "bash", "zsh", "fish"):
-        executable = shutil.which(name)
-        if executable:
-            info = Path(executable).stat()
-            tools[name] = (executable, info.st_size, info.st_mtime_ns)
     environment = {
         key: value
         for key, value in os.environ.items()
-        if key not in {"NARRATTY_REMOTE_EXIT_LOG", "NARRATTY_BRIDGE", "NARRATTY_WORKSPACE"}
+        if key not in {"NARRATTY_REMOTE_EXIT_LOG", "NARRATTY_BRIDGE", "NARRATTY_WORKSPACE", IMAGE_ID_ENV}
     }
     return _digest(
         {
             "workspace": workspace_digest(workspace, exclude=exclude),
             "code": workspace_digest(Path(__file__).resolve().parents[1], ignore_bytecode=True),
-            "tools": tools,
+            "tools": tool_fingerprint(),
             "python": sys.version,
             "environment": environment,
         }

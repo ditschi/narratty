@@ -358,6 +358,24 @@ def _scene_cache_exclusions(
         if path is not None and path.resolve().is_relative_to(source):
             relative.append(str(path.resolve().relative_to(source)))
     invocation.env["NARRATTY_SCENE_CACHE_EXCLUSIONS"] = json.dumps(relative)
+    # The scene cache keys recordings to the image; the ID also changes when a tag is rebuilt.
+    if image_id := _image_id(invocation.engine, invocation.image):
+        invocation.env["NARRATTY_IMAGE_ID"] = image_id
+
+
+def _image_id(engine: Runtime, image: str) -> str:
+    """The local image's ID, or "" when it is not pulled yet (the image's own ID file still counts)."""
+    try:
+        result = subprocess.run(  # noqa: S603
+            [engine.value, "image", "inspect", "--format", "{{.Id}}", image],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
 
 
 def _run_demo(

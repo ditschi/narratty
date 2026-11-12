@@ -128,6 +128,10 @@ RUN useradd --create-home --uid 1000 --shell /bin/bash narratty \
  && chmod -R a+rX /opt/narratty \
  && chmod 1777 /cache /work /out /home/narratty
 
+# A fresh ID per image build, in the last layer so any change above renews it: the scene
+# cache keys recordings to it (render/scene_cache.py), as fonts or browsers may have changed.
+RUN cat /proc/sys/kernel/random/uuid > /opt/narratty/image-id
+
 USER narratty
 WORKDIR /work
 ENTRYPOINT ["narratty"]
