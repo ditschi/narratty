@@ -1946,6 +1946,10 @@ itself and a container runtime on the host.</p>
 <p>narratty picks the tag matching its own version (<code>edge</code> for development builds).
 Override the image with <code>--image</code> or <code>NARRATTY_IMAGE</code>. Up to 0.1, Kokoro needed a
 separate <code>-kokoro</code> image; from 0.2 on, the one image has both engines.</p>
+<p>Each image build gets its own ID (<code>/opt/narratty/image-id</code>), and narratty passes the
+local image ID to the container as <code>NARRATTY_IMAGE_ID</code>. The
+<a href="../building/#scene-recording-cache">scene cache</a> keys recordings to both, so footage
+recorded with one image, its fonts and its browser is not reused with a rebuilt one.</p>
 <h2 id="what-the-container-can-see">What the container can see<a class="headerlink" href="#what-the-container-can-see" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1972,7 +1976,7 @@ separate <code>-kokoro</code> image; from 0.2 on, the one image has both engines
 <td>read-write</td>
 </tr>
 <tr>
-<td>the audio cache</td>
+<td>the audio and scene caches</td>
 <td><code>/cache</code></td>
 <td>read-write, shared with native runs</td>
 </tr>

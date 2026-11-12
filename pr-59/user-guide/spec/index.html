@@ -3121,7 +3121,7 @@ browser view in the same scene replaces it.</p>
 <tbody>
 <tr>
 <td><code>table</code></td>
-<td><code>{header: [...], rows: [[...], ...]}</code>; cells are inline Markdown (<code>`code`</code>, <code>**bold**</code>, links)</td>
+<td><code>{header: [...], rows: [[...], ...]}</code>, the list of rows, each with as many cells as the header; cells are inline Markdown (<code>`code`</code>, <code>**bold**</code>, links)</td>
 </tr>
 <tr>
 <td><code>mermaid</code></td>
@@ -3129,7 +3129,7 @@ browser view in the same scene replaces it.</p>
 </tr>
 <tr>
 <td><code>focus</code></td>
-<td>Mermaid node or subgraph ID to emphasize during narration (since 0.6)</td>
+<td>Mermaid node or subgraph ID to emphasize during narration (since 0.7)</td>
 </tr>
 <tr>
 <td><code>image</code></td>
@@ -3149,7 +3149,7 @@ browser view in the same scene replaces it.</p>
 </tr>
 <tr>
 <td><code>rows</code></td>
-<td>Table rows per page; the page with the highlighted row is shown, with a page counter</td>
+<td>Table rows per page, a number (not the <code>rows</code> list inside <code>table</code>); the page with the highlighted row is shown, with a page counter</td>
 </tr>
 <tr>
 <td><code>page</code></td>
@@ -3166,7 +3166,9 @@ browser view in the same scene replaces it.</p>
 </tbody>
 </table>
 <p>For a diagram walkthrough, repeat the same source in successive scenes and change
-<code>focus</code>; each highlight stays in place for that scene's narration:</p>
+<code>focus</code>; each highlight stays in place for that scene's narration. <code>focus</code> is the ID
+from the diagram source (<code>api</code>, <code>api-gateway</code>, a subgraph's ID) and must name exactly
+one node or subgraph; otherwise the render fails and lists the IDs it found:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">scenes</span><span class="p">:</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api</span>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Requests enter through the API.</span>
@@ -3220,6 +3222,10 @@ before 0.5 do not know <code>requires.narratty</code> and reject it as an unknow
 <tr>
 <td>0.6</td>
 <td><code>slide</code> action and <code>slides.theme</code>, Mermaid diagrams in browser views, <code>run</code> <code>expect_output</code>; in Markdown input the <code>table</code>, <code>slide</code>, <code>pause</code> and <code>spec</code> comments, <code>mermaid</code> blocks, <code>check_output</code> and the <code>any-output</code> block option</td>
+</tr>
+<tr>
+<td>0.7</td>
+<td><code>slide</code> <code>focus</code>; in Markdown input the <code>focus</code> comment, the <code>slide</code> comment's <code>focus</code> key and a list for the <code>table</code> comment's <code>say</code></td>
 </tr>
 </tbody>
 </table>

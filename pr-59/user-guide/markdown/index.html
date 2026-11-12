@@ -2445,7 +2445,8 @@ snippet configures the spoken steps; the live table below is what those steps hi
 <li><code>say</code> fills in the cells of the columns named in braces; names match the header
   regardless of case.</li>
 <li><code>say: ["First custom narration.", "Second custom narration."]</code> supplies one custom
-  phrase per row; the list must have exactly as many phrases as the table has rows.</li>
+  phrase per row; the list must have exactly as many phrases as the table has rows
+  (since 0.7).</li>
 <li><code>pause: 500ms</code> highlights each row that long before it is spoken.</li>
 <li><code>title</code>, <code>theme</code> and <code>rows</code> set the look of the slide, as in the <code>slide</code> comment.</li>
 <li>Cells are read like paragraphs, so the lexicon applies to inline code in them.</li>
@@ -2519,7 +2520,7 @@ emphasizes a Mermaid node or subgraph while the scene is narrated.</p>
 </tr>
 <tr>
 <td><code>focus</code></td>
-<td>Mermaid node or subgraph ID to emphasize</td>
+<td>Mermaid node or subgraph ID to emphasize (since 0.7)</td>
 </tr>
 <tr>
 <td><code>html</code></td>
@@ -2547,8 +2548,12 @@ without adding silence. Here is the source snippet:</p>
 The API receives the request.</p>
 <!-- narratty: focus db -->
 <p>The database stores it.</p>
-<p>The <code>focus</code> comment closes the previous narration scene and reuses the last Mermaid
-diagram with a new focus target. In YAML, repeat the slide action in one scene per focus
+<p>The <code>focus</code> comment (since 0.7) closes the previous narration scene and reuses the last
+Mermaid diagram with a new focus target. It takes one node or subgraph ID from the
+diagram source, such as <code>db</code> or <code>api-gateway</code>. The diagram must still be on screen: a
+heading, table, image, browser view or command block in between ends it. With
+<code>narration: none</code> and no <code>say</code> text before it, or with <code>images: false</code>, the comment is
+left out like the diagram. In YAML, repeat the slide action in one scene per focus
 ID instead. A node stays emphasized for its scene's narration unless <code>duration_ms</code> caps
 the slide.
 Mermaid labels can use Unicode emoji; the narratty image includes an emoji font. Its
@@ -2636,7 +2641,7 @@ styles inline, images inline as SVG or <code>data:</code> URLs.</p>
 </tr>
 <tr>
 <td><code>focus</code></td>
-<td>Reuses the last Mermaid diagram, emphasizing the given node or subgraph for the next narrated step</td>
+<td>Reuses the last Mermaid diagram, emphasizing the given node or subgraph for the next narrated step (since 0.7), see <a href="#slides">Slides</a></td>
 </tr>
 <tr>
 <td><code>spec</code></td>

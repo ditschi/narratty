@@ -4646,8 +4646,9 @@ Slides are made from the doc's own lines, so they always match it.</p>
   its own, the capture step evaluates the bundled <code>mermaid.min.js</code> over CDP
   (<code>Runtime.evaluate</code>), runs <code>mermaid.run()</code> and awaits it before the screenshot. The
   theme and optional focus ID come from body data attributes (set by slides), else
-  Mermaid's defaults apply. Focus is applied to the matching SVG node or cluster after
-  drawing. The page does not link the script, so <code>data:</code> pages work too.</li>
+  Mermaid's defaults apply. After drawing, focus marks the one SVG node or cluster whose
+  source ID it names (no prefix matches); none or several is a render error that lists
+  the drawn IDs. The page does not link the script, so <code>data:</code> pages work too.</li>
 <li>So every browser view renders Mermaid offline, including <code>browser</code> actions in YAML
   and local HTML files; <code>docs/user-guide/spec.md</code> says so.</li>
 <li>A diagram Mermaid cannot parse is a render error with the scene id and Mermaid's
