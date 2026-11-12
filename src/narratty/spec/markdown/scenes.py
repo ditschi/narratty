@@ -57,8 +57,11 @@ COMMENT_KINDS = (
     "clear",
     "spec",
 )
-SLIDE_KEYS = ("title", "theme", "rows", "html", "focus")
-TABLE_KEYS = ("say", "pause", "title", "theme", "rows")
+LOOK_KEYS = ("title", "theme", "rows", "html", "focus")
+SLIDE_KEYS = (*LOOK_KEYS, "hold")
+TABLE_KEYS = ("say", "pause", "title", "theme", "rows", "hold")
+HOLDS = ("next-block", "next-heading")
+"""How long a slide stays for the text after it: up to the next block, or heading."""
 VISUALS = "a table, image or mermaid block"
 NOTHING = ":"  # the shell command that does nothing, run in place of a no-run command
 IMAGE_HOLD_MS = 3000  # an image scene without narration
@@ -182,6 +185,8 @@ class _Builder:
         self.pages: list[dict[str, Any]] = []  # later pages of the table on screen
         self.pages_block: Block | None = None
         self.run: tuple[Comment, dict[str, Any]] | None = None  # a run comment's options
+        self.keep: str | None = None  # the hold of the slide comment being applied
+        self.held: tuple[dict[str, Any], str] | None = None  # a slide kept up, and until when
         self.waiting: tuple[Code, str, list[dict[str, Any]], dict[str, Any]] | None = None  # say: after
         self.used: set[str] = set()
 
@@ -254,7 +259,7 @@ class _Builder:
 
     def heading(self, block: Heading) -> None:
         self.flush()
-        self.diagram = None
+        self.diagram = self.held = None
         self.section, self.count = id_part(block.slug), 0
         # Overlays of headings that got no scene give way to this one.
         self.overlays = [
@@ -379,7 +384,7 @@ class _Builder:
     def show_view(self, block: Block, action: dict[str, Any], what: str) -> None:
         """A browser view or slide from the next paragraph on, until the next command or heading."""
         self.flush()  # the page appears with its paragraph, not with the narration before
-        self.diagram = None
+        self.diagram = self.held = None
         self.pending_view(block, action, what)
 
     def pending_view(self, block: Block, action: dict[str, Any], what: str) -> None:
@@ -390,21 +395,36 @@ class _Builder:
 
     def slide_comment(self, block: Comment, body: str) -> None:
         options = _options(body, block, "slide", SLIDE_KEYS)
+        _check_hold(options, block, "slide")
         if "html" not in options:
             self.slide = (block, options)
             return
         name = str(options.pop("html"))
+        hold = options.pop("hold", None)
         path = block.file.parent / name
         if not path.is_file():
             raise fail(block.file, block.line, f"slide comment: file not found: {name}")
         html_url = _embed("text/html", path.read_bytes(), block, name)
-        self.show_view(block, {"slide": {**options, "html": html_url}}, f"slide comment: shows {name}")
+        slide = {**options, "html": html_url}
+        self.show_view(block, {"slide": slide}, f"slide comment: shows {name}")
+        self.hold_slide(slide, hold)
 
     def take_slide(self) -> dict[str, Any] | None:
-        """The pending slide comment's options, if any."""
-        options = self.slide[1] if self.slide is not None else None
+        """The pending slide comment's options, if any; its ``hold`` goes to ``keep``."""
+        options = dict(self.slide[1]) if self.slide is not None else None
         self.slide = None
+        self.keep = options.pop("hold", None) if options is not None else None
         return options
+
+    def hold_slide(self, slide: dict[str, Any], hold: str | None) -> None:
+        """Keep ``slide`` up for the text after it until the next block or heading (``hold``)."""
+        self.held = (slide, hold) if hold else None
+        self.keep = None
+
+    def update_held(self, slide: dict[str, Any]) -> None:
+        """The slide kept up changes (the next page of a table, another focus)."""
+        if self.held is not None:
+            self.held = (slide, self.held[1])
 
     def no_block(self, pending: tuple[Comment, dict[str, Any]], kind: str, expected: str) -> None:
         comment = pending[0]
@@ -428,7 +448,9 @@ class _Builder:
             raise fail(block.file, block.line, f"image not found: {block.src}")
         data = f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
         self.diagram = None
-        self.pending_view(block, {"slide": {**look, "image": data}}, "image: shown as a slide")
+        slide = {**look, "image": data}
+        self.pending_view(block, {"slide": slide}, "image: shown as a slide")
+        self.hold_slide(slide, self.keep)
 
     def show_diagram(self, block: Code) -> None:
         """A Mermaid diagram, shown like an image; the renderer draws it."""
@@ -438,6 +460,7 @@ class _Builder:
             return
         self.diagram = {**look, "mermaid": block.content}
         self.pending_view(block, {"slide": self.diagram}, "mermaid block: shown as a slide")
+        self.hold_slide(self.diagram, self.keep)
 
     def focus_comment(self, block: Comment, body: str) -> None:
         """Start a new narrated scene that focuses another node in the last Mermaid diagram.
@@ -468,6 +491,7 @@ class _Builder:
                 return
             raise fail(block.file, block.line, "focus comment: put it after the text for the previous step")
         self.flush()
+        self.update_held({**self.diagram, "focus": body})
         self.overlays.append((None, {"slide": {**self.diagram, "focus": body}}))
         self.unassigned.append((block, f"focus comment: highlights Mermaid target {body!r}"))
         self.image = True
@@ -481,6 +505,7 @@ class _Builder:
         page = self.pages.pop(0) if self.pages else None
         self.flush(pages=False)
         if page is not None:
+            self.update_held(page)
             if ms:
                 self.emit(block, {"id": self.next_id(None), "actions": [{"slide": page}, {"hold": ms}]})
             self.pending_view(block, {"slide": page}, f"pause comment: table page {page['page']}")
@@ -489,7 +514,8 @@ class _Builder:
             self.note(block, None, "pause comment: the scene ends here")
             return
         scene_id = self.next_id(None)
-        self.emit(block, {"id": scene_id, "actions": [{"hold": ms}]})
+        kept = [{"slide": self.held[0]}] if self.held is not None else []
+        self.emit(block, {"id": scene_id, "actions": [*kept, {"hold": ms}]})
         self.note(block, scene_id, f"pause comment: {ms} ms of silence")
 
     def table_comment(self, block: Comment, body: str) -> None:
@@ -505,6 +531,7 @@ class _Builder:
             )
         if "pause" in options:
             options["pause"] = _duration(options["pause"], block, "table comment: pause")
+        _check_hold(options, block, "table")
         self.table = (block, options)
 
     def show_table(self, block: Table) -> None:
@@ -530,7 +557,8 @@ class _Builder:
                 comment.line,
                 f"table comment: say has {len(phrases)} phrase(s) for {len(block.rows)} row(s)",
             )
-        look = {key: options[key] for key in SLIDE_KEYS if key in options} | (look or {})
+        look = {key: options[key] for key in LOOK_KEYS if key in options} | (look or {})
+        hold = options.get("hold", self.keep)
         if isinstance(phrases, str):
             _check_fields(phrases, block.header, comment)
         pause = options.get("pause")
@@ -547,6 +575,7 @@ class _Builder:
                 actions.append({"hold": IMAGE_HOLD_MS})
             extra = {"narration_start": "after_actions"} if pause and text else {}
             self.scene(source, self.next_id(None), actions, extra)
+        self.hold_slide({**look, "table": table}, hold)
 
     def show_pages(self, block: Table, look: dict[str, Any], table: dict[str, Any]) -> None:
         """A table shown, not read: its first page now, the next ones at ``pause`` comments."""
@@ -554,9 +583,11 @@ class _Builder:
         count = -(-len(block.rows) // per_page) if isinstance(per_page, int) and per_page > 0 else 1
         if count == 1:
             self.pending_view(block, {"slide": {**look, "table": table}}, "table: shown as a slide")
+            self.hold_slide({**look, "table": table}, self.keep)
             return
         pages = [{**look, "table": table, "page": number} for number in range(1, count + 1)]
         self.pending_view(block, {"slide": pages[0]}, f"table: shown as a slide, page 1 of {count}")
+        self.hold_slide(pages[0], self.keep)
         self.pages, self.pages_block = pages[1:], block
 
     def code(self, block: Code) -> None:
@@ -569,6 +600,8 @@ class _Builder:
             )
         if self.image and (_shell(block) or block.title):
             self.flush()  # an image never covers commands
+        if self.held is not None and self.held[1] == "next-block" and (_shell(block) or block.title):
+            self.held = None
         if block.lang == "mermaid":
             if options or keyed:
                 first = sorted(options)[0] if options else f"{sorted(keyed)[0]}=…"
@@ -674,6 +707,8 @@ class _Builder:
         Table pages no ``pause`` comment brought up yet follow as silent scenes.
         """
         if self.spoken or self.image:
+            if self.held is not None and not self.image:  # the slide stays for this text
+                self.overlays.append((None, {"slide": self.held[0]}))
             first = self.unassigned[0][0] if self.unassigned else None
             assert first is not None
             hold = [] if self.spoken else [{"hold": IMAGE_HOLD_MS}]
@@ -761,6 +796,15 @@ def _kind(block: Block) -> str:
     if isinstance(block, Table):
         return "table"
     return "paragraph" if isinstance(block, Text) else f"{getattr(block, 'lang', '') or 'code'} block"
+
+
+def _check_hold(options: dict[str, Any], block: Comment, kind: str) -> None:
+    if "hold" in options and options["hold"] not in HOLDS:
+        raise fail(
+            block.file,
+            block.line,
+            f"{kind} comment: hold must be {' or '.join(HOLDS)}, got {options['hold']!r}",
+        )
 
 
 def _shell(block: Block) -> bool:

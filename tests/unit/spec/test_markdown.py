@@ -1067,3 +1067,83 @@ def test_clear_comment_takes_no_value(tmp_path: Path) -> None:
         _error(tmp_path, "# Doc\n\n<!-- narratty: clear all -->\n")[0]
         == "clear comment: takes no value, got 'all'"
     )
+
+
+HELD = """\
+# Doc
+
+<!-- narratty: slide {title: Parts, hold: HOLD} -->
+| Part | Does |
+|---|---|
+| A | a |
+
+The first part.
+
+<!-- narratty: pause 500ms -->
+
+The second part.
+
+<!-- narratty: pause -->
+
+A command.
+
+```sh
+ls
+```
+
+After the command.
+
+## Next
+
+Elsewhere.
+"""
+
+
+def _slide_titles(scenes: list[dict[str, Any]]) -> list[tuple[str | None, str | None]]:
+    return [
+        (
+            scene.get("narration"),
+            next((a["slide"]["title"] for a in scene.get("actions", []) if "slide" in a), None),
+        )
+        for scene in scenes
+    ]
+
+
+def test_a_held_slide_stays_for_the_text_up_to_the_next_block(tmp_path: Path) -> None:
+    scenes = _expand(_doc(tmp_path, HELD.replace("HOLD", "next-block")))
+    assert _slide_titles(scenes) == [
+        ("The first part.", "Parts"),
+        (None, "Parts"),
+        ("The second part.", "Parts"),
+        ("A command.", None),
+        ("After the command.", None),
+        ("Elsewhere.", None),
+    ]
+    assert scenes[1]["actions"][1] == {"hold": 500}
+    assert _slide_titles(_expand(_doc(tmp_path, HELD.replace(", hold: HOLD", ""))))[1:3] == [
+        (None, None),
+        ("The second part.", None),
+    ], "without hold, as before"
+
+
+def test_a_slide_held_to_the_next_heading_comes_back_after_commands(tmp_path: Path) -> None:
+    scenes = _expand(_doc(tmp_path, HELD.replace("HOLD", "next-heading")))
+    after = [("A command.", None), ("After the command.", "Parts"), ("Elsewhere.", None)]
+    assert _slide_titles(scenes)[3:] == after
+
+
+def test_a_read_table_can_stay_after_its_rows(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\n<!-- narratty: table {title: T, hold: next-block} -->\n"
+        "| A | B |\n|---|---|\n| 1 | 2 |\n\nAfter the table.\n"
+    )
+    scenes = _expand(_doc(tmp_path, body))
+    assert scenes[-1]["narration"] == "After the table."
+    assert scenes[-1]["actions"] == [
+        {"slide": {"title": "T", "table": {"header": ["A", "B"], "rows": [["1", "2"]]}}}
+    ]
+
+
+def test_hold_must_name_a_block_or_heading(tmp_path: Path) -> None:
+    message, _ = _error(tmp_path, "# Doc\n\n<!-- narratty: slide {hold: forever} -->\n![x](x.png)\n")
+    assert message == "slide comment: hold must be next-block or next-heading, got 'forever'"

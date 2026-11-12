@@ -246,7 +246,8 @@ snippet configures the spoken steps; the live table below is what those steps hi
   phrase per row; the list must have exactly as many phrases as the table has rows
   (since 0.7).
 - `pause: 500ms` highlights each row that long before it is spoken.
-- `title`, `theme` and `rows` set the look of the slide, as in the `slide` comment.
+- `title`, `theme` and `rows` set the look of the slide, as in the `slide` comment;
+  `hold` keeps it up after its rows, see [How long a slide stays](#how-long-a-slide-stays).
 - Cells are read like paragraphs, so the lexicon applies to inline code in them.
 
 A `slide` comment shows a table without reading it, while the text after it is
@@ -321,6 +322,7 @@ emphasizes a Mermaid node or subgraph while the scene is narrated.
 | `theme` | `dark` or `light` for this slide |
 | `rows` | Table rows per page, see [Tables](#tables) |
 | `focus` | Mermaid node or subgraph ID to emphasize (since 0.7) |
+| `hold` | Keeps the slide up for the text after it: `next-block` or `next-heading` (since 0.7), see [How long a slide stays](#how-long-a-slide-stays) |
 | `html` | Shows an HTML file instead, from the next paragraph on |
 
 For a voiceover walkthrough in Markdown, write the Mermaid diagram once, then use a
@@ -370,6 +372,25 @@ Diagrams are drawn when the video is rendered, with the `mermaid.min.js` that co
 with the narratty image, so they need no network. Native renders read it from
 `NARRATTY_MERMAID_JS` or from the data directory; `narratty doctor` shows where.
 `images: false` leaves out diagrams too.
+
+### How long a slide stays
+
+A slide is shown while the text around it is spoken, up to the next block, heading or
+`pause` comment; a scene after that shows the terminal again. `hold` keeps the slide
+up for more of the text after it (since 0.7):
+
+| `hold` | The slide stays for the text after it, up to |
+|---|---|
+| unset | the end of its scene |
+| `next-block` | the next command or file block, slide, browser view or heading; `pause` comments in between keep it |
+| `next-heading` | the next heading, slide or browser view; it gives way to commands while they run and comes back for the text after them |
+
+```markdown
+<!-- narratty: slide {title: Request path, hold: next-block} -->
+```
+
+A `table` comment takes `hold` too: the table stays, without a highlighted row, for
+the text after its rows. In YAML, repeat the `slide` action in each scene instead.
 
 A slide made in HTML is named with `html`, relative to the doc:
 
