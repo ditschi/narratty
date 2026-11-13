@@ -4,6 +4,105 @@ All notable changes to this project are documented here. The format follows
 [Conventional Commits](https://www.conventionalcommits.org/) and is maintained by
 commitizen.
 
+## v0.7.0 (2026-11-13)
+
+### Feat
+
+- **sync**: plan with command durations measured by check
+- **sync**: place narration per scene from recorded markers
+- **markdown**: hold keeps a slide up for the text after it
+- **markdown**: clear comment and clear_on
+- **markdown**: run comment for narration order, substitutes, output lines and long-running commands
+- **markdown**: no-run blocks stay on screen without ^C
+- **spec**: show one command and run another, cut long output
+- **markdown**: warn about likely authoring problems in validate
+- **slides**: focus sequence diagram participants
+- **markdown**: better defaults for common Markdown
+- **slides**: add syntax-highlighted code slides
+- add opt-in scene recording cache
+- **markdown**: reuse Mermaid diagrams for focus steps
+- **walkthrough**: sync narration with table and Mermaid focus
+
+### Fix
+
+- **container**: remove the container and snapshot when a build is interrupted
+- **container**: warn about an image with another narratty, and name host paths in its errors
+- **build**: stop before native hidden commands that change your home directory
+- **check**: measure command durations when job control is off
+- **timeline**: let hold: auto wait for the whole narration
+- **check**: keep hidden commands out of the measured durations file
+- **hints**: name a command that was not found, and speak Markdown in hints for docs
+- **overlays**: keep the title card up while a doc's intro is spoken
+- **markdown**: do not clear the screen at headings before the first visible scene
+- **validate**: sharpen the Markdown warnings
+- **markdown**: read overlay comment text with a colon as text, and drop the schema hint for doc errors
+- **check**: count no-run commands as shown only and warn when none ran
+- **markdown**: speak an inline footnote after its sentence when the marker follows the full stop
+- **markdown**: keep the next block's lead-in out of the text after a slide
+- **sync**: lengthen a pause only for commands that outlast it
+- **sync**: judge only real clips, ignore VHS start-up overhead
+- **render**: let check see zsh's prompt after its PROMPT_SP redraw
+- **render**: suggest redirecting background output in the prompt timeout hint
+- **ui**: print errors without turning `:x:` in image tags into emoji
+- **spec**: hint at quoting for YAML that does not parse, not at the schema
+- **build**: log what is captured in Chromium instead of always "browser views"
+- **container**: print the host path of the output, not /out/...
+- **build**: blame dropped frames, not slow commands, when the video is short
+- **environment**: say why a native run still starts the environment
+- **container**: announce image pulls, wrap pull failures, keep plan --draft on the host
+- **render**: find the prompt after output without a newline; name the scene on timeouts
+- **container**: remove the compiled spec with hidden commands after the run
+- **exits**: keep hidden-scene clears and secrets out of exit attribution
+- **workspace**: retry the snapshot clone without hard links across filesystems
+- **markdown**: no prompt warning for doc examples, "and above" is not spatial
+- **markdown**: report one error for a wrong sections value
+- **cache**: count and prune leftovers of interrupted scene writes
+- **cache**: skip the scene cache for native workspace snapshots
+- **cache**: keep builds and hits working when the cache is not writable
+- **cache**: never re-cache joined footage
+- **cache**: key footage to an environment allowlist, not git HEAD
+- **cache**: key scene footage to VHS, fonts, browser and image
+- **markdown**: tie focus comments to the diagram on screen
+- **spec**: check that table rows match the header
+- **render**: keep slide images inside the workspace
+- **render**: match Mermaid focus IDs exactly
+- **render**: outline nested Mermaid shapes in focus
+- **check**: match long expected output without recursion
+- support varied frame rates and Mermaid focus IDs
+- **render**: match Mermaid focus target ordinals
+
+### Refactor
+
+- **markdown**: move lint_entry into lint to break an import cycle
+- move host_path to narratty.paths to break an import cycle
+- **markdown**: split block dispatch and option parsing
+
+### Perf
+
+- **cache**: fingerprint git-ignored workspace files by metadata
+
+### Behaviour change
+
+- Markdown input (spec `version: 1`):
+  - Warning, caution, danger and important admonitions now start with their type and
+    title when spoken. Set `admonitions: false` in the `markdown` entry for the old reading.
+    Remove workarounds such as `<!-- narratty: say Warning! -->`, which now double up.
+  - An image's alt text becomes its slide title. Set `image_titles: false` to turn this off.
+  - A paragraph ending in ":" right before a `table` comment is spoken while the slide is
+    shown.
+  - Footnote markers and definitions, and task-list boxes, are no longer spoken. Use
+    `footnotes: inline` to speak footnotes after their sentence.
+  - `no-run` blocks keep the command on screen without the `^C`.
+- Narration is placed per scene from the recorded markers instead of being stretched
+  linearly over the whole video, and the drift check judges each scene.
+- `hold: auto` (and `say: before`) waits for the whole narration plus
+  `timing.narration_buffer_ms`. Scenes that used it mid-scene get longer.
+- After `narratty check`, `plan` and `build` wait for slow commands using the measured
+  durations. Set `timing.measured_durations: false` to plan with `run_hold_ms` only.
+- `--runtime native` refuses hidden commands that use `--global`, `~` or `$HOME` unless
+  `--yes` is given.
+- Scene-cache entries from 0.6 are not reused.
+
 ## v0.6.1 (2026-11-12)
 
 ### Fix
