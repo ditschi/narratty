@@ -20,7 +20,7 @@ from narratty.spec.model import MarkdownEntry, MarkdownNarration
 if TYPE_CHECKING:
     from ruamel.yaml.comments import CommentedMap
 
-    from narratty.spec.markdown.scenes import Expansion, Note
+    from narratty.spec.markdown.scenes import Expansion
 
 
 @dataclass(frozen=True)
@@ -54,19 +54,6 @@ def explain_entry(entry: MarkdownEntry, path: Path, narration: MarkdownNarration
 
     blocks = parse_blocks(read_source(path, entry.tabs))
     return build_scenes(blocks, entry, path, narration)
-
-
-def lint_entry(entry: MarkdownEntry, path: Path, narration: MarkdownNarration) -> list[Note]:
-    """Warnings about the doc for ``narratty validate`` (see :mod:`.lint`); none with ``lint: false``."""
-    from narratty.spec.markdown.lint import lint
-    from narratty.spec.markdown.parse import parse_blocks
-    from narratty.spec.markdown.scenes import build_scenes
-    from narratty.spec.markdown.source import read_source
-
-    if not entry.lint:
-        return []
-    blocks = parse_blocks(read_source(path, entry.tabs))
-    return lint(blocks, entry, path, build_scenes(blocks, entry, path, narration))
 
 
 def spec_comment_text(path: Path) -> str:

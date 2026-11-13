@@ -18,9 +18,10 @@ from narratty.spec.markdown.scenes import (
     Expansion,
     Note,
     _yaml_value,
+    build_scenes,
     select_sections,
 )
-from narratty.spec.model import MarkdownEntry
+from narratty.spec.model import MarkdownEntry, MarkdownNarration
 
 SPATIAL = re.compile(
     r"(?<!\band )(?<!\bor )\b(above|below|click here|the following command)\b", re.IGNORECASE
@@ -207,3 +208,14 @@ def _spatial(selected: list[Block], notes: dict[tuple[Path, int], list[str]]) ->
                 f"the narration says {match[1]!r}, which listeners cannot see; say what is meant, "
                 "or put the sentence for the video into a skip + say pair",
             )
+
+
+def lint_entry(entry: MarkdownEntry, path: Path, narration: MarkdownNarration) -> list[Note]:
+    """Warnings about the doc for ``narratty validate``; none with ``lint: false``."""
+    from narratty.spec.markdown.parse import parse_blocks
+    from narratty.spec.markdown.source import read_source
+
+    if not entry.lint:
+        return []
+    blocks = parse_blocks(read_source(path, entry.tabs))
+    return lint(blocks, entry, path, build_scenes(blocks, entry, path, narration))

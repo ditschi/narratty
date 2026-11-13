@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from narratty.spec.markdown import lint_entry
-from narratty.spec.markdown.lint import mermaid_targets
+from narratty.spec.markdown.lint import lint_entry, mermaid_targets
 from narratty.spec.model import MarkdownEntry
 
 RUN = "```console\n$ ls\n```\n"

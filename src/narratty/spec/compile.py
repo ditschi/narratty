@@ -142,7 +142,7 @@ def sources(spec_file: Path) -> list[Source]:
 
 def markdown_warnings(document: Document, spec_file: Path) -> list[Source]:
     """Authoring warnings for the Markdown docs of ``document`` (``narratty validate``)."""
-    from narratty.spec.markdown import lint_entry
+    from narratty.spec.markdown.lint import lint_entry
     from narratty.spec.model import MarkdownEntry
 
     found: list[Source] = []
