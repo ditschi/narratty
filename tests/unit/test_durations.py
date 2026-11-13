@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from narratty import durations
@@ -36,6 +37,21 @@ def test_store_round_trip_rounds_up(tmp_path: Path) -> None:
     store = DurationStore(tmp_path)
     store.record(_spec(), {("build", 0): 12_345, ("build", 1): 40})
     assert store.lookup(_spec()) == {("build", 0): 12_400, ("build", 1): 100}
+
+
+def test_commands_are_not_stored_in_plain_text(tmp_path: Path) -> None:
+    spec = parse_spec(
+        "end_card: false\nscenes:\n  - id: env\n    hidden: true\n"
+        "    actions: [{run: export DEMO_KEY=hunter2}]\n  - id: a\n    actions: [{run: ls}]\n",
+        Path("t.narratty.yaml"),
+    )
+    old = {"x": {"ms": 100, "scene": "env", "command": "export DEMO_KEY=hunter2", "at": 1}}
+    (tmp_path / durations.FILE).write_text(json.dumps(old), encoding="utf-8")
+    DurationStore(tmp_path).record(spec, {("env", 0): 100, ("a", 0): 100})
+    text = (tmp_path / durations.FILE).read_text(encoding="utf-8")
+    assert "hunter2" not in text
+    assert "DEMO_KEY" not in text
+    assert DurationStore(tmp_path).lookup(spec) == {("env", 0): 100, ("a", 0): 100}
 
 
 def test_a_changed_command_forgets_its_measurement(tmp_path: Path) -> None:

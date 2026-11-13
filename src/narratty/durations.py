@@ -8,7 +8,8 @@ after the command (see :func:`narratty.timeline.run_holds`), so its output is co
 before the scene goes on and the plan shows realistic lengths.
 
 Entries are keyed by the spec's title, the shell, the layout, the scene id and the
-command, so editing a command forgets its measurement. Commands stopped with a
+command, so editing a command forgets its measurement; the file holds only a hash of
+the command, never its text. Commands stopped with a
 control key (``C-c``) and commands still running when the recording ended are not
 recorded. ``timing.measured_durations: false`` ignores the measurements.
 """
@@ -102,11 +103,15 @@ class DurationStore:
         """Add or replace the measurements of ``spec``'s commands."""
         commands = dict(_runs(spec))
         entries = self._entries()
+        for entry in entries.values():  # written by narratty before 0.7, with the command's text
+            if isinstance(entry, dict):
+                entry.pop("command", None)
         now = int(time.time())
         for location, ms in measured.items():
             scene_id, _ = location
             key = command_key(spec, scene_id, commands[location])
-            entries[key] = {"ms": _rounded(ms), "scene": scene_id, "command": commands[location], "at": now}
+            # Only a hash of the command: hidden ones may set secrets (``export TOKEN=...``).
+            entries[key] = {"ms": _rounded(ms), "scene": scene_id, "at": now}
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=self.path.parent, prefix=".durations-")
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
