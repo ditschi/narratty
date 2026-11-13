@@ -1,13 +1,5 @@
 [
   {
-    "version": "pr-63",
-    "title": "PR #63",
-    "aliases": [],
-    "properties": {
-      "hidden": true
-    }
-  },
-  {
     "version": "latest",
     "title": "latest",
     "aliases": []
