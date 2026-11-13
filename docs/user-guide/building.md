@@ -204,8 +204,10 @@ Seeking needs a server that supports range requests, as most static hosts do.
 
 Narration starts when its scene starts, so the voice talks while the command is
 typed. Set `narration_start: after_actions` on a scene to speak only after its
-actions. The pause that fills a scene goes where the scene has `hold: auto`, or
-after its actions otherwise.
+actions. The pause that fills a scene goes after its actions; at a `hold: auto` the
+scene waits until the narration and `timing.narration_buffer_ms` are done, so what
+follows starts after the voice has finished (before 0.7 it only waited for what the
+actions after it did not fill).
 
 The recording notes where each scene really started, and for `after_actions` where
 its actions really ended. Each clip is placed there, so a command that takes longer

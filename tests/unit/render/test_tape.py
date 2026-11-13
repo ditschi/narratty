@@ -83,7 +83,7 @@ def test_scenes() -> None:
         'Type@40ms "make build"',
         "Enter@40ms",
         "Sleep 100ms",  # timing.pause_ms after each key
-        "Sleep 1680ms",  # 2000 audio + 500 buffer - (10 chars + Enter + Down × 2) × 40 ms - 3 pauses
+        "Sleep 1960ms",  # 2000 audio + 500 buffer - (10 chars + Enter) × 40 ms - 1 pause, before the hold
         "Wait+Screen@2000ms /built a\\/b/",
         "Down@40ms 2",
         "Sleep 100ms",

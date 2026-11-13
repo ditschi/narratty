@@ -3,7 +3,8 @@
 Narration starts when its scene starts (or after the scene's actions with
 ``narration_start: after_actions``). A scene lasts
 ``max(action_ms, audio_ms + narration_buffer_ms)``; the difference is filled with a
-pause, at the scene's ``hold: auto`` if it has one, else after its actions. Hidden
+pause after its actions. A ``hold: auto`` waits until the narration and its buffer are
+done, so the actions after it follow the narration (explain, then run). Hidden
 scenes are not recorded and take no time. The end card, when enabled, follows the
 tail. Clip *n* is placed at its scene's start, so a timing error in one scene never
 shifts the narration of the next.
@@ -153,6 +154,18 @@ def timelapse_layout(sped_ms: int, hold_ms: int, *, narration_after: bool) -> tu
     return 0, max(0, hold_ms - sped_ms)
 
 
+def _before_auto_hold(scene: Scene, pace: Pacing, holds: tuple[tuple[int, int], ...], total: int) -> int:
+    """How long the actions before the scene's ``hold: auto`` take; ``total`` without one."""
+    index = next(
+        (i for i, action in enumerate(scene.actions) if isinstance(action, Hold) and action.hold == "auto"),
+        None,
+    )
+    if index is None:
+        return total
+    before = sum(action_ms(action, pace) for action in scene.actions[:index])
+    return before + sum(hold - pace.run_hold_ms for at, hold in holds if at < index)
+
+
 def build_timeline(
     spec: Spec, audio_ms: Mapping[str, int], measured: Mapping[tuple[str, int], int] | None = None
 ) -> Timeline:
@@ -195,7 +208,9 @@ def build_timeline(
         if scene.narration_start == "after_actions":
             offset, fill = actions, audio + buffer if audio else 0
         else:
-            offset, fill = 0, max(0, audio + buffer - actions) if audio else 0
+            # Up to ``hold: auto`` if there is one: the actions after it wait for the narration.
+            before = _before_auto_hold(scene, pace, holds, actions)
+            offset, fill = 0, max(0, audio + buffer - before) if audio else 0
         timing = SceneTiming(scene.id, False, cursor, actions, audio, fill, offset, run_holds=holds)
         timings.append(timing)
         cursor += timing.length_ms

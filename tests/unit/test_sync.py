@@ -35,8 +35,8 @@ scenes:
     hidden: true
     actions: [{run: "cd /tmp"}]
   - id: talk
-    narration: Explain, then run.
-    actions: [{hold: auto}, {run: "ls"}]
+    narration: Run, then explain.
+    actions: [{run: "ls"}, {hold: auto}]
   - id: after
     narration: Afterwards.
     narration_start: after_actions

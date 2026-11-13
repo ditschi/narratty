@@ -95,8 +95,8 @@ def test_editor_actions_run_hidden_through_the_tmux_prompt() -> None:
     assert look[7:14] == [Hide(), *_tmux(reveal), Sleep(600), Show()]
     assert look[14:21] == [Hide(), *_tmux(popup), Sleep(1000), Show()]
     # The popup stays through the narration and closes before the next typed key.
-    # Fill: 1000 audio + 500 buffer - 40 for typing "q"; the editor actions take no time.
-    assert look[21:] == [Sleep(1460), Hide(), Press("Enter", 1), Sleep(300), Show(), Type("q", 40)]
+    # Fill: 1000 audio + 500 buffer; the editor actions before the hold take no time.
+    assert look[21:] == [Sleep(1500), Hide(), Press("Enter", 1), Sleep(300), Show(), Type("q", 40)]
 
 
 def test_popup_closes_at_the_end_of_the_scene() -> None:
