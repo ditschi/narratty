@@ -663,7 +663,9 @@ def test_native_hidden_commands_are_announced(monkeypatch: pytest.MonkeyPatch) -
     guard_native_hidden(parse_spec(NATIVE_HIDDEN % "cd demo", Path("t.narratty.yaml")), said.append)
     assert len(said) == 1 and "hidden commands run on this machine" in said[0]
     said.clear()
-    guard_native_hidden(parse_spec("end_card: false\nscenes:\n  - id: a\n", Path("t.narratty.yaml")), said.append)
+    guard_native_hidden(
+        parse_spec("end_card: false\nscenes:\n  - id: a\n", Path("t.narratty.yaml")), said.append
+    )
     assert said == []
 
 
@@ -671,7 +673,9 @@ def test_native_hidden_commands_are_announced(monkeypatch: pytest.MonkeyPatch) -
     "command",
     ["git config --global user.name Demo", "echo x >> ~/.bashrc", "rm -rf $HOME/.cache/x", "cp a ${HOME}/b"],
 )
-def test_native_hidden_commands_that_change_home_need_yes(monkeypatch: pytest.MonkeyPatch, command: str) -> None:
+def test_native_hidden_commands_that_change_home_need_yes(
+    monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
     from narratty.build import guard_native_hidden
     from narratty.container import SandboxRequest
     from narratty.errors import UsageError

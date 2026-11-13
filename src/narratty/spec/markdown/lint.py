@@ -146,7 +146,7 @@ def _left_out(selected: list[Block], notes: dict[tuple[Path, int], list[str]]) -
         count = f"{len(left)} code block{'s' if len(left) != 1 else ''}"
         yield _warn(
             left[0],
-            f"{count} left out of the video ({where}); add narratty=\"show\" to show one as a slide, "
+            f'{count} left out of the video ({where}); add narratty="show" to show one as a slide, '
             "or a title to write it to that file (a skip comment silences this for one block)",
         )
 
@@ -157,7 +157,9 @@ def _background(selected: list[Block], notes: dict[tuple[Path, int], list[str]])
         whats = notes.get((block.file, block.line), [])
         if not (isinstance(block, Code) and any(", run" in what for what in whats)):
             continue
-        commands = console_commands(block.content) if block.lang == "console" else split_commands(block.content)
+        commands = (
+            console_commands(block.content) if block.lang == "console" else split_commands(block.content)
+        )
         for command in commands:
             text = command.text.strip()
             if BACKGROUND.search(text) and ">" not in text:
@@ -209,7 +211,9 @@ def _check_focus(comment: Comment, focus: str, diagram: Code) -> Iterator[Note]:
     kind, ids = targets
     if focus not in ids:
         what = "participant" if kind == "sequenceDiagram" else "node or subgraph"
-        labels = {match["label"]: match["id"] for match in _PARTICIPANT.finditer(diagram.content) if match["label"]}
+        labels = {
+            match["label"]: match["id"] for match in _PARTICIPANT.finditer(diagram.content) if match["label"]
+        }
         match = difflib.get_close_matches(focus, sorted(ids), n=1)
         hint = f" (did you mean {match[0]!r}?)" if match else ""
         if kind == "sequenceDiagram" and focus in labels:

@@ -135,7 +135,9 @@ def test_code_blocks_left_out_are_counted_once(tmp_path: Path) -> None:
     assert line == 3
     assert what.startswith("2 code blocks left out of the video (python at line 3, yaml at line 7)")
     assert 'narratty="show"' in what
-    shown = body.replace("```python", '```python {narratty="show"}').replace("```yaml", '```yaml {title="a.yaml"}')
+    shown = body.replace("```python", '```python {narratty="show"}').replace(
+        "```yaml", '```yaml {title="a.yaml"}'
+    )
     assert _warnings(tmp_path, shown) == []
 
 

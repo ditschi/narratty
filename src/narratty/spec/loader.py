@@ -77,7 +77,9 @@ def _hint(issues: list[Issue]) -> str | None:
     """How to fix ``issues``: quoting for YAML that does not parse, else the schema."""
     if issues and all("invalid YAML" in issue.message for issue in issues):
         return YAML_HINT
-    if issues and all(issue.file is not None and issue.file.suffix in (".md", ".markdown") for issue in issues):
+    if issues and all(
+        issue.file is not None and issue.file.suffix in (".md", ".markdown") for issue in issues
+    ):
         return None  # a Markdown doc: the message says what to write, the schema does not
     return SCHEMA_HINT
 

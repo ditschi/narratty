@@ -108,7 +108,9 @@ def _warn_nothing_ran(spec: Path, shown: int) -> None:
     from narratty.ui.console import err
 
     why = f"; {shown} no-run command{'s are' if shown != 1 else ' is'} only typed" if shown else ""
-    err.print(f"[yellow]warning:[/] no command ran, so none was checked{why}", highlight=False, soft_wrap=True)
+    err.print(
+        f"[yellow]warning:[/] no command ran, so none was checked{why}", highlight=False, soft_wrap=True
+    )
     for warning in markdown_warnings(parse_document(read_spec_text(spec), spec), spec):
         if "command" in warning.what:
             where = Issue("", warning.what, warning.line, None, warning.file)

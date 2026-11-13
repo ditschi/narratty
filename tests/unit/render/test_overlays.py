@@ -116,7 +116,9 @@ def test_a_title_card_stays_while_the_intro_is_spoken() -> None:
         f"  - {{id: run, narration: Run., actions: [{title.replace('Doc', 'Other')}, {{run: ls}}]}}\n"
         "  - {id: last, narration: Last.}\n"
     )
-    times = planned_times(build_script(spec, build_timeline(spec, {"intro": 9000, "run": 9000, "last": 1000})))
+    times = planned_times(
+        build_script(spec, build_timeline(spec, {"intro": 9000, "run": 9000, "last": 1000}))
+    )
     shown = [(item.start_ms, item.end_ms) for item in schedule(spec, times)]
     assert shown[0] == (times["intro"], times["run"]), "a narration-only scene keeps it to its end"
     assert shown[1] == (times["overlay:run:0"], times["overlay:run:0"] + 2500), "with commands it fades"
