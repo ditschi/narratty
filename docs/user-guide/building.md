@@ -257,6 +257,7 @@ wait for, and `plan` lists the scenes that use measurements.
   again to update them.
 - A command stopped with a control key (`C-c`) or still running at the end is not
   measured. A `wait` needs no measurement: it blocks until the output is there.
+- With job control off (`set +m`), commands are only measured on Linux.
 - `timing.measured_durations: false` plans with `run_hold_ms` only, e.g. for builds
   that must not depend on an earlier `check`.
 

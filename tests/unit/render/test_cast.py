@@ -288,6 +288,9 @@ def test_record_measures_how_long_each_command_ran(tmp_path: Path) -> None:
     assert took["sleep 5"] is None, "stopped with C-c, so not measured"
 
 
+@pytest.mark.skipif(
+    not Path("/proc/self/task").is_dir(), reason="finding commands without job control reads /proc (Linux)"
+)
 def test_record_measures_commands_without_job_control(tmp_path: Path) -> None:
     spec = parse_spec(
         "end_card: false\ntiming: {lead_in_ms: 0, tail_ms: 0, run_hold_ms: 1000}\n"
