@@ -514,7 +514,7 @@ def test_a_failed_pull_is_a_narratty_error(monkeypatch: pytest.MonkeyPatch) -> N
 def test_output_paths_are_shown_as_the_host_sees_them(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from narratty.container import HOST_OUTPUT_ENV, host_path
+    from narratty.paths import HOST_OUTPUT_ENV, host_path
 
     monkeypatch.setattr(container, "_which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(container, "_ensure_voice", lambda *args: None)

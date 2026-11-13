@@ -205,7 +205,7 @@ def check(spec: Spec, log: Path, *, default: ExpectExit = "success", output: Pat
         return
     found = problems(spec, entries, default)
     if found:
-        from narratty.container import host_path
+        from narratty.paths import host_path
 
         output = host_path(output) if output else None
         raise CommandError(
