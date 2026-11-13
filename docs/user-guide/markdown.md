@@ -660,8 +660,9 @@ $ pip install tally
 - `narratty check` runs the `instead` command and does not compare its output with
   the output the block shows, which belongs to the reader's command.
 - A `no-run` block runs nothing in its place: its command is typed and stays on
-  screen. To say so in the video, add an `overlay` comment, such as
-  `<!-- narratty: overlay not run in this video -->`.
+  screen, followed by a fresh prompt, so it can look as if it ran without output. To
+  say so in the video, add an `overlay` comment, such as
+  `<!-- narratty: overlay not run: in this video -->`, or say it in the text.
 
 ### Long output
 
