@@ -16,7 +16,7 @@
         <link rel="prev" href="../markdown/">
       
       
-        <link rel="next" href="../voices/">
+        <link rel="next" href="../dual-use/">
       
       
         
@@ -624,6 +624,8 @@
       
         
       
+        
+      
     
     
     
@@ -886,6 +888,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dual-use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs for reading and listening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1668,6 +1698,8 @@
       
         
       
+        
+      
     
     
     
@@ -1784,6 +1816,34 @@
     
   
     Design notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor-guide/dual-use-study/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dual-use study
   
 
     
@@ -2203,8 +2263,10 @@ selectable, and the cast is a few kilobytes.</p>
 <h2 id="how-sync-works">How sync works<a class="headerlink" href="#how-sync-works" title="Permanent link">&para;</a></h2>
 <p>Narration starts when its scene starts, so the voice talks while the command is
 typed. Set <code>narration_start: after_actions</code> on a scene to speak only after its
-actions. The pause that fills a scene goes where the scene has <code>hold: auto</code>, or
-after its actions otherwise.</p>
+actions. The pause that fills a scene goes after its actions; at a <code>hold: auto</code> the
+scene waits until the narration and <code>timing.narration_buffer_ms</code> are done, so what
+follows starts after the voice has finished (before 0.7 it only waited for what the
+actions after it did not fill).</p>
 <p>The recording notes where each scene really started, and for <code>after_actions</code> where
 its actions really ended. Each clip is placed there, so a command that takes longer
 than planned moves only its own scene's narration; later scenes stay in sync, and
@@ -2244,6 +2306,7 @@ wait for, and <code>plan</code> lists the scenes that use measurements.</p>
   again to update them.</li>
 <li>A command stopped with a control key (<code>C-c</code>) or still running at the end is not
   measured. A <code>wait</code> needs no measurement: it blocks until the output is there.</li>
+<li>With job control off (<code>set +m</code>), commands are only measured on Linux.</li>
 <li><code>timing.measured_durations: false</code> plans with <code>run_hold_ms</code> only, e.g. for builds
   that must not depend on an earlier <code>check</code>.</li>
 </ul>

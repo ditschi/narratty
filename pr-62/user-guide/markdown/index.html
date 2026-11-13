@@ -624,6 +624,8 @@
       
         
       
+        
+      
     
     
     
@@ -1088,6 +1090,34 @@
     
   
     Building a video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dual-use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs for reading and listening
   
 
     
@@ -1878,6 +1908,8 @@
       
         
       
+        
+      
     
     
     
@@ -1994,6 +2026,34 @@
     
   
     Design notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor-guide/dual-use-study/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dual-use study
   
 
     
@@ -2586,6 +2646,11 @@ the narration of the scene that runs it.</p>
 </tr>
 </tbody>
 </table>
+<p>Text after a slide (an image, diagram, code slide or table shown) or after a block
+with <code>say: after</code> belongs to it, up to the next block. The paragraph right before the
+next block introduces that block instead (since 0.7): it narrates the next command or
+slide when it ends with a colon, such as "Pipe it to head:", or when other paragraphs
+come before it. A single paragraph without a colon stays with the slide.</p>
 <p>Every command waits until the prompt is back, so the next one starts after it has
 finished. A command that fails stops the build, as in a YAML spec; mark the block
 <code>expect-failure</code> when that is the point (see <a href="#code-block-attributes">Code block attributes</a>).</p>
@@ -2978,7 +3043,7 @@ the slide title, and a <code>slide</code> comment before the block sets its titl
 </tr>
 <tr>
 <td><code>overlay</code></td>
-<td>Shows an <a href="../spec/#overlays">overlay</a> in the next scene; takes the same value as the action</td>
+<td>Shows an <a href="../spec/#overlays">overlay</a> in the next scene; takes the same value as the action, and text with a colon such as <code>not run: in this video</code> stays text (since 0.7)</td>
 </tr>
 <tr>
 <td><code>hidden</code></td>
@@ -3158,7 +3223,7 @@ when the value has spaces. Where both are given, the attribute wins.</p>
 <tr>
 <td><code>after</code></td>
 <td>Runs the commands, then speaks, in the same scene</td>
-<td>The text after the block, up to the next block, heading or <code>pause</code>; the text before it is spoken on its own first</td>
+<td>The text after the block, up to the next block's lead-in, heading or <code>pause</code>; the text before it is spoken on its own first</td>
 </tr>
 </tbody>
 </table>
@@ -3188,8 +3253,9 @@ before the first action and <code>after</code> is <code>narration_start: after_a
 <li><code>narratty check</code> runs the <code>instead</code> command and does not compare its output with
   the output the block shows, which belongs to the reader's command.</li>
 <li>A <code>no-run</code> block runs nothing in its place: its command is typed and stays on
-  screen. To say so in the video, add an <code>overlay</code> comment, such as
-  <code>&lt;!-- narratty: overlay not run in this video --&gt;</code>.</li>
+  screen, followed by a fresh prompt, so it can look as if it ran without output. To
+  say so in the video, add an <code>overlay</code> comment, such as
+  <code>&lt;!-- narratty: overlay not run: in this video --&gt;</code>, or say it in the text.</li>
 </ul>
 <h3 id="long-output">Long output<a class="headerlink" href="#long-output" title="Permanent link">&para;</a></h3>
 <p><code>lines: 10</code> shows the first ten lines of each command's output and ends it with
@@ -3238,6 +3304,7 @@ stands, so the text after it does not play over old output:</p>
 <p><code>clear_on: 2</code> on the <code>markdown</code> entry clears it where each heading of level 2 or
 higher starts a section. The screen is cleared when the next visible scene starts,
 together with its <a href="#heading-overlays">heading overlay</a>, also after a <code>hidden</code> block.
+Headings before the first visible scene, such as the doc's title, clear nothing.
 Clearing presses Ctrl+L, which runs no command, so exit codes are checked as before;
 <code>shell: sh</code> has no line editing and cannot clear this way.</p>
 <h2 id="placeholders">Placeholders<a class="headerlink" href="#placeholders" title="Permanent link">&para;</a></h2>
@@ -3408,7 +3475,7 @@ its section plays. Long breadcrumbs shorten their middle parts to <code>…</cod
 <td><code>center</code></td>
 <td><code>large</code></td>
 <td>yes</td>
-<td><code>2.5s</code></td>
+<td><code>2.5s</code>; while the doc's intro is spoken, until it ends (since 0.7)</td>
 </tr>
 <tr>
 <td><code>heading-2</code></td>
@@ -3447,7 +3514,9 @@ its section plays. Long breadcrumbs shorten their middle parts to <code>…</cod
 </tr>
 </tbody>
 </table>
-<p>Change them like any style in <a href="../spec/#overlays"><code>overlay_styles</code></a>.</p>
+<p>The title card stays while the text before the first block is spoken, so the intro
+does not play over an empty prompt; a <code>duration_ms</code> for <code>heading-1</code> in
+<code>overlay_styles</code> applies instead. Change them like any style in <a href="../spec/#overlays"><code>overlay_styles</code></a>.</p>
 <h2 id="snippets-and-mkdocs">Snippets and mkdocs<a class="headerlink" href="#snippets-and-mkdocs" title="Permanent link">&para;</a></h2>
 <p>The doc is read the way this repo's mkdocs config renders it: admonitions,
 collapsible blocks and content tabs (<code>pymdownx.tabbed</code>) as described on this page, and
@@ -3478,20 +3547,28 @@ the author meant:</p>
 <td>Label it <code>console</code>, or mark it <code>narratty="show"</code></td>
 </tr>
 <tr>
+<td>Code blocks in a language such as <code>python</code> or <code>yaml</code> are left out (one warning for all)</td>
+<td>Mark one <code>narratty="show"</code> to show it, give it a <code>title</code> to write it to that file, or <code>skip</code> it</td>
+</tr>
+<tr>
 <td>A table is left out</td>
 <td>A <code>table</code> or <code>slide</code> comment, or <code>skip</code> to leave it out on purpose</td>
 </tr>
 <tr>
-<td>Output shown looks like an error (<code>error:</code>, <code>Error</code>, <code>fatal:</code>, a Python traceback)</td>
+<td>Output shown looks like an error (<code>error:</code>, <code>Error: …</code>, <code>ERROR …</code>, <code>fatal:</code>, a Python traceback)</td>
 <td>Mark the block <code>expect-failure</code> if the command is meant to fail</td>
 </tr>
 <tr>
-<td>A <code>focus</code> ID is not in the diagram (flowcharts and sequence diagrams)</td>
-<td>Use an ID from the source; the warning suggests the closest</td>
+<td>A command ends in <code>&amp;</code> without redirecting its output</td>
+<td>Its late output lands in later commands; write <code>cmd &gt; server.log 2&gt;&amp;1 &amp;</code></td>
 </tr>
 <tr>
-<td>Narration says "above", "below", "click here" or "the following command"</td>
-<td>Say what is meant; listeners cannot see the page</td>
+<td>A <code>focus</code> ID is not in the diagram (flowcharts and sequence diagrams)</td>
+<td>Use an ID from the source; the warning suggests the closest, and a participant's id for its <code>as</code> label</td>
+</tr>
+<tr>
+<td>Narration says "above", "below", "click here" or "the following command" (each one)</td>
+<td>Reword it so it works when heard, such as "next" or "this command"; "below it" and "above the line" are fine</td>
 </tr>
 </tbody>
 </table>
@@ -3522,6 +3599,8 @@ prints:</p>
 <li><code>narratty="any-output"</code> on a block, or <code>check_output: false</code> on the entry, turns
   the comparison off.</li>
 <li>Builds check exit codes, but do not compare output.</li>
+<li>The summary counts <code>no-run</code> commands apart, as shown only. When no command ran,
+  <code>check</code> warns, since it checked nothing (since 0.7).</li>
 </ul>
 <p>The comparison is the <code>run</code> action's <a href="../spec/#expected-output"><code>expect_output</code></a>, which
 <code>narratty compile</code> shows. <code>narratty compile SPEC --fingerprint</code> tells when a
