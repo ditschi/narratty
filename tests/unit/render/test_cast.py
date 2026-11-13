@@ -94,6 +94,15 @@ def test_screen_text_strips_escapes_and_follows_clears() -> None:
     assert screen.text == "ac\nlast", "backspace erases, only the last rows count"
 
 
+def test_screen_text_follows_carriage_returns_and_line_erases() -> None:
+    """zsh's PROMPT_SP: `%`, spaces, carriage returns, then the prompt and erase-line."""
+    screen = ScreenText(rows=3)
+    screen.feed("hi\r\n\x1b[7m%\x1b[27m" + " " * 79 + "\r \r\r\x1b[J$ \x1b[K")
+    assert screen.lines == ["hi", "$ "]
+    screen.feed("\r 50%\r100%")
+    assert screen.lines[-1] == "100%", "a progress line is redrawn in place"
+
+
 def test_diff_shows_what_the_demo_changed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NARRATTY_DIFF_BASE", str(tmp_path / "base"))
     monkeypatch.setenv("PATH", f"{Path(shutil.which('git') or 'git').parent}:{os.defpath}")  # no delta or bat
@@ -215,3 +224,44 @@ def test_wait_for_the_prompt(tmp_path: Path) -> None:
     events, _, _ = _record(spec, tmp_path, audio_ms=10)
     output = "".join(str(e[2]) for e in events if e[1] == "o")
     assert "done" in output, "recorded until the command had finished"
+
+
+def _prompt_scene(command: str, extra: str = "") -> str:
+    return SPEC.split("  - id: greet")[0] + (
+        "  - id: greet\n    narration: Hello.\n    actions:\n"
+        f"      - type_command: {json.dumps(command)}\n      - enter\n{extra}"
+        "      - wait: {prompt: true, timeout_ms: 2000}\n"
+    )
+
+
+def test_wait_for_the_prompt_after_output_without_a_newline(tmp_path: Path) -> None:
+    """`printf '{"a":1}'` and `curl -s` leave the prompt right after their output."""
+    events, _, _ = _record(_prompt_scene("""printf '{"a":1}'"""), tmp_path, audio_ms=10)
+    assert '{"a":1}' in "".join(str(e[2]) for e in events if e[1] == "o")
+
+
+def test_wait_for_the_prompt_after_late_background_output(tmp_path: Path) -> None:
+    """A background job printing after the prompt leaves an empty cursor line."""
+    spec = _prompt_scene("(sleep 0.2; echo late) &", "      - hold: 600\n")
+    events, _, _ = _record(spec, tmp_path, audio_ms=10)
+    assert "late" in "".join(str(e[2]) for e in events if e[1] == "o")
+
+
+def test_prompt_timeouts_name_the_scene_and_no_pattern(tmp_path: Path) -> None:
+    with pytest.raises(RenderError) as raised:
+        _record(_prompt_scene("sleep 5").replace("timeout_ms: 2000", "timeout_ms: 300"), tmp_path)
+    assert "in scene 'greet'" in raised.value.message
+    assert raised.value.scene == "greet"
+    assert raised.value.hint is not None and "pattern" not in raised.value.hint
+
+
+@pytest.mark.parametrize("shell", ["bash", "zsh"])
+def test_check_sees_the_prompt_in_real_shells(shell: str, tmp_path: Path) -> None:
+    """zsh redraws its prompt after carriage returns (PROMPT_SP); the wait must follow."""
+    if not shutil.which(shell):
+        pytest.skip(f"{shell} is not installed")
+    spec = _prompt_scene("echo hi").replace("terminal: {", f"terminal: {{shell: {shell}, ")
+    events, _, _ = _record(spec, tmp_path, audio_ms=10)
+    assert "hi" in "".join(str(e[2]) for e in events if e[1] == "o")
+    spec = _prompt_scene("""printf '{"a":1}'""").replace("terminal: {", f"terminal: {{shell: {shell}, ")
+    _record(spec, tmp_path, audio_ms=10)

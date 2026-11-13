@@ -118,6 +118,7 @@ def build_command(
     from narratty.end_card import container_flag
     from narratty.environment import EnvironmentOptions
     from narratty.errors import UsageError
+    from narratty.paths import host_path
     from narratty.ui.console import err, out
 
     cast = output_format is OutputFormat.CAST
@@ -156,7 +157,9 @@ def build_command(
     if code is not None:
         raise typer.Exit(code)
 
-    with err.status("building") as status:
+    from narratty.spec.compile import located
+
+    with err.status("building") as status, located(spec):
 
         def log(message: str) -> None:
             status.update(message)
@@ -199,4 +202,4 @@ def build_command(
         f"planned {result.expected_ms / 1000:.2f}s ({result.drift:+.1%})",
         highlight=False,
     )
-    out.print(str(result.output), highlight=False, soft_wrap=True)
+    out.print(str(host_path(result.output)), highlight=False, soft_wrap=True)

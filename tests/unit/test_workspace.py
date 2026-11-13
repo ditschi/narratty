@@ -133,3 +133,29 @@ def test_export_artifacts(tmp_path: Path) -> None:
     copied = export_artifacts(work, ["dist", "*.html", "missing/*"], tmp_path / "out")
     assert sorted(p.relative_to(tmp_path / "out").as_posix() for p in copied) == ["dist", "report.html"]
     assert (tmp_path / "out" / "dist" / "sub" / "x.txt").exists()
+
+
+def test_snapshot_falls_back_to_copies_across_filesystems(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """git clone --local fails with EXDEV when the cache is on another filesystem."""
+    from narratty import workspace
+
+    real = workspace._git
+    calls: list[list[str]] = []
+
+    def fake(args: list[str], cwd: Path) -> subprocess.CompletedProcess[bytes]:
+        calls.append(list(args))
+        if args[0] == "clone" and "--no-hardlinks" not in args:
+            Path(args[-1], ".git").mkdir(parents=True)  # git leaves a partial clone behind
+            return subprocess.CompletedProcess(args, 128, b"", b"fatal: Invalid cross-device link")
+        return real(args, cwd)
+
+    monkeypatch.setattr(workspace, "_git", fake)
+    dest = tmp_path / "snap"
+    dest.mkdir()
+    path = snapshot(repo, dest)
+    assert (path / "app" / "main.py").read_text(encoding="utf-8") == "print('v1')\n"
+    clones = [call for call in calls if call[0] == "clone"]
+    assert len(clones) == 2
+    assert "--no-hardlinks" in clones[1]

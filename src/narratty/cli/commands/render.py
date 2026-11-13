@@ -62,6 +62,7 @@ def render_command(
     from narratty.container import delegate
     from narratty.end_card import container_flag
     from narratty.environment import EnvironmentOptions
+    from narratty.paths import host_path
     from narratty.ui.console import err
 
     video = (output or default_output(spec, ".silent.mp4")).resolve()
@@ -81,7 +82,10 @@ def render_command(
         raise typer.Exit(code)
     with err.status("synthesizing narration"):
         planned = plan(spec, offline=offline, end_card=end_card)
+    from narratty.spec.compile import located
+
     with (
+        located(spec),
         err.status("recording with VHS"),
         work_directory(None) as work,
         workspace_for(planned, request.workspace, request) as ws,
@@ -89,4 +93,4 @@ def render_command(
     ):
         render_silent(planned, video, work, ws.path, bridge, request=request)
         check_exits(planned, work, video, ignore_exit=ignore_exit)
-    err.print(f"[green]wrote[/] {video}", highlight=False, soft_wrap=True)
+    err.print(f"[green]wrote[/] {host_path(video)}", highlight=False, soft_wrap=True)

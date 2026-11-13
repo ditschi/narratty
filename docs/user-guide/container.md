@@ -1,7 +1,8 @@
 # Sandboxed runs
 
-With Docker or Podman installed, `build`, `render`, `tts`, `plan` and `tape` run
-inside the narratty image by default (`--runtime auto`). The image contains VHS,
+With Docker or Podman installed, `build`, `render`, `check`, `tts`, `plan` and `tape` run
+inside the narratty image by default (`--runtime auto`); `plan --draft` only estimates
+and runs on the host. The image contains VHS,
 ttyd, Chromium, Mermaid, Font Awesome icons, emoji and terminal fonts, ffmpeg, Kokoro,
 Piper, `git`, `tree`, the Docker CLI (with
 Compose and Buildx) and the [demo toolkit](toolkit.md)
@@ -27,6 +28,12 @@ narratty build demo.narratty.yaml --runtime podman
 narratty picks the tag matching its own version (`edge` for development builds).
 Override the image with `--image` or `NARRATTY_IMAGE`. Up to 0.1, Kokoro needed a
 separate `-kokoro` image; from 0.2 on, the one image has both engines.
+
+The image is about 2 GB. When it is not there yet, narratty says
+`pulling <image> (this can take a while)…` and shows the engine's progress on stderr
+before it starts the first container. A failed pull (`pull access denied`, no network)
+stops with the engine's message and what to do: point `NARRATTY_IMAGE` at an image
+you have, log in to the registry, or use `--runtime native`.
 
 Each image build gets its own ID (`/opt/narratty/image-id`), and narratty passes the
 local image ID to the container as `NARRATTY_IMAGE_ID`. The
