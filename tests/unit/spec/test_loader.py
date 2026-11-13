@@ -39,6 +39,17 @@ def test_unknown_key_has_position_and_suggestion() -> None:
     ]
 
 
+def test_a_key_known_elsewhere_does_not_suggest_itself() -> None:
+    from narratty import __version__
+
+    (issue,) = _issues("terminal:\n  title: x\nscenes:\n  - id: a\n")
+    assert "did you mean 'title'" not in issue
+    assert issue.endswith(
+        f"unknown key 'title' here; narratty {__version__} knows it only elsewhere, "
+        "so the spec may be meant for a newer narratty (or image)"
+    )
+
+
 def test_unknown_action_suggestion() -> None:
     text = "scenes:\n  - id: a\n    actions:\n      - type_comand: ls\n"
     assert _issues(text) == [

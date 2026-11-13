@@ -145,6 +145,11 @@ def _message(error: Any) -> str:
     if kind == "extra_forbidden":
         message = f"unknown key {key!r}"
         match = difflib.get_close_matches(str(key), _KNOWN_KEYS, n=1)
+        if match and match[0] == key:  # a key of another place, or of a newer narratty here
+            return (
+                f"{message} here; narratty {__version__} knows it only elsewhere, "
+                "so the spec may be meant for a newer narratty (or image)"
+            )
         return f"{message} (did you mean {match[0]!r}?)" if match else message
     if kind == "invalid_action":
         given = error.get("input")

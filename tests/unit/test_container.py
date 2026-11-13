@@ -11,6 +11,7 @@ from narratty import container
 from narratty.build import WorkspaceOptions
 from narratty.container import ContainerSpec, Mount, SandboxRequest, delegate, image_ref, run_argv
 from narratty.container import ensure_image as real_ensure_image
+from narratty.container import warn_image_version as real_warn_image_version
 from narratty.errors import MissingDependencyError
 from narratty.runtime import Runtime
 
@@ -138,6 +139,7 @@ def test_delegate_mounts_and_arguments(tmp_path: Path, monkeypatch: pytest.Monke
     assert tail[tail.index("--output") + 1] == "/out/demo.mp4"
     assert "--max-drift" in tail
     assert "NARRATTY_WORKSPACE=/work" in argv
+    assert f"NARRATTY_HOST_SPEC=/spec/demo.narratty.yaml={spec}" in argv, "errors name the host's spec"
     lexicon = next(a for a in argv if a.startswith("NARRATTY_LEXICON="))
     assert lexicon.startswith("NARRATTY_LEXICON=/cache/lexicons/"), "host lexicon levels travel via the cache"
 
@@ -529,3 +531,28 @@ def test_output_paths_are_shown_as_the_host_sees_them(
     assert host_path(Path("/work/x.mp4")) == Path("/work/x.mp4")
     monkeypatch.delenv(HOST_OUTPUT_ENV)
     assert host_path(Path("/out/x.mp4")) == Path("/out/x.mp4")
+
+
+def test_an_image_with_another_narratty_version_is_announced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import subprocess
+
+    monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(container, "_image_id", lambda engine, image: "sha256:old")
+    calls: list[list[str]] = []
+
+    def fake_run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, "narratty 0.6.1\n", "")
+
+    monkeypatch.setattr(container.subprocess, "run", fake_run)
+    real_warn_image_version(Runtime.DOCKER, "img:old", current="0.7.0")
+    assert calls == [["docker", "run", "--rm", "--network", "none", "img:old", "--version"]]
+    err = capsys.readouterr().err
+    assert "img:old has narratty 0.6.1, this is 0.7.0" in err
+    real_warn_image_version(Runtime.DOCKER, "img:old", current="0.7.0")
+    assert len(calls) == 1, "the image's version is remembered by its id"
+    assert "0.6.1" in capsys.readouterr().err
+    real_warn_image_version(Runtime.DOCKER, "img:old", current="0.6.1+local")
+    assert capsys.readouterr().err == "", "the same release, built elsewhere"

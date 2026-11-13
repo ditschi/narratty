@@ -35,6 +35,11 @@ before it starts the first container. A failed pull (`pull access denied`, no ne
 stops with the engine's message and what to do: point `NARRATTY_IMAGE` at an image
 you have, log in to the registry, or use `--runtime native`.
 
+Since 0.7 narratty warns when the image runs another narratty version than the
+command line (an `edge` image older than your development build, an override with
+`--image`): the image may not know keys the spec uses. It asks the image once per
+image ID. Errors from inside the container name your spec's path, not `/spec/…`.
+
 Each image build gets its own ID (`/opt/narratty/image-id`), and narratty passes the
 local image ID to the container as `NARRATTY_IMAGE_ID`. The
 [scene cache](building.md#scene-recording-cache) keys recordings to both, so footage
