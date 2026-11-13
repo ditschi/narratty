@@ -132,6 +132,12 @@ the narration of the scene that runs it.
 | Tables | Left out; with a `table` comment spoken row by row, with a `slide` comment shown (since 0.6), see [Tables](#tables) |
 | Images within text (badges), raw HTML | Left out |
 
+Text after a slide (an image, diagram, code slide or table shown) or after a block
+with `say: after` belongs to it, up to the next block. The paragraph right before the
+next block introduces that block instead (since 0.7): it narrates the next command or
+slide when it ends with a colon, such as "Pipe it to head:", or when other paragraphs
+come before it. A single paragraph without a colon stays with the slide.
+
 Every command waits until the prompt is back, so the next one starts after it has
 finished. A command that fails stops the build, as in a YAML spec; mark the block
 `expect-failure` when that is the point (see [Code block attributes](#code-block-attributes)).
@@ -617,7 +623,7 @@ $ pip install tally
 |---|---|---|
 | `during` (default) | Speaks while the commands are typed and run | The text before the block |
 | `before` | Speaks first, then types the commands | The text before the block |
-| `after` | Runs the commands, then speaks, in the same scene | The text after the block, up to the next block, heading or `pause`; the text before it is spoken on its own first |
+| `after` | Runs the commands, then speaks, in the same scene | The text after the block, up to the next block's lead-in, heading or `pause`; the text before it is spoken on its own first |
 
 `say: before` on the `markdown` entry makes it the default for every block; a `run`
 comment with `say: during` changes it back for one. In YAML, `before` is a `hold: auto`

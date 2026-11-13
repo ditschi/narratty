@@ -276,3 +276,47 @@ def test_section_filter_errors_name_one_form(tmp_path: Path) -> None:
         )
     (issue,) = info.value.issues
     assert issue.message == "unknown key 'exclud' (did you mean 'exclude'?)"
+
+
+# ── lead-ins of blocks ────────────────────────────────────────────────────────
+
+
+def test_text_after_a_say_after_block_stops_before_the_next_blocks_lead_in(tmp_path: Path) -> None:
+    body = (
+        '# Doc\n\n```console {narratty="say=after"}\n$ echo 1\n```\n\n'
+        "It counted.\n\nCommit the change.\n\n```console\n$ true\n```\n"
+    )
+    after, commit = _expand(_doc(tmp_path, body))
+    assert after["narration"] == "It counted."
+    assert commit["narration"] == "Commit the change."
+    assert commit["actions"][0] == {"run": "true"}
+
+
+def test_a_colon_lead_in_after_a_code_slide_narrates_the_next_command(tmp_path: Path) -> None:
+    body = (
+        '# Doc\n\nShow a response:\n\n```json {narratty="show"}\n{}\n```\n\n'
+        "Pipe to head:\n\n```console\n$ true\n```\n"
+    )
+    shown, command = _expand(_doc(tmp_path, body))
+    assert shown["narration"] == "Show a response:"
+    assert command["narration"] == "Pipe to head:"
+
+
+def test_a_code_slide_after_a_focus_step_gets_its_own_scene(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\n```mermaid\nflowchart LR\n  C --> P\n```\n\nThe client asks.\n\n"
+        "<!-- narratty: focus P -->\n\nThe proxy answers.\n\nThe response looks like this:\n\n"
+        '```json {narratty="show"}\n{}\n```\n\n!!! note\n    It is JSON.\n'
+    )
+    diagram, focus, shown = _expand(_doc(tmp_path, body))
+    assert focus["narration"] == "The proxy answers."
+    assert [slide.get("focus") for slide in _slides(focus)] == ["P"]
+    assert shown["narration"] == "The response looks like this: It is JSON."
+    assert _slides(shown) == [{"code": "{}", "lang": "json"}]
+
+
+def test_a_single_paragraph_after_a_slide_stays_with_it(tmp_path: Path) -> None:
+    body = '# Doc\n\n```json {narratty="show"}\n{}\n```\n\nThat is all.\n\n```console\n$ true\n```\n'
+    shown, command = _expand(_doc(tmp_path, body))
+    assert shown["narration"] == "That is all."
+    assert "narration" not in command

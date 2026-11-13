@@ -223,6 +223,7 @@ class _Builder:
         self.skip_rest: int | None = None  # a skip-rest comment leaves out blocks up to a heading this high
         self.lead: tuple[Block, str] | None = None  # a table's lead-in paragraph
         self.previous: Block | None = None  # the last block that is not a comment
+        self.after = 0  # spoken texts before the text after a slide or say: after block
 
     def add(self, blocks: list[Block]) -> None:
         self.skip_rest = None
@@ -230,7 +231,9 @@ class _Builder:
             if self.skipping_rest(block):
                 continue
             if self.waiting is not None and not self.continues(block):
+                lead = self.take_block_lead() if _takes_lead(block) else None
                 self.finish_waiting()
+                self.put_back(lead)
             self.check_pending(block)
             self.dispatch(block)
             if not isinstance(block, Comment):
@@ -278,6 +281,34 @@ class _Builder:
         if self.spoken:
             extra = {**extra, "narration_start": "after_actions"}
         self.scene(block, scene_id, actions, extra)
+
+    def take_block_lead(self) -> tuple[Block, str] | None:
+        """The paragraph right before the next block, out of the text after a slide or ``say: after``.
+
+        It introduces the next block when it ends with a colon or follows other text there.
+        """
+        if len(self.spoken) <= self.after or not self.unassigned:
+            return None
+        paragraph, text = self.unassigned[-1][0], self.spoken[-1]
+        if not (isinstance(paragraph, Text) and paragraph is self.previous):
+            return None
+        if not (text.endswith(":") or len(self.spoken) - self.after > 1):
+            return None
+        self.spoken.pop()
+        self.unassigned.pop()
+        return paragraph, text
+
+    def put_back(self, lead: tuple[Block, str] | None) -> None:
+        """A lead-in taken by ``take_block_lead``, now the start of the next scene's narration."""
+        if lead is not None:
+            self.spoken.append(lead[1])
+            self.unassigned.append((lead[0], "paragraph: spoken"))
+
+    def flush_view(self) -> None:
+        """End the slide or browser view on screen; the next block's lead-in stays for it."""
+        lead = self.take_block_lead()
+        self.flush()
+        self.put_back(lead)
 
     def check_pending(self, block: Block | None) -> None:
         """Comments waiting for the next block must get one they apply to (None: section end)."""
@@ -456,12 +487,16 @@ class _Builder:
         self.flush()  # the page appears with its paragraph, not with the narration before
         self.diagram = self.held = None
         self.pending_view(block, action, what)
+        self.after = 1  # the paragraph it appears with is its own, not a lead-in
 
     def pending_view(self, block: Block, action: dict[str, Any], what: str) -> None:
         """Show ``action`` with the text around it, up to the next block."""
+        if self.image:  # a slide after a slide: the first one keeps its text
+            self.flush_view()
         self.overlays.append((None, action))
         self.unassigned.append((block, what))
         self.image = True
+        self.after = len(self.spoken)
 
     def slide_comment(self, block: Comment, body: str) -> None:
         options = _options(body, block, "slide", SLIDE_KEYS)
@@ -567,6 +602,7 @@ class _Builder:
         self.overlays.append((None, {"slide": {**self.diagram, "focus": body}}))
         self.unassigned.append((block, f"focus comment: highlights Mermaid target {body!r}"))
         self.image = True
+        self.after = 0
 
     def pause(self, block: Comment, body: str) -> None:
         """End the scene here; with a duration, a silent scene follows.
@@ -692,7 +728,7 @@ class _Builder:
             self.show_code(block, options)
             return
         if self.image and (_shell(block) or block.title):
-            self.flush()  # an image never covers commands
+            self.flush_view()  # an image never covers commands
         if self.held is not None and self.held[1] == "next-block" and (_shell(block) or block.title):
             self.held = None
         if block.lang == "mermaid":
@@ -763,6 +799,7 @@ class _Builder:
         elif say == "after":
             self.diagram = None
             self.waiting = (block, scene_id, actions, extra)
+            self.after = len(self.spoken)
             how += ", the text after it is spoken once it has finished"
         else:
             self.diagram = None
@@ -981,6 +1018,16 @@ def _until(options: dict[str, Any], block: Block, what: str) -> dict[str, Any]:
         "then": {"ctrl_sequence": then} if then.startswith("C-") else {"key": then},
         "timeout": _duration(options.get("timeout", UNTIL_TIMEOUT_MS), block, f"{what}: timeout"),
     }
+
+
+def _takes_lead(block: Block) -> bool:
+    """Whether ``block`` is shown and takes the paragraph right before it as its lead-in."""
+    if isinstance(block, Comment):
+        match = _COMMENT.match(block.text)
+        return match is not None and match["kind"] in ("run", "table", "slide")
+    if isinstance(block, Code):
+        return "hidden" not in block.options and (_shell(block) or _visual(block) or bool(block.title))
+    return isinstance(block, (Image, Table))
 
 
 def _visual(block: Block) -> bool:
