@@ -24,30 +24,6 @@
     }
   },
   {
-    "version": "pr-59",
-    "title": "PR #59",
-    "aliases": [],
-    "properties": {
-      "hidden": true
-    }
-  },
-  {
-    "version": "pr-58",
-    "title": "PR #58",
-    "aliases": [],
-    "properties": {
-      "hidden": true
-    }
-  },
-  {
-    "version": "pr-52",
-    "title": "PR #52",
-    "aliases": [],
-    "properties": {
-      "hidden": true
-    }
-  },
-  {
     "version": "latest",
     "title": "latest",
     "aliases": []
