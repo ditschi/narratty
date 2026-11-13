@@ -1116,6 +1116,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#shown-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shown commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#overlays" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2183,6 +2194,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#shown-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shown commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#overlays" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2494,6 +2516,11 @@ EOF
 <td><code>pause_ms</code></td>
 <td><code>100</code></td>
 <td>Pause after each <code>key</code> and <code>ctrl_sequence</code> (since 0.3)</td>
+</tr>
+<tr>
+<td><code>measured_durations</code></td>
+<td><code>true</code></td>
+<td>Pause after each <code>run</code> as long as <a href="../building/#measured-command-durations"><code>narratty check</code></a> measured its command, when that is longer than <code>run_hold_ms</code> (since 0.7)</td>
 </tr>
 </tbody>
 </table>
@@ -2843,7 +2870,7 @@ turns the doc's paragraphs and code blocks into scenes where it stands; see
 <tr>
 <td><code>run</code></td>
 <td><code>- run: ls -la</code></td>
-<td>Types the command, presses Enter, pauses <code>timing.run_hold_ms</code>; may set its own <code>expect_exit</code> (since 0.3) and <code>expect_output</code> (since 0.6, see <a href="#expected-output">Expected output</a>)</td>
+<td>Types the command, presses Enter, pauses <code>timing.run_hold_ms</code>; may set its own <code>expect_exit</code> (since 0.3) and <code>expect_output</code> (since 0.6, see <a href="#expected-output">Expected output</a>), <code>show</code> and <code>max_lines</code> (since 0.7, see <a href="#shown-commands">Shown commands</a>)</td>
 </tr>
 <tr>
 <td><code>type_command</code></td>
@@ -2994,23 +3021,52 @@ commands without recording a video and compares; builds do not.</p>
 </ul>
 <p><code>narratty check</code> exits with code 8 and shows a diff for each command that printed
 something else.</p>
+<h3 id="shown-commands">Shown commands<a class="headerlink" href="#shown-commands" title="Permanent link">&para;</a></h3>
+<p>Since narratty 0.7.</p>
+<p>A <code>run</code> action can show something else than it runs. <code>show</code> is the command typed on
+screen; <code>run</code> runs in its place, and the video shows its output. <code>max_lines</code> cuts the
+output after that many lines and ends it with <code>... (N more lines)</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">install</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install the package.</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pip install -e .</span><span class="w">          </span><span class="c1"># what the video can run</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">      </span><span class="nt">show</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pip install tally</span><span class="w">        </span><span class="c1"># what readers type</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">prompt</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tests</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pytest -v</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">      </span><span class="nt">max_lines</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">prompt</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<ul>
+<li>The shown command is typed at the scene's speed. After Enter, unrecorded, the line
+  is replaced by <code>run</code> and redrawn as the shown command, so no <code>^C</code> or second command
+  appears. <code>run</code> must be a single line; <code>show</code> may have several.</li>
+<li>With <code>max_lines</code>, the command's output (stdout and stderr) goes through <code>awk</code>. The
+  command no longer writes to a terminal, so programs that colour their output only
+  for terminals print it plain. The exit code stays the command's (in bash, zsh and
+  fish).</li>
+<li>Exit codes are checked as usual, those of <code>run</code>.</li>
+<li><code>narratty check</code> runs <code>run</code> as it is: without <code>show</code>, and without cutting the
+  output, so <code>expect_output</code> is compared with all of it.</li>
+</ul>
 <h3 id="overlays">Overlays<a class="headerlink" href="#overlays" title="Permanent link">&para;</a></h3>
 <p>Since narratty 0.3.</p>
 <p>An overlay shows text over the video, in a rounded, semi-transparent box: a chapter
 title, the file the narration talks about. It stays readable while the terminal
 scrolls.</p>
 <p><img alt="Overlays: a chapter, a file name, a custom style and text without a box" src="../../assets/overlays.png" /></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">overlay_styles</span><span class="p">:</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">position</span><span class="p">:</span><span class="w"> </span><span class="nv">top</span><span class="p p-Indicator">,</span><span class="nt"> size</span><span class="p">:</span><span class="w"> </span><span class="nv">small</span><span class="p p-Indicator">,</span><span class="nt"> color</span><span class="p">:</span><span class="w"> </span><span class="s">"#f1fa8c"</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="nt">scenes</span><span class="p">:</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">setup</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Let's set up the project.</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">text</span><span class="p">:</span><span class="w"> </span><span class="s">"1</span><span class="nv"> </span><span class="s">·</span><span class="nv"> </span><span class="s">Setup"</span><span class="p p-Indicator">,</span><span class="nt"> style</span><span class="p">:</span><span class="w"> </span><span class="nv">chapter</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">make setup</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run the tests next</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">text</span><span class="p">:</span><span class="w"> </span><span class="nv">src/greet/__main__.py</span><span class="p p-Indicator">,</span><span class="nt"> style</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> duration_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">3000</span><span class="p p-Indicator">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">overlay_styles</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">position</span><span class="p">:</span><span class="w"> </span><span class="nv">top</span><span class="p p-Indicator">,</span><span class="nt"> size</span><span class="p">:</span><span class="w"> </span><span class="nv">small</span><span class="p p-Indicator">,</span><span class="nt"> color</span><span class="p">:</span><span class="w"> </span><span class="s">"#f1fa8c"</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">setup</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Let's set up the project.</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">text</span><span class="p">:</span><span class="w"> </span><span class="s">"1</span><span class="nv"> </span><span class="s">·</span><span class="nv"> </span><span class="s">Setup"</span><span class="p p-Indicator">,</span><span class="nt"> style</span><span class="p">:</span><span class="w"> </span><span class="nv">chapter</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">make setup</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run the tests next</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">overlay</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">text</span><span class="p">:</span><span class="w"> </span><span class="nv">src/greet/__main__.py</span><span class="p p-Indicator">,</span><span class="nt"> style</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> duration_ms</span><span class="p">:</span><span class="w"> </span><span class="nv">3000</span><span class="p p-Indicator">}</span>
 </code></pre></div>
 <p>The overlay appears where its action stands in the scene. It stays until the first
 of: <code>duration_ms</code> has passed, another overlay takes its position, or the scene ends.
@@ -3086,19 +3142,19 @@ they are drawn over the player and follow its clock.</p>
 example the rendered documentation next to its Markdown source. Chromium (which VHS
 records with) captures the page at the video's width; the view covers the terminal
 under an address bar until its scene ends.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">sandbox</span><span class="p">:</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">full</span><span class="w">       </span><span class="c1"># only for web pages; local files need no network</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nt">scenes</span><span class="p">:</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">page</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is the page you should see.</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">browser</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"https://github.com/ditschi/narratty"</span><span class="p p-Indicator">,</span><span class="nt"> scroll</span><span class="p">:</span><span class="w"> </span><span class="nv">1400</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The built documentation looks like this.</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mkdocs build</span>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="s">"Documentation</span><span class="nv"> </span><span class="s">built"</span>
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">browser</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="nv">site/index.html</span><span class="p p-Indicator">,</span><span class="nt"> scroll</span><span class="p">:</span><span class="w"> </span><span class="nv">auto</span><span class="p p-Indicator">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">sandbox</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">full</span><span class="w">       </span><span class="c1"># only for web pages; local files need no network</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">page</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is the page you should see.</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">browser</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"https://github.com/ditschi/narratty"</span><span class="p p-Indicator">,</span><span class="nt"> scroll</span><span class="p">:</span><span class="w"> </span><span class="nv">1400</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The built documentation looks like this.</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mkdocs build</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wait</span><span class="p">:</span><span class="w"> </span><span class="s">"Documentation</span><span class="nv"> </span><span class="s">built"</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">browser</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="nv">site/index.html</span><span class="p p-Indicator">,</span><span class="nt"> scroll</span><span class="p">:</span><span class="w"> </span><span class="nv">auto</span><span class="p p-Indicator">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3150,31 +3206,31 @@ without network; native renders read it from <code>NARRATTY_MERMAID_JS</code> or
 directory (<code>narratty doctor</code> shows where).</p>
 <h3 id="slides">Slides<a class="headerlink" href="#slides" title="Permanent link">&para;</a></h3>
 <p>Since narratty 0.6.</p>
-<p>A slide shows one table, Mermaid diagram, image or HTML page full screen over the
+<p>A slide shows one table, Mermaid diagram, image, HTML page or piece of code full screen over the
 terminal, with an optional title, while the narration talks about it. Like a browser
 view it stays until its scene ends or <code>duration_ms</code> has passed, and a later slide or
 browser view in the same scene replaces it.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">slides</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">theme</span><span class="p">:</span><span class="w"> </span><span class="nv">dark</span><span class="p p-Indicator">}</span><span class="w">              </span><span class="c1"># the default; light is the other look</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">scenes</span><span class="p">:</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">risks</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pinch points are the highest risk. Keep the guard closed.</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Safety risks</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">          </span><span class="nt">table</span><span class="p">:</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">            </span><span class="nt">header</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Hazard</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Severity</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Mitigation</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">            </span><span class="nt">rows</span><span class="p">:</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Pinch point</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">high</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Keep the guard closed</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Hot surface</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">medium</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Wear `gloves`</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">          </span><span class="nt">highlight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flow</span>
-<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A spec becomes a video in three steps.</span>
-<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="nv">Build flow</span><span class="p p-Indicator">,</span><span class="nt"> mermaid</span><span class="p">:</span><span class="w"> </span><span class="s">"flowchart</span><span class="nv"> </span><span class="s">LR\n</span><span class="nv">  </span><span class="s">spec</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">plan</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">build</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">mp4"</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">screenshot</span>
-<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is the result.</span>
-<a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="nv">docs/assets/overlays.png</span><span class="p p-Indicator">,</span><span class="nt"> theme</span><span class="p">:</span><span class="w"> </span><span class="nv">light</span><span class="p p-Indicator">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">slides</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">theme</span><span class="p">:</span><span class="w"> </span><span class="nv">dark</span><span class="p p-Indicator">}</span><span class="w">              </span><span class="c1"># the default; light is the other look</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">risks</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pinch points are the highest risk. Keep the guard closed.</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Safety risks</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">          </span><span class="nt">table</span><span class="p">:</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">            </span><span class="nt">header</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Hazard</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Severity</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Mitigation</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">            </span><span class="nt">rows</span><span class="p">:</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Pinch point</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">high</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Keep the guard closed</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Hot surface</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">medium</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Wear `gloves`</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">          </span><span class="nt">highlight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flow</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A spec becomes a video in three steps.</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="nv">Build flow</span><span class="p p-Indicator">,</span><span class="nt"> mermaid</span><span class="p">:</span><span class="w"> </span><span class="s">"flowchart</span><span class="nv"> </span><span class="s">LR\n</span><span class="nv">  </span><span class="s">spec</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">plan</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">build</span><span class="nv"> </span><span class="s">--&gt;</span><span class="nv"> </span><span class="s">mp4"</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">screenshot</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This is the result.</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="nv">docs/assets/overlays.png</span><span class="p p-Indicator">,</span><span class="nt"> theme</span><span class="p">:</span><span class="w"> </span><span class="nv">light</span><span class="p p-Indicator">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3205,6 +3261,14 @@ browser view in the same scene replaces it.</p>
 <td>An HTML file in the workspace or a <code>data:</code> URL, shown as it is (no title or theme)</td>
 </tr>
 <tr>
+<td><code>code</code></td>
+<td>Source code, syntax-highlighted and sized to fit (since 0.7)</td>
+</tr>
+<tr>
+<td><code>lang</code></td>
+<td>Language of <code>code</code>, such as <code>json</code> or <code>yaml</code> (any <a href="https://pygments.org/languages/">Pygments</a> name); unset or unknown: plain text (since 0.7)</td>
+</tr>
+<tr>
 <td><code>title</code></td>
 <td>Text above the content</td>
 </tr>
@@ -3233,28 +3297,29 @@ browser view in the same scene replaces it.</p>
 <p>For a diagram walkthrough, repeat the same source in successive scenes and change
 <code>focus</code>; each highlight stays in place for that scene's narration. <code>focus</code> is the ID
 from the diagram source (<code>api</code>, <code>api-gateway</code>, a subgraph's ID) and must name exactly
-one node or subgraph; otherwise the render fails and lists the IDs it found:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">scenes</span><span class="p">:</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Requests enter through the API.</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">          </span><span class="nt">mermaid</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">            </span><span class="no">flowchart LR</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">              </span><span class="no">api --&gt; db</span>
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">          </span><span class="nt">focus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api</span>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">database</span>
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The API stores each request in the database.</span>
-<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
-<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span>
-<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">          </span><span class="nt">mermaid</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">            </span><span class="no">flowchart LR</span>
-<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">              </span><span class="no">api --&gt; db</span>
-<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">          </span><span class="nt">focus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">db</span>
+one node or subgraph, or in a sequence diagram a participant (<code>C</code> for
+<code>participant C as Client</code>); otherwise the render fails and lists the IDs it found:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Requests enter through the API.</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">          </span><span class="nt">mermaid</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">            </span><span class="no">flowchart LR</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">              </span><span class="no">api --&gt; db</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">          </span><span class="nt">focus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">database</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">    </span><span class="nt">narration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The API stores each request in the database.</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">    </span><span class="nt">actions</span><span class="p">:</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slide</span><span class="p">:</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="w">          </span><span class="nt">mermaid</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="w">            </span><span class="no">flowchart LR</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">              </span><span class="no">api --&gt; db</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="w">          </span><span class="nt">focus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">db</span>
 </code></pre></div>
-<p>Exactly one of <code>table</code>, <code>mermaid</code>, <code>image</code> and <code>html</code> is given. A table taller than
+<p>Exactly one of <code>table</code>, <code>mermaid</code>, <code>image</code>, <code>html</code> and <code>code</code> is given. A table taller than
 the slide moves up so that the highlighted row stays in view. A Markdown doc makes
-slides from its tables, <code>mermaid</code> blocks and images; see
+slides from its tables, <code>mermaid</code> blocks, images and blocks marked <code>show</code>; see
 <a href="../markdown/#slides">Markdown input</a>.</p>
 <h2 id="spec-versions">Spec versions<a class="headerlink" href="#spec-versions" title="Permanent link">&para;</a></h2>
 <p><code>version</code> changes only when a spec that worked before would break: a key is removed,
@@ -3262,8 +3327,8 @@ renamed or changes its meaning. New keys, actions and short forms keep the versi
 so every <code>version: 1</code> spec keeps working with newer narratty releases.</p>
 <p>A spec that uses newer keys needs a newer narratty, which <code>version</code> does not tell.
 <code>requires.narratty</code> does:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">requires</span><span class="p">:</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">narratty</span><span class="p">:</span><span class="w"> </span><span class="s">"&gt;=0.3"</span><span class="w">   </span><span class="c1"># uses run, key: Enter and durations</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">requires</span><span class="p">:</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">narratty</span><span class="p">:</span><span class="w"> </span><span class="s">"&gt;=0.3"</span><span class="w">   </span><span class="c1"># uses run, key: Enter and durations</span>
 </code></pre></div>
 <p>narratty checks it before anything else in the spec, so an older narratty that knows
 the key reports the version to install instead of the keys it does not know. Releases
@@ -3290,7 +3355,7 @@ before 0.5 do not know <code>requires.narratty</code> and reject it as an unknow
 </tr>
 <tr>
 <td>0.7</td>
-<td><code>slide</code> <code>focus</code>; in Markdown input the <code>focus</code> comment, the <code>slide</code> comment's <code>focus</code> key and a list for the <code>table</code> comment's <code>say</code></td>
+<td><code>slide</code> <code>focus</code>, <code>code</code> and <code>lang</code>, <code>run</code> <code>show</code> and <code>max_lines</code>; in Markdown input the <code>focus</code>, <code>skip-rest</code>, <code>run</code> and <code>clear</code> comments, the <code>slide</code> comment's <code>focus</code> and <code>hold</code> keys, the <code>table</code> comment's <code>hold</code> and a list for its <code>say</code>, the <code>show</code> block option and the <code>say=…</code>, <code>instead=…</code>, <code>lines=…</code>, <code>until=…</code>, <code>then=…</code> and <code>timeout=…</code> block options, <code>sections</code> with <code>include</code> / <code>exclude</code>, and the entry keys <code>footnotes</code>, <code>admonitions</code>, <code>image_titles</code>, <code>lint</code>, <code>say</code> and <code>clear_on</code></td>
 </tr>
 </tbody>
 </table>

@@ -1860,6 +1860,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Sync model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-scene-alignment-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-scene alignment (0.7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2312,6 +2329,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-block-control-in-markdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-block control in Markdown
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2681,6 +2709,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Sync model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-scene-alignment-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-scene alignment (0.7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3133,6 +3178,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-block-control-in-markdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-block control in Markdown
+      
+    </span>
+  </a>
   
 </li>
       
@@ -3891,10 +3947,11 @@ action, <code>shell</code>, and a schema comment so editors autocomplete and val
 <li><strong>timeline</strong>: compute each scene's start and length (below).</li>
 <li><strong>tape</strong>: emit the byte-stable <code>.tape</code>.</li>
 <li><strong>render</strong>: <code>vhs scene.tape</code> → silent <code>video.mp4</code>.</li>
-<li><strong>mux</strong>: build the narration track by placing each clip at its scene start
-   (<code>adelay</code> + <code>amix</code>, or a generated silence-padded concat), then mux onto the video.</li>
-<li><strong>verify</strong>: ffprobe the result; fail if total video length differs from the
-   timeline by more than a threshold (default 250 ms), warn above 100 ms.</li>
+<li><strong>mux</strong>: build the narration track by placing each clip at its scene's recorded
+   start (see <a href="#sync-model">Sync model</a>), then mux onto the video.</li>
+<li><strong>verify</strong>: ffprobe the result; fail if a narration runs past its scene's
+   recorded end by more than <code>--max-drift</code> of its length (without markers: if the
+   total length differs from the timeline by more than <code>--max-drift</code>).</li>
 </ol>
 <hr />
 <h2 id="sync-model">Sync model<a class="headerlink" href="#sync-model" title="Permanent link">&para;</a></h2>
@@ -3913,11 +3970,46 @@ was only <code>audio</code> long, so narration drifted earlier with every scene.
   <code>Sleep (scene_ms - action_ms)</code> after the actions. <code>hold: auto</code> is where that fill
   goes if it appears mid-scene.</li>
 <li>Scenes without narration use their literal timing. <code>hidden</code> scenes contribute 0 ms.</li>
-<li>The mux places clip <em>n</em> at <code>lead_in_ms + Σ scene_ms[0..n-1]</code>, so an error in one
-  scene never accumulates into later scenes' audio.</li>
-<li>Known limit: a command whose output takes longer than its scene's fill (or a <code>wait</code>
-  that blocks long) stretches the video. <code>verify</code> catches this; the fix in the spec is
-  a larger <code>hold</code> or moving the slow command into a <code>hidden</code> scene.</li>
+<li>The plan puts clip <em>n</em> at <code>lead_in_ms + Σ scene_ms[0..n-1]</code>; the mux puts it at
+  its scene's <em>recorded</em> start (below), so an error in one scene never accumulates
+  into later scenes' audio.</li>
+</ul>
+<h3 id="per-scene-alignment-07">Per-scene alignment (0.7)<a class="headerlink" href="#per-scene-alignment-07" title="Permanent link">&para;</a></h3>
+<p>Rev 2 placed clips at planned times and stretched the whole track linearly to the
+measured video length. Real time differs per scene (a slow command, a long <code>wait</code>,
+VHS dropping frames under load), so <code>hold: auto</code> and <code>after_actions</code> drifted by 1–3 s
+and one slow scene shifted all later narration (found in the dual-use study).</p>
+<ul>
+<li><strong>Markers.</strong> Every MP4 build takes a VHS <code>Screenshot</code> at each visible scene start,
+  at each cue (overlays, browser views, slides, the end) and, for <code>after_actions</code>
+  scenes, at a <code>narration:&lt;scene&gt;</code> cue where the actions ended. VHS logs each command
+  as it runs it; <code>render/timelapse.py</code> turns the log times into video positions.
+  <code>narratty render</code> (silent only) skips them.</li>
+<li><strong>Mapping.</strong> <code>sync.narration_starts</code> puts each clip at its scene's recorded start
+  plus its planned offset, at its narration cue for <code>after_actions</code>, or at the
+  timelapse offset. Subtitles use the placed clips; overlays and views use their cue
+  positions (<code>overlays.schedule</code>, <code>browser.schedule</code>). Without markers,
+  <code>sync.linear_starts</code> stretches the plan as before. The cast build uses the same
+  mapping with its recorder's marks.</li>
+<li><strong>Drift.</strong> A longer scene only adds silence, so <code>verify</code> no longer compares total
+  lengths when markers exist. <code>sync.overruns</code> finds narrations that end after their
+  scene (the next scene's start, or the end cue), including clips the track pushed
+  back; one longer than <code>--max-drift</code> × its length fails with exit 6, naming the
+  scene and the cause (recorded shorter than planned / started late after the
+  previous narration). Smaller ones are warnings.</li>
+<li><strong>Dropped frames.</strong> VHS captures on a ticker and writes frames at a fixed rate, so
+  missed ticks make the video shorter than the logged recording time. Right after
+  recording, <code>sync.retime_factor</code> compares the two; above 3% and 500 ms the recording
+  is stretched back with <code>setpts</code> + <code>fps</code> (frames repeat) and a warning is logged.
+  Positions inside the video still assume the drops were spread evenly; matching
+  marker screenshots to frames would remove that assumption.</li>
+<li><strong>Measured commands.</strong> <code>narratty check</code> records how long each <code>run</code> ran (the cast
+  recorder polls the pty's foreground process group from Enter until the shell has
+  it back) in <code>&lt;cache&gt;/command-durations.json</code>, keyed by title, shell, layout, scene
+  and command (<code>durations.py</code>). <code>build_timeline</code> turns a measurement longer than
+  <code>run_hold_ms</code> into that <code>run</code>'s pause (<code>SceneTiming.run_holds</code>, plus 300 ms), so
+  <code>plan</code>, <code>tape</code> and <code>build</code> give slow commands their time. Opt out with
+  <code>timing.measured_durations: false</code>.</li>
 </ul>
 <hr />
 <h2 id="tts-pluggable-piper--kokoro">TTS: pluggable Piper + Kokoro<a class="headerlink" href="#tts-pluggable-piper--kokoro" title="Permanent link">&para;</a></h2>
@@ -4418,8 +4510,8 @@ expanded YAML); every page of this repo's <code>docs/</code> must expand to a va
 <ul>
 <li><code>#id</code> names the block for <code>overrides</code> and the scene id; mkdocs also makes it a link
   anchor.</li>
-<li><code>narratty="…"</code> takes space-separated options: <code>no-run</code> (typed, then cancelled with
-  Ctrl+C), <code>hidden</code>
+<li><code>narratty="…"</code> takes space-separated options: <code>no-run</code> (typed and left on screen; a
+  <code>run</code> with <code>show</code> runs <code>:</code> in its place, since 0.7), <code>hidden</code>
   (run, not shown) and <code>expect-failure</code>. Leaving a block out entirely is the <code>skip</code>
   comment.</li>
 <li>Comments hold what the video adds (narration, overlays, setup); attributes describe
@@ -4738,6 +4830,59 @@ Slides are made from the doc's own lines, so they always match it.</p>
   browser tests that need Chromium (skipped without <code>mermaid.min.js</code>).</li>
 <li><code>docs/user-guide/markdown.md</code> gets a section per feature, which the Markdown example
   video includes; <code>docs/user-guide/spec.md</code> documents the <code>slide</code> action.</li>
+</ul>
+<h2 id="per-block-control-in-markdown">Per-block control in Markdown<a class="headerlink" href="#per-block-control-in-markdown" title="Permanent link">&para;</a></h2>
+<p>Agreed on 2026-11-12 from the dual-use study and implemented for 0.7: authors control
+the order of voice and commands and the screen state per block without <code>overrides</code>,
+and without changing the commands readers copy. All additive (<code>version: 1</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Wish</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Explain, then run / run, then explain</td>
+<td><code>run {say: before\|during\|after}</code> comment or <code>say=…</code> attribute; the entry's <code>say</code> sets the default. <code>before</code> compiles to a leading <code>hold: auto</code>; <code>after</code> takes the text after the block, up to the next block, heading or <code>pause</code>, as narration with <code>narration_start: after_actions</code>, and the text before it gets a scene of its own</td>
+</tr>
+<tr>
+<td>Show one command, run another</td>
+<td><code>instead</code> key; the <code>run</code> action's new <code>show</code> (typed) next to <code>run</code> (runs). <code>check</code> runs <code>run</code> as it is and compares nothing: the doc's output belongs to the shown command</td>
+</tr>
+<tr>
+<td><code>no-run</code> without <code>^C</code></td>
+<td>A <code>run: ":"</code> with <code>show</code>; an overlay note stays opt-in (<code>overlay</code> comment)</td>
+</tr>
+<tr>
+<td>Long output</td>
+<td><code>lines</code> key; the <code>run</code> action's <code>max_lines</code> pipes through <code>awk</code> (exit code kept with <code>PIPESTATUS</code>/<code>pipestatus</code>). <code>check</code> drops it and compares all output with the doc's <code>...</code></td>
+</tr>
+<tr>
+<td>Servers, <code>tail -f</code></td>
+<td><code>until</code>/<code>then</code>/<code>timeout</code> keys: <code>wait: {screen}</code>, the key, then the usual prompt wait</td>
+</tr>
+<tr>
+<td>Clear the screen</td>
+<td><code>clear</code> comment and entry <code>clear_on</code>: Ctrl+L (readline's clear-screen) leads the next visible scene with its heading overlays; no command, so exit codes keep their scenes</td>
+</tr>
+<tr>
+<td>Slide stays for the text after it</td>
+<td><code>hold: next-block\|next-heading</code> on <code>slide</code> and <code>table</code> comments repeats the slide action in the following text and pause scenes</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>One <code>run</code> comment with keys, mirrored as <code>key=value</code> attribute words (shell-quoted),
+  rather than one comment kind per feature: one vocabulary in two places.</li>
+<li><code>show</code> and <code>max_lines</code> are recorded unseen: after the shown command is typed,
+  recording hides, Ctrl+U (Ctrl+C for a command with several lines) drops the line
+  and the real line is typed. It starts with
+  <code>sh -c 'printf "\033[%dA\r\033[J%b\n" …'</code>, which moves the cursor back over the rows
+  of the typed line (computed from <code>stty size</code> when it runs) and prints the shown
+  command, so the screen looks as if it had run. The exit log has the real line;
+  <code>exits.typed_commands</code> builds it with the spec's prompt and shell.</li>
 </ul>
 <h2 id="docs-first">Docs first<a class="headerlink" href="#docs-first" title="Permanent link">&para;</a></h2>
 <p>Agreed on 2026-11-12 and implemented for 0.6, after the docs started to present a

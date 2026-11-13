@@ -843,6 +843,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="How sync works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dropped-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dropped frames
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#measured-command-durations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Measured command durations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1964,6 +1992,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="How sync works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dropped-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dropped frames
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#measured-command-durations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Measured command durations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2016,11 +2072,11 @@
    and pauses to fill each scene.</li>
 <li><strong>Recording.</strong> VHS records a silent video, running the shell in
    <code>workspace.source</code>.</li>
-<li><strong>Mix.</strong> Every clip is placed at the start of its scene in one narration track,
-   which is muxed onto the video as AAC.</li>
-<li><strong>Check.</strong> The result must contain video and audio, and its length must be
-   within <code>--max-drift</code> of the plan (10% by default). Otherwise the build exits
-   with code 6.</li>
+<li><strong>Mix.</strong> Every clip is placed at the start of its scene as recorded, in one
+   narration track, which is muxed onto the video as AAC.</li>
+<li><strong>Check.</strong> The result must contain video and audio, and no narration may run
+   past the end of its scene by more than <code>--max-drift</code> of its length (10% by
+   default). Otherwise the build exits with code 6.</li>
 </ol>
 <p>After the last scene and the tail comes the end card (4 s by default; see
 <a href="../spec/#end_card"><code>end_card</code></a>); <code>--no-end-card</code> leaves it out.</p>
@@ -2188,7 +2244,7 @@ selectable, and the cast is a few kilobytes.</p>
 <tbody>
 <tr>
 <td><code>narratty plan SPEC</code></td>
-<td>Each scene's start, action time, narration length and the total</td>
+<td>Each scene's start, action time, narration length and the total, with <a href="#measured-command-durations">measured command durations</a></td>
 </tr>
 <tr>
 <td><code>narratty plan SPEC --draft</code></td>
@@ -2207,21 +2263,65 @@ selectable, and the cast is a few kilobytes.</p>
 <h2 id="how-sync-works">How sync works<a class="headerlink" href="#how-sync-works" title="Permanent link">&para;</a></h2>
 <p>Narration starts when its scene starts, so the voice talks while the command is
 typed. Set <code>narration_start: after_actions</code> on a scene to speak only after its
-actions. The pause that fills a scene goes where the scene has <code>hold: auto</code>, or
-after its actions otherwise.</p>
-<p>VHS's real timing differs from its nominal timing by a few percent, depending on the
-machine. narratty measures the recorded video and stretches the clip positions to
-match, so each clip still starts with its scene.</p>
+actions. The pause that fills a scene goes after its actions; at a <code>hold: auto</code> the
+scene waits until the narration and <code>timing.narration_buffer_ms</code> are done, so what
+follows starts after the voice has finished (before 0.7 it only waited for what the
+actions after it did not fill).</p>
+<p>The recording notes where each scene really started, and for <code>after_actions</code> where
+its actions really ended. Each clip is placed there, so a command that takes longer
+than planned moves only its own scene's narration; later scenes stay in sync, and
+<code>hold: auto</code> (explain, then run) and <code>after_actions</code> (run, then explain) keep their
+order. Subtitles follow the clips; overlays, headings, slides, table rows and Mermaid
+focus follow the moments they were recorded at.</p>
+<p>A longer scene only adds a pause, so the drift check does not compare the video's
+length with the plan. It fails when a narration runs into the next scene, and names
+the scene and why, e.g. <code>intro (0.80s over: scene recorded 0.80s shorter than
+planned)</code>. Shorter narration overruns are logged as warnings. The CLI still prints
+the video's and the plan's length.</p>
+<p>When VHS writes no scene markers, the planned clip positions are stretched to the
+video's length instead.</p>
+<h3 id="dropped-frames">Dropped frames<a class="headerlink" href="#dropped-frames" title="Permanent link">&para;</a></h3>
+<p>VHS takes frames in real time. On a busy machine it misses some, and the video comes
+out shorter than the time it recorded, so everything on screen happens too early.
+narratty compares the two right after recording. When the video is more than 3% (and
+at least half a second) short, it logs a warning naming both lengths and stretches
+the recording back to real time, repeating frames, before anything is placed on it.
+Typing then looks a little less smooth, but the narration matches. Build on a quieter
+machine for the best picture.</p>
+<h3 id="measured-command-durations">Measured command durations<a class="headerlink" href="#measured-command-durations" title="Permanent link">&para;</a></h3>
+<p>The plan counts a <code>run</code> as its typing plus <code>timing.run_hold_ms</code>; it cannot know that
+<code>make</code> takes twelve seconds. <a href="../commands/"><code>narratty check</code></a> runs every command anyway
+and notes how long each took, from Enter until the shell was back:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="gp">$ </span>narratty<span class="w"> </span>check<span class="w"> </span>demo.narratty.yaml
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">recorded how long 6 commands took; plans now wait for the slow ones: build (12.3s)</span>
+</code></pre></div>
+<p><code>plan</code>, <code>tape</code> and <code>build</code> then pause after such a command until it is done (plus
+0.3 s), so its output is on screen before the scene goes on, the narration's fill
+shrinks accordingly, and <code>plan</code> shows realistic lengths. They log the commands they
+wait for, and <code>plan</code> lists the scenes that use measurements.</p>
+<ul>
+<li>Measurements are kept in the <a href="../voices/#audio-cache">cache directory</a>
+  (<code>command-durations.json</code>), keyed by the spec's title, the shell, the layout, the
+  scene and the command. Changing a command forgets its measurement; run <code>check</code>
+  again to update them.</li>
+<li>A command stopped with a control key (<code>C-c</code>) or still running at the end is not
+  measured. A <code>wait</code> needs no measurement: it blocks until the output is there.</li>
+<li>With job control off (<code>set +m</code>), commands are only measured on Linux.</li>
+<li><code>timing.measured_durations: false</code> plans with <code>run_hold_ms</code> only, e.g. for builds
+  that must not depend on an earlier <code>check</code>.</li>
+</ul>
 <h2 id="things-to-know">Things to know<a class="headerlink" href="#things-to-know" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><code>wait</code> matches the whole screen</strong>, including the command you just typed. Wait for
   text that only the command's output contains, e.g. <code>wait: {screen: "Build
   succeeded"}</code> rather than a word that also appears in the command.</li>
-<li><strong>Slow commands</strong> make the video longer than planned. Give the scene a larger
-  <code>hold</code>, or move the slow part into a hidden scene. The drift check reports how far
-  off the video is.</li>
+<li><strong>Slow commands</strong> make their scene longer than planned, but only that scene. Run
+  <code>narratty check</code> first, so the plan <a href="#measured-command-durations">waits for them</a>, or
+  move the slow part into a hidden scene.</li>
 <li><strong>A video shorter than planned</strong> means VHS dropped frames, usually because the
-  machine was busy; the error shows the load average. Build again when it is idle.</li>
+  machine was busy. narratty stretches the recording back to real time and warns; if
+  the drift check still fails, the error shows the load average. Build again when the
+  machine is idle.</li>
 <li><strong>Hidden scenes</strong> run without being recorded and clear the screen afterwards, which
   makes them good for setup such as <code>cd</code>, exporting variables or warming caches.</li>
 <li><strong>The workspace</strong> is a throwaway snapshot by default, so demos can build and write

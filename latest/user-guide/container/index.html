@@ -2012,6 +2012,10 @@ separate <code>-kokoro</code> image; from 0.2 on, the one image has both engines
 before it starts the first container. A failed pull (<code>pull access denied</code>, no network)
 stops with the engine's message and what to do: point <code>NARRATTY_IMAGE</code> at an image
 you have, log in to the registry, or use <code>--runtime native</code>.</p>
+<p>Since 0.7 narratty warns when the image runs another narratty version than the
+command line (an <code>edge</code> image older than your development build, an override with
+<code>--image</code>): the image may not know keys the spec uses. It asks the image once per
+image ID. Errors from inside the container name your spec's path, not <code>/spec/…</code>.</p>
 <p>Each image build gets its own ID (<code>/opt/narratty/image-id</code>), and narratty passes the
 local image ID to the container as <code>NARRATTY_IMAGE_ID</code>. The
 <a href="../building/#scene-recording-cache">scene cache</a> keys recordings to both, so footage
@@ -2088,6 +2092,8 @@ overrides it for one run.</p>
 </tbody>
 </table>
 <p><code>--keep-workspace</code> keeps the snapshot (under the cache directory) for inspection.
+A build stopped with Ctrl+C or <code>kill</code> (SIGTERM) removes its container and snapshot
+(since 0.7).
 <code>workspace.include_uncommitted: false</code> snapshots exactly <code>HEAD</code>.</p>
 <p>Files the demo produces can be copied out with <code>workspace.artifacts</code>, a list of globs
 relative to the workspace. They land next to the video in <code>&lt;name&gt;.artifacts/</code>.</p>
@@ -2159,7 +2165,14 @@ in CI.</p>
 <p>A spec that needs more than the policy allows fails with a message naming what is
 over the limit.</p>
 <p>In native mode none of this can be enforced: the demo runs with your own network and
-environment, and narratty says so. <code>sandbox.env</code> is still applied.</p>
+environment, and narratty says so. <code>sandbox.env</code> is still applied.
+<code>env_passthrough</code> is not needed there either, since the demo sees your whole
+environment, so native runs ask for no approval.</p>
+<p>Hidden commands run natively on your machine too, with your own <code>HOME</code>, and narratty
+says so once. Since 0.7 a hidden command that points at your home directory
+(<code>git config --global</code>, <code>~/…</code>, <code>$HOME</code>) stops a native <code>check</code> or <code>build</code> before
+anything runs, unless you pass <code>--yes</code>; in the container it changes only the
+container's throwaway home.</p>
 
 
 

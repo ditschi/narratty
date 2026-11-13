@@ -1840,6 +1840,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#round-2-07-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Round 2 (0.7 features)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2033,6 +2044,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#round-2-07-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Round 2 (0.7 features)
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2299,6 +2321,59 @@ in the doc as readers would type them.</p>
 <li><strong>Faster loop</strong>: allow the scene cache with slides and overlays; announce image pulls
   with size; put scene id and Markdown line in every runtime error.</li>
 </ul>
+<h2 id="round-2-07-features">Round 2 (0.7 features)<a class="headerlink" href="#round-2-07-features" title="Permanent link">&para;</a></h2>
+<p>The same four authors rebuilt their docs with the features from the roadmap above.</p>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Round 1</th>
+<th>Round 2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Retrofit of the CONTRIBUTING guide</td>
+<td>about 90 min, several fix-up builds</td>
+<td>19 min, first build acceptable</td>
+</tr>
+<tr>
+<td>Hidden setup commands (tutorial)</td>
+<td>5</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Reader commands changed for the video (runbook)</td>
+<td>3</td>
+<td>0</td>
+</tr>
+<tr>
+<td>YAML <code>overrides</code> for timing (runbook)</td>
+<td>3</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Video-only comments, like for like (architecture)</td>
+<td>16, two duplicating text</td>
+<td>9, none duplicating text</td>
+</tr>
+<tr>
+<td>Narration offset for <code>say: after</code> / <code>during</code></td>
+<td>drifted 1–3 s</td>
+<td>constant 0.7–0.8 s over 110 s under load</td>
+</tr>
+</tbody>
+</table>
+<p>Bugs found in round 2 and fixed before release: lead-ins swallowed by the text after a
+<code>say: after</code> block, a <code>show</code> block or a slide; <code>say: before</code> not waiting for the whole
+narration; hidden command text in the durations cache; hidden commands touching the real
+<code>$HOME</code> under <code>--runtime native</code> (now refused for <code>--global</code>, <code>~</code> and <code>$HOME</code> unless
+<code>--yes</code>); <code>check</code> counting <code>no-run</code> commands as run; inline footnotes placed at the end
+of the paragraph; <code>set +m</code> breaking duration measurement; containers left running after
+an interrupted build; plus lint false positives and YAML-only wording in Markdown hints.</p>
+<p>Still open: time spent in <code>until</code> waits is not part of the plan; job-control lines
+(<code>[1] 161</code>) show on screen; a <code>no-run</code> command is followed by a fresh prompt; builds take
+3–6 minutes, and the scene cache does not apply to docs with slides.</p>
 
 
 

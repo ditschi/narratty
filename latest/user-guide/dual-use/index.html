@@ -831,10 +831,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#make-every-block-do-what-it-shows" class="md-nav__link">
+  <a href="#keep-the-readers-commands-as-readers-type-them" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Make every block do what it shows
+        Keep the reader's commands as readers type them
       
     </span>
   </a>
@@ -1952,10 +1952,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#make-every-block-do-what-it-shows" class="md-nav__link">
+  <a href="#keep-the-readers-commands-as-readers-type-them" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Make every block do what it shows
+        Keep the reader's commands as readers type them
       
     </span>
   </a>
@@ -2063,87 +2063,84 @@
 and someone <strong>watching</strong> the video. The goal is one source of truth: plain Markdown that
 reads well, with as few <code>&lt;!-- narratty: … --&gt;</code> comments as possible. Every comment is a
 "parallel world" that readers don't see and that can drift from the text around it.</p>
-<p>This page collects the rules that keep the two in step. They come from authors who
-wrote tutorials, architecture overviews and runbooks with narratty and retrofitted
-existing guides to it.</p>
+<p>This page collects the rules that keep the two in step. They come from two rounds of a
+usability study in which authors wrote tutorials, architecture overviews and runbooks
+with narratty and retrofitted existing guides to it.</p>
 <h2 id="the-scene-model-in-one-paragraph">The scene model in one paragraph<a class="headerlink" href="#the-scene-model-in-one-paragraph" title="Permanent link">&para;</a></h2>
-<p>The doc is read top to bottom. Paragraphs collect until a code block runs, and then
-they become the narration of the scene that runs it. <strong>Narration and typing start
-together</strong>: by default the voice talks <em>while</em> the command is typed and runs. A
+<p>The doc is read top to bottom. The paragraph directly before a block is its lead-in and
+is spoken while that block runs; by default <strong>narration and typing start together</strong>. A
 paragraph after a block is spoken in the next scene, while the output is still on
-screen. Everything else follows from this. See <a href="../markdown/#how-a-doc-becomes-scenes">How a doc becomes scenes</a>.</p>
+screen. A <code>run</code> comment before a block changes the order per block, see
+<a href="#choosing-who-goes-first-voice-or-command">Choosing who goes first</a>. See also
+<a href="../markdown/#how-a-doc-becomes-scenes">How a doc becomes scenes</a>.</p>
 <h2 id="rules">Rules<a class="headerlink" href="#rules" title="Permanent link">&para;</a></h2>
 <h3 id="write-for-the-ear-first-then-check-the-page">Write for the ear first, then check the page<a class="headerlink" href="#write-for-the-ear-first-then-check-the-page" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>Keep the paragraph before a command short.</strong> One or two sentences that say <em>what</em>
-   the command does. It is spoken while the command is typed, so a long intro talks
-   over output that is already done.</li>
+<li><strong>Keep the lead-in short and end it with a colon.</strong> One or two sentences that say
+   <em>what</em> the command does: "Check that it works:". The colon also tells narratty the
+   paragraph belongs to the next block or slide, and listeners that something follows.</li>
 <li><strong>Explain output after the block.</strong> A paragraph after a block is spoken while the
    output is on screen. That is the natural "run, then explain".</li>
-<li><strong>End a lead-in with a colon.</strong> "Check that it works:" reads well on the page and
-   tells the listener a command follows.</li>
-<li><strong>Avoid spatial and UI words.</strong> "Above", "below", "the command below", "click here"
-   and "press Ctrl+C" make no sense when spoken. Write "next", "this command" or
-   "the output shows" instead.</li>
-<li><strong>Say what kind of callout it is.</strong> Admonition titles are not spoken. Start a
-   warning with "Be careful:" or "Note that" in the text itself, so both audiences hear
-   it.</li>
-<li><strong>Don't use footnotes, task lists (<code>- [ ]</code>) or inline images in narrated text.</strong>
-   They are read literally or dropped. Use a plain sentence or a plain list.</li>
+<li><strong>Avoid spatial and UI words.</strong> "Above", "below", "the command below" and "click here"
+   make no sense when spoken; <code>narratty validate</code> flags them. Reword ("next", "this
+   command", "the output shows") rather than adding a <code>skip</code> + <code>say</code> pair.</li>
+<li><strong>Let callouts speak for themselves.</strong> Warning, caution, danger and important
+   admonitions start with their type and title ("Warning: Cache keys. …"). Note and tip
+   are read like text. Change it per type with the entry key <code>admonitions</code>.</li>
+<li><strong>Footnotes and task lists are fine.</strong> Markers and checkboxes are not spoken;
+   footnotes are skipped, or spoken after their sentence with <code>footnotes: inline</code>.</li>
 <li><strong>Spell out what TTS gets wrong in the lexicon, not in the text.</strong> Run
    <code>narratty lexicon check</code> and add terms such as <code>JWT</code> or <code>config.yaml</code> to
    <code>tts.lexicon</code> in the <code>spec</code> comment. The text stays correct for readers.</li>
 </ol>
-<h3 id="make-every-block-do-what-it-shows">Make every block do what it shows<a class="headerlink" href="#make-every-block-do-what-it-shows" title="Permanent link">&para;</a></h3>
+<h3 id="keep-the-readers-commands-as-readers-type-them">Keep the reader's commands as readers type them<a class="headerlink" href="#keep-the-readers-commands-as-readers-type-them" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>Label every shell fence.</strong> Use <code>console</code> with <code>$</code> prompts and the real output.
-   Unlabelled fences and other languages without a <code>title</code> are <strong>left out silently</strong>.
-   Run <code>narratty plan --sources</code> and look for "left out".</li>
-<li><strong>Write commands that end on their own.</strong> <code>tail -f</code>, a foreground server or a
-   prompt that waits for input never return, and the build times out. Pipe them through
-   something that stops (<code>| sed '/ready/q'</code>, <code>| head -n 20</code>), or start servers in the
-   background with their output redirected (<code>app &gt; app.log 2&gt;&amp;1 &amp;</code>).</li>
-<li><strong>Shorten long output in the command, not only in the doc.</strong> <code>...</code> in a console
-    block makes <code>narratty check</code> accept the rest, but the video still shows the full
-    output. <code>| head -n 5</code> keeps the screen and the page consistent.</li>
+<li><strong>Label every shell fence <code>console</code>,</strong> with <code>$</code> prompts and the real output. Volatile
+   parts become <code>...</code>, also within a line (<code>Python 3...</code>).</li>
+<li><strong>Never rewrite a command for the video.</strong> Use a <code>run</code> comment instead:</li>
+<li><code>until: "listening on"</code> for <code>tail -f</code> and servers: wait for the text, then Ctrl+C;</li>
+<li><code>lines: 10</code> to shorten long output on screen (<code>check</code> still compares the full output);</li>
+<li><code>instead: "pip install -e ."</code> when the reader's command can't run in the demo
+     (offline install, a clone of their fork).</li>
 <li><strong>Make expected failures fail for real</strong> and mark them <code>expect-failure</code>. <code>check</code>
-    verifies both the exit code and the output, so a "failing" example that actually
-    succeeds is caught.</li>
-<li><strong>Print a trailing newline.</strong> Output without one (<code>curl -s</code> on a JSON API) leaves
-    the prompt on the same line and can make the build time out. Use <code>curl -s -w '\n'</code>.</li>
-<li><strong>Write placeholders as environment variables</strong> (<code>$TOKEN</code>, not <code>&lt;token&gt;</code>) and pass
-    secrets with <code>sandbox.env_passthrough</code>. Never put a secret in a <code>hidden</code> comment:
-    its text ends up in work and cache files.</li>
+   verifies both the exit code and the output.</li>
+<li><strong>Redirect the output of background jobs</strong> (<code>app &gt; app.log 2&gt;&amp;1 &amp;</code>). Output that
+    arrives after the prompt can make a build time out; <code>validate</code> warns about a bare <code>&amp;</code>.</li>
+<li><strong>Write placeholders as environment variables</strong> (<code>$TOKEN</code>, not <code>&lt;token&gt;</code>). Put
+    values in <code>sandbox.env</code> or <code>sandbox.env_passthrough</code>, never in a <code>hidden</code> block.</li>
+<li><strong>Use <code>no-run</code> for host-only commands</strong> (<code>sudo</code>, editors, <code>open</code>). The command stays
+    on screen without being run; say in the text that it is shown, or add an <code>overlay</code>.</li>
 </ol>
 <h3 id="keep-the-parallel-world-small">Keep the parallel world small<a class="headerlink" href="#keep-the-parallel-world-small" title="Permanent link">&para;</a></h3>
 <ol>
 <li><strong>Prefer a Markdown construct over a comment.</strong> A table with a <code>table</code> comment, a
-    diagram with <code>focus</code> comments and a heading for each step all read well on the
-    page. A <code>say</code> that replaces a paragraph does not.</li>
-<li><strong>Put video-only setup in one place.</strong> A single <code>hidden</code> block at the top of the
-    first section (PATH, git identity, demo data) is easier to keep right than many
-    small ones. Better still, describe the toolchain with <code>environment</code> in the <code>spec</code>
-    comment.</li>
-<li><strong>Give a block an id before you override it.</strong> <code>{#install}</code> survives edits around
-    it, scene numbers don't. Keep timing overrides in the <code>spec</code> comment at the top so
-    a single-file doc stays single-file.</li>
-<li><strong>Use <code>skip</code> + <code>say</code> only for steps the demo environment already did</strong> (cloning,
-    installing system packages), and keep the <code>say</code> to one sentence.</li>
-<li><strong>Use <code>no-run</code> for commands viewers should see but the video must not run</strong>
-    (<code>sudo</code>, editors, <code>open</code>). Today the line ends with a visible <code>^C</code>, so say in the
-    text that the step is shown, not run.</li>
+    diagram with <code>focus</code> comments and a heading per step read well on the page. A <code>say</code>
+    that replaces a paragraph does not.</li>
+<li><strong>Show snippets that aren't project files with <code>narratty="show"</code>.</strong> A JSON response or
+    a config excerpt becomes a highlighted code slide; don't invent a <code>title</code> for it.</li>
+<li><strong>Let slides stay for their conclusion</strong> with <code>hold: next-block</code> or
+    <code>hold: next-heading</code> on the <code>slide</code> or <code>table</code> comment.</li>
+<li><strong>Clear the screen with <code>clear_on: 2</code></strong> in the <code>spec</code> comment instead of hidden
+    <code>clear</code> commands.</li>
+<li><strong>Keep setup out of the doc.</strong> Toolchains go into <code>environment</code>, variables and git
+    identity into <code>sandbox.env</code>. If a <code>hidden</code> block is unavoidable, keep it to one at the
+    top of the first section, and never let it touch <code>$HOME</code> or use <code>--global</code>: under
+    <code>--runtime native</code> it runs on your machine.</li>
+<li><strong>Pick sections, don't skip paragraphs.</strong> <code>sections: {exclude: [troubleshooting]}</code>
+    keeps the intro; <code>&lt;!-- narratty: skip-rest --&gt;</code> leaves out the rest of a section.</li>
+<li><strong>Remove old workarounds when you upgrade.</strong> A <code>say Warning!</code> or a footnote
+    <code>skip</code> + <code>say</code> from before 0.7 now doubles up with the new defaults.</li>
 </ol>
 <h3 id="check-before-you-build">Check before you build<a class="headerlink" href="#check-before-you-build" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>Run <code>narratty check</code> after every edit.</strong> It takes seconds, runs the commands
-    as the video would and finds doc bugs, not just video bugs. "0 commands ran" means
-    nothing is wired up.</li>
-<li><strong>Run <code>narratty plan --sources</code></strong> to see what each Markdown element became, and
-    what was left out.</li>
-<li><strong>Look at the video at section changes.</strong> Stale output and overlay collisions only
-    show there. Extract frames with <code>ffmpeg -ss &lt;t&gt; -i out.mp4 -frames:v 1 f.png</code>.</li>
-<li><strong>Build on an idle machine.</strong> Under heavy load VHS drops frames, the video comes out
-    shorter than planned and the drift check fails.</li>
+<li><strong>Run <code>narratty validate</code>, then <code>narratty check</code>, after every edit.</strong> Treat each
+    warning as a to-do item. <code>check</code> runs the commands as the video would and reports
+    "N commands ran, M shown only"; nothing ran means nothing is wired up.</li>
+<li><strong>Run <code>narratty plan --sources</code></strong> to see what each Markdown element became and why
+    something was left out. Run <code>check</code> first: <code>plan</code> then uses the measured command
+    durations.</li>
+<li><strong>Look at the video at section changes</strong> and after slides. Extract frames with
+    <code>ffmpeg -ss &lt;t&gt; -i out.mp4 -frames:v 1 f.png</code>, and read the <code>.srt</code>.</li>
 </ol>
 <h2 id="what-each-element-becomes">What each element becomes<a class="headerlink" href="#what-each-element-becomes" title="Permanent link">&para;</a></h2>
 <table>
@@ -2159,13 +2156,13 @@ screen. Everything else follows from this. See <a href="../markdown/#how-a-doc-b
 <tr>
 <td>Heading</td>
 <td>Structure</td>
-<td>Chapter overlay (<code>heading_overlays</code>)</td>
+<td>Chapter overlay (<code>heading_overlays</code>); the H1 card stays during the intro</td>
 <td>One heading per step; it also scopes <code>sections</code></td>
 </tr>
 <tr>
 <td>Paragraph</td>
 <td>Text</td>
-<td>Narration of the next block's scene</td>
+<td>Lead-in of the next block, or the scene after a block</td>
 <td>Short before a block, explanations after it</td>
 </tr>
 <tr>
@@ -2178,7 +2175,7 @@ screen. Everything else follows from this. See <a href="../markdown/#how-a-doc-b
 <td><code>bash</code> block</td>
 <td>Script</td>
 <td>Each command runs; output not compared</td>
-<td>Use for scripts readers copy as a whole</td>
+<td>Scripts readers copy as a whole</td>
 </tr>
 <tr>
 <td>Code with <code>title</code></td>
@@ -2187,10 +2184,16 @@ screen. Everything else follows from this. See <a href="../markdown/#how-a-doc-b
 <td>Config files the demo needs</td>
 </tr>
 <tr>
-<td>Code without <code>title</code></td>
+<td>Code with <code>narratty="show"</code></td>
 <td>Listing</td>
-<td>Left out</td>
-<td>Add a <code>title</code> if the video should show it</td>
+<td>Highlighted code slide</td>
+<td>Responses, excerpts, examples</td>
+</tr>
+<tr>
+<td>Code without either</td>
+<td>Listing</td>
+<td>Left out (<code>validate</code> warns)</td>
+<td>Add <code>show</code> or a <code>title</code></td>
 </tr>
 <tr>
 <td>Table</td>
@@ -2201,20 +2204,20 @@ screen. Everything else follows from this. See <a href="../markdown/#how-a-doc-b
 <tr>
 <td><code>mermaid</code></td>
 <td>Diagram</td>
-<td>Slide; <code>focus</code> comments walk the nodes</td>
-<td>Flowcharts, one short paragraph per node</td>
+<td>Slide; <code>focus</code> comments walk flowchart nodes and sequence participants</td>
+<td>One short paragraph per node</td>
 </tr>
 <tr>
 <td>Image on its own line</td>
 <td>Image</td>
-<td>Slide while the text around it is spoken</td>
-<td>Alt text is not used; describe it in the text</td>
+<td>Slide titled with the alt text</td>
+<td>Write a meaningful alt text</td>
 </tr>
 <tr>
 <td>Admonition</td>
-<td>Callout with title</td>
-<td>Spoken without the title</td>
-<td>Say the type in the first words</td>
+<td>Callout</td>
+<td>Warnings say their type and title</td>
+<td>Nothing extra needed</td>
 </tr>
 <tr>
 <td>Collapsed block, <code>&lt;details&gt;</code></td>
@@ -2231,14 +2234,14 @@ screen. Everything else follows from this. See <a href="../markdown/#how-a-doc-b
 <tr>
 <td>Footnote, task list</td>
 <td>Rendered</td>
-<td>Read literally</td>
-<td>Avoid in narrated sections</td>
+<td>Markers not spoken</td>
+<td>Fine</td>
 </tr>
 <tr>
 <td>Inline code, links</td>
 <td>Formatted</td>
 <td>Plain text, lexicon applies</td>
-<td>Fine; avoid bare URLs</td>
+<td>Avoid bare URLs</td>
 </tr>
 </tbody>
 </table>
@@ -2247,56 +2250,51 @@ screen. Everything else follows from this. See <a href="../markdown/#how-a-doc-b
 <thead>
 <tr>
 <th>You want</th>
-<th>Write</th>
-<th>Today</th>
+<th>Write before the block</th>
+<th>What happens</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Talk while it runs</td>
-<td>Paragraph, then block</td>
-<td>Default</td>
+<td>nothing</td>
+<td>Default (<code>say: during</code>)</td>
 </tr>
 <tr>
-<td>Run, then explain the output</td>
-<td>Block, then paragraph</td>
-<td>Default for the paragraph after a block</td>
+<td>Explain, then run</td>
+<td><code>&lt;!-- narratty: run {say: before} --&gt;</code></td>
+<td>Typing starts once the lead-in is spoken</td>
 </tr>
 <tr>
-<td>Explain first, then run</td>
-<td>Paragraph, then block, with an override <code>before: [{hold: auto}]</code> on the block id</td>
-<td>Needs an <code>overrides</code> entry</td>
+<td>Run, then explain in the same scene</td>
+<td><code>&lt;!-- narratty: run {say: after} --&gt;</code></td>
+<td>The text after the block is spoken once the commands are done</td>
 </tr>
 <tr>
 <td>Let the output sink in</td>
 <td><code>&lt;!-- narratty: pause 2s --&gt;</code> after the block</td>
-<td>Comment</td>
-</tr>
-<tr>
-<td>Speak after the commands finished</td>
-<td><code>narration_start: after_actions</code> in the block's override</td>
-<td>Needs an <code>overrides</code> entry</td>
+<td>A silent pause</td>
 </tr>
 </tbody>
 </table>
-<p>Narration is synchronized to the recording linearly, so on a slow command these
-intentions can drift by a second or two. Keep commands quick in narrated scenes.</p>
+<p>The same keys fit in the block's attributes (<code>narratty="say=before lines=10"</code>), and the
+entry key <code>say: before</code> makes "explain, then run" the default for a whole tutorial.
+With <code>say: after</code>, keep the lead-in very short: it is spoken over an idle prompt.</p>
 <h2 id="retrofitting-an-existing-guide">Retrofitting an existing guide<a class="headerlink" href="#retrofitting-an-existing-guide" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Build it as it is and run <code>narratty check</code> and <code>plan --sources</code>. Typical result:
-   most blocks are left out because the fences have no language.</li>
-<li>Label shell fences <code>console</code>; keep the <code>$</code> prompts and replace volatile output
-   (versions, timings) with <code>...</code>.</li>
-<li>Split blocks so that commands with different needs (run, <code>no-run</code>, hidden) are in
-   separate blocks.</li>
-<li>Turn commands that only appear inline in a step ("run <code>make lint</code>") into blocks. This
-   helps readers too.</li>
-<li>Mark host-only steps <code>no-run</code> and steps the demo has already done <code>skip</code> + <code>say</code>.</li>
-<li>Pick the sections for the video with <code>sections</code>; keep FAQ and troubleshooting out
-   and check that the intro is still spoken.</li>
+<li>Run <code>narratty validate</code> on the guide as it is. Typical result: "no command runs" and
+   one warning per unlabelled fence with <code>$</code> lines.</li>
+<li>Label shell fences <code>console</code>; replace volatile output with <code>...</code>.</li>
+<li>Split blocks so that commands with different needs (run, <code>no-run</code>, <code>instead</code>) are in
+   separate blocks, and turn commands that only appear inline in a step ("run
+   <code>make lint</code>") into blocks. Both help readers too.</li>
+<li>Mark host-only steps <code>no-run</code>; use <code>instead</code> for steps that need another command in
+   the demo, <code>until</code> for commands that don't end.</li>
+<li>Make sure every section's first block has a lead-in, or it plays silent.</li>
+<li>Set <code>clear_on: 2</code>, pick the sections with <code>sections: {exclude: [...]}</code>, and add
+   <code>environment.packages</code> when <code>check</code> reports a missing tool (exit 127).</li>
 <li>Add a <code>table</code> comment to tables the video needs and <code>focus</code> comments to diagrams.</li>
-<li>Remove "above"/"below" wording, say callout types in the text, and drop footnotes
-   from narrated sections.</li>
+<li>Run <code>check</code>, then <code>build</code>, and look at the frames at each section change.</li>
 </ol>
 <p>Expect to change about a sixth of the reader-visible text, and most of those changes
 improve the written guide as well.</p>
