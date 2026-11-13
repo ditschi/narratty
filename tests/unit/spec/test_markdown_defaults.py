@@ -59,6 +59,13 @@ def test_inline_footnotes_follow_their_sentence(tmp_path: Path) -> None:
     ]
 
 
+def test_inline_footnotes_after_the_full_stop_follow_their_sentence(tmp_path: Path) -> None:
+    body = "# Doc\n\nThe cache is shared.[^1] And more text here.[^two]\n\n[^1]: Note one\n[^two]: Note two\n"
+    assert _narration(tmp_path, body, footnotes="inline") == [
+        "The cache is shared. Note one. And more text here. Note two."
+    ]
+
+
 def test_inline_footnote_at_the_end_of_a_list_item(tmp_path: Path) -> None:
     body = "# Doc\n\n- An item[^a]\n\n[^a]: Its note\n"
     assert _narration(tmp_path, body, footnotes="inline") == ["An item. Its note."]

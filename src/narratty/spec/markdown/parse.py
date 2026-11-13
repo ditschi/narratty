@@ -339,7 +339,9 @@ def _footnote_refs(text: str) -> tuple[str, list[tuple[int, str]]]:
 
 
 def _sentence_end(text: str, at: int) -> int:
-    """Where the sentence that goes on at ``at`` ends in ``text``."""
+    """Where the sentence that goes on at ``at`` ends in ``text`` (at ``at``, if it just ended)."""
+    if text[:at].rstrip().endswith(SENTENCE_END):
+        return len(text[:at].rstrip())
     match = _SENTENCE_END.search(text, at)
     return match.end() if match else len(text)
 
