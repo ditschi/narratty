@@ -28,11 +28,15 @@ def _slide(**keys: object) -> Slide:
         ({}, "exactly one of: table, mermaid, image, html"),
         ({"mermaid": "graph TD", "image": "a.png"}, "exactly one of"),
         ({"mermaid": "graph TD", "highlight": 1}, "only apply to table slides"),
+        ({"table": TABLE, "focus": "api"}, "focus only applies to Mermaid slides"),
         ({"table": TABLE, "highlight": 6}, "highlight 6: the table has 5 rows"),
         ({"table": TABLE, "rows": 2, "page": 4}, r"page 4: the table has 3 page\(s\)"),
         ({"html": "a.html", "title": "A"}, "title and theme do not apply"),
         ({"html": "https://example.com"}, "browser action"),
         ({"image": "notes.pdf"}, "not .pdf"),
+        ({"table": {"header": ["A", "B"], "rows": [["1", "2"], ["3"]]}}, "row 2 has 1 cell.*header has 2"),
+        ({"table": {"header": ["A"], "rows": [["1", "2"]]}}, "row 1 has 2 cell.*header has 1"),
+        ({"table": {"rows": [["1", "2"], ["3", "4", "5"]]}}, "row 2 has 3 cell.*row 1 has 2"),
     ],
 )
 def test_slide_checks(keys: dict[str, object], message: str) -> None:
@@ -64,12 +68,29 @@ def test_light_theme_and_mermaid(tmp_path: Path) -> None:
     assert 'data-mermaid-theme="dark"' in slides.page(_slide(mermaid="graph TD"), "dark", tmp_path)
 
 
+def test_mermaid_focus_is_carried_to_the_rendered_page(tmp_path: Path) -> None:
+    page = slides.page(_slide(mermaid="flowchart LR\n  api --> db", focus="api"), "dark", tmp_path)
+    assert '<body data-mermaid-theme="dark" data-mermaid-focus="api">' in page
+    assert ".narratty-focus" in page
+    # Mermaid 11 nests some shapes (cylinder, stadium) in a label-container group; labels stay as they are.
+    assert ".narratty-focus :is(.label-container,.label-container *)" in page
+
+
 def test_image_from_the_workspace(tmp_path: Path) -> None:
     (tmp_path / "pic.png").write_bytes(b"png")
     page = slides.page(_slide(image="pic.png"), "dark", tmp_path)
     assert f'src="{(tmp_path / "pic.png").as_uri()}"' in page
     with pytest.raises(RenderError, match="missing.png is not a file in the workspace"):
         slides.page(_slide(image="missing.png"), "dark", tmp_path)
+
+
+def test_image_outside_the_workspace_is_refused(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (tmp_path / "secret.png").write_bytes(b"png")
+    for image in ("../secret.png", str(tmp_path / "secret.png")):
+        with pytest.raises(RenderError, match="is outside the workspace"):
+            slides.page(_slide(image=image), "dark", workspace)
 
 
 SPEC = """\

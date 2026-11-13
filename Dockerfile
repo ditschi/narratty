@@ -62,6 +62,9 @@ ARG TTYD_VERSION=1.7.7
 # Draws Mermaid diagrams in browser views without network (render/browser.py).
 ARG MERMAID_VERSION=12.3.0
 ARG MERMAID_SHA256=be0684e8d20bfc874df12c0f04927a5c482f57f2200eec54cca52a4583fd4040
+# Font Awesome 6 Solid icons, in Iconify JSON format for Mermaid's offline icon packs.
+ARG FONTAWESOME_VERSION=1.2.4
+ARG FONTAWESOME_SHA256=082c792eaad4751626438773fa7360cb23f495b687cf2dd01b2b0fccc7f6af8b
 # Voices baked into the image, so it renders without network access.
 ARG KOKORO_VOICES="af_heart"
 ARG PIPER_VOICES="en_US-lessac-medium"
@@ -69,7 +72,7 @@ ARG PIPER_VOICES="en_US-lessac-medium"
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates curl ffmpeg chromium \
-      fonts-jetbrains-mono fonts-dejavu-core \
+     fonts-jetbrains-mono fonts-dejavu-core fonts-noto-color-emoji \
       git less tree \
  && curl -fsSL -o /tmp/vhs.deb \
       "https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_${TARGETARCH:-amd64}.deb" \
@@ -87,6 +90,13 @@ RUN curl -fsSL -o /tmp/mermaid.tgz "https://registry.npmjs.org/mermaid/-/mermaid
  && tar -xzf /tmp/mermaid.tgz -C /opt/narratty/mermaid --strip-components=2 package/dist/mermaid.min.js \
  && rm /tmp/mermaid.tgz
 
+RUN curl -fsSL -o /tmp/fa6-solid.tgz \
+     "https://registry.npmjs.org/@iconify-json/fa6-solid/-/fa6-solid-${FONTAWESOME_VERSION}.tgz" \
+ && echo "${FONTAWESOME_SHA256}  /tmp/fa6-solid.tgz" | sha256sum -c - \
+ && tar -xzf /tmp/fa6-solid.tgz -C /opt/narratty/mermaid --strip-components=1 package/icons.json \
+ && mv /opt/narratty/mermaid/icons.json /opt/narratty/mermaid/fa6-solid.json \
+ && rm /tmp/fa6-solid.tgz
+
 COPY --from=toolkit / /usr/local/
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/
@@ -102,6 +112,7 @@ ENV NARRATTY_IN_CONTAINER=1 \
     NARRATTY_DATA_DIR=/opt/narratty/data \
     NARRATTY_CACHE_DIR=/cache \
     NARRATTY_MERMAID_JS=/opt/narratty/mermaid/mermaid.min.js \
+     NARRATTY_FONTAWESOME_JSON=/opt/narratty/mermaid/fa6-solid.json \
     VHS_NO_SANDBOX=true \
     YAZI_CONFIG_HOME=/usr/local/share/narratty/yazi \
     BAT_CONFIG_PATH=/usr/local/share/narratty/bat/config \
@@ -116,6 +127,10 @@ RUN useradd --create-home --uid 1000 --shell /bin/bash narratty \
  && chown -R narratty:narratty /cache /work /out /home/narratty \
  && chmod -R a+rX /opt/narratty \
  && chmod 1777 /cache /work /out /home/narratty
+
+# A fresh ID per image build, in the last layer so any change above renews it: the scene
+# cache keys recordings to it (render/scene_cache.py), as fonts or browsers may have changed.
+RUN cat /proc/sys/kernel/random/uuid > /opt/narratty/image-id
 
 USER narratty
 WORKDIR /work

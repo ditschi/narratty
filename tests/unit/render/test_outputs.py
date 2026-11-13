@@ -47,6 +47,27 @@ def test_matches(expected: list[str], actual: list[str], fits: bool) -> None:
     assert matches(expected, actual) is fits
 
 
+LONG = [f"line {n}" for n in range(5000)]
+
+
+@pytest.mark.parametrize(
+    ("expected", "actual", "fits"),
+    [
+        (["..."], ["x"] * 5000, True),
+        (["a"] * 5000, ["a"] * 5000, True),
+        (["a"] * 5000, ["a"] * 4999, False),
+        (LONG, LONG, True),
+        (["line 0", "...", "line 4999"], LONG, True),
+        (["...", "line 2500", "...", "line 4999"], LONG, True),
+        (["...", "line 2500", "...", "line 2499"], LONG, False),
+        (["line ...", "..."] * 2500, LONG, True),
+        (["...", "..."] * 50 + ["nope"], LONG, False),
+    ],
+)
+def test_matches_long_output(expected: list[str], actual: list[str], fits: bool) -> None:
+    assert matches(expected, actual) is fits
+
+
 SPEC = """\
 end_card: false
 timing: {lead_in_ms: 0, tail_ms: 0}

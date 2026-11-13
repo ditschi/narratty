@@ -251,6 +251,31 @@ def encode_mp3(audio: Path, out: Path, *, runner: Runner = _run) -> None:
         raise RenderError(f"ffmpeg failed to encode {out}:\n{_tail(result)}")
 
 
+def join_recordings(
+    parts: Sequence[tuple[Path, int, int | None]],
+    out: Path,
+    *,
+    framerate: int,
+    runner: Runner = _run,
+) -> None:
+    """Join ``(video, first frame, end frame or None)`` parts at frame-aligned boundaries."""
+    argv = [require("ffmpeg"), "-y", "-v", "error"]
+    graph = []
+    for index, (video, start, end) in enumerate(parts):
+        argv += ["-i", str(video)]
+        trim = f"start_frame={start}" + (f":end_frame={end}" if end is not None else "")
+        graph.append(f"[{index}:v]trim={trim},setpts=PTS-STARTPTS[p{index}]")
+    labels = "".join(f"[p{index}]" for index in range(len(parts)))
+    graph.append(f"{labels}concat=n={len(parts)}:v=1:a=0[out]")
+    argv += [
+        "-filter_complex", ";".join(graph), "-map", "[out]", "-an", "-c:v", "libx264",
+        "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", "-r", str(framerate), str(out),
+    ]  # fmt: skip
+    result = runner(argv)
+    if result.returncode != 0:
+        raise RenderError(f"ffmpeg failed to join cached scenes:\n{_tail(result)}")
+
+
 def freezes(video: Path, *, runner: Runner = _run) -> list[tuple[int, int | None]]:
     """Stretches of ``video`` (ms) in which no pixel changes; the last may run to the end (None)."""
     argv = [

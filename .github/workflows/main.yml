@@ -12,6 +12,7 @@ jobs:
   quality:
     name: Quality gates (3.12)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -28,6 +29,7 @@ jobs:
   agent:
     name: Agent (Go)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
@@ -42,6 +44,7 @@ jobs:
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     continue-on-error: ${{ matrix.os == 'macos-latest' }}
     strategy:
       fail-fast: false
@@ -68,6 +71,7 @@ jobs:
   docs-deploy:
     name: Deploy docs (latest)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs: [quality, tests, agent]
     permissions:
       contents: write
@@ -91,5 +95,12 @@ jobs:
         env:
           NO_MKDOCS_2_WARNING: "1"
         run: |
-          mike deploy --push --update-aliases latest
-          mike set-default --push latest
+          # PR previews push to gh-pages too; retry on a race.
+          for attempt in 1 2 3; do
+            git fetch --force origin gh-pages:gh-pages
+            if mike deploy --push --update-aliases latest && mike set-default --push latest; then
+              exit 0
+            fi
+            sleep $((attempt * 15))
+          done
+          exit 1

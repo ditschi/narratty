@@ -219,10 +219,32 @@ This is the comment above the table.
 | Step | Command | Shows |
 ```
 
+For a voiceover that does not read the cells, give `say` one phrase per row. The
+snippet configures the spoken steps; the live table below is what those steps highlight:
+
+```markdown
+<!-- narratty: table {title: Request path, say: ["The client sends a request.", "The API checks the request.", "The database stores the result."]} -->
+| Step | What happens |
+|---|---|
+| Client | Sends a request to the API |
+| API | Checks the request |
+| Database | Stores the result |
+```
+
+<!-- narratty: table {title: Request path, say: ["The client sends a request.", "The API checks the request.", "The database stores the result."]} -->
+| Step | What happens |
+|---|---|
+| Client | Sends a request to the API |
+| API | Checks the request |
+| Database | Stores the result |
+
 - Without `say`, each cell is read with its header, such as "Step: Check.", and
   empty cells are left out.
 - `say` fills in the cells of the columns named in braces; names match the header
   regardless of case.
+- `say: ["First custom narration.", "Second custom narration."]` supplies one custom
+  phrase per row; the list must have exactly as many phrases as the table has rows
+  (since 0.7).
 - `pause: 500ms` highlights each row that long before it is spoken.
 - `title`, `theme` and `rows` set the look of the slide, as in the `slide` comment.
 - Cells are read like paragraphs, so the lexicon applies to inline code in them.
@@ -286,8 +308,8 @@ flowchart LR
   doc[Markdown doc] --> entry[markdown entry] --> scenes --> video
 ```
 
-A `slide` comment before a table, diagram or image sets its title and look; this one
-gave the diagram its title.
+A `slide` comment before a table, diagram or image sets its title and look; `focus`
+emphasizes a Mermaid node or subgraph while the scene is narrated.
 
 ```markdown
 <!-- narratty: slide {title: From doc to video, theme: light} -->
@@ -298,7 +320,51 @@ gave the diagram its title.
 | `title` | Text above the content |
 | `theme` | `dark` or `light` for this slide |
 | `rows` | Table rows per page, see [Tables](#tables) |
+| `focus` | Mermaid node or subgraph ID to emphasize (since 0.7) |
 | `html` | Shows an HTML file instead, from the next paragraph on |
+
+For a voiceover walkthrough in Markdown, write the Mermaid diagram once, then use a
+`focus` comment for each later step. The comment closes the previous narration scene
+without adding silence. Here is the source snippet:
+
+````markdown
+<!-- narratty: slide {title: Request flow, focus: api} -->
+```mermaid
+flowchart LR
+  api[API] --> db[Database]
+```
+The API receives the request.
+
+<!-- narratty: focus db -->
+The database stores it.
+````
+
+And here is the same Markdown as live content, which renders the diagram:
+
+<!-- narratty: slide {title: Request flow, focus: api} -->
+```mermaid
+flowchart LR
+  api[API] --> db[Database]
+```
+The API receives the request.
+
+<!-- narratty: focus db -->
+The database stores it.
+
+The `focus` comment (since 0.7) closes the previous narration scene and reuses the last
+Mermaid diagram with a new focus target. It takes one node or subgraph ID from the
+diagram source, such as `db` or `api-gateway`. The diagram must still be on screen: a
+heading, table, image, browser view or command block in between ends it. With
+`narration: none` and no `say` text before it, or with `images: false`, the comment is
+left out like the diagram. In YAML, repeat the slide action in one scene per focus
+ID instead. A node stays emphasized for its scene's narration unless `duration_ms` caps
+the slide.
+Mermaid labels can use Unicode emoji; the narratty image includes an emoji font. Its
+bundled Font Awesome 6 Solid icons use the `fa:` prefix, for example `fa:server` in
+Mermaid's icon syntax. Native renders can set `NARRATTY_FONTAWESOME_JSON` to an
+Iconify-compatible Font Awesome `icons.json` file. The bundled icons are Font Awesome
+Free by [Fonticons, Inc.](https://fontawesome.com/license/free), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 Diagrams are drawn when the video is rendered, with the `mermaid.min.js` that comes
 with the narratty image, so they need no network. Native renders read it from
@@ -356,6 +422,7 @@ The [Compose file reference](https://docs.docker.com/compose/) lists every key.
 | `pause` | Ends the scene; with a duration, silence follows (since 0.6), see [Pauses](#pauses) |
 | `table` | Speaks the next table row by row on a slide (since 0.6), see [Tables](#tables) |
 | `slide` | Sets the title and look of the next table, diagram or image, or shows an HTML file (since 0.6), see [Slides](#slides) |
+| `focus` | Reuses the last Mermaid diagram, emphasizing the given node or subgraph for the next narrated step (since 0.7), see [Slides](#slides) |
 | `spec` | Spec keys for building the doc on its own (since 0.6), see [Building a doc on its own](#building-a-doc-on-its-own) |
 
 HTML comments cannot contain `--`; put such text into a YAML scene instead.

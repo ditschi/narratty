@@ -26,6 +26,13 @@ The video on the Markdown input page is rendered in CI and not committed; to see
 in `mkdocs serve`, render it with `examples/render-ci-videos.sh`. Pull requests that
 touch docs, examples or code upload it as the `docs-videos` artifact.
 
+CI renders these videos in the published `ghcr.io/ditschi/narratty:edge` image with
+the checkout's wheel installed on top (`docker/render.Dockerfile`). Python changes show
+up in a pull request's videos and docs preview; changes to the `Dockerfile` or its
+system dependencies do not, until they are merged and `edge` is rebuilt. Check those
+by building the image locally and rendering with
+`examples/render-ci-videos.sh --runtime docker --image <tag>`.
+
 ## Commits
 
 Commits and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/)

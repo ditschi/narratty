@@ -1242,6 +1242,20 @@
           "description": "A Mermaid diagram's source.",
           "title": "Mermaid"
         },
+        "focus": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mermaid node or subgraph to emphasize.",
+          "title": "Focus"
+        },
         "image": {
           "anyOf": [
             {

@@ -2,7 +2,9 @@ name: Render docs videos
 description: >-
   Renders the docs videos made from Markdown (examples/render-ci-videos.sh) with the
   narratty of this checkout, in the published image with this checkout's wheel on top.
-  Needs uv and the narratty CLI installed from this checkout.
+  Needs uv and the narratty CLI installed from this checkout. Only the Python package
+  comes from the checkout: system dependencies are those of the base image, so a PR's
+  Dockerfile changes are not reflected in its docs videos or preview until edge is rebuilt.
 inputs:
   base-image:
     description: Image to add this checkout's wheel to

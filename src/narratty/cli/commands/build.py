@@ -90,6 +90,12 @@ def build_command(
         help="Don't wait out long pauses: once the screen is still, fill the rest with the "
         "last frame. Fails if a pause ends while the screen is still changing.",
     ),
+    scene_cache: bool = typer.Option(
+        False, "--scene-cache", help="Reuse unchanged scene recordings when supported."
+    ),
+    refresh_scene_cache: bool = typer.Option(
+        False, "--refresh-scene-cache", help="Record all scenes again and refresh the scene cache."
+    ),
     ignore_exit: bool = IgnoreExitOption,
     workspace_mode: WorkspaceMode | None = WorkspaceModeOption,
     keep_workspace: bool = KeepWorkspaceOption,
@@ -117,6 +123,10 @@ def build_command(
     cast = output_format is OutputFormat.CAST
     if draft and cast:
         raise UsageError("--draft only applies to --format mp4")
+    if refresh_scene_cache and not scene_cache:
+        raise UsageError("--refresh-scene-cache requires --scene-cache")
+    if cast and scene_cache:
+        raise UsageError("--scene-cache only applies to --format mp4")
     suffix = ".html" if cast else ".draft.mp4" if draft else ".mp4"
     env = EnvironmentOptions(no_env, env_image, keep_env, rebuild_env)
     request = sandbox_request(workspace_mode, keep_workspace, allow_dirty, network, allow_host, yes, env)
@@ -136,6 +146,8 @@ def build_command(
             *(["--subtitles", subtitles.value] if subtitles else []),
             *(["--draft"] if draft else []),
             *(["--fast"] if fast else []),
+            *(["--scene-cache"] if scene_cache else []),
+            *(["--refresh-scene-cache"] if refresh_scene_cache else []),
             *(["--ignore-exit"] if ignore_exit else []),
         ],
         sandbox=request,
@@ -179,6 +191,8 @@ def build_command(
                 ignore_exit=ignore_exit,
                 sandbox=request,
                 log=log,
+                scene_cache=scene_cache,
+                refresh_scene_cache=refresh_scene_cache,
             )
     err.print(
         f"{'cast' if cast else 'video'} {result.video_ms / 1000:.2f}s, "

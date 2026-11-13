@@ -187,6 +187,23 @@ def test_build_draft_needs_mp4(spec: Path) -> None:
     assert isinstance(result.exception, UsageError)
 
 
+def test_scene_cache_flags_are_forwarded(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_build(spec_path: Path, output: Path | None, **kwargs: object) -> BuildResult:
+        calls.append(kwargs)
+        return BuildResult(spec_path.with_suffix(".mp4"), 1000, 1000, ())
+
+    monkeypatch.setattr("narratty.build.build", fake_build)
+    result = runner.invoke(app, ["build", str(spec), "--scene-cache", "--refresh-scene-cache"])
+    assert result.exit_code == 0, result.output
+    assert calls[0]["scene_cache"] is True and calls[0]["refresh_scene_cache"] is True
+    assert isinstance(runner.invoke(app, ["build", str(spec), "--refresh-scene-cache"]).exception, UsageError)
+    assert isinstance(
+        runner.invoke(app, ["build", str(spec), "--scene-cache", "-f", "cast"]).exception, UsageError
+    )
+
+
 def test_build_cast_writes_subtitle_files(spec: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("narratty.render.media.encode_mp3", lambda audio, out: out.write_bytes(b"ID3"))
     result = runner.invoke(app, ["build", str(spec), "-f", "cast", "--no-end-card", "--subtitles", "burn"])

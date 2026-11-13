@@ -27,6 +27,55 @@ After the last scene and the tail comes the end card (4 s by default; see
 With `--work-dir` the tape, the silent video and the narration track are kept for
 inspection.
 
+## Scene Recording Cache
+
+```bash
+narratty build demo.narratty.yaml --scene-cache
+narratty build demo.narratty.yaml --scene-cache --refresh-scene-cache
+narratty cache info
+narratty cache prune --scenes --older-than 30d
+```
+
+The opt-in scene cache reuses the longest unchanged prefix of the silent recording.
+It replays those scenes hidden in the same shell to restore their state, records the
+remaining scenes and joins the video. The last visible scene is always recorded again.
+Commands and waits in reused scenes still run, so the cache saves recording work, not
+the time spent running commands or waiting. A changed scene invalidates it and all
+following scenes. Narration can change without invalidating the footage when its
+duration and the rest of the scene timing stay the same. The cache stores only the
+recordings VHS made, never a joined video, so reused scenes are re-encoded once per
+build and do not lose quality over repeated builds.
+
+The cache fingerprints the workspace files, scene inputs, timeline, narratty's own
+code, the recording tools (VHS and its version, ttyd, ffmpeg, the shells, the browser
+VHS launches), the installed fonts, the container image and the environment variables
+that change terminal output (`TERM`, `COLORTERM`, `LANG`, `LANGUAGE`, `LC_*`, `TZ`,
+`SHELL`, `PATH`, `HOME`, `NO_COLOR` and the spec's `env_passthrough`). In a git
+repository, files git ignores (such as `.venv` or `node_modules`) count by size and
+modification time instead of their contents; other files count by contents. The git
+history itself does not count. The spec and generated output files are excluded from
+the workspace fingerprint. It cannot track every external dependency: network
+responses, time, files outside the workspace, symlink targets, other environment
+variables, running services and commands that read the excluded files can change the
+result. Replayed commands may also produce different state than the cached footage
+shows. Use `--refresh-scene-cache` with `--scene-cache` to force a fresh recording
+after such a change, and for final builds where reproducibility matters.
+
+Caching currently requires at least two visible scenes and falls back to a normal
+recording with drafts, fast pauses, timelapses, overlays, browser views, slides or a
+project environment. It applies only to MP4 builds. Natively it also needs
+`--workspace-mode rw` (or `ro`): a native snapshot gets a new directory each build,
+which shows in prompts and output. In a container the snapshot is always at `/work`,
+so snapshots are cached there. Sandboxed scene-cache builds use the stable container
+hostname `narratty`.
+
+Every build that records new scenes adds a recording to the cache, so it grows with
+use. `narratty cache info` shows its size; `narratty cache prune --scenes --older-than 30d`
+removes entries not used for that long, the recordings only they referenced and files
+left by interrupted builds, and `cache prune --scenes --all` removes all scene recordings
+without touching the audio cache. If the cache cannot be written (a full disk, a
+read-only cache directory) the build still succeeds and logs `scene cache not updated`.
+
 ## Subtitles
 
 ```bash

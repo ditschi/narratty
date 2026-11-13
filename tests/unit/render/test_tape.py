@@ -118,6 +118,36 @@ def test_tape_is_byte_stable() -> None:
     assert _tape() == _tape()
 
 
+def test_replayed_scenes_run_without_recording_or_markers() -> None:
+    from narratty.render.tape import build_tape
+
+    spec = parse_spec(SPEC, Path("t.narratty.yaml"))
+    tape = build_tape(
+        spec,
+        build_timeline(spec, {"intro": 2000}),
+        Path("/out/v.mp4"),
+        marks=Path("/w/marks"),
+        replay_scenes=frozenset({"intro"}),
+    )
+    replay = tape.text.split("# scene: setup (hidden)", 1)[1].split("# cue: end", 1)[0]
+    assert 'Type@40ms "make build"' in replay
+    assert 'Screenshot "/w/marks/scene-intro.png"' not in replay
+    assert replay.count("Hide") == replay.count("Show") == 2
+
+
+def test_replay_does_not_show_nested_hidden_steps() -> None:
+    from narratty.render.tape import build_tape
+
+    spec = parse_spec(
+        "scenes:\n  - id: a\n    actions: [{diff: true}]\n  - id: b\n    actions: [{run: pwd}]\n",
+        Path("t.narratty.yaml"),
+    )
+    tape = build_tape(spec, build_timeline(spec, {}), Path("/out/v.mp4"), replay_scenes=frozenset({"a"}))
+    replay = tape.text.split("\n\n", 2)[2].split("# scene: b", 1)[0]
+    assert replay.count("Hide") == 1
+    assert replay.count("Show") == 1
+
+
 def _card_tape(end_card: str, python: str = "/opt/py 3/bin/python") -> str:
     spec = parse_spec(SPEC + f"end_card: {end_card}\n", Path("t.narratty.yaml"))
     return generate_tape(spec, build_timeline(spec, {"intro": 2000}), Path("/out/v.mp4"), python=python)

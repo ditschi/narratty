@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import shutil
 from pathlib import Path
 
@@ -70,6 +71,121 @@ def test_capture_draws_mermaid_diagrams(chromium: str, tmp_path: Path) -> None:
     with Image.open(shot) as image:
         counts = {color: count for count, color in image.convert("RGB").getcolors(maxcolors=100_000) or []}
     assert counts.get((31, 32, 32), 0) > 1000, "the nodes are filled in the dark theme's colour"
+
+
+@pytest.mark.usefixtures("mermaid")
+def test_capture_focuses_mermaid_node(chromium: str, tmp_path: Path) -> None:
+    page = slides.page(
+        Slide(mermaid='flowchart LR\n  api["🚀 API"] --> db[Database]', focus="db"), "dark", tmp_path
+    )
+    shot = tmp_path / "focused.png"
+    browser.capture(
+        "data:text/html;base64," + base64.b64encode(page.encode()).decode(),
+        600,
+        400,
+        "none",
+        5000,
+        shot,
+        chromium=chromium,
+    )
+    with Image.open(shot) as image:
+        colors = {color: count for count, color in image.convert("RGB").getcolors(maxcolors=100_000) or []}
+    assert colors.get((189, 147, 249), 0) > 0, "the focused node uses the slide accent"
+
+
+ACCENT = (189, 147, 249)  # the dark slide theme's accent, used for the focus outline
+
+
+def _accent_span(source: str, focus: str, chromium: str, tmp_path: Path) -> tuple[int, int]:
+    """Leftmost and rightmost x of the focus outline on a 600 px wide slide."""
+    page = slides.page(Slide(mermaid=source, focus=focus), "dark", tmp_path)
+    shot = tmp_path / "focused.png"
+    browser.capture(
+        "data:text/html;base64," + base64.b64encode(page.encode()).decode(),
+        600,
+        400,
+        "none",
+        5000,
+        shot,
+        chromium=chromium,
+    )
+    with Image.open(shot) as image:
+        rgb = image.convert("RGB")
+        xs = [x for x in range(rgb.width) for y in range(0, rgb.height, 2) if rgb.getpixel((x, y)) == ACCENT]
+    assert xs, f"{focus} is outlined in the slide accent"
+    return min(xs), max(xs)
+
+
+@pytest.mark.usefixtures("mermaid")
+def test_focus_picks_the_exact_node_not_one_whose_id_it_begins(chromium: str, tmp_path: Path) -> None:
+    source = "flowchart LR\n  api-gateway --> api\n"
+    gateway = _accent_span(source, "api-gateway", chromium, tmp_path)
+    api = _accent_span(source, "api", chromium, tmp_path)
+    assert gateway[1] < api[0], "api is the node on the right, not api-gateway"
+
+
+@pytest.mark.usefixtures("mermaid")
+def test_focus_outlines_nested_shapes(chromium: str, tmp_path: Path) -> None:
+    # Mermaid 11 draws a cylinder as a path, a stadium inside a <g class="label-container">.
+    api = _accent_span("flowchart LR\n  api --> db[(db)]\n", "api", chromium, tmp_path)
+    db = _accent_span("flowchart LR\n  api --> db[(db)]\n", "db", chromium, tmp_path)
+    assert api[1] < db[0]
+    source = "flowchart LR\n  api --> s@{ shape: stadium, label: Queue }\n"
+    assert (
+        _accent_span(source, "api", chromium, tmp_path)[1] < _accent_span(source, "s", chromium, tmp_path)[0]
+    )
+
+
+@pytest.mark.usefixtures("mermaid")
+def test_focus_takes_subgraphs_and_ids_with_dashes_and_digits(chromium: str, tmp_path: Path) -> None:
+    source = "flowchart LR\n  n1-2 --> n1\n  subgraph back-end-2\n    n1\n  end\n"
+    first = _accent_span(source, "n1-2", chromium, tmp_path)
+    node = _accent_span(source, "n1", chromium, tmp_path)
+    group = _accent_span(source, "back-end-2", chromium, tmp_path)
+    assert first[1] < node[0]
+    assert group[0] < node[0] and group[1] > node[1], "the subgraph's box around n1"
+
+
+@pytest.mark.usefixtures("mermaid")
+def test_focus_on_a_missing_id_lists_the_rendered_ones(chromium: str, tmp_path: Path) -> None:
+    page = slides.page(
+        Slide(mermaid="flowchart LR\n  api-gateway --> api\n", focus="gateway"), "dark", tmp_path
+    )
+    with pytest.raises(
+        RenderError,
+        match=r"no Mermaid node or subgraph with id gateway \(rendered ids: "
+        r"api-gateway, api\)",
+    ):
+        browser.capture(
+            "data:text/html;base64," + base64.b64encode(page.encode()).decode(),
+            400,
+            300,
+            "none",
+            5000,
+            tmp_path / "x.png",
+            chromium=chromium,
+        )
+
+
+@pytest.mark.usefixtures("mermaid")
+def test_capture_draws_fontawesome_icons_offline(chromium: str, tmp_path: Path) -> None:
+    pack = os.environ.get(browser.FONTAWESOME_ENV)
+    if not pack or not Path(pack).is_file():
+        pytest.skip("no local Font Awesome Iconify pack")
+    page = slides.page(
+        Slide(mermaid='flowchart LR\n  server@{ icon: "fa:server", label: "Server", form: "square" }'),
+        "dark",
+        tmp_path,
+    )
+    browser.capture(
+        "data:text/html;base64," + base64.b64encode(page.encode()).decode(),
+        600,
+        400,
+        "none",
+        5000,
+        tmp_path / "fontawesome.png",
+        chromium=chromium,
+    )
 
 
 @pytest.mark.usefixtures("mermaid")

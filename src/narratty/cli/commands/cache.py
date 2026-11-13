@@ -1,14 +1,18 @@
-"""``narratty cache``: inspect and prune the audio cache."""
+"""``narratty cache``: inspect and prune audio or scene recordings."""
 
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 import typer
 
 from narratty.errors import UsageError
 
-cache_app = typer.Typer(help="Inspect or prune the audio cache.", no_args_is_help=True)
+if TYPE_CHECKING:
+    from narratty.render.scene_cache import SceneCacheStats
+
+cache_app = typer.Typer(help="Inspect or prune the audio and scene caches.", no_args_is_help=True)
 
 _UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
 _AGE = re.compile(r"^(\d+)([smhdw])$")
@@ -33,25 +37,40 @@ def _size(num: int) -> str:
 
 @cache_app.command("info")
 def info_command() -> None:
-    """Show where the audio cache is and how big it is."""
+    """Show where the caches are and how big they are."""
     from narratty.cache import AudioCache
     from narratty.paths import cache_dir
+    from narratty.render.scene_cache import SceneCache
     from narratty.ui.console import out
 
     stats = AudioCache(cache_dir()).stats()
     out.print(f"{stats.path}\n{stats.clips} clips, {_size(stats.bytes)}", highlight=False, soft_wrap=True)
+    scenes = SceneCache(cache_dir())
+    scene_stats = scenes.stats()
+    out.print(f"{scenes.root}\n{_scene_summary(scene_stats)}", highlight=False, soft_wrap=True)
+
+
+def _scene_summary(stats: SceneCacheStats) -> str:
+    partial = f", {stats.partial} interrupted writes" if stats.partial else ""
+    return f"{stats.entries} scene entries, {stats.recordings} recordings{partial}, {_size(stats.bytes)}"
 
 
 @cache_app.command("prune")
 def prune_command(
-    older_than: str = typer.Option("30d", "--older-than", help="Remove clips unused for this long."),
-    remove_all: bool = typer.Option(False, "--all", help="Remove every cached clip."),
+    older_than: str = typer.Option("30d", "--older-than", help="Remove entries unused for this long."),
+    remove_all: bool = typer.Option(False, "--all", help="Remove every entry in the selected cache."),
+    scenes: bool = typer.Option(False, "--scenes", help="Prune scene recordings instead of audio clips."),
 ) -> None:
-    """Remove cached clips that have not been used recently."""
+    """Remove cached clips or scene recordings that have not been used recently."""
     from narratty.cache import AudioCache
     from narratty.paths import cache_dir
+    from narratty.render.scene_cache import SceneCache
     from narratty.ui.console import out
 
     age = -1 if remove_all else parse_age(older_than)
+    if scenes:
+        removed_scenes = SceneCache(cache_dir()).prune(age)
+        out.print(f"removed {_scene_summary(removed_scenes)}", highlight=False)
+        return
     removed = AudioCache(cache_dir()).prune(age)
     out.print(f"removed {removed.clips} clips, {_size(removed.bytes)}", highlight=False)

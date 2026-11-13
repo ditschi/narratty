@@ -74,6 +74,74 @@ def test_build_command_leaves_the_workspace_alone(spec: Path) -> None:
     assert not (spec.parent / "demo").exists(), "the default snapshot mode keeps the source untouched"
 
 
+def test_replay_keeps_shell_state_without_recording_the_scene(tmp_path: Path) -> None:
+    from narratty.render.tape import build_tape
+    from narratty.spec.loader import parse_spec
+    from narratty.timeline import build_timeline
+
+    spec = parse_spec(
+        "end_card: false\ntiming: {lead_in_ms: 0, tail_ms: 500}\nscenes:\n"
+        "  - id: first\n    actions: [{run: 'export REPLAY_VALUE=ready'}, {hold: 3000}]\n"
+        "  - id: second\n    actions: [{run: 'test \"$REPLAY_VALUE\" = ready'}, {hold: 500}]\n",
+        tmp_path / "demo.narratty.yaml",
+    )
+    durations = []
+    for replay in (frozenset(), frozenset({"first"})):
+        name = "replay" if replay else "full"
+        video, tape_path, exits = (tmp_path / f"{name}.{suffix}" for suffix in ("mp4", "tape", "log"))
+        tape = build_tape(spec, build_timeline(spec, {}), video, exit_log=exits, replay_scenes=replay)
+        tape_path.write_text(tape.text, encoding="utf-8")
+        media.run_vhs(tape_path, tmp_path)
+        assert '0\ttest "$REPLAY_VALUE" = ready' in exits.read_text(encoding="utf-8")
+        durations.append(media.probe(video).duration_ms)
+    assert durations[0] - durations[1] > 2500
+
+
+def test_build_reuses_scene_prefix_and_invalidates_changed_scenes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.build import Plan
+    from narratty.spec import load_spec
+    from narratty.timeline import build_timeline
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    path = workspace / "demo.narratty.yaml"
+    text = (
+        "end_card: false\nterminal: {width: 600, height: 300}\nscenes:\n"
+        "  - id: first\n    actions: [{run: 'export CACHE_TEST=ready'}, {hold: 800}]\n"
+        "  - id: second\n    actions: [{run: 'test \"$CACHE_TEST\" = ready'}, {hold: 800}]\n"
+        "  - id: third\n    actions: [{run: 'echo old'}, {hold: 800}]\n"
+    )
+    path.write_text(text, encoding="utf-8")
+
+    def no_tts(spec_path: Path, **kwargs: object) -> Plan:
+        loaded = load_spec(spec_path)
+        return Plan(spec_path, loaded, (), build_timeline(loaded, {}))
+
+    monkeypatch.setattr("narratty.build.plan", no_tts)
+    options = WorkspaceOptions("rw", allow_dirty=True)
+    logs: list[str] = []
+    build(path, workspace=options, scene_cache=True, max_drift=0.3, log=logs.append)
+    entries = list((tmp_path / "cache" / "scenes" / "keys").glob("*.json"))
+    assert entries, f"first build did not store scene entries: {logs}"
+    path.write_text(text.replace("echo old", "echo new"), encoding="utf-8")
+    work = tmp_path / "work"
+    result = build(path, workspace=options, work_dir=work, scene_cache=True, max_drift=0.3, log=logs.append)
+    assert any("reusing 2 cached scenes" in line for line in logs), "\n".join(logs)
+    assert "# scene: first" not in (work / "scene.tape").read_text(encoding="utf-8")
+    assert '0\ttest "$CACHE_TEST" = ready' in (work / "exits.log").read_text(encoding="utf-8")
+    assert media.probe(result.output).has_video
+    path.write_text(
+        text.replace("echo old", "echo newer").replace("CACHE_TEST=ready", "CACHE_TEST=changed"),
+        encoding="utf-8",
+    )
+    logs.clear()
+    with pytest.raises(CommandError):
+        build(path, workspace=options, scene_cache=True, max_drift=0.3, log=logs.append)
+    assert not any("reusing" in line for line in logs)
+
+
 def _last_frame_white_share(video: Path) -> float:
     frame = subprocess.run(
         ["ffmpeg", "-v", "error", "-sseof", "-1", "-i", str(video), "-frames:v", "1"]

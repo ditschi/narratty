@@ -2,7 +2,8 @@
 
 With Docker or Podman installed, `build`, `render`, `tts`, `plan` and `tape` run
 inside the narratty image by default (`--runtime auto`). The image contains VHS,
-ttyd, Chromium, Mermaid, ffmpeg, fonts, Kokoro, Piper, `git`, `tree`, the Docker CLI (with
+ttyd, Chromium, Mermaid, Font Awesome icons, emoji and terminal fonts, ffmpeg, Kokoro,
+Piper, `git`, `tree`, the Docker CLI (with
 Compose and Buildx) and the [demo toolkit](toolkit.md)
 (`bat`, `delta`, `eza`, `fd`, `ripgrep`, `jq`, `micro`, `yazi`, `tmux`, `zsh`). You only need narratty
 itself and a container runtime on the host.
@@ -27,6 +28,11 @@ narratty picks the tag matching its own version (`edge` for development builds).
 Override the image with `--image` or `NARRATTY_IMAGE`. Up to 0.1, Kokoro needed a
 separate `-kokoro` image; from 0.2 on, the one image has both engines.
 
+Each image build gets its own ID (`/opt/narratty/image-id`), and narratty passes the
+local image ID to the container as `NARRATTY_IMAGE_ID`. The
+[scene cache](building.md#scene-recording-cache) keys recordings to both, so footage
+recorded with one image, its fonts and its browser is not reused with a rebuilt one.
+
 ## What the container can see
 
 | Host | Container | Access |
@@ -34,7 +40,7 @@ separate `-kokoro` image; from 0.2 on, the one image has both engines.
 | the spec file | `/spec/<name>` | read-only |
 | the prepared workspace (see below) | `/work` | read-write, or read-only with `ro` |
 | the output file's directory | `/out` | read-write |
-| the audio cache | `/cache` | read-write, shared with native runs |
+| the audio and scene caches | `/cache` | read-write, shared with native runs |
 | your downloaded voices | `/data` | read-only |
 
 Voices are downloaded on the host before the container starts. The container runs

@@ -38,8 +38,19 @@ from narratty.spec.model import (
 
 SHELL_LANGS = ("bash", "sh", "shell")
 BLOCK_OPTIONS = ("no-run", "hidden", "expect-failure", "any-output")
-COMMENT_KINDS = ("skip", "say", "overlay", "hidden", "browser", "pause", "table", "slide", "spec")
-SLIDE_KEYS = ("title", "theme", "rows", "html")
+COMMENT_KINDS = (
+    "skip",
+    "say",
+    "overlay",
+    "hidden",
+    "browser",
+    "pause",
+    "table",
+    "slide",
+    "focus",
+    "spec",
+)
+SLIDE_KEYS = ("title", "theme", "rows", "html", "focus")
 TABLE_KEYS = ("say", "pause", "title", "theme", "rows")
 VISUALS = "a table, image or mermaid block"
 NO_RUN_HOLD_MS = 1000
@@ -47,6 +58,7 @@ IMAGE_HOLD_MS = 3000  # an image scene without narration
 MAX_URL_CHARS = 2 * 1024 * 1024  # Chromium does not load longer URLs
 _COMMENT = re.compile(r"^\s*narratty:\s*(?P<kind>[\w-]*)(?P<body>.*)$", re.DOTALL)
 _FIELD = re.compile(r"\{([^{}]+)\}")
+_FOCUS = re.compile(r"^[\w-]+$")
 
 
 @dataclass(frozen=True)
@@ -159,6 +171,7 @@ class _Builder:
         self.link: tuple[Comment, dict[str, Any]] | None = None  # a browser comment's options
         self.table: tuple[Comment, dict[str, Any]] | None = None  # a table comment's options
         self.slide: tuple[Comment, dict[str, Any]] | None = None  # a slide comment's options
+        self.diagram: dict[str, Any] | None = None  # the last Mermaid slide, reusable by focus comments
         self.pages: list[dict[str, Any]] = []  # later pages of the table on screen
         self.pages_block: Block | None = None
         self.used: set[str] = set()
@@ -208,6 +221,7 @@ class _Builder:
 
     def heading(self, block: Heading) -> None:
         self.flush()
+        self.diagram = None
         self.section, self.count = id_part(block.slug), 0
         # Overlays of headings that got no scene give way to this one.
         self.overlays = [
@@ -250,6 +264,7 @@ class _Builder:
             "pause": self.pause,
             "table": self.table_comment,
             "slide": self.slide_comment,
+            "focus": self.focus_comment,
             "hidden": self.hidden_comment,
         }.get(kind):
             handler(block, body)
@@ -312,6 +327,7 @@ class _Builder:
     def show_view(self, block: Block, action: dict[str, Any], what: str) -> None:
         """A browser view or slide from the next paragraph on, until the next command or heading."""
         self.flush()  # the page appears with its paragraph, not with the narration before
+        self.diagram = None
         self.pending_view(block, action, what)
 
     def pending_view(self, block: Block, action: dict[str, Any], what: str) -> None:
@@ -359,6 +375,7 @@ class _Builder:
         if not path.is_file():
             raise fail(block.file, block.line, f"image not found: {block.src}")
         data = f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
+        self.diagram = None
         self.pending_view(block, {"slide": {**look, "image": data}}, "image: shown as a slide")
 
     def show_diagram(self, block: Code) -> None:
@@ -367,8 +384,41 @@ class _Builder:
         if not self.entry.images:
             self.note(block, None, "mermaid block: left out (images: false)")
             return
-        slide = {**look, "mermaid": block.content}
-        self.pending_view(block, {"slide": slide}, "mermaid block: shown as a slide")
+        self.diagram = {**look, "mermaid": block.content}
+        self.pending_view(block, {"slide": self.diagram}, "mermaid block: shown as a slide")
+
+    def focus_comment(self, block: Comment, body: str) -> None:
+        """Start a new narrated scene that focuses another node in the last Mermaid diagram.
+
+        Without text to close (narration: none) or a diagram on screen (images: false) the
+        comment is left out, like the diagram.
+        """
+        if not _FOCUS.match(body):
+            raise fail(
+                block.file,
+                block.line,
+                "focus comment: expected one Mermaid node or subgraph ID such as api or api-gateway, "
+                f"got {body!r}",
+            )
+        if not self.entry.images:
+            self.note(block, None, "focus comment: left out (images: false)")
+            return
+        if self.diagram is None:
+            raise fail(
+                block.file,
+                block.line,
+                "focus comment: no Mermaid diagram on screen; it reuses the last one in its section, "
+                "up to the next table, image, browser view or command block",
+            )
+        if not self.spoken:
+            if self.narration == "none":
+                self.note(block, None, "focus comment: left out (narration: none)")
+                return
+            raise fail(block.file, block.line, "focus comment: put it after the text for the previous step")
+        self.flush()
+        self.overlays.append((None, {"slide": {**self.diagram, "focus": body}}))
+        self.unassigned.append((block, f"focus comment: highlights Mermaid target {body!r}"))
+        self.image = True
 
     def pause(self, block: Comment, body: str) -> None:
         """End the scene here; with a duration, a silent scene follows.
@@ -392,8 +442,15 @@ class _Builder:
 
     def table_comment(self, block: Comment, body: str) -> None:
         options = _options(body, block, "table", TABLE_KEYS)
-        if "say" in options and not isinstance(options["say"], str):
-            raise fail(block.file, block.line, "table comment: say must be a text such as '{Name}: {Value}'")
+        say = options.get("say")
+        if say is not None and not (
+            isinstance(say, str) or isinstance(say, list) and all(isinstance(text, str) for text in say)
+        ):
+            raise fail(
+                block.file,
+                block.line,
+                "table comment: say must be text such as '{Name}: {Value}' or a list of row texts",
+            )
         if "pause" in options:
             options["pause"] = _duration(options["pause"], block, "table comment: pause")
         self.table = (block, options)
@@ -405,6 +462,7 @@ class _Builder:
             self.note(block, None, "table: not part of the video")
             return
         table = {"header": list(block.header_source), "rows": [list(row) for row in block.rows_source]}
+        self.diagram = None
         if self.table is None:
             assert look is not None
             self.show_pages(block, look, table)
@@ -413,16 +471,22 @@ class _Builder:
         self.table = None
         if not block.rows:
             raise fail(comment.file, comment.line, "table comment: the table has no rows")
+        phrases = options.get("say")
+        if isinstance(phrases, list) and len(phrases) != len(block.rows):
+            raise fail(
+                comment.file,
+                comment.line,
+                f"table comment: say has {len(phrases)} phrase(s) for {len(block.rows)} row(s)",
+            )
         look = {key: options[key] for key in SLIDE_KEYS if key in options} | (look or {})
-        template = options.get("say")
-        if template is not None:
-            _check_fields(template, block.header, comment)
+        if isinstance(phrases, str):
+            _check_fields(phrases, block.header, comment)
         pause = options.get("pause")
         self.flush()
         for number, (row, line) in enumerate(zip(block.rows, block.row_lines, strict=True), 1):
             source = Block(block.file, line)
             self.overlays.append((None, {"slide": {**look, "table": table, "highlight": number}}))
-            text = row_text(block.header, row, template)
+            text = phrases[number - 1] if isinstance(phrases, list) else row_text(block.header, row, phrases)
             if text:
                 self.spoken.append(text)
             self.unassigned.append((source, f"table row {number}: " + ("spoken" if text else "empty")))
@@ -482,6 +546,7 @@ class _Builder:
             self.emit(block, {"id": scene_id, "hidden": True, "actions": actions, **extra})
             how += ", not shown"
         else:
+            self.diagram = None
             self.scene(block, scene_id, actions, extra)
         self.note(block, scene_id, f"{block.lang} block: {len(commands)} command(s), {how}")
 
@@ -502,6 +567,7 @@ class _Builder:
         if self.entry.file_titles:
             actions.append({"overlay": {"text": block.title, "style": "file"}})
         actions += [{"run": f"cat {shlex.quote(block.title)}"}, _wait()]
+        self.diagram = None
         self.scene(block, scene_id, actions, {})
         self.note(block, scene_id, f"{block.lang} block: writes and shows {block.title}")
 

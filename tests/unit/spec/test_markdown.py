@@ -15,6 +15,9 @@ from typing import Any
 import pytest
 from ruamel.yaml import YAML
 
+from narratty.render import browser
+from narratty.render.overlays import planned_times
+from narratty.render.script import build_script
 from narratty.spec import SpecError
 from narratty.spec.loader import parse_document
 from narratty.spec.markdown import EntryError, expand_entry, explain_entry
@@ -22,7 +25,8 @@ from narratty.spec.markdown.parse import Heading, parse_blocks, parse_info, slug
 from narratty.spec.markdown.scenes import breadcrumb_text, write_file
 from narratty.spec.markdown.shell import split_commands
 from narratty.spec.markdown.source import Line, read_source, select_tabs
-from narratty.spec.model import HeadingOverlays, MarkdownEntry
+from narratty.spec.model import HeadingOverlays, MarkdownEntry, Spec
+from narratty.timeline import build_timeline
 
 FIXTURES = Path(__file__).parent / "markdown"
 ROOT = Path(__file__).parents[3]
@@ -569,6 +573,24 @@ def test_table_rows_are_spoken_one_by_one(tmp_path: Path) -> None:
     assert "actions" not in after, "the table is gone after its rows"
 
 
+def test_table_highlights_follow_each_row_narration(tmp_path: Path) -> None:
+    doc = _doc(tmp_path, "# Doc\n\n<!-- narratty: table -->\n" + SAFETY)
+    first, second = _expand(doc)
+    scenes = [{key: value for key, value in scene.items() if key != "source"} for scene in (first, second)]
+    spec = Spec.model_validate({"timing": {"narration_buffer_ms": 250}, "end_card": False, "scenes": scenes})
+    audio_ms = {str(first["id"]): 1800, str(second["id"]): 2400}
+    timeline = build_timeline(spec, audio_ms)
+    times = planned_times(build_script(spec, timeline))
+
+    views = browser.schedule(spec, times)
+    assert [view.slide.highlight for view in views if view.slide is not None] == [1, 2]
+    for scene in spec.scenes:
+        view = next(view for view in views if view.scene_id == scene.id)
+        timing = timeline.scene(scene.id)
+        assert view.start_ms == timing.start_ms
+        assert view.end_ms == timing.start_ms + audio_ms[scene.id] + spec.timing.narration_buffer_ms
+
+
 def test_table_template_pause_and_look(tmp_path: Path) -> None:
     comment = (
         '<!-- narratty: table {say: "{hazard}: {Mitigation}", pause: 500ms, title: Risks, rows: 1} -->\n'
@@ -585,6 +607,15 @@ def test_table_template_pause_and_look(tmp_path: Path) -> None:
     }
 
 
+def test_table_say_list_pairs_custom_voiceover_with_row_highlights(tmp_path: Path) -> None:
+    comment = "<!-- narratty: table {say: ['We guard against pinching.', 'Avoid hot surfaces.']} -->\n"
+    first, second = _expand(_doc(tmp_path, "# Doc\n\n" + comment + SAFETY))
+    assert first["narration"] == "We guard against pinching."
+    assert second["narration"] == "Avoid hot surfaces."
+    assert _slides(first)[0]["highlight"] == 1
+    assert _slides(second)[0]["highlight"] == 2
+
+
 def test_tables_without_a_comment_stay_out(tmp_path: Path) -> None:
     assert _expand(_doc(tmp_path, "# Doc\n\n" + SAFETY)) == []
 
@@ -597,6 +628,10 @@ def test_tables_without_a_comment_stay_out(tmp_path: Path) -> None:
         (
             "<!-- narratty: table {say: '{Hazzard}'} -->\n" + SAFETY,
             "no column 'Hazzard' (did you mean 'Hazard'?)",
+        ),
+        (
+            "<!-- narratty: table {say: ['First row only']} -->\n" + SAFETY,
+            "table comment: say has 1 phrase(s) for 2 row(s)",
         ),
         ("<!-- narratty: table {speak: x} -->\n" + SAFETY, "table comment: unknown key 'speak'"),
         ("<!-- narratty: table {pause: soon} -->\n" + SAFETY, "table comment: pause: expected a duration"),
@@ -651,6 +686,98 @@ def test_slide_comment_sets_the_look(tmp_path: Path) -> None:
     assert _slides(scene) == [
         {"title": "Flow", "theme": "light", "mermaid": "flowchart LR\n  a[A & B] --> b\n"}
     ]
+
+
+def test_slide_comment_can_focus_a_mermaid_node(tmp_path: Path) -> None:
+    body = "# Doc\n\n<!-- narratty: slide {focus: api} -->\n" + MERMAID
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert _slides(scene) == [{"focus": "api", "mermaid": "flowchart LR\n  a[A & B] --> b\n"}]
+
+
+def test_markdown_mermaid_walkthrough_reuses_one_diagram_source(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\n<!-- narratty: slide {focus: a} -->\n"
+        + MERMAID
+        + "The request arrives.\n\n<!-- narratty: focus b -->\n\nThe database stores it.\n"
+    )
+    first, second = _expand(_doc(tmp_path, body))
+    assert body.count("```mermaid") == 1
+    assert [scene["narration"] for scene in (first, second)] == [
+        "The request arrives.",
+        "The database stores it.",
+    ]
+    assert [_slides(scene)[0]["focus"] for scene in (first, second)] == ["a", "b"]
+
+
+@pytest.mark.parametrize(
+    "between",
+    [
+        "## Next\n\nA new section.\n\n",
+        "```bash\nls\n```\n\n",
+        "![x](pic.png)\n\n",
+        "<!-- narratty: slide -->\n| A |\n|---|\n| 1 |\n\n",
+        "<!-- narratty: browser https://example.com -->\nThe site.\n\n",
+    ],
+    ids=["heading", "command", "image", "table", "browser"],
+)
+def test_focus_comment_does_not_bring_back_an_old_diagram(tmp_path: Path, between: str) -> None:
+    (tmp_path / "pic.png").write_bytes(b"png")
+    body = "# Doc\n\n" + MERMAID + "The flow.\n\n" + between + "More.\n\n<!-- narratty: focus b -->\n"
+    message, _ = _error(tmp_path, body)
+    assert message.startswith("focus comment: no Mermaid diagram on screen")
+
+
+def test_focus_comment_still_follows_a_hidden_command(tmp_path: Path) -> None:
+    body = "# Doc\n\n" + MERMAID + "The flow.\n\n<!-- narratty: hidden ls -->\n\n<!-- narratty: focus b -->\n"
+    scenes = _expand(_doc(tmp_path, body))
+    assert _slides(scenes[-1]) == [{"mermaid": "flowchart LR\n  a[A & B] --> b\n", "focus": "b"}]
+
+
+@pytest.mark.parametrize(
+    ("keys", "note"),
+    [
+        ({"narration": "none"}, "focus comment: left out (narration: none)"),
+        ({"images": False}, "focus comment: left out (images: false)"),
+    ],
+)
+def test_focus_comment_is_left_out_with_the_diagram(
+    tmp_path: Path, keys: dict[str, object], note: str
+) -> None:
+    doc = _doc(tmp_path, "# Doc\n\n" + MERMAID + "The flow.\n\n<!-- narratty: focus b -->\n\nNext.\n")
+    entry = MarkdownEntry.model_validate({"markdown": doc.name, **keys})
+    expansion = explain_entry(entry, doc, entry.narration or "all")
+    assert note in [n.what for n in expansion.notes]
+    actions = [action for scene in expansion.scenes for action in scene.data.get("actions", [])]
+    assert not any(action.get("slide", {}).get("focus") for action in actions)
+
+
+def test_focus_comment_with_say_comments_and_narration_none(tmp_path: Path) -> None:
+    body = (
+        "# Doc\n\n" + MERMAID + "<!-- narratty: say The flow. -->\n\n"
+        "<!-- narratty: focus b -->\n\n<!-- narratty: say The end. -->\n"
+    )
+    first, second = _expand(_doc(tmp_path, body), narration="none")
+    assert [s.get("focus") for s in _slides(first) + _slides(second)] == [None, "b"]
+
+
+@pytest.mark.parametrize("body", ["", "a b", "api.gateway", "{focus: a}", "a;b"])
+def test_focus_comment_takes_one_id(tmp_path: Path, body: str) -> None:
+    doc = "# Doc\n\n" + MERMAID + f"The flow.\n\n<!-- narratty: focus {body} -->\n"
+    message, line = _error(tmp_path, doc)
+    assert message.startswith("focus comment: expected one Mermaid node or subgraph ID")
+    assert line == 9
+
+
+def test_focus_comment_takes_ids_with_dashes_and_digits(tmp_path: Path) -> None:
+    doc = "# Doc\n\n" + MERMAID + "The flow.\n\n<!-- narratty: focus api-gateway_2 -->\n\nNext.\n"
+    scenes = _expand(_doc(tmp_path, doc))
+    assert _slides(scenes[-1])[0]["focus"] == "api-gateway_2"
+
+
+def test_ragged_markdown_tables_get_even_rows(tmp_path: Path) -> None:
+    body = "# Doc\n\n<!-- narratty: slide -->\n| A | B |\n|---|---|\n| 1 |\n| 2 | 3 | 4 |\n\nRows.\n"
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert _slides(scene)[0]["table"]["rows"] == [["1", ""], ["2", "3"]]
 
 
 def test_slide_comment_shows_a_table_without_reading_it(tmp_path: Path) -> None:

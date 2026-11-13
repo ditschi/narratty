@@ -99,6 +99,20 @@ def test_tts_prints_clip_table(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert "removed 1 clips" in plain(pruned.output)
 
 
+def test_scene_cache_can_be_inspected_and_pruned(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from narratty.render.scene_cache import SceneCache
+
+    monkeypatch.setenv("NARRATTY_CACHE_DIR", str(tmp_path / "cache"))
+    video = tmp_path / "video.mp4"
+    video.write_bytes(b"video")
+    SceneCache(tmp_path / "cache").put({"first": "key"}, video, {"first": 0}, 1000)
+    (tmp_path / "cache" / "scenes" / "videos" / "crashed.mp4.part").write_bytes(b"x")
+    info = runner.invoke(app, ["cache", "info"])
+    assert "1 scene entries, 1 recordings, 1 interrupted writes" in plain(info.output)
+    result = runner.invoke(app, ["cache", "prune", "--scenes", "--all"])
+    assert "removed 1 scene entries, 1 recordings" in plain(result.output)
+
+
 @pytest.mark.parametrize(
     ("text", "seconds"), [("30d", 30 * 86400), ("12h", 43200), ("90m", 5400), ("2w", 1209600)]
 )
