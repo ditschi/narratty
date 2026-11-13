@@ -92,6 +92,21 @@ def test_check_compares_output(tmp_path: Path) -> None:
     assert result.exception.exit_code is ExitCode.OUTPUT
 
 
+def test_check_counts_shown_commands_apart(tmp_path: Path) -> None:
+    doc = tmp_path / "guide.md"
+    doc.write_text(
+        '# Guide\n\n```console {narratty="no-run"}\n$ pip install x\n```\n\n```text\n$ make\n```\n',
+        encoding="utf-8",
+    )
+    args = ["check", str(doc), "--runtime", "native", "--workspace-mode", "rw"]
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0, result.output
+    output = plain(result.output)
+    assert "0 commands ran, 1 shown only" in output
+    assert "warning: no command ran" in output
+    assert "label it `console`" in output
+
+
 def test_validate_reports_problems(tmp_path: Path) -> None:
     spec = tmp_path / "bad.narratty.yaml"
     spec.write_text("scenes:\n  - id: a\n    hiden: true\n", encoding="utf-8")

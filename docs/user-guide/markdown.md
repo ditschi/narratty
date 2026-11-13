@@ -892,6 +892,8 @@ Hello from Markdown
 - `narratty="any-output"` on a block, or `check_output: false` on the entry, turns
   the comparison off.
 - Builds check exit codes, but do not compare output.
+- The summary counts `no-run` commands apart, as shown only. When no command ran,
+  `check` warns, since it checked nothing (since 0.7).
 
 The comparison is the `run` action's [`expect_output`](spec.md#expected-output), which
 `narratty compile` shows. `narratty compile SPEC --fingerprint` tells when a

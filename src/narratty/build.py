@@ -1098,10 +1098,11 @@ def _record_cast(
 
 @dataclass(frozen=True)
 class CheckResult:
-    """How many commands ran and how many of them had their output compared."""
+    """How many commands ran, how many were only shown (no-run), and how many had their output compared."""
 
     commands: int
     compared: int
+    shown: int = 0
 
 
 def check(
@@ -1123,6 +1124,12 @@ def check(
 
     say = log or (lambda _message: None)
     planned = plan(spec_path, end_card=False, draft=True, log=say)
+    shown = sum(  # no-run commands: ``:`` runs in their place
+        1
+        for scene in planned.spec.scenes
+        for action in scene.actions
+        if isinstance(action, Run) and action.show is not None and action.run.strip() == ":"
+    )
     planned = Plan(planned.spec_path, unmasked(planned.spec), planned.clips, planned.timeline, planned.draft)
     # In the editor layout the shell's output reaches the recorder through tmux, redrawn.
     editor = planned.spec.terminal.layout == "editor"
@@ -1141,7 +1148,8 @@ def check(
     if not editor:
         outputs.check(planned.spec, recording.submitted)
     runs = [action for scene in planned.spec.scenes for action in scene.actions if isinstance(action, Run)]
-    return CheckResult(len(runs), 0 if editor else len(outputs.expectations(planned.spec)))
+    compared = 0 if editor else len(outputs.expectations(planned.spec))
+    return CheckResult(len(runs) - shown, compared, shown)
 
 
 def unmasked(spec: Spec) -> Spec:
