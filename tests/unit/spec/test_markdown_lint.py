@@ -64,6 +64,13 @@ def test_error_output_without_expect_failure(tmp_path: Path, output: str) -> Non
 
 def test_no_error_warning_for_ordinary_output(tmp_path: Path) -> None:
     assert _warnings(tmp_path, "# Doc\n\n```console\n$ ls\nerrors.log\nno errors: 0\n```\n") == []
+    assert _warnings(tmp_path, "# Doc\n\n```console\n$ ls\nError handling is enabled\n```\n") == []
+
+
+@pytest.mark.parametrize("output", ["ERROR something broke", "Error response from daemon: no such image"])
+def test_more_error_forms(tmp_path: Path, output: str) -> None:
+    ((_, what),) = _warnings(tmp_path, f"# Doc\n\n```console\n$ ls\n{output}\n```\n")
+    assert "looks like an error" in what
 
 
 FLOW = "```mermaid\nflowchart LR\n  api[API] --> db[(Database)]\n```\n\nThe API.\n\n"
@@ -93,6 +100,7 @@ def test_sequence_participants_can_be_focused(tmp_path: Path) -> None:
     assert _warnings(tmp_path, body) == []
     ((_, what),) = _warnings(tmp_path, body.replace("focus S", "focus Client"))
     assert what.startswith("focus 'Client' is not a participant")
+    assert what.endswith("(did you mean 'C'? Client is its label, focus takes the id)")
 
 
 @pytest.mark.parametrize(
@@ -118,11 +126,49 @@ def test_other_diagram_types_are_not_checked() -> None:
 
 def test_prompts_in_doc_examples_are_fine(tmp_path: Path) -> None:
     body = "# Doc\n\n```markdown\n$ make install\n```\n\n" + RUN
+    assert not any("look like commands" in what for _, what in _warnings(tmp_path, body))
+
+
+def test_code_blocks_left_out_are_counted_once(tmp_path: Path) -> None:
+    body = "# Doc\n\n```python\nprint(1)\n```\n\n```yaml\na: 1\n```\n\n" + RUN
+    ((line, what),) = _warnings(tmp_path, body)
+    assert line == 3
+    assert what.startswith("2 code blocks left out of the video (python at line 3, yaml at line 7)")
+    assert 'narratty="show"' in what
+    shown = body.replace("```python", '```python {narratty="show"}').replace("```yaml", '```yaml {title="a.yaml"}')
+    assert _warnings(tmp_path, shown) == []
+
+
+@pytest.mark.parametrize("command", ["sleep 5 &", "python -m http.server&"])
+def test_background_commands_without_redirection(tmp_path: Path, command: str) -> None:
+    ((line, what),) = _warnings(tmp_path, f"# Doc\n\n```console\n$ ls\n$ {command}\n```\n")
+    assert line == 5
+    assert "> server.log 2>&1 &" in what
+
+
+def test_background_commands_with_redirection_are_fine(tmp_path: Path) -> None:
+    body = "# Doc\n\n```bash\nsleep 5 > sleep.log 2>&1 &\ntrue && ls\n```\n"
     assert _warnings(tmp_path, body) == []
 
 
 def test_and_above_is_not_spatial(tmp_path: Path) -> None:
     assert _warnings(tmp_path, "# Doc\n\nHeadings of level 2 and above, or below.\n\n" + RUN) == []
+
+
+def test_every_spatial_word_is_reported(tmp_path: Path) -> None:
+    warnings = _warnings(tmp_path, "# Doc\n\nClick here, then see the example above.\n\n" + RUN)
+    assert [what.split(",")[0] for _, what in warnings] == [
+        "the narration says 'Click here'",
+        "the narration says 'above'",
+    ]
+    assert "reword it so it works when heard (e.g. 'next', 'this command')" in warnings[0][1]
+
+
+@pytest.mark.parametrize(
+    "text", ["Copy it below it.", "Files below the directory.", "The line above them.", "Below a limit."]
+)
+def test_above_and_below_with_an_object_are_not_spatial(tmp_path: Path, text: str) -> None:
+    assert _warnings(tmp_path, f"# Doc\n\n{text}\n\n" + RUN) == []
 
 
 def test_spatial_words_in_narration(tmp_path: Path) -> None:

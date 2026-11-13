@@ -851,10 +851,12 @@ the author meant:
 |---|---|
 | No command runs in the video | Label command blocks `console` (with `$ ` prompts), `bash` or `sh` |
 | A left-out block has `$ ` lines | Label it `console`, or mark it `narratty="show"` |
+| Code blocks in a language such as `python` or `yaml` are left out (one warning for all) | Mark one `narratty="show"` to show it, give it a `title` to write it to that file, or `skip` it |
 | A table is left out | A `table` or `slide` comment, or `skip` to leave it out on purpose |
-| Output shown looks like an error (`error:`, `Error`, `fatal:`, a Python traceback) | Mark the block `expect-failure` if the command is meant to fail |
-| A `focus` ID is not in the diagram (flowcharts and sequence diagrams) | Use an ID from the source; the warning suggests the closest |
-| Narration says "above", "below", "click here" or "the following command" | Say what is meant; listeners cannot see the page |
+| Output shown looks like an error (`error:`, `Error: …`, `ERROR …`, `fatal:`, a Python traceback) | Mark the block `expect-failure` if the command is meant to fail |
+| A command ends in `&` without redirecting its output | Its late output lands in later commands; write `cmd > server.log 2>&1 &` |
+| A `focus` ID is not in the diagram (flowcharts and sequence diagrams) | Use an ID from the source; the warning suggests the closest, and a participant's id for its `as` label |
+| Narration says "above", "below", "click here" or "the following command" (each one) | Reword it so it works when heard, such as "next" or "this command"; "below it" and "above the line" are fine |
 
 `lint: false` on the entry, or in the doc's `spec` comment, turns the warnings off.
 `narratty plan --sources SPEC` lists every scene with the Markdown line it comes from,

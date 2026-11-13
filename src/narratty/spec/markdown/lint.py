@@ -19,17 +19,25 @@ from narratty.spec.markdown.scenes import (
     Note,
     _yaml_value,
     build_scenes,
+    console_commands,
     select_sections,
 )
+from narratty.spec.markdown.shell import split_commands
 from narratty.spec.model import MarkdownEntry, MarkdownNarration
 
 SPATIAL = re.compile(
-    r"(?<!\band )(?<!\bor )\b(above|below|click here|the following command)\b", re.IGNORECASE
+    r"(?<!\band )(?<!\bor )\b(click here|the following command|"
+    r"(?:above|below)(?!\s+(?:it|them|this|that|the|a|an|its|their)\b))\b",
+    re.IGNORECASE,
 )
-"""Words that point at the page; "and above" / "or below" (as in "level 2 and above") are fine."""
+"""Words that point at the page; "and above" / "or below" (as in "level 2 and above") and
+"below it" / "above the line" (a preposition with its object) are fine."""
 ERROR_OUTPUT = re.compile(
-    r"^\s*(?:error(?:\[\w+\])?:|fatal:|panic:|Error\b|ERROR\b|Traceback \(most recent call last\))"
+    r"^\s*(?:(?:error|Error|ERROR)(?:\[\w+\])?(?:\s[\w ]{0,30})?:(?:\s|$)|ERROR\s|fatal:|panic:"
+    r"|Traceback \(most recent call last\))"
 )
+BACKGROUND = re.compile(r"(?<![&|>])&\s*$")
+"""A command sent to the background with ``&`` (not ``&&``, ``|&`` or ``>&``)."""
 _FLOWCHART_KEYWORDS = {
     "flowchart",
     "graph",
@@ -48,7 +56,9 @@ _FLOWCHART_KEYWORDS = {
     "click",
 }
 _ID = re.compile(r"[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*")
-_PARTICIPANT = re.compile(r"^\s*(?:create\s+)?(?:participant|actor)\s+(?P<id>\S+)", re.MULTILINE)
+_PARTICIPANT = re.compile(
+    r"^\s*(?:create\s+)?(?:participant|actor)\s+(?P<id>\S+)(?:\s+as\s+(?P<label>.+?))?\s*$", re.MULTILINE
+)
 _MESSAGE = re.compile(r"^\s*(?P<a>[\w.@]+)\s*(?:<<)?--?(?:>>|>|x|\))[+-]?\s*(?P<b>[\w.@]+)\s*:", re.MULTILINE)
 _BRACKETS = re.compile(r"\[[^\[\]]*\]|\([^()]*\)|\{[^{}]*\}")
 
@@ -68,6 +78,8 @@ def lint(blocks: list[Block], entry: MarkdownEntry, path: Path, expansion: Expan
     found = [
         *_commands(path, expansion),
         *_blocks(selected, notes),
+        *_left_out(selected, notes),
+        *_background(selected, notes),
         *_focus(selected),
         *_spatial(selected, notes),
     ]
@@ -120,6 +132,44 @@ def _blocks(selected: list[Block], notes: dict[tuple[Path, int], list[str]]) -> 
             )
 
 
+def _left_out(selected: list[Block], notes: dict[tuple[Path, int], list[str]]) -> Iterator[Note]:
+    """Code blocks in a language that the video leaves out, in one warning."""
+    left = [
+        block
+        for block in selected
+        if isinstance(block, Code)
+        and block.lang not in PROMPT_LANGS
+        and any("left out (no title" in what for what in notes.get((block.file, block.line), []))
+    ]
+    if left:
+        where = ", ".join(f"{block.lang} at line {block.line}" for block in left)
+        count = f"{len(left)} code block{'s' if len(left) != 1 else ''}"
+        yield _warn(
+            left[0],
+            f"{count} left out of the video ({where}); add narratty=\"show\" to show one as a slide, "
+            "or a title to write it to that file (a skip comment silences this for one block)",
+        )
+
+
+def _background(selected: list[Block], notes: dict[tuple[Path, int], list[str]]) -> Iterator[Note]:
+    """Commands sent to the background whose output may arrive during later commands."""
+    for block in selected:
+        whats = notes.get((block.file, block.line), [])
+        if not (isinstance(block, Code) and any(", run" in what for what in whats)):
+            continue
+        commands = console_commands(block.content) if block.lang == "console" else split_commands(block.content)
+        for command in commands:
+            text = command.text.strip()
+            if BACKGROUND.search(text) and ">" not in text:
+                yield _warn(
+                    block,
+                    f"{text!r} runs in the background and writes to the terminal; output that arrives "
+                    "late lands in later commands and can break the build; redirect it, as in "
+                    f"`{BACKGROUND.sub('', text).rstrip()} > server.log 2>&1 &`",
+                    block.line + 1 + command.offset,
+                )
+
+
 def _error_line(block: Code) -> int | None:
     """Index of the first output line of a console block that looks like an error."""
     if block.lang != "console" or "expect-failure" in block.options:
@@ -159,8 +209,11 @@ def _check_focus(comment: Comment, focus: str, diagram: Code) -> Iterator[Note]:
     kind, ids = targets
     if focus not in ids:
         what = "participant" if kind == "sequenceDiagram" else "node or subgraph"
+        labels = {match["label"]: match["id"] for match in _PARTICIPANT.finditer(diagram.content) if match["label"]}
         match = difflib.get_close_matches(focus, sorted(ids), n=1)
         hint = f" (did you mean {match[0]!r}?)" if match else ""
+        if kind == "sequenceDiagram" and focus in labels:
+            hint = f" (did you mean {labels[focus]!r}? {focus} is its label, focus takes the id)"
         yield _warn(
             comment,
             f"focus {focus!r} is not a {what} of the Mermaid diagram at line {diagram.line}{hint}",
@@ -202,11 +255,13 @@ def _spatial(selected: list[Block], notes: dict[tuple[Path, int], list[str]]) ->
         spoken = (
             isinstance(block, Text) and any(what.startswith("paragraph: spoken") for what in whats)
         ) or (isinstance(block, Comment) and "say comment: spoken" in whats)
-        if spoken and (match := SPATIAL.search(getattr(block, "text", ""))):
+        if not spoken:
+            continue
+        for match in SPATIAL.finditer(getattr(block, "text", "")):
             yield _warn(
                 block,
-                f"the narration says {match[1]!r}, which listeners cannot see; say what is meant, "
-                "or put the sentence for the video into a skip + say pair",
+                f"the narration says {match[1]!r}, which listeners cannot see; reword it so it works "
+                "when heard (e.g. 'next', 'this command')",
             )
 
 
