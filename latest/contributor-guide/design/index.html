@@ -4645,8 +4645,10 @@ Slides are made from the doc's own lines, so they always match it.</p>
 <li>When a captured page has <code>.mermaid</code> elements that are not drawn yet and no Mermaid of
   its own, the capture step evaluates the bundled <code>mermaid.min.js</code> over CDP
   (<code>Runtime.evaluate</code>), runs <code>mermaid.run()</code> and awaits it before the screenshot. The
-  theme comes from <code>data-mermaid-theme</code> on the body (set by slides), else Mermaid's
-  default. The page does not link the script, so <code>data:</code> pages work too.</li>
+  theme and optional focus ID come from body data attributes (set by slides), else
+  Mermaid's defaults apply. After drawing, focus marks the one SVG node or cluster whose
+  source ID it names (no prefix matches); none or several is a render error that lists
+  the drawn IDs. The page does not link the script, so <code>data:</code> pages work too.</li>
 <li>So every browser view renders Mermaid offline, including <code>browser</code> actions in YAML
   and local HTML files; <code>docs/user-guide/spec.md</code> says so.</li>
 <li>A diagram Mermaid cannot parse is a render error with the scene id and Mermaid's
@@ -4659,6 +4661,9 @@ Slides are made from the doc's own lines, so they always match it.</p>
   <code>ARG MERMAID_SHA256</code>; <code>NARRATTY_MERMAID_JS</code> points at it (sandboxed runs mount the
   host's data directory over the image's). Chromium is already there; no Node and no
   mermaid-cli, whose Puppeteer would bring a second Chromium.</li>
+<li>The image also has Noto Color Emoji and the pinned Iconify <code>fa6-solid</code> JSON pack;
+  Mermaid registers it offline as the <code>fa:</code> icon prefix. Native renders can point
+  <code>NARRATTY_FONTAWESOME_JSON</code> at an equivalent Iconify pack.</li>
 <li>The wheel does not ship it. Native renders look for <code>NARRATTY_MERMAID_JS</code>, then
   <code>mermaid.min.js</code> in the data directory; otherwise a <code>MissingDependencyError</code> hints at
   <code>--runtime docker</code> or the download. <code>narratty doctor</code> lists it as optional.</li>

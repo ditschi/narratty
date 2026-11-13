@@ -1872,6 +1872,12 @@
 <p>The video on the Markdown input page is rendered in CI and not committed; to see it
 in <code>mkdocs serve</code>, render it with <code>examples/render-ci-videos.sh</code>. Pull requests that
 touch docs, examples or code upload it as the <code>docs-videos</code> artifact.</p>
+<p>CI renders these videos in the published <code>ghcr.io/ditschi/narratty:edge</code> image with
+the checkout's wheel installed on top (<code>docker/render.Dockerfile</code>). Python changes show
+up in a pull request's videos and docs preview; changes to the <code>Dockerfile</code> or its
+system dependencies do not, until they are merged and <code>edge</code> is rebuilt. Check those
+by building the image locally and rendering with
+<code>examples/render-ci-videos.sh --runtime docker --image &lt;tag&gt;</code>.</p>
 <h2 id="commits">Commits<a class="headerlink" href="#commits" title="Permanent link">&para;</a></h2>
 <p>Commits and PR titles follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a>
 (<code>feat: …</code>, <code>fix: …</code>, <code>docs: …</code>). PRs are squash-merged, so the PR title becomes the commit.</p>
