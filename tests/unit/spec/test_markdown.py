@@ -1055,7 +1055,7 @@ def test_clear_on_clears_at_each_section_with_its_heading_overlay(tmp_path: Path
     )
     scenes = _expand(_doc(tmp_path, body), clear_on=2, heading_overlays=2)
     assert [(scene["id"], scene.get("actions")) for scene in scenes] == [
-        ("doc-1", [{"ctrl_sequence": "C-l"}, {"overlay": {"text": "Doc", "style": "heading-1"}}]),
+        ("doc-1", [{"overlay": {"text": "Doc", "style": "heading-1"}}]),  # nothing to clear yet
         ("doc-a1-1", [{"ctrl_sequence": "C-l"}, {"overlay": {"text": "A", "style": "heading-2"}}]),
         ("doc-b-1", [{"run": "ls"}, {"wait": {"prompt": True}}]),
         ("doc-b-2", [{"ctrl_sequence": "C-l"}, {"overlay": {"text": "B", "style": "heading-2"}}]),

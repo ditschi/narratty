@@ -721,6 +721,7 @@ stands, so the text after it does not play over old output:
 `clear_on: 2` on the `markdown` entry clears it where each heading of level 2 or
 higher starts a section. The screen is cleared when the next visible scene starts,
 together with its [heading overlay](#heading-overlays), also after a `hidden` block.
+Headings before the first visible scene, such as the doc's title, clear nothing.
 Clearing presses Ctrl+L, which runs no command, so exit codes are checked as before;
 `shell: sh` has no line editing and cannot clear this way.
 

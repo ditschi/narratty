@@ -362,7 +362,8 @@ class _Builder:
         self.overlays = [
             (level, action) for level, action in self.overlays if level is None or level < block.level
         ]
-        if self.entry.clear_on is not None and block.level <= self.entry.clear_on:
+        started = any(not scene.data.get("hidden") for scene in self.scenes)  # nothing to clear before
+        if self.entry.clear_on is not None and block.level <= self.entry.clear_on and started:
             self.clear(block, f"heading: clears the screen (clear_on: {self.entry.clear_on})")
         settings = self.entry.heading_overlays
         if settings is None or block.level > settings.levels:
