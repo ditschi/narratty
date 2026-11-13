@@ -59,9 +59,10 @@ def render_command(
         work_directory,
         workspace_for,
     )
-    from narratty.container import delegate, host_path
+    from narratty.container import delegate
     from narratty.end_card import container_flag
     from narratty.environment import EnvironmentOptions
+    from narratty.paths import host_path
     from narratty.ui.console import err
 
     video = (output or default_output(spec, ".silent.mp4")).resolve()

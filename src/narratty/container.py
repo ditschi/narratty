@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from narratty import __version__, runtime
+from narratty.paths import CONTAINER_OUTPUT, HOST_OUTPUT_ENV
 from narratty.runtime import Runtime, release_tag
 
 if TYPE_CHECKING:
@@ -131,17 +132,6 @@ def stdout_is_tty() -> bool:
 
 
 CONTAINER_WORKSPACE = "/work"
-CONTAINER_OUTPUT = "/out"
-# The host directory mounted at CONTAINER_OUTPUT, so messages name the files you get.
-HOST_OUTPUT_ENV = "NARRATTY_HOST_OUTPUT"
-
-
-def host_path(path: Path) -> Path:
-    """``path`` as the host sees it, when it is in the container's output directory."""
-    host = os.environ.get(HOST_OUTPUT_ENV)
-    if not host or not path.is_relative_to(CONTAINER_OUTPUT):
-        return path
-    return Path(host) / path.relative_to(CONTAINER_OUTPUT)
 
 
 @dataclass(frozen=True)

@@ -114,10 +114,11 @@ def build_command(
 ) -> None:
     """Build the narrated video (or asciicast)."""
     from narratty.build import build, build_cast, default_output
-    from narratty.container import delegate, host_path
+    from narratty.container import delegate
     from narratty.end_card import container_flag
     from narratty.environment import EnvironmentOptions
     from narratty.errors import UsageError
+    from narratty.paths import host_path
     from narratty.ui.console import err, out
 
     cast = output_format is OutputFormat.CAST
