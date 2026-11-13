@@ -821,14 +821,16 @@ its section plays. Long breadcrumbs shorten their middle parts to `…` first
 
 | Style | `position` | `size` | `bold` | `duration_ms` |
 |---|---|---|---|---|
-| `heading-1` | `center` | `large` | yes | `2.5s` |
+| `heading-1` | `center` | `large` | yes | `2.5s`; while the doc's intro is spoken, until it ends (since 0.7) |
 | `heading-2` | `top-right` | `large` | yes | `3s` |
 | `heading-3` | `top-right` | `medium` | no | `3s` |
 | `heading-4` and deeper | `top-right` | `small` | no | `2.5s` |
 | `breadcrumb` | `top-right` | `small` | no | until the section ends |
 | `file` | `top` | `small` | no | until the scene ends |
 
-Change them like any style in [`overlay_styles`](spec.md#overlays).
+The title card stays while the text before the first block is spoken, so the intro
+does not play over an empty prompt; a `duration_ms` for `heading-1` in
+`overlay_styles` applies instead. Change them like any style in [`overlay_styles`](spec.md#overlays).
 
 ## Snippets and mkdocs
 

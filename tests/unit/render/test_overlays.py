@@ -108,6 +108,27 @@ def test_schedule_ends_at_scene_duration_replacement_or_end() -> None:
     assert shown["2 · Build"] == (two + 300, end)
 
 
+def test_a_title_card_stays_while_the_intro_is_spoken() -> None:
+    title = "{overlay: {text: Doc, style: heading-1}}"
+    spec = _spec(
+        "end_card: false\nscenes:\n"
+        f"  - {{id: intro, narration: Intro., actions: [{title}]}}\n"
+        f"  - {{id: run, narration: Run., actions: [{title.replace('Doc', 'Other')}, {{run: ls}}]}}\n"
+        "  - {id: last, narration: Last.}\n"
+    )
+    times = planned_times(build_script(spec, build_timeline(spec, {"intro": 9000, "run": 9000, "last": 1000})))
+    shown = [(item.start_ms, item.end_ms) for item in schedule(spec, times)]
+    assert shown[0] == (times["intro"], times["run"]), "a narration-only scene keeps it to its end"
+    assert shown[1] == (times["overlay:run:0"], times["overlay:run:0"] + 2500), "with commands it fades"
+    styled = _spec(
+        "overlay_styles: {heading-1: {duration_ms: 1s}}\nend_card: false\nscenes:\n"
+        f"  - {{id: intro, narration: Intro., actions: [{title}]}}\n"
+    )
+    times = planned_times(build_script(styled, build_timeline(styled, {"intro": 9000})))
+    ((start, end),) = [(item.start_ms, item.end_ms) for item in schedule(styled, times)]
+    assert end - start == 1000, "a duration set in overlay_styles still applies"
+
+
 def test_builtin_styles_are_the_ones_the_spec_accepts() -> None:
     assert tuple(BUILTIN_STYLES) == BUILTIN_OVERLAY_STYLES
 
