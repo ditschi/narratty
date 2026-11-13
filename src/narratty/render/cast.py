@@ -274,7 +274,7 @@ class Recorder:
         """Note when the commands submitted since the last check have finished."""
         if not self._pending:
             return
-        now, running = self._clock(), self.running_command()
+        now, running = self._clock(), self.running_command(children=True)
         pending = []
         for index, started, seen in self._pending:
             if not running and (seen or now - started >= _START_GRACE):
@@ -401,19 +401,36 @@ class Recorder:
                 return
             self.pump(wake - now)
 
-    def running_command(self) -> bool:
+    def running_command(self, *, children: bool = False) -> bool:
         """Whether a command runs in the foreground that does not read keys.
 
         Such a command leaves the terminal in canonical (line) mode, as the shell
         does; interactive programs (editors, pagers, tmux) switch that off and count
-        as idle.
+        as idle. With ``children``, a child in the shell's own process group counts
+        too: without job control (``set +m``) commands run there, not in a group of
+        their own.
         """
         try:
             group = os.tcgetpgrp(self._fd)
             canonical = termios.tcgetattr(self._fd)[3] & termios.ICANON
         except (OSError, termios.error):
             return False
-        return group != self._proc.pid and bool(canonical)
+        if not canonical:
+            return False
+        return group != self._proc.pid or (children and self._child_in_shell_group())
+
+    def _child_in_shell_group(self) -> bool:
+        """Whether the shell has a child in its own process group (Linux; False elsewhere)."""
+        pid = self._proc.pid
+        try:
+            children = Path(f"/proc/{pid}/task/{pid}/children").read_text(encoding="ascii").split()
+        except OSError:
+            return False
+        for child in children:
+            with contextlib.suppress(OSError):
+                if os.getpgid(int(child)) == pid:
+                    return True
+        return False
 
     def _keys(self, keys: Sequence[str], speed_ms: int) -> None:
         for key in keys:

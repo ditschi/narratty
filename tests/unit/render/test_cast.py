@@ -286,3 +286,22 @@ def test_record_measures_how_long_each_command_ran(tmp_path: Path) -> None:
     assert took["sleep 0.6"] is not None and 550 <= took["sleep 0.6"] < 3000
     assert took["true"] is not None and took["true"] < 500
     assert took["sleep 5"] is None, "stopped with C-c, so not measured"
+
+
+def test_record_measures_commands_without_job_control(tmp_path: Path) -> None:
+    spec = parse_spec(
+        "end_card: false\ntiming: {lead_in_ms: 0, tail_ms: 0, run_hold_ms: 1000}\n"
+        "terminal: {typing_speed_ms: 5}\nscenes:\n"
+        "  - id: setup\n    hidden: true\n    actions: [{run: set +m}]\n"
+        "  - id: a\n    actions: [{run: sleep 0.6}]\n",
+        tmp_path / "t.narratty.yaml",
+    )
+    recording = record(
+        build_script(spec, build_timeline(spec, {})),
+        terminal=spec.terminal,
+        cwd=tmp_path,
+        env={**os.environ, "HOME": str(tmp_path)},
+        title="T",
+    )
+    took = {line: ms for line, ms in recording.took_ms if line}
+    assert took["sleep 0.6"] is not None and 550 <= took["sleep 0.6"] < 3000
