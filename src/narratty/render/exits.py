@@ -22,6 +22,11 @@ from narratty.timeline import Pacing
 
 # 128 + SIGINT / SIGTSTP: the scene stopped the command itself (C-c, C-z).
 INTERRUPTED = frozenset({130, 148})
+NOT_FOUND = 127  # the shell found no such command
+EXPECT_HINT = (
+    "set `expect_exit: failure` (must fail) or `expect_exit: any` (not checked) on the scene or its "
+    "`run` action"
+)
 UNCHECKED_SHELLS = frozenset({"sh"})
 
 
@@ -143,7 +148,19 @@ def _failed_status(entry: Exit) -> bool:
 
 
 def _failed(where: str, shown: str, entry: Exit) -> str:
-    return f"{where}: {shown} exited with {entry.status}"
+    why = " (command not found)" if entry.status == NOT_FOUND else ""
+    return f"{where}: {shown} exited with {entry.status}{why}"
+
+
+def _missing(spec: Spec, entries: list[Exit]) -> list[str]:
+    """The commands the shell did not find, from lines that are not hidden."""
+    names = []
+    for typed, entry in assign(spec, entries):
+        if entry.status == NOT_FOUND and not (typed is not None and typed.hidden):
+            words = [word for word in entry.line.split() if "=" not in word]
+            if words and words[0] not in names:
+                names.append(words[0])
+    return names
 
 
 def _command_problems(typed: Typed, entries: list[Exit]) -> list[str]:
@@ -208,9 +225,15 @@ def check(spec: Spec, log: Path, *, default: ExpectExit = "success", output: Pat
         from narratty.paths import host_path
 
         output = host_path(output) if output else None
+        missing = ", ".join(f"`{name}`" for name in _missing(spec, entries))
         raise CommandError(
             "the recording may show failed commands:\n  " + "\n  ".join(found),
-            hint="Fix the command, or set `expect_exit: failure` (must fail) or "
-            "`expect_exit: any` (not checked) on the scene or its `run` action, "
-            "or build with --ignore-exit." + (f" The output was written anyway: {output}" if output else ""),
+            hint=(
+                f"{missing} was not found: add its package to `environment.packages`, or use an image "
+                "that has it. "
+                if missing
+                else ""
+            )
+            + f"Fix the command, or {EXPECT_HINT}, or build with --ignore-exit."
+            + (f" The output was written anyway: {output}" if output else ""),
         )

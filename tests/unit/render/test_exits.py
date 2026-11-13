@@ -99,7 +99,7 @@ def test_interrupted_commands_are_not_failures() -> None:
 
 def test_failure_before_the_first_scene() -> None:
     assert problems(_spec(), [Exit(127, "setup-hook")]) == [
-        "before the first scene: `setup-hook` exited with 127",
+        "before the first scene: `setup-hook` exited with 127 (command not found)",
         "scene 'broken' expects a command to fail but ran none at the shell prompt",
     ]
 
@@ -323,3 +323,13 @@ def test_hidden_clear_with_a_real_shell(tmp_path: Path) -> None:
     record(steps, terminal=spec.terminal, cwd=tmp_path, env=os.environ, title="T")
     check(spec, log)
     assert "s3cret" not in log.read_text(encoding="utf-8")
+
+
+def test_a_missing_command_is_named_in_the_hint(tmp_path: Path) -> None:
+    log = tmp_path / "exits.log"
+    log.write_text("0\tcd demo\n127\tFOO=1 jq . data.json\n", encoding="utf-8")
+    spec = _spec("end_card: false\nscenes:\n  - id: a\n    actions: [{run: 'FOO=1 jq . data.json'}]\n")
+    with pytest.raises(CommandError, match=r"exited with 127 \(command not found\)") as raised:
+        check(spec, log)
+    assert raised.value.hint and "`jq` was not found" in raised.value.hint
+    assert "environment.packages" in raised.value.hint

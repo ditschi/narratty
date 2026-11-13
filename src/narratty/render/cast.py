@@ -462,6 +462,9 @@ class Recorder:
         return any(row.startswith(self.prompt) for row in rows)
 
 
+PATTERN_HINT = "Check the pattern against the command's output, or raise wait.timeout_ms."
+
+
 def wait_timeout(timeout_ms: int, pattern: str | None, scene: str | None) -> RenderError:
     """The error for a ``wait`` that timed out; ``pattern`` None: it waited for the prompt."""
     where = f" in scene {scene!r}" if scene else ""
@@ -476,7 +479,7 @@ def wait_timeout(timeout_ms: int, pattern: str | None, scene: str | None) -> Ren
         )
     return RenderError(
         f"timed out after {timeout_ms} ms{where} waiting for the screen to match /{pattern}/",
-        hint="Check the pattern against the command's output, or raise wait.timeout_ms.",
+        hint=PATTERN_HINT,
         scene=scene,
     )
 
