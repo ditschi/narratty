@@ -152,3 +152,11 @@ over the limit.
 
 In native mode none of this can be enforced: the demo runs with your own network and
 environment, and narratty says so. `sandbox.env` is still applied.
+`env_passthrough` is not needed there either, since the demo sees your whole
+environment, so native runs ask for no approval.
+
+Hidden commands run natively on your machine too, with your own `HOME`, and narratty
+says so once. Since 0.7 a hidden command that points at your home directory
+(`git config --global`, `~/…`, `$HOME`) stops a native `check` or `build` before
+anything runs, unless you pass `--yes`; in the container it changes only the
+container's throwaway home.

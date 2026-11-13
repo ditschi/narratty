@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import tempfile
@@ -159,6 +160,37 @@ def warn_unenforced_sandbox(spec: Spec, log: Log, request: SandboxRequest | None
         return  # the environment's container enforces them
     if spec.sandbox.elevated and not os.environ.get("NARRATTY_IN_CONTAINER"):
         log("sandbox settings are only enforced in a container; running natively with your own access")
+
+
+HOME_WRITES = re.compile(r"--global\b|(?<![\w/.$-])~(?=/|\s|$)|\$\{?HOME\b")
+"""What in a command points at the home directory: ``git config --global``, ``~/``, ``$HOME``."""
+
+
+def guard_native_hidden(spec: Spec, log: Log, request: SandboxRequest | None = None) -> None:
+    """Natively, hidden commands run on this machine with your own HOME: say so once, and
+    stop before ones that would change it, unless approved with ``--yes``."""
+    if _environment(spec, request) is not None or os.environ.get("NARRATTY_IN_CONTAINER"):
+        return  # a container keeps them away from this machine's home
+    hidden = [
+        (scene.id, action.run)
+        for scene in spec.scenes
+        if scene.hidden
+        for action in scene.actions
+        if isinstance(action, Run)
+    ]
+    if not hidden:
+        return
+    log("hidden commands run on this machine, with your HOME (--runtime docker runs them in a container)")
+    risky = sorted({scene_id for scene_id, command in hidden if HOME_WRITES.search(command)})
+    if risky and not (request and request.assume_yes):
+        from narratty.errors import UsageError
+
+        scenes = ", ".join(repr(scene_id) for scene_id in risky)
+        raise UsageError(
+            f"a hidden command in scene {scenes} would change your home directory (--global, ~ or $HOME) "
+            "when run natively",
+            hint="Run it in the container (--runtime docker), or pass --yes if that is what you want.",
+        )
 
 
 def recording_env(spec: Spec) -> dict[str, str]:
@@ -819,6 +851,7 @@ def build(
     planned = plan(spec_path, offline=offline, end_card=end_card, draft=draft, log=say)
     mode = subtitle_mode(planned, subtitles)
     warn_unenforced_sandbox(planned.spec, say, sandbox)
+    guard_native_hidden(planned.spec, say, sandbox)
     with (
         work_directory(work_dir) as work,
         workspace_for(planned, workspace or WorkspaceOptions(), sandbox, log=say) as ws,
@@ -1016,6 +1049,7 @@ def build_cast(
     say("synthesizing narration")
     planned = plan(spec_path, offline=offline, end_card=end_card, log=say)
     warn_unenforced_sandbox(planned.spec, say, sandbox)
+    guard_native_hidden(planned.spec, say, sandbox)
     spec = planned.spec
     with (
         work_directory(work_dir) as work,
@@ -1136,6 +1170,7 @@ def check(
     if editor:
         say("output is not compared in the editor layout; checking exit codes only")
     warn_unenforced_sandbox(planned.spec, say, sandbox)
+    guard_native_hidden(planned.spec, say, sandbox)
     with (
         work_directory(work_dir) as work,
         workspace_for(planned, workspace or WorkspaceOptions(), sandbox, log=say) as ws,

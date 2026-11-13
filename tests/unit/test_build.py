@@ -650,3 +650,37 @@ def test_render_stretches_a_recording_that_dropped_frames(
     assert any("dropped frames" in line for line in logs)
     assert layout is not None and set(layout.scene_starts_ms) == {"a", "b"}
     assert (tmp_path / "v.mp4").read_bytes() == b"retimed"
+
+
+NATIVE_HIDDEN = "end_card: false\nscenes:\n  - id: setup\n    hidden: true\n    actions: [{run: '%s'}]\n"
+
+
+def test_native_hidden_commands_are_announced(monkeypatch: pytest.MonkeyPatch) -> None:
+    from narratty.build import guard_native_hidden
+
+    monkeypatch.delenv("NARRATTY_IN_CONTAINER", raising=False)
+    said: list[str] = []
+    guard_native_hidden(parse_spec(NATIVE_HIDDEN % "cd demo", Path("t.narratty.yaml")), said.append)
+    assert len(said) == 1 and "hidden commands run on this machine" in said[0]
+    said.clear()
+    guard_native_hidden(parse_spec("end_card: false\nscenes:\n  - id: a\n", Path("t.narratty.yaml")), said.append)
+    assert said == []
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["git config --global user.name Demo", "echo x >> ~/.bashrc", "rm -rf $HOME/.cache/x", "cp a ${HOME}/b"],
+)
+def test_native_hidden_commands_that_change_home_need_yes(monkeypatch: pytest.MonkeyPatch, command: str) -> None:
+    from narratty.build import guard_native_hidden
+    from narratty.container import SandboxRequest
+    from narratty.errors import UsageError
+
+    monkeypatch.delenv("NARRATTY_IN_CONTAINER", raising=False)
+    spec = parse_spec(NATIVE_HIDDEN % command, Path("t.narratty.yaml"))
+    with pytest.raises(UsageError, match="hidden command in scene 'setup' would change your home") as raised:
+        guard_native_hidden(spec, lambda _: None)
+    assert command not in raised.value.message, "hidden commands may hold secrets"
+    guard_native_hidden(spec, lambda _: None, SandboxRequest(assume_yes=True))
+    monkeypatch.setenv("NARRATTY_IN_CONTAINER", "1")
+    guard_native_hidden(spec, lambda _: None)
