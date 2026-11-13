@@ -34,6 +34,7 @@ from narratty.spec.model import (
     HeadingOverlays,
     MarkdownEntry,
     MarkdownNarration,
+    Overlay,
     SectionFilter,
     to_ms,
 )
@@ -396,7 +397,7 @@ class _Builder:
             self.spoken.append(" ".join(body.split()))
             self.unassigned.append((block, "say comment: spoken"))
         elif kind == "overlay":
-            self.overlays.append((None, {"overlay": _yaml_value(body, block, kind)}))
+            self.overlays.append((None, {"overlay": _overlay(body, block)}))
             self.unassigned.append((block, "overlay comment"))
         elif kind == "spec":
             self.note(block, None, "spec comment: used when the doc is built on its own")
@@ -1092,6 +1093,22 @@ def _yaml_value(text: str, block: Block, kind: str) -> Any:
     except YAMLError as error:
         raise fail(block.file, block.line, f"{kind} comment: invalid YAML: {error}") from error
     return value
+
+
+def _overlay(body: str, block: Block) -> Any:
+    """An overlay comment's value: a ``{...}`` mapping, a mapping of overlay keys, else the text."""
+    from ruamel.yaml import YAML
+    from ruamel.yaml.error import YAMLError
+
+    if body.startswith("{"):
+        return _yaml_value(body, block, "overlay")
+    try:
+        value = YAML(typ="safe").load(body)
+    except YAMLError:
+        return body
+    if isinstance(value, dict) and "text" in value and set(value) <= set(Overlay.model_fields):
+        return value
+    return body
 
 
 def _duration(value: Any, block: Block, what: str) -> int:

@@ -523,7 +523,7 @@ The [Compose file reference](https://docs.docker.com/compose/) lists every key.
 | `skip` | Leaves the next paragraph or block out of the video; before a heading, its overlay |
 | `skip-rest` | Leaves the rest of the section out, up to the next heading of the same or a higher level (since 0.7) |
 | `say` | Adds narration where it stands; `skip` plus `say` replaces a paragraph |
-| `overlay` | Shows an [overlay](spec.md#overlays) in the next scene; takes the same value as the action |
+| `overlay` | Shows an [overlay](spec.md#overlays) in the next scene; takes the same value as the action, and text with a colon such as `not run: in this video` stays text (since 0.7) |
 | `hidden` | Runs setup commands in the recorded shell without showing them |
 | `browser` | Opens a link of the next paragraph in a [browser view](spec.md#browser-views), see [Opening links](#opening-links) |
 | `pause` | Ends the scene; with a duration, silence follows (since 0.6), see [Pauses](#pauses) |

@@ -1161,4 +1161,27 @@ def test_yaml_errors_in_comments_hint_at_quoting(tmp_path: Path) -> None:
     doc.write_text("# Doc\n\n<!-- narratty: overlay {text: hi, colour: red} -->\n\n```bash\nls\n```\n")
     with pytest.raises(SpecError) as raised:
         load_spec(doc)
-    assert raised.value.hint == SCHEMA_HINT, "a schema violation keeps the schema hint"
+    assert raised.value.hint is None, "the schema lists YAML keys, not Markdown comments"
+    assert SCHEMA_HINT not in raised.value.message
+
+
+@pytest.mark.parametrize(
+    ("comment", "overlay"),
+    [
+        ("not run: in this video", "not run: in this video"),
+        ("{text: Hi, style: note}", {"text": "Hi", "style": "note"}),
+        ("Plain text", "Plain text"),
+        ("[a, b", "[a, b"),
+    ],
+)
+def test_overlay_comment_text_may_contain_a_colon(tmp_path: Path, comment: str, overlay: object) -> None:
+    body = f"# Doc\n\n<!-- narratty: overlay {comment} -->\nSaid.\n"
+    (scene,) = _expand(_doc(tmp_path, body))
+    assert scene["actions"][0] == {"overlay": overlay}
+
+
+def test_markdown_errors_have_no_schema_hint(tmp_path: Path) -> None:
+    doc = _doc(tmp_path, "# Doc\n\n```bash\ngit clone <repo-url>\n```\n")
+    with pytest.raises(SpecError) as info:
+        _expand(doc)
+    assert "narratty schema" not in (info.value.hint or "")
