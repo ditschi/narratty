@@ -130,3 +130,16 @@ scenes:
     assert late.timelapse_layout(100) == (100, 1500)
     assert timeline.has_timelapse
     assert not build_timeline(SPEC, AUDIO).has_timelapse
+
+
+def test_hold_auto_waits_for_the_whole_narration() -> None:
+    """Explain, then run: what follows `hold: auto` starts once the narration and its buffer are done."""
+    spec = _spec(
+        "timing: {narration_buffer_ms: 300, lead_in_ms: 0, tail_ms: 0, run_hold_ms: 1000}\n"
+        "terminal: {typing_speed_ms: 50}\nend_card: false\nscenes:\n"
+        "  - id: explain\n    narration: Explain first.\n"
+        "    actions: [{overlay: Title}, {hold: auto}, {run: make all}]\n"
+    )
+    (timing,) = build_timeline(spec, {"explain": 2450}).scenes
+    assert timing.fill_ms == 2450 + 300, "nothing comes before the hold"
+    assert timing.length_ms == 2750 + timing.action_ms

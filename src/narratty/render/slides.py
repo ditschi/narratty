@@ -1,4 +1,4 @@
-"""Slides: a table, Mermaid diagram or image on a full-screen page.
+"""Slides: a table, Mermaid diagram, image or code on a full-screen page.
 
 Each slide becomes an HTML file that :mod:`.browser` captures like a browser view, but
 without the address bar. Loaded from a file, the page can show workspace images and
@@ -36,6 +36,7 @@ COLORS = {
     },
 }
 MERMAID_THEMES = {"dark": "dark", "light": "default"}
+CODE_STYLES = {"dark": "dracula", "light": "default"}  # Pygments styles
 
 _STYLE = """
 html,body{{margin:0;height:100%}}
@@ -54,7 +55,10 @@ a{{color:{link}}}
 img{{max-width:94vw;max-height:100%;object-fit:contain}}
 pre.mermaid{{width:94vw;text-align:center;font:1.6vw 'JetBrains Mono',monospace;white-space:pre-wrap}}
 pre.mermaid svg{{max-width:100%!important;max-height:{diagram_height};height:auto}}
-.narratty-focus>:is(rect,polygon,circle,path),.narratty-focus :is(.label-container,.label-container *){{
+pre.code{{max-width:92vw;padding:2.5vh 2.5vw;border:1px solid {line};border-radius:8px;overflow:hidden;
+font-family:'JetBrains Mono','DejaVu Sans Mono',monospace;line-height:1.35}}
+pre.code code{{color:{fg};font-family:inherit}}
+.narratty-focus>:is(rect,polygon,circle,path,line),.narratty-focus :is(.label-container,.label-container *){{
 stroke:{accent}!important;stroke-width:4px!important;filter:drop-shadow(0 0 5px {accent})}}
 """
 # A table taller than the slide moves up until the highlighted row is in the middle.
@@ -75,6 +79,8 @@ def page(slide: Slide, theme: SlideTheme, workspace: Path) -> str:
         script = _FOLLOW_MARK
     elif slide.mermaid is not None:
         body = f'<pre class="mermaid">{html.escape(slide.mermaid)}</pre>'
+    elif slide.code is not None:
+        body = _code(slide.code, slide.lang, theme, titled=bool(slide.title))
     else:
         assert slide.image is not None
         body = f'<img alt="{html.escape(slide.title or "")}" src="{_image_src(slide.image, workspace)}">'
@@ -107,6 +113,30 @@ def _table(table: SlideTable, slide: Slide) -> tuple[str, str]:
     )
     thead = f"<thead><tr>{head}</tr></thead>" if head else ""
     return f"<table>{thead}<tbody>{body}</tbody></table>", footer
+
+
+def _code(code: str, lang: str | None, theme: SlideTheme, *, titled: bool) -> str:
+    """The code, highlighted by Pygments, as large as fits the slide."""
+    from pygments import highlight
+    from pygments.formatters import HtmlFormatter
+    from pygments.lexers import TextLexer, get_lexer_by_name
+    from pygments.util import ClassNotFound
+
+    try:
+        lexer = get_lexer_by_name(lang) if lang else TextLexer()
+    except ClassNotFound:
+        lexer = TextLexer()
+    formatter = HtmlFormatter(nowrap=True, noclasses=True, style=CODE_STYLES[theme])
+    lines = code.expandtabs(4).split("\n")
+    columns = max((len(line) for line in lines), default=1) or 1
+    # Monospace glyphs are about 0.6em wide; the slide is 16:9 (100vw = 177.8vh).
+    width_vw = 85 / (columns * 0.6)
+    height_vw = (70 if titled else 80) / 1.778 / (len(lines) * 1.35)
+    size = min(2.4, width_vw, height_vw)
+    return (
+        f'<pre class="code" style="font-size:{size:.3f}vw"><code>'
+        f"{highlight(code.expandtabs(4), lexer, formatter).rstrip()}</code></pre>"
+    )
 
 
 def _image_src(image: str, workspace: Path) -> str:

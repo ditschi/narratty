@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 import os
+import signal
 import sys
+from types import FrameType
 
 from narratty.cli.app import app
 from narratty.errors import ExitCode, NarrattyError
 from narratty.ui import console
 
 
+def _terminated(_signum: int, _frame: FrameType | None) -> None:
+    """SIGTERM unwinds like Ctrl+C, so workspaces and containers are cleaned up."""
+    raise KeyboardInterrupt
+
+
 def main() -> None:
     """Console-script entry point (``narratty``)."""
+    signal.signal(signal.SIGTERM, _terminated)
     try:
         app()
     except NarrattyError as error:

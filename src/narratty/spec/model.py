@@ -112,6 +112,29 @@ class Run(_Model):
         description="What the command prints, compared by `narratty check`. A line `...` stands for "
         "any lines, `...` within a line for any text.",
     )
+    show: str | None = Field(
+        None,
+        min_length=1,
+        description="Typed on screen instead of `run`, which runs in its place without being shown "
+        "(since 0.7). `narratty check` runs `run` as it is.",
+    )
+    max_lines: int | None = Field(
+        None,
+        ge=1,
+        description="Lines of output the video shows; the rest is cut with a note (since 0.7). "
+        "`narratty check` sees all of it.",
+    )
+
+    @model_validator(mode="after")
+    def _one_line_when_masked(self) -> Run:
+        if (self.show is not None or self.max_lines is not None) and "\n" in self.run.strip():
+            raise ValueError("with show or max_lines, run must be a single line")
+        return self
+
+    @property
+    def masked(self) -> bool:
+        """Whether the screen shows something else than the typed ``run`` (see ``show``)."""
+        return self.show is not None or self.max_lines is not None
 
 
 class Enter(_Model):
@@ -339,7 +362,7 @@ class ShowBrowser(_Model):
 
 
 SlideTheme = Literal["dark", "light"]
-SLIDE_CONTENT = ("table", "mermaid", "image", "html")
+SLIDE_CONTENT = ("table", "mermaid", "image", "html", "code")
 SLIDE_IMAGE_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -367,7 +390,7 @@ class SlideTable(_Model):
 
 
 class Slide(_Model):
-    """Exactly one of table, mermaid, image or html, shown full screen."""
+    """Exactly one of table, mermaid, image, html or code, shown full screen."""
 
     title: str | None = Field(None, min_length=1, description="Shown above the content.")
     table: SlideTable | None = None
@@ -380,6 +403,14 @@ class Slide(_Model):
     )
     html: str | None = Field(
         None, min_length=1, description="An HTML file in the workspace or a data: URL, shown as it is."
+    )
+    code: str | None = Field(
+        None, min_length=1, description="Source code, shown syntax-highlighted (since 0.7)."
+    )
+    lang: str | None = Field(
+        None,
+        pattern=r"^[\w+#.-]+$",
+        description="Language of the code, such as json or yaml; unset: plain text.",
     )
     highlight: int | None = Field(
         None, ge=1, description="Table row to highlight, from 1; it picks the page."
@@ -421,6 +452,8 @@ class Slide(_Model):
     def _mermaid_focus(self) -> Slide:
         if self.focus is not None and self.mermaid is None:
             raise ValueError("focus only applies to Mermaid slides")
+        if self.lang is not None and self.code is None:
+            raise ValueError("lang only applies to code slides")
         return self
 
     @property
@@ -614,17 +647,36 @@ def _or_levels(schema: dict[str, Any]) -> None:
 
 
 SectionPath = Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)]
+Section = Annotated[str, Field(min_length=1)] | SectionPath
+ADMONITION_FIELDS = ("type", "title", "body")
+
+
+class SectionFilter(_Model):
+    """Sections to use and sections to leave out (since 0.7)."""
+
+    include: list[Section] | None = Field(
+        None, min_length=1, description="Sections to use, in this order; unset: the whole doc."
+    )
+    exclude: list[Section] = Field(
+        [], description="Sections left out, with their nested headings; the rest stays, intros included."
+    )
+
+
+Sections = Annotated[
+    Annotated[list[Section], Field(min_length=1), Tag("sections")] | Annotated[SectionFilter, Tag("filter")],
+    Discriminator(lambda value: "filter" if isinstance(value, (dict, SectionFilter)) else "sections"),
+]
 
 
 class MarkdownEntry(_Model):
     """A Markdown doc expanded into scenes where it stands in ``scenes``."""
 
     markdown: str = Field(min_length=1, description="The Markdown file, relative to the spec.")
-    sections: list[Annotated[str, Field(min_length=1)] | SectionPath] | None = Field(
+    sections: Sections | None = Field(
         None,
-        min_length=1,
         description="Sections to use, by TOC slug or title, with their nested headings; "
-        "a list path picks one of several equal headings. Unset: the whole doc.",
+        "a list path picks one of several equal headings. Unset: the whole doc. "
+        "{include: [...], exclude: [...]} also leaves sections out.",
     )
     id_prefix: str | None = Field(
         None, pattern=SCENE_ID_PATTERN, description="Start of the scene ids; defaults to the file stem."
@@ -646,6 +698,33 @@ class MarkdownEntry(_Model):
         description="Let `narratty check` compare what commands print with the output shown in "
         "console blocks.",
     )
+    footnotes: Literal["skip", "inline"] = Field(
+        "skip",
+        description="skip: footnotes are not spoken; inline: each is spoken after the sentence "
+        "that refers to it (since 0.7).",
+    )
+    admonitions: dict[Annotated[str, Field(min_length=1)], str] | Literal[False] = Field(
+        {},
+        description="How admonitions and alerts of a type start when spoken: a template with "
+        "{type}, {title} and {body}, such as 'Careful: {body}'; false: never prefixed. warning, "
+        "caution, danger and important say their type by default (since 0.7).",
+    )
+    image_titles: bool = Field(True, description="Show an image's alt text as its slide title (since 0.7).")
+    lint: bool = Field(
+        True, description="Let `narratty validate` warn about the doc's authoring problems (since 0.7)."
+    )
+    clear_on: int | None = Field(
+        None,
+        ge=1,
+        le=6,
+        description="Clear the screen where a heading of this level or higher starts a section "
+        "(since 0.7). Unset: never.",
+    )
+    say: Literal["before", "during"] = Field(
+        "during",
+        description="When the text before a command block is spoken: before its commands are typed, "
+        "or during them (since 0.7). A `run` comment changes it per block.",
+    )
     defaults: SceneDefaults = SceneDefaults()
     overrides: dict[Annotated[str, Field(pattern=SCENE_ID_PATTERN)], BlockOverride] = Field(
         {}, description="Per-block changes, keyed by the id in the block's attributes."
@@ -655,6 +734,22 @@ class MarkdownEntry(_Model):
     @classmethod
     def _levels_shorthand(cls, value: Any) -> Any:
         return {"levels": value} if isinstance(value, int) and not isinstance(value, bool) else value
+
+    @field_validator("admonitions")
+    @classmethod
+    def _templates(cls, value: dict[str, str] | Literal[False]) -> dict[str, str] | Literal[False]:
+        import string
+
+        for kind, template in (value or {}).items():
+            try:
+                names = [name for _, name, _, _ in string.Formatter().parse(template) if name is not None]
+            except ValueError as error:
+                raise ValueError(f"{kind}: {error}") from error
+            if unknown := [name for name in names if name not in ADMONITION_FIELDS]:
+                raise ValueError(
+                    f"{kind}: unknown field {{{unknown[0]}}}; use {{type}}, {{title}} and {{body}}"
+                )
+        return {kind.lower(): template for kind, template in value.items()} if value else value
 
 
 # ── top-level sections ────────────────────────────────────────────────────────
@@ -717,6 +812,11 @@ class Timing(_Model):
     tail_ms: Duration = Field(1000, ge=0)
     run_hold_ms: Duration = Field(500, ge=0, description="Pause after each `run` action.")
     pause_ms: Duration = Field(100, ge=0, description="Pause after each `key` and `ctrl_sequence`.")
+    measured_durations: bool = Field(
+        True,
+        description="Wait after each `run` as long as `narratty check` measured its command; "
+        "false plans with `run_hold_ms` only.",
+    )
 
 
 class Terminal(_Model):

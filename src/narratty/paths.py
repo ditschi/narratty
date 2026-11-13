@@ -16,6 +16,8 @@ APP = "narratty"
 CONTAINER_OUTPUT = "/out"
 # The host directory mounted at CONTAINER_OUTPUT, so messages name the files you get.
 HOST_OUTPUT_ENV = "NARRATTY_HOST_OUTPUT"
+# ``<container path>=<host path>`` of the spec, so error messages name the file you wrote.
+HOST_SPEC_ENV = "NARRATTY_HOST_SPEC"
 
 
 def host_path(path: Path) -> Path:

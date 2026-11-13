@@ -884,6 +884,34 @@
           "default": null,
           "description": "What the command prints, compared by `narratty check`. A line `...` stands for any lines, `...` within a line for any text.",
           "title": "Expect Output"
+        },
+        "show": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Typed on screen instead of `run`, which runs in its place without being shown (since 0.7). `narratty check` runs `run` as it is.",
+          "title": "Show"
+        },
+        "max_lines": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lines of output the video shows; the rest is cut with a note (since 0.7). `narratty check` sees all of it.",
+          "title": "Max Lines"
         }
       },
       "required": [
@@ -1201,7 +1229,7 @@
     },
     "Slide": {
       "additionalProperties": false,
-      "description": "Exactly one of table, mermaid, image or html, shown full screen.",
+      "description": "Exactly one of table, mermaid, image, html or code, shown full screen.",
       "properties": {
         "title": {
           "anyOf": [
@@ -1283,6 +1311,34 @@
           "default": null,
           "description": "An HTML file in the workspace or a data: URL, shown as it is.",
           "title": "Html"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Source code, shown syntax-highlighted (since 0.7).",
+          "title": "Code"
+        },
+        "lang": {
+          "anyOf": [
+            {
+              "pattern": "^[\\w+#.-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Language of the code, such as json or yaml; unset: plain text.",
+          "title": "Lang"
         },
         "highlight": {
           "anyOf": [
@@ -1571,6 +1627,12 @@
           "default": 100,
           "description": "Pause after each `key` and `ctrl_sequence`.",
           "title": "Pause Ms"
+        },
+        "measured_durations": {
+          "default": true,
+          "description": "Wait after each `run` as long as `narratty check` measured its command; false plans with `run_hold_ms` only.",
+          "title": "Measured Durations",
+          "type": "boolean"
         }
       },
       "title": "Timing",
@@ -2125,17 +2187,11 @@
       "title": "SceneDefaults",
       "type": "object"
     },
-    "MarkdownEntry": {
+    "SectionFilter": {
       "additionalProperties": false,
-      "description": "A Markdown doc expanded into scenes where it stands in ``scenes``.",
+      "description": "Sections to use and sections to leave out (since 0.7).",
       "properties": {
-        "markdown": {
-          "description": "The Markdown file, relative to the spec.",
-          "minLength": 1,
-          "title": "Markdown",
-          "type": "string"
-        },
-        "sections": {
+        "include": {
           "anyOf": [
             {
               "items": {
@@ -2162,7 +2218,80 @@
             }
           ],
           "default": null,
-          "description": "Sections to use, by TOC slug or title, with their nested headings; a list path picks one of several equal headings. Unset: the whole doc.",
+          "description": "Sections to use, in this order; unset: the whole doc.",
+          "title": "Include"
+        },
+        "exclude": {
+          "default": [],
+          "description": "Sections left out, with their nested headings; the rest stays, intros included.",
+          "items": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            ]
+          },
+          "title": "Exclude",
+          "type": "array"
+        }
+      },
+      "title": "SectionFilter",
+      "type": "object"
+    },
+    "MarkdownEntry": {
+      "additionalProperties": false,
+      "description": "A Markdown doc expanded into scenes where it stands in ``scenes``.",
+      "properties": {
+        "markdown": {
+          "description": "The Markdown file, relative to the spec.",
+          "minLength": 1,
+          "title": "Markdown",
+          "type": "string"
+        },
+        "sections": {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    ]
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                {
+                  "$ref": "#/$defs/SectionFilter"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sections to use, by TOC slug or title, with their nested headings; a list path picks one of several equal headings. Unset: the whole doc. {include: [...], exclude: [...]} also leaves sections out.",
           "title": "Sections"
         },
         "id_prefix": {
@@ -2241,6 +2370,73 @@
           "title": "Check Output",
           "type": "boolean"
         },
+        "footnotes": {
+          "default": "skip",
+          "description": "skip: footnotes are not spoken; inline: each is spoken after the sentence that refers to it (since 0.7).",
+          "enum": [
+            "skip",
+            "inline"
+          ],
+          "title": "Footnotes",
+          "type": "string"
+        },
+        "admonitions": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "default": {},
+          "description": "How admonitions and alerts of a type start when spoken: a template with {type}, {title} and {body}, such as 'Careful: {body}'; false: never prefixed. warning, caution, danger and important say their type by default (since 0.7).",
+          "title": "Admonitions"
+        },
+        "image_titles": {
+          "default": true,
+          "description": "Show an image's alt text as its slide title (since 0.7).",
+          "title": "Image Titles",
+          "type": "boolean"
+        },
+        "lint": {
+          "default": true,
+          "description": "Let `narratty validate` warn about the doc's authoring problems (since 0.7).",
+          "title": "Lint",
+          "type": "boolean"
+        },
+        "clear_on": {
+          "anyOf": [
+            {
+              "maximum": 6,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Clear the screen where a heading of this level or higher starts a section (since 0.7). Unset: never.",
+          "title": "Clear On"
+        },
+        "say": {
+          "default": "during",
+          "description": "When the text before a command block is spoken: before its commands are typed, or during them (since 0.7). A `run` comment changes it per block.",
+          "enum": [
+            "before",
+            "during"
+          ],
+          "title": "Say",
+          "type": "string"
+        },
         "defaults": {
           "$ref": "#/$defs/SceneDefaults",
           "default": {
@@ -2309,7 +2505,8 @@
         "lead_in_ms": 300,
         "tail_ms": 1000,
         "run_hold_ms": 500,
-        "pause_ms": 100
+        "pause_ms": 100,
+        "measured_durations": true
       }
     },
     "terminal": {

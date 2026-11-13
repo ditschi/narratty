@@ -140,6 +140,21 @@ def sources(spec_file: Path) -> list[Source]:
     return found
 
 
+def markdown_warnings(document: Document, spec_file: Path) -> list[Source]:
+    """Authoring warnings for the Markdown docs of ``document`` (``narratty validate``)."""
+    from narratty.spec.markdown.lint import lint_entry
+    from narratty.spec.model import MarkdownEntry
+
+    found: list[Source] = []
+    for raw in document.data["scenes"]:
+        if isinstance(raw, dict) and "markdown" in raw:
+            entry = MarkdownEntry.model_validate(to_plain(raw))
+            path = spec_file.parent / entry.markdown
+            notes = lint_entry(entry, path, entry.narration or document.spec.narration)
+            found += [Source(Path(os.path.normpath(note.file)), note.line, None, note.what) for note in notes]
+    return found
+
+
 def _flow_leaves(value: Any, depth: int = 0) -> Any:
     """``value`` with an action's inner mappings in flow style: ``wait: {prompt: true}``.
 
@@ -200,11 +215,40 @@ def locate(error: NarrattyError, spec_file: Path) -> None:
     error.args = (error.message,)
 
 
+MARKDOWN_HINTS = (
+    (
+        "set `expect_exit: failure` (must fail) or `expect_exit: any` (not checked) on the scene or its "
+        "`run` action",
+        'mark the block narratty="expect-failure" (must fail), or give it an id and set '
+        "`expect_exit: any` for it in the entry's `overrides` (not checked)",
+    ),
+    (
+        "Check the pattern against the command's output, or raise wait.timeout_ms.",
+        "Check the `until` pattern against the command's output, or raise `timeout` in the block's run "
+        "comment.",
+    ),
+    ("or raise wait.timeout_ms.", "or stop it with `until` in the block's run comment."),
+)
+"""Phrases of hints written for YAML specs, and what they say for a Markdown doc instead."""
+
+
+def markdown_hint(hint: str) -> str:
+    """``hint`` in the terms of a Markdown doc."""
+    for yaml, markdown in MARKDOWN_HINTS:
+        hint = hint.replace(yaml, markdown)
+    return hint
+
+
 @contextmanager
 def located(spec_file: Path) -> Iterator[None]:
-    """Errors raised inside name the scene and the Markdown line they happened at."""
+    """Errors raised inside name the scene and the Markdown line they happened at.
+
+    Their hints speak of Markdown when the spec is a doc or reads one.
+    """
     try:
         yield
     except NarrattyError as error:
         locate(error, spec_file)
+        if error.hint and _sources_for(spec_file):
+            error.hint = markdown_hint(error.hint)
         raise

@@ -32,6 +32,19 @@ def test_validate_prints_hints(tmp_path: Path) -> None:
     assert "terminal.width: same as the default; leave it out" in plain(result.output)
 
 
+def test_validate_warns_about_markdown_docs(tmp_path: Path) -> None:
+    doc = tmp_path / "doc.md"
+    doc.write_text("# Doc\n\nThe table below.\n\n| a |\n|---|\n| b |\n", encoding="utf-8")
+    result = runner.invoke(app, ["validate", str(doc)])
+    assert result.exit_code == 0, result.output
+    output = plain(result.output)
+    assert f"warning: {doc}:1:1: no command runs in the video" in output
+    assert f"warning: {doc}:3:1: the narration says 'below'" in output
+    assert f"warning: {doc}:5:1: table left out of the video" in output
+    doc.write_text("<!-- narratty: spec\nlint: false\n-->\n# Doc\n\nThe table below.\n", encoding="utf-8")
+    assert "warning" not in plain(runner.invoke(app, ["validate", str(doc)]).output)
+
+
 def test_init_refuses_to_overwrite(tmp_path: Path) -> None:
     spec = tmp_path / "demo.narratty.yaml"
     spec.write_text("keep", encoding="utf-8")
@@ -77,6 +90,21 @@ def test_check_compares_output(tmp_path: Path) -> None:
     result = runner.invoke(app, args)
     assert isinstance(result.exception, OutputError)
     assert result.exception.exit_code is ExitCode.OUTPUT
+
+
+def test_check_counts_shown_commands_apart(tmp_path: Path) -> None:
+    doc = tmp_path / "guide.md"
+    doc.write_text(
+        '# Guide\n\n```console {narratty="no-run"}\n$ pip install x\n```\n\n```text\n$ make\n```\n',
+        encoding="utf-8",
+    )
+    args = ["check", str(doc), "--runtime", "native", "--workspace-mode", "rw"]
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0, result.output
+    output = plain(result.output)
+    assert "0 commands ran, 1 shown only" in output
+    assert "warning: no command ran" in output
+    assert "label it `console`" in output
 
 
 def test_validate_reports_problems(tmp_path: Path) -> None:

@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from narratty import diff, editor, sh
 from narratty.render.script import (
+    Context,
     Ctrl,
     HelperPlacement,
     Hide,
@@ -18,6 +21,8 @@ from narratty.render.script import (
     WaitScreen,
     action_steps,
     build_script,
+    redraw_line,
+    trimmed,
 )
 from narratty.spec.loader import parse_spec
 from narratty.spec.model import Run, TypeCommand
@@ -90,8 +95,8 @@ def test_editor_actions_run_hidden_through_the_tmux_prompt() -> None:
     assert look[7:14] == [Hide(), *_tmux(reveal), Sleep(600), Show()]
     assert look[14:21] == [Hide(), *_tmux(popup), Sleep(1000), Show()]
     # The popup stays through the narration and closes before the next typed key.
-    # Fill: 1000 audio + 500 buffer - 40 for typing "q"; the editor actions take no time.
-    assert look[21:] == [Sleep(1460), Hide(), Press("Enter", 1), Sleep(300), Show(), Type("q", 40)]
+    # Fill: 1000 audio + 500 buffer; the editor actions before the hold take no time.
+    assert look[21:] == [Sleep(1500), Hide(), Press("Enter", 1), Sleep(300), Show(), Type("q", 40)]
 
 
 def test_popup_closes_at_the_end_of_the_scene() -> None:
@@ -158,6 +163,61 @@ def test_line_breaks_in_commands_are_typed_as_enter() -> None:
         Press("Enter", 5),
         Type("b", 5),
     ]
+
+
+def test_a_shown_command_is_typed_and_another_runs_unseen() -> None:
+    pace = Pacing(speed=5, run_hold_ms=100)
+    steps = action_steps(Run(run="pip install -e .", show="pip install tally"), pace)
+    line = redraw_line("pip install tally", "pip install -e .", "$ ")
+    assert steps == [
+        Type("pip install tally", 5),
+        Hide(),
+        Ctrl("U"),
+        Type(line, 1),
+        Press("Enter", 1),
+        Sleep(300),
+        Show(),
+        Sleep(100),
+    ]
+    assert line.endswith("'$ pip install tally'; pip install -e .")
+    assert f"$(( ({len(line) + 2} - 1) / c + 1 ))" in line, "the rows of the line itself, prompt included"
+
+
+def test_a_shown_command_with_several_lines_is_abandoned_with_ctrl_c() -> None:
+    steps = action_steps(
+        Run(run=":", show="cat <<EOF\nhi\nEOF"), Pacing(speed=5), Context(False, prompt="% ")
+    )
+    assert steps[:6] == [
+        Type("cat <<EOF", 5),
+        Press("Enter", 5),
+        Type("hi", 5),
+        Press("Enter", 5),
+        Type("EOF", 5),
+        Hide(),
+    ]
+    assert steps[6] == Ctrl("C")
+    typed = next(s for s in steps[7:] if isinstance(s, Type)).text
+    assert "(11 - 1) / c + 1 + (4 - 1) / c + 1 + (7 - 1) / c + 1 + " in typed
+    assert "'% cat <<EOF\\n> hi\\n> EOF'; :" in typed, "one typed line; printf %b breaks it"
+
+
+def test_max_lines_pipes_the_output_through_awk_keeping_the_exit_status() -> None:
+    awk = "awk -v n=3 'NR<=n{print;fflush()} END{if(NR>n)printf \"... (%d more lines)\\n\",NR-n}'"
+    assert trimmed("make", 3, "bash") == f"{{ make; }} 2>&1 | {awk}; (exit ${{PIPESTATUS[0]}})"
+    assert trimmed("make", 3, "zsh") == f"{{ make; }} 2>&1 | {awk}; (exit $pipestatus[1])"
+    assert trimmed("make", 3, "fish") == f'begin; make; end 2>&1 | {awk}; sh -c "exit $pipestatus[1]"'
+    assert trimmed("make", 3, "sh") == f"{{ make; }} 2>&1 | {awk}"
+    steps = action_steps(Run(run="make", max_lines=3), Pacing(speed=5), Context(False, shell="zsh"))
+    assert steps[0] == Type("make", 5)
+    assert next(s for s in steps[3:] if isinstance(s, Type)).text.endswith(
+        "'$ make'; " + trimmed("make", 3, "zsh")
+    )
+
+
+def test_show_and_max_lines_take_one_line_commands() -> None:
+    with pytest.raises(ValueError, match="single line"):
+        Run(run="a\nb", max_lines=2)
+    assert Run(run="a", show="b\nc").masked and not Run(run="a").masked
 
 
 def test_prompt_pattern_allows_output_without_a_final_newline() -> None:

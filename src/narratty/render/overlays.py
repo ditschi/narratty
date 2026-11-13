@@ -32,7 +32,7 @@ from narratty.render.script import (
     Type,
     overlay_cue,
 )
-from narratty.spec.model import Overlay, OverlayStyle, ShowOverlay, Spec, Terminal
+from narratty.spec.model import Overlay, OverlayStyle, Scene, ShowOverlay, Spec, Terminal
 
 BUILTIN_STYLES: dict[str, OverlayStyle] = {
     "default": OverlayStyle(
@@ -152,7 +152,7 @@ def schedule(spec: Spec, times: Mapping[str, int]) -> list[Shown]:
             look = resolve(spec, action.overlay)
             start = times[overlay_cue(scene.id, index)]
             stop = end if look.keep else scene_end
-            if look.duration_ms is not None:
+            if look.duration_ms is not None and not _title_card(spec, scene, action.overlay):
                 stop = min(stop, start + look.duration_ms)
             if (previous := _continued(shown, action.overlay.text, look, start)) is not None:
                 shown[previous] = Shown(action.overlay.text, look, shown[previous].start_ms, stop)
@@ -165,6 +165,20 @@ def schedule(spec: Spec, times: Mapping[str, int]) -> list[Shown]:
                 shown[number] = item = Shown(item.text, item.look, item.start_ms, later.start_ms)
                 break
     return [item for item in shown if item.end_ms > item.start_ms]
+
+
+def _title_card(spec: Spec, scene: Scene, overlay: Overlay) -> bool:
+    """A ``heading-1`` overlay with its built-in duration in a scene that only narrates.
+
+    It stays until the scene ends, so a doc's intro is not spoken over an empty prompt.
+    """
+    styled = spec.overlay_styles.get("heading-1")
+    return (
+        overlay.style == "heading-1"
+        and overlay.duration_ms is None
+        and (styled is None or styled.duration_ms is None)
+        and all(isinstance(action, ShowOverlay) for action in scene.actions)
+    )
 
 
 def _continued(shown: list[Shown], text: str, look: Look, start: int) -> int | None:

@@ -483,10 +483,11 @@ flowchart LR
 4. **timeline**: compute each scene's start and length (below).
 5. **tape**: emit the byte-stable `.tape`.
 6. **render**: `vhs scene.tape` → silent `video.mp4`.
-7. **mux**: build the narration track by placing each clip at its scene start
-   (`adelay` + `amix`, or a generated silence-padded concat), then mux onto the video.
-8. **verify**: ffprobe the result; fail if total video length differs from the
-   timeline by more than a threshold (default 250 ms), warn above 100 ms.
+7. **mux**: build the narration track by placing each clip at its scene's recorded
+   start (see [Sync model](#sync-model)), then mux onto the video.
+8. **verify**: ffprobe the result; fail if a narration runs past its scene's
+   recorded end by more than `--max-drift` of its length (without markers: if the
+   total length differs from the timeline by more than `--max-drift`).
 
 ---
 
@@ -508,11 +509,47 @@ Rev 2 makes the timeline explicit:
   `Sleep (scene_ms - action_ms)` after the actions. `hold: auto` is where that fill
   goes if it appears mid-scene.
 - Scenes without narration use their literal timing. `hidden` scenes contribute 0 ms.
-- The mux places clip *n* at `lead_in_ms + Σ scene_ms[0..n-1]`, so an error in one
-  scene never accumulates into later scenes' audio.
-- Known limit: a command whose output takes longer than its scene's fill (or a `wait`
-  that blocks long) stretches the video. `verify` catches this; the fix in the spec is
-  a larger `hold` or moving the slow command into a `hidden` scene.
+- The plan puts clip *n* at `lead_in_ms + Σ scene_ms[0..n-1]`; the mux puts it at
+  its scene's *recorded* start (below), so an error in one scene never accumulates
+  into later scenes' audio.
+
+### Per-scene alignment (0.7)
+
+Rev 2 placed clips at planned times and stretched the whole track linearly to the
+measured video length. Real time differs per scene (a slow command, a long `wait`,
+VHS dropping frames under load), so `hold: auto` and `after_actions` drifted by 1–3 s
+and one slow scene shifted all later narration (found in the dual-use study).
+
+- **Markers.** Every MP4 build takes a VHS `Screenshot` at each visible scene start,
+  at each cue (overlays, browser views, slides, the end) and, for `after_actions`
+  scenes, at a `narration:<scene>` cue where the actions ended. VHS logs each command
+  as it runs it; `render/timelapse.py` turns the log times into video positions.
+  `narratty render` (silent only) skips them.
+- **Mapping.** `sync.narration_starts` puts each clip at its scene's recorded start
+  plus its planned offset, at its narration cue for `after_actions`, or at the
+  timelapse offset. Subtitles use the placed clips; overlays and views use their cue
+  positions (`overlays.schedule`, `browser.schedule`). Without markers,
+  `sync.linear_starts` stretches the plan as before. The cast build uses the same
+  mapping with its recorder's marks.
+- **Drift.** A longer scene only adds silence, so `verify` no longer compares total
+  lengths when markers exist. `sync.overruns` finds narrations that end after their
+  scene (the next scene's start, or the end cue), including clips the track pushed
+  back; one longer than `--max-drift` × its length fails with exit 6, naming the
+  scene and the cause (recorded shorter than planned / started late after the
+  previous narration). Smaller ones are warnings.
+- **Dropped frames.** VHS captures on a ticker and writes frames at a fixed rate, so
+  missed ticks make the video shorter than the logged recording time. Right after
+  recording, `sync.retime_factor` compares the two; above 3% and 500 ms the recording
+  is stretched back with `setpts` + `fps` (frames repeat) and a warning is logged.
+  Positions inside the video still assume the drops were spread evenly; matching
+  marker screenshots to frames would remove that assumption.
+- **Measured commands.** `narratty check` records how long each `run` ran (the cast
+  recorder polls the pty's foreground process group from Enter until the shell has
+  it back) in `<cache>/command-durations.json`, keyed by title, shell, layout, scene
+  and command (`durations.py`). `build_timeline` turns a measurement longer than
+  `run_hold_ms` into that `run`'s pause (`SceneTiming.run_holds`, plus 300 ms), so
+  `plan`, `tape` and `build` give slow commands their time. Opt out with
+  `timing.measured_durations: false`.
 
 ---
 
@@ -900,8 +937,8 @@ scenes: []
 
 - `#id` names the block for `overrides` and the scene id; mkdocs also makes it a link
   anchor.
-- `narratty="…"` takes space-separated options: `no-run` (typed, then cancelled with
-  Ctrl+C), `hidden`
+- `narratty="…"` takes space-separated options: `no-run` (typed and left on screen; a
+  `run` with `show` runs `:` in its place, since 0.7), `hidden`
   (run, not shown) and `expect-failure`. Leaving a block out entirely is the `skip`
   comment.
 - Comments hold what the video adds (narration, overlays, setup); attributes describe
@@ -1147,6 +1184,32 @@ scenes:
   browser tests that need Chromium (skipped without `mermaid.min.js`).
 - `docs/user-guide/markdown.md` gets a section per feature, which the Markdown example
   video includes; `docs/user-guide/spec.md` documents the `slide` action.
+
+## Per-block control in Markdown
+
+Agreed on 2026-11-12 from the dual-use study and implemented for 0.7: authors control
+the order of voice and commands and the screen state per block without `overrides`,
+and without changing the commands readers copy. All additive (`version: 1`):
+
+| Wish | Decision |
+|---|---|
+| Explain, then run / run, then explain | `run {say: before\|during\|after}` comment or `say=…` attribute; the entry's `say` sets the default. `before` compiles to a leading `hold: auto`; `after` takes the text after the block, up to the next block, heading or `pause`, as narration with `narration_start: after_actions`, and the text before it gets a scene of its own |
+| Show one command, run another | `instead` key; the `run` action's new `show` (typed) next to `run` (runs). `check` runs `run` as it is and compares nothing: the doc's output belongs to the shown command |
+| `no-run` without `^C` | A `run: ":"` with `show`; an overlay note stays opt-in (`overlay` comment) |
+| Long output | `lines` key; the `run` action's `max_lines` pipes through `awk` (exit code kept with `PIPESTATUS`/`pipestatus`). `check` drops it and compares all output with the doc's `...` |
+| Servers, `tail -f` | `until`/`then`/`timeout` keys: `wait: {screen}`, the key, then the usual prompt wait |
+| Clear the screen | `clear` comment and entry `clear_on`: Ctrl+L (readline's clear-screen) leads the next visible scene with its heading overlays; no command, so exit codes keep their scenes |
+| Slide stays for the text after it | `hold: next-block\|next-heading` on `slide` and `table` comments repeats the slide action in the following text and pause scenes |
+
+- One `run` comment with keys, mirrored as `key=value` attribute words (shell-quoted),
+  rather than one comment kind per feature: one vocabulary in two places.
+- `show` and `max_lines` are recorded unseen: after the shown command is typed,
+  recording hides, Ctrl+U (Ctrl+C for a command with several lines) drops the line
+  and the real line is typed. It starts with
+  `sh -c 'printf "\033[%dA\r\033[J%b\n" …'`, which moves the cursor back over the rows
+  of the typed line (computed from `stty size` when it runs) and prints the shown
+  command, so the screen looks as if it had run. The exit log has the real line;
+  `exits.typed_commands` builds it with the spec's prompt and shell.
 
 ## Docs first
 

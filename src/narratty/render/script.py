@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from narratty import diff, editor, sh
@@ -203,12 +203,13 @@ class HelperPlacement:
 
 @dataclass(frozen=True)
 class Context:
-    """What action steps depend on beyond the action: the layout, where its helpers run
-    and the prompt (``wait: {prompt: true}`` waits for it)."""
+    """What action steps depend on beyond the action: the layout, where its helpers run,
+    the prompt (``wait: {prompt: true}`` waits for it) and the shell that runs commands."""
 
     editor: bool
     placement: HelperPlacement = field(default_factory=HelperPlacement)
     prompt: str = "$ "
+    shell: str = "bash"
 
 
 def diff_steps(action: Diff, context: Context) -> list[Step]:
@@ -267,6 +268,8 @@ def action_steps(action: Action, pace: Pacing, context: Context | None = None) -
     if isinstance(action, Focus | Reveal):
         return editor_steps(action, context)
     speed = pace.speed
+    if isinstance(action, Run) and action.masked:
+        return _then_sleep(masked_run_steps(action, speed, context), pace.run_hold_ms)
     if isinstance(action, Run):
         return _then_sleep([*_typed_lines(action.run, speed), Press("Enter", speed)], pace.run_hold_ms)
     if isinstance(action, TypeCommand):
@@ -282,9 +285,94 @@ def action_steps(action: Action, pace: Pacing, context: Context | None = None) -
     return []
 
 
+CONTINUATION = "> "
+"""The prompt of a command's further lines (bash's and zsh's default ``PS2``)."""
+MORE_LINES = "... (%d more lines)"
+
+
+def masked_run_steps(action: Run, speed: int, context: Context) -> list[Step]:
+    """Type ``show`` (or ``run``), then, unrecorded, run ``run`` in its place.
+
+    The typed line is replaced by ``run`` behind the scenes; that line starts with a
+    ``printf`` that moves the cursor back over it and prints the shown command again,
+    so the screen looks as if the shown command had run. With ``max_lines`` the
+    command's output goes through ``awk``, which keeps the first lines and counts
+    the rest.
+    """
+    shown = action.show if action.show is not None else action.run
+    command = action.run.strip()
+    if action.max_lines is not None:
+        command = trimmed(command, action.max_lines, context.shell)
+    multiline = "\n" in shown
+    # A one-line command is erased with Ctrl+U. Of a longer one, the first lines are
+    # already submitted, so Ctrl+C abandons it; the shell prints ^C after the last line.
+    typed = []
+    if multiline:
+        rows = shown.split("\n")
+        typed = [context.prompt + rows[0], *(CONTINUATION + row for row in rows[1:])]
+        typed[-1] += "^C"
+    line = redraw_line(shown, command, context.prompt, typed)
+    return [
+        *_typed_lines(shown, speed),
+        Hide(),
+        Ctrl("C" if multiline else "U"),
+        Type(line, 1),
+        Press("Enter", 1),
+        Sleep(300),
+        Show(),
+    ]
+
+
+def redraw_line(shown: str, command: str, prompt: str, typed: list[str] | None = None) -> str:
+    """The line that runs ``command`` after drawing ``prompt`` + ``shown`` over itself.
+
+    The screen rows to go back over are those of this line (and of the already
+    submitted ``typed`` rows); how many rows a line takes depends on the terminal's
+    width, which ``stty size`` tells when the line runs.
+    """
+    # printf's %b turns \n back into line breaks: the typed line must stay one line.
+    display = (prompt + shown.replace("\n", "\n" + CONTINUATION)).replace("\\", "\\\\")
+    display = display.replace("\n", "\\n")
+    lengths = [len(row) for row in typed or []]
+
+    def line(own: int) -> str:
+        rows = " + ".join(f"({length} - 1) / c + 1" for length in [*lengths, own])
+        script = f'c=$(stty size | cut -d" " -f2); printf "\\033[%dA\\r\\033[J%b\\n" $(( {rows} )) "$0"'
+        return f"sh -c {_shell_quote(script)} {_shell_quote(display)}; {command}"
+
+    own = len(prompt) + len(command)
+    while (length := len(prompt) + len(line(own))) != own:
+        own = length
+    return line(own)
+
+
+def trimmed(command: str, lines: int, shell: str) -> str:
+    """``command`` with its output cut after ``lines`` lines, keeping its exit status."""
+    awk = f"awk -v n={lines} 'NR<=n{{print;fflush()}} END{{if(NR>n)printf \"{MORE_LINES}\\n\",NR-n}}'"
+    if shell == "fish":
+        return f'begin; {command}; end 2>&1 | {awk}; sh -c "exit $pipestatus[1]"'
+    piped = f"{{ {command}; }} 2>&1 | {awk}"
+    if shell == "bash":
+        return f"{piped}; (exit ${{PIPESTATUS[0]}})"
+    if shell == "zsh":
+        return f"{piped}; (exit $pipestatus[1])"
+    return piped  # sh has no exit status of a pipe's first command; its exit codes are not checked
+
+
 def overlay_cue(scene_id: str, index: int) -> str:
     """Label of the cue where the overlay or browser at ``actions[index]`` of a scene starts."""
     return f"overlay:{scene_id}:{index}"
+
+
+def narration_cue(scene_id: str) -> str:
+    """Label of the cue where a scene with ``narration_start: after_actions`` starts talking."""
+    return f"narration:{scene_id}"
+
+
+def _paced(pace: Pacing, timing: SceneTiming, index: int) -> Pacing:
+    """``pace`` with the measured pause after the ``run`` at ``actions[index]``, if any."""
+    hold = timing.run_hold(index, pace.run_hold_ms)
+    return pace if hold == pace.run_hold_ms else replace(pace, run_hold_ms=hold)
 
 
 def _sends_keys(action: Action) -> bool:
@@ -313,7 +401,7 @@ def _timelapse_steps(scene: Scene, timing: SceneTiming, pace: Pacing, context: C
         for step in (
             [Cue(overlay_cue(scene.id, index))]
             if isinstance(action, ShowOverlay | ShowBrowser | ShowSlide)
-            else action_steps(action, pace, context)
+            else action_steps(action, _paced(pace, timing, index), context)
         )
     ]
     if context.editor and any(isinstance(action, Diff) for action in scene.actions):
@@ -331,7 +419,12 @@ def scene_steps(
     keys, or the end of the scene.
     """
     pace = pacing(spec, scene)
-    context = Context(spec.terminal.layout == "editor", placement or HelperPlacement(), spec.terminal.prompt)
+    context = Context(
+        spec.terminal.layout == "editor",
+        placement or HelperPlacement(),
+        spec.terminal.prompt,
+        spec.terminal.shell,
+    )
     if timing.timelapse:
         return _timelapse_steps(scene, timing, pace, context)
     fill_at_hold = scene.narration_start == "with_actions"
@@ -351,13 +444,22 @@ def scene_steps(
         if popup and _sends_keys(action):
             steps += close_popup()
             popup = False
-        steps += action_steps(action, pace, context)
+        steps += action_steps(action, _paced(pace, timing, index), context)
         popup = popup or (context.editor and isinstance(action, Diff))
-    if not filled and timing.fill_ms:
-        steps.append(Sleep(timing.fill_ms))
+    steps += _closing_fill(scene, timing, filled=filled)
     if popup:
         steps += close_popup()
     return _end_hidden(steps, context) if scene.hidden else steps
+
+
+def _closing_fill(scene: Scene, timing: SceneTiming, *, filled: bool) -> list[Step]:
+    """The fill after the actions; ``after_actions`` marks where its narration starts."""
+    steps: list[Step] = []
+    if scene.narration_start == "after_actions" and not scene.hidden and timing.audio_ms:
+        steps.append(Cue(narration_cue(scene.id)))  # where the actions really ended
+    if not filled and timing.fill_ms:
+        steps.append(Sleep(timing.fill_ms))
+    return steps
 
 
 def end_card_steps(

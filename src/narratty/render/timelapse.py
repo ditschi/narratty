@@ -49,18 +49,29 @@ def _is_command(text: str) -> bool:
     return bool(text) and not text.startswith((*_SETUP, "[")) and text[:1].isupper()
 
 
-def marker_positions(log: Sequence[LogLine], marks: Path, video_ms: int) -> dict[str, int]:
-    """Position in the video (ms) of every marker in ``marks`` that VHS logged."""
+def _logged_markers(log: Sequence[LogLine], marks: Path | None) -> tuple[dict[str, float], float]:
+    """Recorded seconds of each marker in ``marks``, and of the whole recording."""
     seconds: dict[str, float] = {}
     total = 0.0
     for now, text in _recorded(log):
         total = now
         if text.startswith("Creating "):
             break
-        if text.startswith("Screenshot "):
+        if marks is not None and text.startswith("Screenshot "):
             path = Path(text.removeprefix("Screenshot ").strip())
             if path.parent == marks:
                 seconds[path.stem] = now
+    return seconds, total
+
+
+def recorded_ms(log: Sequence[LogLine]) -> int:
+    """How long VHS spent recording (shown time only), by the clock."""
+    return round(_logged_markers(log, None)[1] * 1000)
+
+
+def marker_positions(log: Sequence[LogLine], marks: Path, video_ms: int) -> dict[str, int]:
+    """Position in the video (ms) of every marker in ``marks`` that VHS logged."""
+    seconds, total = _logged_markers(log, marks)
     if not seconds:
         raise RenderError("VHS logged no scene markers, so timelapse scenes cannot be located")
     scale = video_ms / (total * 1000) if total else 1.0
@@ -174,6 +185,21 @@ def filter_graph(segments: Sequence[Segment], framerate: int = FRAMERATE) -> str
         "".join(f"[v{index}]" for index in range(len(parts))) + f"concat=n={len(parts)}:v=1:a=0[out]"
     )
     return ";".join(graph)
+
+
+def retime(
+    video: Path, factor: float, out: Path, *, framerate: int = FRAMERATE, runner: Runner = _run
+) -> None:
+    """Write ``video`` stretched ``factor`` times longer to ``out``, repeating frames."""
+    argv = [
+        require("ffmpeg"), "-y", "-v", "error", "-i", str(video),
+        "-vf", f"setpts=PTS*{factor:.6f},fps={framerate}",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
+        "-r", str(framerate), str(out),
+    ]  # fmt: skip
+    result = runner(argv)
+    if result.returncode != 0:
+        raise RenderError(f"ffmpeg failed to stretch the recording:\n{_tail(result)}")
 
 
 def speed_up(

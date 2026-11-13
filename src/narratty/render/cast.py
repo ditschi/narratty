@@ -83,6 +83,8 @@ def ctrl_char(char: str) -> str:
 
 # How often a pause checks whether a running command has finished.
 _POLL = 0.1
+# A command not seen running this long after its Enter counts as done (it was quick).
+_START_GRACE = 0.2
 
 _CLEAR = re.compile(r"\x1b\[2J|\x1bc")
 ESCAPE = re.compile(
@@ -185,6 +187,9 @@ class Recorder:
         self.prompts: list[int] = []  # raw offsets where the prompt was back
         self.scene: str | None = None  # the scene being played, hidden ones too
         self._entered = 0  # the output chunk at the last Enter
+        # Seconds from each Enter until its command finished (None: not seen to finish).
+        self.took: list[float | None] = []
+        self._pending: list[tuple[int, float, bool]] = []  # (index in took, Enter time, seen running)
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
         try:
@@ -252,15 +257,31 @@ class Recorder:
         """Record output for ``seconds``, or until ``until()`` holds (then True)."""
         deadline = self._clock() + seconds
         while True:
+            self._watch_commands()
             if until is not None and until():
                 return True
             remaining = deadline - self._clock()
             if remaining <= 0:
                 return False
-            ready, _, _ = select.select([self._fd], [], [], remaining)
+            ready, _, _ = select.select(
+                [self._fd], [], [], min(remaining, _POLL) if self._pending else remaining
+            )
             if ready and not self._read():
                 time.sleep(remaining)  # the shell is gone; let the time pass
                 return until() if until is not None else False
+
+    def _watch_commands(self) -> None:
+        """Note when the commands submitted since the last check have finished."""
+        if not self._pending:
+            return
+        now, running = self._clock(), self.running_command(children=True)
+        pending = []
+        for index, started, seen in self._pending:
+            if not running and (seen or now - started >= _START_GRACE):
+                self.took[index] = now - started if seen else 0.0  # never seen running: quick
+            else:
+                pending.append((index, started, seen or running))
+        self._pending = pending
 
     def _read(self) -> bool:
         try:
@@ -315,6 +336,7 @@ class Recorder:
                 self._press(key, speed, count or 1)
             case Ctrl(char):
                 self._typed = ""
+                self._pending = []  # stopped by hand: how long it ran says nothing
                 self._keys([ctrl_char(char)], 0)
             case Sleep(ms) if self._may_skip(ms):
                 self._pause(ms / 1000)
@@ -379,19 +401,36 @@ class Recorder:
                 return
             self.pump(wake - now)
 
-    def running_command(self) -> bool:
+    def running_command(self, *, children: bool = False) -> bool:
         """Whether a command runs in the foreground that does not read keys.
 
         Such a command leaves the terminal in canonical (line) mode, as the shell
         does; interactive programs (editors, pagers, tmux) switch that off and count
-        as idle.
+        as idle. With ``children``, a child in the shell's own process group counts
+        too: without job control (``set +m``) commands run there, not in a group of
+        their own.
         """
         try:
             group = os.tcgetpgrp(self._fd)
             canonical = termios.tcgetattr(self._fd)[3] & termios.ICANON
         except (OSError, termios.error):
             return False
-        return group != self._proc.pid and bool(canonical)
+        if not canonical:
+            return False
+        return group != self._proc.pid or (children and self._child_in_shell_group())
+
+    def _child_in_shell_group(self) -> bool:
+        """Whether the shell has a child in its own process group (Linux; False elsewhere)."""
+        pid = self._proc.pid
+        try:
+            children = Path(f"/proc/{pid}/task/{pid}/children").read_text(encoding="ascii").split()
+        except OSError:
+            return False
+        for child in children:
+            with contextlib.suppress(OSError):
+                if os.getpgid(int(child)) == pid:
+                    return True
+        return False
 
     def _keys(self, keys: Sequence[str], speed_ms: int) -> None:
         for key in keys:
@@ -407,6 +446,8 @@ class Recorder:
             self.enters.append((self._typed.strip(), self._raw_length))
             self._entered = len(self.raw)
             self._typed = ""
+            self._pending.append((len(self.took), self._clock(), False))
+            self.took.append(None)
             self._keys([KEYS[key]], speed_ms)
 
     def _wait(self, pattern: str, timeout_ms: int, *, line: bool = False, fail: str | None = None) -> None:
@@ -438,6 +479,9 @@ class Recorder:
         return any(row.startswith(self.prompt) for row in rows)
 
 
+PATTERN_HINT = "Check the pattern against the command's output, or raise wait.timeout_ms."
+
+
 def wait_timeout(timeout_ms: int, pattern: str | None, scene: str | None) -> RenderError:
     """The error for a ``wait`` that timed out; ``pattern`` None: it waited for the prompt."""
     where = f" in scene {scene!r}" if scene else ""
@@ -452,7 +496,7 @@ def wait_timeout(timeout_ms: int, pattern: str | None, scene: str | None) -> Ren
         )
     return RenderError(
         f"timed out after {timeout_ms} ms{where} waiting for the screen to match /{pattern}/",
-        hint="Check the pattern against the command's output, or raise wait.timeout_ms.",
+        hint=PATTERN_HINT,
         scene=scene,
     )
 
@@ -473,6 +517,8 @@ class Recording:
     cues_ms: dict[str, int] = field(default_factory=dict)
     submitted: tuple[Submitted, ...] = ()
     """Each line typed at the prompt and what it printed (see ``narratty.render.outputs``)."""
+    took_ms: tuple[tuple[str, int | None], ...] = ()
+    """Each line submitted with Enter and how long its command ran (None: not seen to end)."""
 
 
 def record(
@@ -525,4 +571,8 @@ def record(
         {label: round(offset * 1000) for label, offset in recorder.narration_offsets.items()},
         {label: round(at * 1000) for label, at in recorder.cues.items()},
         tuple(submitted),
+        tuple(
+            (line, None if took is None else round(took * 1000))
+            for (line, _), took in zip(recorder.enters, recorder.took, strict=True)
+        ),
     )

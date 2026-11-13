@@ -99,7 +99,7 @@ def test_interrupted_commands_are_not_failures() -> None:
 
 def test_failure_before_the_first_scene() -> None:
     assert problems(_spec(), [Exit(127, "setup-hook")]) == [
-        "before the first scene: `setup-hook` exited with 127",
+        "before the first scene: `setup-hook` exited with 127 (command not found)",
         "scene 'broken' expects a command to fail but ran none at the shell prompt",
     ]
 
@@ -214,6 +214,38 @@ def test_hook_logs_real_shells(shell: str, tmp_path: Path, monkeypatch: pytest.M
     assert problems(spec, entries) == ["scene 'broken': `echo 'it''s'; false` exited with 1"]
 
 
+MASKED = """\
+terminal: {{shell: {shell}, typing_speed_ms: 1}}
+timing: {{lead_in_ms: 0, tail_ms: 0, narration_buffer_ms: 0}}
+end_card: false
+scenes:
+  - id: shown
+    actions:
+      - {{run: "false", show: "pip install tally"}}
+      - {{wait: {{prompt: true}}}}
+  - id: trimmed
+    expect_exit: failure
+    actions:
+      - {{run: "(seq 5; exit 3)", max_lines: 2}}
+      - {{wait: {{prompt: true}}}}
+"""
+
+
+def test_masked_runs_report_the_exit_code_of_what_ran(tmp_path: Path) -> None:
+    spec = parse_spec(MASKED.format(shell="bash"), tmp_path / "t.yaml")
+    log = tmp_path / "exits.log"
+    log.write_text("", encoding="utf-8")
+    steps = build_script(spec, build_timeline(spec, {}), exit_log=log)
+    recording = record(steps, terminal=spec.terminal, cwd=tmp_path, env=os.environ, title="T")
+    entries = parse_log(log.read_text(encoding="utf-8"))
+    assert [e.status for e in entries if not e.line.startswith("function ")] == [1, 3]
+    assert problems(spec, entries) == [f"scene 'shown': `{typed_commands(spec)[0].line}` exited with 1"], (
+        "the failure of the substitute is reported, the trimmed one was expected"
+    )
+    printed = recording.submitted[-1].output
+    assert "1\r\n2\r\n... (3 more lines)" in printed
+
+
 HIDDEN_CLEARS = """\
 end_card: false
 scenes:
@@ -291,3 +323,13 @@ def test_hidden_clear_with_a_real_shell(tmp_path: Path) -> None:
     record(steps, terminal=spec.terminal, cwd=tmp_path, env=os.environ, title="T")
     check(spec, log)
     assert "s3cret" not in log.read_text(encoding="utf-8")
+
+
+def test_a_missing_command_is_named_in_the_hint(tmp_path: Path) -> None:
+    log = tmp_path / "exits.log"
+    log.write_text("0\tcd demo\n127\tFOO=1 jq . data.json\n", encoding="utf-8")
+    spec = _spec("end_card: false\nscenes:\n  - id: a\n    actions: [{run: 'FOO=1 jq . data.json'}]\n")
+    with pytest.raises(CommandError, match=r"exited with 127 \(command not found\)") as raised:
+        check(spec, log)
+    assert raised.value.hint and "`jq` was not found" in raised.value.hint
+    assert "environment.packages" in raised.value.hint

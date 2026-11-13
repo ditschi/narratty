@@ -45,3 +45,24 @@ def test_a_container_gets_the_sources_from_the_host(tmp_path: Path, monkeypatch:
     with pytest.raises(RenderError) as raised, located(spec):
         raise RenderError("boom", scene="a")
     assert raised.value.message == "boom (scene 'a', docs/guide.md:7)"
+
+
+def test_hints_for_markdown_docs_use_markdown_terms(doc: Path, tmp_path: Path) -> None:
+    from narratty.errors import CommandError
+    from narratty.render.cast import wait_timeout
+    from narratty.render.exits import check
+
+    log = tmp_path / "exits.log"
+    log.write_text("1\tprintf x\n", encoding="utf-8")
+    from narratty.spec.loader import load_spec
+
+    with pytest.raises(CommandError) as raised, located(doc):
+        check(load_spec(doc), log)
+    assert raised.value.hint is not None
+    assert 'narratty="expect-failure"' in raised.value.hint
+    assert "expect_exit: failure" not in raised.value.hint
+    with pytest.raises(RenderError) as timed_out, located(doc):
+        raise wait_timeout(1000, "ready", None)
+    assert timed_out.value.hint is not None
+    assert "`timeout` in the block's run comment" in timed_out.value.hint
+    assert "wait.timeout_ms" not in timed_out.value.hint

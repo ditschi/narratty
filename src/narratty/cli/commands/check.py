@@ -87,10 +87,31 @@ def check_command(
             sandbox=request,
             log=log,
         )
-    runs, compared = result.commands, result.compared
+    runs, compared, shown = result.commands, result.compared, result.shown
     err.print(
-        f"[green]ok[/] {runs} command{'s' if runs != 1 else ''} ran; "
-        f"{compared} output{'s' if compared != 1 else ''} as expected",
+        f"[green]ok[/] {runs} command{'s' if runs != 1 else ''} ran"
+        + (f", {shown} shown only" if shown else "")
+        + f"; {compared} output{'s' if compared != 1 else ''} as expected",
         highlight=False,
         soft_wrap=True,
     )
+    if not runs:
+        _warn_nothing_ran(spec, shown)
+
+
+def _warn_nothing_ran(spec: Path, shown: int) -> None:
+    """Nothing was checked: say so, with the doc's warnings about commands that do not run."""
+    from rich.markup import escape
+
+    from narratty.spec.compile import markdown_warnings
+    from narratty.spec.loader import Issue, parse_document, read_spec_text
+    from narratty.ui.console import err
+
+    why = f"; {shown} no-run command{'s are' if shown != 1 else ' is'} only typed" if shown else ""
+    err.print(
+        f"[yellow]warning:[/] no command ran, so none was checked{why}", highlight=False, soft_wrap=True
+    )
+    for warning in markdown_warnings(parse_document(read_spec_text(spec), spec), spec):
+        if "command" in warning.what:
+            where = Issue("", warning.what, warning.line, None, warning.file)
+            err.print(f"[yellow]warning:[/] {escape(where.render(spec))}", highlight=False, soft_wrap=True)

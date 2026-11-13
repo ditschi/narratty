@@ -13,18 +13,20 @@ and runs hardened: no network, all capabilities dropped, read-only root filesyst
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import uuid
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from narratty import __version__, runtime
-from narratty.paths import CONTAINER_OUTPUT, HOST_OUTPUT_ENV
+from narratty.paths import CONTAINER_OUTPUT, HOST_OUTPUT_ENV, HOST_SPEC_ENV
 from narratty.runtime import Runtime, release_tag
 
 if TYPE_CHECKING:
@@ -76,6 +78,7 @@ class ContainerSpec:
     entrypoint: str | None = None
     interactive: bool = False
     hostname: str | None = None
+    name: str | None = None
 
 
 def _user_flags(engine: Runtime) -> list[str]:
@@ -106,6 +109,8 @@ def run_argv(spec: ContainerSpec) -> list[str]:
         argv += ["--interactive"]
     if spec.hostname:
         argv += ["--hostname", spec.hostname]
+    if spec.name:
+        argv += ["--name", spec.name]
     if spec.entrypoint:
         argv += ["--entrypoint", spec.entrypoint]
     for mount in spec.mounts:
@@ -122,8 +127,23 @@ def _run(argv: Sequence[str]) -> int:
 
 
 def run(spec: ContainerSpec, *, runner: Runner | None = None) -> int:
-    """Run the container, streaming its output; returns its exit code."""
-    return (runner or _run)(run_argv(spec))
+    """Run the container, streaming its output; returns its exit code.
+
+    Interrupted (Ctrl+C, SIGTERM), it removes the container: the engine's client goes,
+    but the container would keep running.
+    """
+    named = spec if spec.name else replace(spec, name=f"narratty-{uuid.uuid4().hex[:12]}")
+    try:
+        return (runner or _run)(run_argv(named))
+    except BaseException:
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            subprocess.run(  # noqa: S603
+                [named.engine.value, "rm", "--force", str(named.name)],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+        raise
 
 
 def stdout_is_tty() -> bool:
@@ -237,6 +257,7 @@ def delegate(
         _ensure_voice(spec.tts.provider, spec.tts.voice)
     chosen_image = image_ref(override=image)
     ensure_image(resolved.runtime, chosen_image)
+    warn_image_version(resolved.runtime, chosen_image)
     base = _Invocation(command, spec_path.resolve(), resolved.runtime, chosen_image, extra_args)
     try:
         base.use_compiled_spec()
@@ -291,6 +312,60 @@ def ensure_image(engine: Runtime, image: str) -> None:
         )
 
 
+def warn_image_version(engine: Runtime, image: str, *, current: str = __version__) -> None:
+    """Say so when ``image`` runs another narratty than this one: it may not know new keys."""
+    from narratty.ui.console import err
+
+    version = _image_version(engine, image)
+    if version and version.split("+")[0] != current.split("+")[0]:
+        err.print(
+            f"warning: {image} has narratty {version}, this is {current}; specs and docs that use "
+            "newer features fail there. Use the matching image (--image), or --runtime native.",
+            highlight=False,
+            soft_wrap=True,
+            emoji=False,
+            markup=False,
+        )
+
+
+def _image_version(engine: Runtime, image: str) -> str:
+    """The narratty version in ``image`` ("" when unknown), remembered by the image's id."""
+    from narratty.paths import cache_dir
+
+    image_id = _image_id(engine, image)
+    if not image_id:
+        return ""
+    store = cache_dir() / "image-versions.json"
+    try:
+        known = json.loads(store.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        known = {}
+    if not isinstance(known, dict):
+        known = {}
+    if isinstance(known.get(image_id), str):
+        return str(known[image_id])
+    try:
+        result = subprocess.run(  # noqa: S603
+            [engine.value, "run", "--rm", "--network", "none", image, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    words = result.stdout.split()
+    if result.returncode != 0 or len(words) != 2 or words[0] != "narratty":
+        return ""
+    known[image_id] = words[1]
+    try:
+        store.parent.mkdir(parents=True, exist_ok=True)
+        store.write_text(json.dumps(known, indent=1, sort_keys=True), encoding="utf-8")
+    except OSError:
+        pass
+    return words[1]
+
+
 def _ensure_voice(provider_name: str, voice: str) -> None:
     from narratty.paths import data_dir
     from narratty.tts.registry import get_provider
@@ -326,6 +401,8 @@ class _Invocation:
         self.groups: list[str] = []
         self.args = [command, f"/spec/{name}", "--runtime", "native", "--offline", *extra]
         self.env = {"NARRATTY_DATA_DIR": "/data", "NARRATTY_CACHE_DIR": "/cache"}
+        if not is_markdown(spec_file):  # a doc's compiled spec has other lines than the doc
+            self.env[HOST_SPEC_ENV] = f"/spec/{name}={spec_file}"
         # The user's and the project's lexicon files are not mounted; hand over their merged entries.
         lexicon = export_host_entries(spec_file, cache / "lexicons")
         self.env[ENV_OVERRIDE] = f"/cache/lexicons/{lexicon.name}"

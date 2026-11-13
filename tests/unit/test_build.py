@@ -9,7 +9,16 @@ from typing import Any
 
 import pytest
 
-from narratty.build import BuildResult, CastOutputs, Plan, default_output, place_clips, place_clips_at, verify
+from narratty.build import (
+    BuildResult,
+    CastOutputs,
+    Plan,
+    default_output,
+    place_clips,
+    place_clips_at,
+    unmasked,
+    verify,
+)
 from narratty.errors import RenderError, SyncError
 from narratty.render import media
 from narratty.spec.loader import parse_spec
@@ -556,3 +565,126 @@ def test_a_scene_can_opt_in_to_fast(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     (tmp_path / "work").mkdir()
     render_silent(planned, tmp_path / "v.mp4", tmp_path / "work", tmp_path)
     assert fake.repeated, "filled without --fast"
+
+
+def test_check_runs_masked_commands_as_they_are() -> None:
+    spec = parse_spec(
+        "scenes:\n  - id: a\n    actions:\n"
+        "      - {run: make, show: make all, max_lines: 3}\n      - run: ls\n",
+        Path("t.narratty.yaml"),
+    )
+    plain = unmasked(spec).scenes[0].actions
+    assert plain[0].model_dump(exclude_none=True) == {"run": "make"}
+    assert plain[1] is spec.scenes[0].actions[1]
+
+
+def test_a_shown_command_takes_the_time_of_its_typing() -> None:
+    spec = parse_spec(
+        "timing: {run_hold_ms: 0}\nterminal: {typing_speed_ms: 10}\n"
+        "scenes:\n  - id: a\n    actions: [{run: a-long-substitute, show: ab}]\n",
+        Path("t.narratty.yaml"),
+    )
+    assert build_timeline(spec, {}).scene("a").action_ms == 30
+
+
+def test_verify_judges_per_scene_placement_by_its_overruns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import replace
+
+    from narratty.sync import Overrun
+
+    monkeypatch.setattr(media, "probe", lambda path: media.MediaInfo(20000, True, True))
+    aligned = replace(_result(tmp_path, 20000), overruns=())
+    verify(aligned, max_drift=0.1)  # twice as long as planned, but every narration fits its scene
+    clipped = replace(aligned, overruns=(Overrun("intro", 800, 4000, 5000, 4200),))
+    with pytest.raises(SyncError, match=r"intro \(0.80s over: scene recorded 0.80s shorter than planned\)"):
+        verify(clipped, max_drift=0.1)
+    verify(clipped, max_drift=0.25)
+
+
+def test_aligned_starts_use_the_recorded_scene_starts(tmp_path: Path) -> None:
+    from narratty.build import aligned_starts
+
+    assert aligned_starts(_plan(tmp_path), {"a": 40, "b": 4000}) == {"a": 40, "b": 4000}
+
+
+def test_render_stretches_a_recording_that_dropped_frames(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from narratty.build import plan, render_silent
+    from narratty.render import timelapse
+
+    fake = FakeVhs(monkeypatch, [])
+    took: list[int] = []
+    stretched: list[float] = []
+
+    def run_vhs(tape: Path, cwd: Path, **kwargs: Any) -> list[media.LogLine]:
+        log = fake._run(tape, cwd, **kwargs)
+        took.append(timelapse.recorded_ms(log))
+        return log
+
+    def probe(path: Path) -> media.MediaInfo:
+        # VHS wrote 80% of the recorded time; the stretched copy has all of it.
+        duration = took[0] if path.name == "retimed.mp4" else took[0] * 8 // 10
+        return media.MediaInfo(duration, True, False, 30.0)
+
+    def retime(video: Path, factor: float, out: Path, **kwargs: Any) -> None:
+        stretched.append(factor)
+        out.write_bytes(b"retimed")
+
+    monkeypatch.setattr(media, "run_vhs", run_vhs)
+    monkeypatch.setattr(media, "probe", probe)
+    monkeypatch.setattr(timelapse, "retime", retime)
+    spec = tmp_path / "demo.narratty.yaml"
+    spec.write_text(
+        "end_card: false\nscenes:\n  - id: a\n    narration: One.\n    actions: [{run: 'echo a'}]\n"
+        "  - id: b\n    actions: [{run: 'echo b'}]\n",
+        encoding="utf-8",
+    )
+    work = tmp_path / "work"
+    work.mkdir()
+    logs: list[str] = []
+    layout = render_silent(plan(spec, draft=True), tmp_path / "v.mp4", work, tmp_path, log=logs.append)
+    assert stretched == [pytest.approx(1.25)]
+    assert any("dropped frames" in line for line in logs)
+    assert layout is not None and set(layout.scene_starts_ms) == {"a", "b"}
+    assert (tmp_path / "v.mp4").read_bytes() == b"retimed"
+
+
+NATIVE_HIDDEN = "end_card: false\nscenes:\n  - id: setup\n    hidden: true\n    actions: [{run: '%s'}]\n"
+
+
+def test_native_hidden_commands_are_announced(monkeypatch: pytest.MonkeyPatch) -> None:
+    from narratty.build import guard_native_hidden
+
+    monkeypatch.delenv("NARRATTY_IN_CONTAINER", raising=False)
+    said: list[str] = []
+    guard_native_hidden(parse_spec(NATIVE_HIDDEN % "cd demo", Path("t.narratty.yaml")), said.append)
+    assert len(said) == 1 and "hidden commands run on this machine" in said[0]
+    said.clear()
+    guard_native_hidden(
+        parse_spec("end_card: false\nscenes:\n  - id: a\n", Path("t.narratty.yaml")), said.append
+    )
+    assert said == []
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["git config --global user.name Demo", "echo x >> ~/.bashrc", "rm -rf $HOME/.cache/x", "cp a ${HOME}/b"],
+)
+def test_native_hidden_commands_that_change_home_need_yes(
+    monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    from narratty.build import guard_native_hidden
+    from narratty.container import SandboxRequest
+    from narratty.errors import UsageError
+
+    monkeypatch.delenv("NARRATTY_IN_CONTAINER", raising=False)
+    spec = parse_spec(NATIVE_HIDDEN % command, Path("t.narratty.yaml"))
+    with pytest.raises(UsageError, match="hidden command in scene 'setup' would change your home") as raised:
+        guard_native_hidden(spec, lambda _: None)
+    assert command not in raised.value.message, "hidden commands may hold secrets"
+    guard_native_hidden(spec, lambda _: None, SandboxRequest(assume_yes=True))
+    monkeypatch.setenv("NARRATTY_IN_CONTAINER", "1")
+    guard_native_hidden(spec, lambda _: None)

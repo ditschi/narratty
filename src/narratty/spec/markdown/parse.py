@@ -8,6 +8,7 @@ this pass; what to do with the rest is decided in :mod:`.scenes`.
 from __future__ import annotations
 
 import re
+import shlex
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,7 @@ from pathlib import Path
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 from mdit_py_plugins.admon import admon_plugin
+from mdit_py_plugins.footnote import footnote_plugin
 
 from narratty.spec.markdown.source import Line
 
@@ -42,6 +44,10 @@ class Text(Block):
     text: str
     links: tuple[tuple[str, str], ...] = ()
     """``(text, href)`` of each link, in order."""
+    callout: tuple[str, str | None] | None = None
+    """``(type, title)`` of the admonition or alert this paragraph opens; title None: none given."""
+    footnotes: tuple[tuple[int, str], ...] = ()
+    """``(position, text)`` of each footnote referred to: where its sentence ends in ``text``."""
 
 
 @dataclass(frozen=True)
@@ -51,7 +57,7 @@ class Code(Block):
     id: str | None = None
     title: str | None = None
     options: tuple[str, ...] = ()
-    """Space-separated words of the ``narratty="…"`` attribute."""
+    """Space-separated words of the ``narratty="…"`` attribute; ``key='a b'`` is one word."""
 
 
 @dataclass(frozen=True)
@@ -85,11 +91,17 @@ class Dropped(Block):
     """Something left out of the video, kept so ``plan --sources`` can say why."""
 
     what: str
+    why: str = "not part of the video"
 
 
 _HEADING_ATTRS = re.compile(r"\s*\{:?\s*(?P<attrs>[^}]*)\}\s*$")
 _ATTR = re.compile(r"#(?P<id>[\w-]+)|\.[\w-]+|(?P<key>[\w-]+)=(?P<value>\"[^\"]*\"|'[^']*'|[^\s}]+)")
 _ALERT = re.compile(r"^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*", re.IGNORECASE)
+_TASK = re.compile(r"^\[[ xX]\]\s+")
+_FOOTNOTE_REF = re.compile(r"\s*\ue000([^\ue001]*)\ue001")
+_SENTENCE_END = re.compile(r"[.!?…:;](?=\s|$)")
+_TITLE = re.compile(r'"(?P<title>[^"]*)"')
+FOOTNOTE = "footnote definition"
 _INLINE_HILITE = re.compile(r"^#!\w+\s+")
 SENTENCE_END = (".", "!", "?", ":", ";", "…")
 _COMMENT = re.compile(r"^\s*<!--(?P<text>.*?)-->\s*$", re.DOTALL)
@@ -100,11 +112,22 @@ _DROPPED = {"code_block": "indented code block"}
 
 def parse_blocks(lines: list[Line]) -> list[Block]:
     """The blocks of ``lines`` in reading order."""
-    parser = MarkdownIt("commonmark").enable("table").use(admon_plugin)
+    parser = MarkdownIt("commonmark").enable("table").use(admon_plugin).use(footnote_plugin)
     tree = SyntaxTreeNode(parser.parse("\n".join(line.text for line in lines) + "\n"))
     walker = _Walker(lines)
+    walker.footnotes = _footnotes(tree)
     walker.walk(tree.children)
     return walker.blocks
+
+
+def _footnotes(tree: SyntaxTreeNode) -> dict[str, str]:
+    """Each footnote's text by label (the plugin moves the definitions to the end)."""
+    found = {}
+    for block in (node for node in tree.children if node.type == "footnote_block"):
+        for note in block.children:
+            parts = [_plain(child.children[0]) for child in note.children if child.type == "paragraph"]
+            found[str(note.meta.get("label", ""))] = " ".join(part for part in parts if part)
+    return found
 
 
 class _Walker:
@@ -112,23 +135,35 @@ class _Walker:
         self.lines = lines
         self.blocks: list[Block] = []
         self.slugs: set[str] = set()
+        self.footnotes: dict[str, str] = {}
 
     def at(self, node: SyntaxTreeNode) -> tuple[Path, int]:
         line = self.lines[min(node.map[0], len(self.lines) - 1)] if node.map else self.lines[-1]
         return line.file, line.number
 
-    def walk(self, nodes: list[SyntaxTreeNode], *, item: bool = False, quote: bool = False) -> None:
+    def walk(
+        self,
+        nodes: list[SyntaxTreeNode],
+        *,
+        item: bool = False,
+        quote: bool = False,
+        callout: tuple[str, str | None] | None = None,
+    ) -> None:
         details = 0  # open <details> blocks: left out with everything inside
         for node in nodes:
+            if callout is not None and node.type != "paragraph":
+                # The admonition starts with a block: its type is said on its own.
+                self.blocks.append(Text(*self.at(node), "", callout=callout))
             if node.type == "html_block":
                 details = self.html(node, details)
             elif details:
                 continue
             elif node.type == "paragraph":
-                self.text(node, item=item, quote=quote)
+                self.text(node, item=item, quote=quote, callout=callout)
                 quote = False  # only a quote's first paragraph carries an alert marker
             else:
                 self.block(node)
+            callout = None
 
     def block(self, node: SyntaxTreeNode) -> None:
         if node.type == "heading":
@@ -139,16 +174,31 @@ class _Walker:
         elif node.type == "blockquote":
             self.walk(node.children, quote=True)
         elif node.type == "admonition":
-            if node.markup == "???":  # collapsed: left out with everything inside
-                self.blocks.append(Dropped(*self.at(node), "collapsed admonition"))
-            else:
-                self.walk([child for child in node.children if child.type != "admonition_title"])
+            self.admonition(node)
         elif node.type == "fence":
             self.blocks.append(self.code(node))
         elif node.type == "table":
             self.blocks.append(self.table(node))
+        elif node.type == "footnote_block":
+            self.footnote_definitions(node)
         elif node.type in _DROPPED:
             self.blocks.append(Dropped(*self.at(node), _DROPPED[node.type]))
+
+    def admonition(self, node: SyntaxTreeNode) -> None:
+        if node.markup == "???":  # collapsed: left out with everything inside
+            self.blocks.append(Dropped(*self.at(node), "collapsed admonition"))
+            return
+        title = _TITLE.search(node.info)
+        kind = str(node.meta.get("tag", "")).lower()
+        self.walk(
+            [child for child in node.children if child.type != "admonition_title"],
+            callout=(kind, title["title"] or None if title else None),
+        )
+
+    def footnote_definitions(self, node: SyntaxTreeNode) -> None:
+        for note in node.children:
+            where = next((self.at(child) for child in note.children if child.map), self.at(note))
+            self.blocks.append(Dropped(*where, FOOTNOTE))
 
     def html(self, node: SyntaxTreeNode, details: int) -> int:
         """Record a comment; return the number of ``<details>`` open after ``node``."""
@@ -168,19 +218,30 @@ class _Walker:
         slug = _unique(anchor or slugify(title), self.slugs)
         self.blocks.append(Heading(*self.at(node), int(node.tag[1]), title, slug))
 
-    def text(self, node: SyntaxTreeNode, *, item: bool, quote: bool) -> None:
+    def text(
+        self, node: SyntaxTreeNode, *, item: bool, quote: bool, callout: tuple[str, str | None] | None
+    ) -> None:
         if node.children and (image := _only_image(node.children[0])) is not None:
             self.blocks.append(Image(*self.at(node), str(image.attrs.get("src", "")), _plain(image)))
             return
-        text = _plain(node.children[0]) if node.children else ""
-        if quote:
-            text = _ALERT.sub("", text)
-        if not text or _HEADING_ATTRS.fullmatch(text):  # empty, an image, or `{ .annotate }`
+        for _ in _images(node.children[0]) if node.children else []:
+            self.blocks.append(Dropped(*self.at(node), "image", "left out (inline image)"))
+        text = _plain(node.children[0], refs=True) if node.children else ""
+        if item:
+            text = _TASK.sub("", text)  # a task list item: "[ ] " or "[x] "
+        if quote and (alert := _ALERT.match(text)):
+            text = text[alert.end() :]
+            callout = (alert[1].lower(), None)
+        text, refs = _footnote_refs(text)
+        if callout is None and (
+            not text or _HEADING_ATTRS.fullmatch(text)
+        ):  # empty, an image, `{ .annotate }`
             return
-        if item and not text.endswith(SENTENCE_END):
+        if item and text and not text.endswith(SENTENCE_END):
             text += "."
         links = tuple(_links(node.children[0])) if node.children else ()
-        self.blocks.append(Text(*self.at(node), text, links))
+        notes = tuple((_sentence_end(text, at), self.footnotes.get(label, "")) for at, label in refs)
+        self.blocks.append(Text(*self.at(node), text, links, callout, notes))
 
     def code(self, node: SyntaxTreeNode) -> Code:
         lang, attrs = parse_info(node.info)
@@ -190,7 +251,7 @@ class _Walker:
             content=node.content,
             id=attrs.get("#"),
             title=attrs.get("title"),
-            options=tuple(attrs.get("narratty", "").split()),
+            options=block_options(attrs.get("narratty", "")),
         )
 
     def table(self, node: SyntaxTreeNode) -> Table:
@@ -231,6 +292,14 @@ def parse_info(info: str) -> tuple[str, dict[str, str]]:
     return lang.lower(), attrs
 
 
+def block_options(text: str) -> tuple[str, ...]:
+    """The words of a ``narratty="…"`` attribute, quotes as in the shell (``run='a b'``)."""
+    try:
+        return tuple(shlex.split(text))
+    except ValueError:  # an unbalanced quote: the words as they are, reported as unknown
+        return tuple(text.split())
+
+
 def _only_image(inline: SyntaxTreeNode) -> SyntaxTreeNode | None:
     """The image when it is all there is in the paragraph (an attr_list may follow)."""
     images = [child for child in inline.children if child.type == "image"]
@@ -239,6 +308,42 @@ def _only_image(inline: SyntaxTreeNode) -> SyntaxTreeNode | None:
     if len(images) == 1 and not others and (not rest or _HEADING_ATTRS.fullmatch(rest)):
         return images[0]
     return None
+
+
+def _images(node: SyntaxTreeNode) -> list[SyntaxTreeNode]:
+    """Images anywhere in inline Markdown, also inside links (badges)."""
+    found: list[SyntaxTreeNode] = []
+    for child in node.children:
+        if child.type == "image":
+            found.append(child)
+        elif child.children:
+            found += _images(child)
+    return found
+
+
+def _footnote_refs(text: str) -> tuple[str, list[tuple[int, str]]]:
+    """``text`` without its footnote markers, and where each was, with its label."""
+    refs: list[tuple[int, str]] = []
+    parts: list[str] = []
+    length = 0
+    last = 0
+    for match in _FOOTNOTE_REF.finditer(text):
+        parts.append(text[last : match.start()])
+        length += match.start() - last
+        refs.append((length, match[1]))
+        last = match.end()
+    parts.append(text[last:])
+    clean = "".join(parts)
+    lead = len(clean) - len(clean.lstrip())
+    return clean.strip(), [(max(at - lead, 0), label) for at, label in refs]
+
+
+def _sentence_end(text: str, at: int) -> int:
+    """Where the sentence that goes on at ``at`` ends in ``text`` (at ``at``, if it just ended)."""
+    if text[:at].rstrip().endswith(SENTENCE_END):
+        return len(text[:at].rstrip())
+    match = _SENTENCE_END.search(text, at)
+    return match.end() if match else len(text)
 
 
 def _links(node: SyntaxTreeNode) -> list[tuple[str, str]]:
@@ -251,8 +356,11 @@ def _links(node: SyntaxTreeNode) -> list[tuple[str, str]]:
     return found
 
 
-def _plain(node: SyntaxTreeNode) -> str:
-    """Inline Markdown as the words a reader sees; images and raw HTML are dropped."""
+def _plain(node: SyntaxTreeNode, *, refs: bool = False) -> str:
+    """Inline Markdown as the words a reader sees; images and raw HTML are dropped.
+
+    Footnote references are dropped too, or with ``refs`` marked for :func:`_footnote_refs`.
+    """
     parts: list[str] = []
     for child in node.children:
         if child.type == "text":
@@ -261,8 +369,10 @@ def _plain(node: SyntaxTreeNode) -> str:
             parts.append(_INLINE_HILITE.sub("", child.content))
         elif child.type in ("softbreak", "hardbreak"):
             parts.append(" ")
-        elif child.type not in ("image", "html_inline"):
-            parts.append(_plain(child))
+        elif child.type == "footnote_ref":
+            parts.append(f"\ue000{child.meta.get('label', '')}\ue001" if refs else "")
+        elif child.type not in ("image", "html_inline", "footnote_anchor"):
+            parts.append(_plain(child, refs=refs))
     return " ".join("".join(parts).split())
 
 

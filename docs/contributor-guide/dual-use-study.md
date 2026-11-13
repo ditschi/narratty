@@ -147,3 +147,28 @@ in the doc as readers would type them.
   `skills/narratty-docs/` covers the same ground for agents today.
 - **Faster loop**: allow the scene cache with slides and overlays; announce image pulls
   with size; put scene id and Markdown line in every runtime error.
+
+## Round 2 (0.7 features)
+
+The same four authors rebuilt their docs with the features from the roadmap above.
+
+| Measure | Round 1 | Round 2 |
+|---|---|---|
+| Retrofit of the CONTRIBUTING guide | about 90 min, several fix-up builds | 19 min, first build acceptable |
+| Hidden setup commands (tutorial) | 5 | 0 |
+| Reader commands changed for the video (runbook) | 3 | 0 |
+| YAML `overrides` for timing (runbook) | 3 | 0 |
+| Video-only comments, like for like (architecture) | 16, two duplicating text | 9, none duplicating text |
+| Narration offset for `say: after` / `during` | drifted 1–3 s | constant 0.7–0.8 s over 110 s under load |
+
+Bugs found in round 2 and fixed before release: lead-ins swallowed by the text after a
+`say: after` block, a `show` block or a slide; `say: before` not waiting for the whole
+narration; hidden command text in the durations cache; hidden commands touching the real
+`$HOME` under `--runtime native` (now refused for `--global`, `~` and `$HOME` unless
+`--yes`); `check` counting `no-run` commands as run; inline footnotes placed at the end
+of the paragraph; `set +m` breaking duration measurement; containers left running after
+an interrupted build; plus lint false positives and YAML-only wording in Markdown hints.
+
+Still open: time spent in `until` waits is not part of the plan; job-control lines
+(`[1] 161`) show on screen; a `no-run` command is followed by a fresh prompt; builds take
+3–6 minutes, and the scene cache does not apply to docs with slides.

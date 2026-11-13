@@ -30,3 +30,4 @@ def _rootful_docker(monkeypatch: pytest.MonkeyPatch) -> None:
 def _images_present(monkeypatch: pytest.MonkeyPatch) -> None:
     """Never pull container images; ``test_container`` tests ``ensure_image`` itself."""
     monkeypatch.setattr("narratty.container.ensure_image", lambda engine, image: None)
+    monkeypatch.setattr("narratty.container.warn_image_version", lambda engine, image: None)
