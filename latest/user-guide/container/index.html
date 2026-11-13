@@ -622,6 +622,8 @@
       
         
       
+        
+      
     
     
     
@@ -713,6 +715,34 @@
     
   
     Building a video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dual-use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs for reading and listening
   
 
     
@@ -1624,6 +1654,8 @@
       
         
       
+        
+      
     
     
     
@@ -1740,6 +1772,34 @@
     
   
     Design notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor-guide/dual-use-study/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dual-use study
   
 
     
@@ -1911,8 +1971,9 @@
 
 
 <h1 id="sandboxed-runs">Sandboxed runs<a class="headerlink" href="#sandboxed-runs" title="Permanent link">&para;</a></h1>
-<p>With Docker or Podman installed, <code>build</code>, <code>render</code>, <code>tts</code>, <code>plan</code> and <code>tape</code> run
-inside the narratty image by default (<code>--runtime auto</code>). The image contains VHS,
+<p>With Docker or Podman installed, <code>build</code>, <code>render</code>, <code>check</code>, <code>tts</code>, <code>plan</code> and <code>tape</code> run
+inside the narratty image by default (<code>--runtime auto</code>); <code>plan --draft</code> only estimates
+and runs on the host. The image contains VHS,
 ttyd, Chromium, Mermaid, Font Awesome icons, emoji and terminal fonts, ffmpeg, Kokoro,
 Piper, <code>git</code>, <code>tree</code>, the Docker CLI (with
 Compose and Buildx) and the <a href="../toolkit/">demo toolkit</a>
@@ -1946,6 +2007,11 @@ itself and a container runtime on the host.</p>
 <p>narratty picks the tag matching its own version (<code>edge</code> for development builds).
 Override the image with <code>--image</code> or <code>NARRATTY_IMAGE</code>. Up to 0.1, Kokoro needed a
 separate <code>-kokoro</code> image; from 0.2 on, the one image has both engines.</p>
+<p>The image is about 2 GB. When it is not there yet, narratty says
+<code>pulling &lt;image&gt; (this can take a while)…</code> and shows the engine's progress on stderr
+before it starts the first container. A failed pull (<code>pull access denied</code>, no network)
+stops with the engine's message and what to do: point <code>NARRATTY_IMAGE</code> at an image
+you have, log in to the registry, or use <code>--runtime native</code>.</p>
 <p>Each image build gets its own ID (<code>/opt/narratty/image-id</code>), and narratty passes the
 local image ID to the container as <code>NARRATTY_IMAGE_ID</code>. The
 <a href="../building/#scene-recording-cache">scene cache</a> keys recordings to both, so footage

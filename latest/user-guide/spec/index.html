@@ -622,6 +622,8 @@
       
         
       
+        
+      
     
     
     
@@ -713,6 +715,34 @@
     
   
     Building a video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dual-use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs for reading and listening
   
 
     
@@ -1767,6 +1797,8 @@
       
         
       
+        
+      
     
     
     
@@ -1883,6 +1915,34 @@
     
   
     Design notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor-guide/dual-use-study/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dual-use study
   
 
     
@@ -2925,6 +2985,11 @@ commands without recording a video and compares; builds do not.</p>
 <li>The output ends where the prompt is back, so follow the command with
   <code>wait: {prompt: true}</code>. <a href="../markdown/#checking-docs-in-ci">Markdown input</a> does that
   and fills in <code>expect_output</code> from the output a console block shows.</li>
+<li>Output without a final newline (<code>printf '{"a":1}'</code>, <code>curl -s</code>) is fine: the prompt
+  then follows it on the same line, and the wait still sees it. Late output from a
+  background job can push the prompt off its line; <code>check</code> notices that the shell is
+  idle, but a build waits until the timeout, so redirect such a job's output
+  (<code>server &gt; server.log &amp;</code>).</li>
 <li>Output is not compared in the editor layout, where tmux redraws it.</li>
 </ul>
 <p><code>narratty check</code> exits with code 8 and shows a diff for each command that printed

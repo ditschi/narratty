@@ -624,6 +624,8 @@
       
         
       
+        
+      
     
     
     
@@ -960,6 +962,34 @@
     
   
     Building a video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dual-use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs for reading and listening
   
 
     
@@ -1750,6 +1780,8 @@
       
         
       
+        
+      
     
     
     
@@ -1866,6 +1898,34 @@
     
   
     Design notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor-guide/dual-use-study/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dual-use study
   
 
     
@@ -2721,6 +2781,12 @@ screen. The value comes from <a href="../spec/#sandbox"><code>sandbox.env</code>
 <code>sandbox.env_passthrough</code> (you set it on the host) or from a <code>hidden</code> comment with an
 <code>export</code>. A command to run that still contains a placeholder like <code>&lt;url&gt;</code> is an
 error with the hint to write it as <code>$URL</code>.</p>
+<p>Secrets belong in <code>sandbox.env_passthrough</code>: the value stays in your environment and
+is never written anywhere. A <code>hidden</code> comment's commands are part of the spec, so they
+travel with it: narratty keeps them out of error messages and out of <code>exits.log</code>
+(which records <code>&lt;hidden: scene #n&gt;</code> instead), and removes the compiled spec it mounts
+into the container after the run, but a kept <code>--work-dir</code> still holds them in its
+tape. Use a hidden <code>export</code> only for values that are not secret.</p>
 <h2 id="the-markdown-entry">The <code>markdown</code> entry<a class="headerlink" href="#the-markdown-entry" title="Permanent link">&para;</a></h2>
 <p>A YAML spec decides everything at section level and above: which docs, which sections
 and in what order, the narration rule and the overlays. Several videos from one doc

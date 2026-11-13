@@ -622,6 +622,8 @@
       
         
       
+        
+      
     
     
     
@@ -713,6 +715,34 @@
     
   
     Building a video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dual-use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs for reading and listening
   
 
     
@@ -1701,6 +1731,8 @@
       
         
       
+        
+      
     
     
     
@@ -1817,6 +1849,34 @@
     
   
     Design notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor-guide/dual-use-study/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dual-use study
   
 
     
@@ -2075,7 +2135,10 @@ and the project's image needs no change.</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">user</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">host</span><span class="w">            </span><span class="c1"># host (default) | image | UID[:GID]</span>
 </code></pre></div>
 <p>The image needs Linux (amd64 or arm64) and the <a href="../spec/#terminal"><code>terminal.shell</code></a>.
-Without <code>environment</code>, nothing changes. Set exactly one source:</p>
+Without <code>environment</code>, nothing changes. <code>--runtime native</code> only decides where
+narratty's own tools run: the demo shell still starts in the environment, and the log
+says so. Pass <code>--no-env</code> to run the demo shell on this machine instead. Set exactly one
+source:</p>
 <table>
 <thead>
 <tr>
