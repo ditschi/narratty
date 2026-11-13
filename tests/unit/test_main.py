@@ -38,3 +38,11 @@ def test_errors_name_the_host_spec_instead_of_the_container_path(
     err = capsys.readouterr().err
     assert "/spec/" not in err
     assert err.count("/home/me/demo.narratty.yaml") == 2
+
+
+def test_sigterm_unwinds_like_ctrl_c() -> None:
+    """So workspaces and containers are cleaned up when a build is killed."""
+    import signal
+
+    with pytest.raises(KeyboardInterrupt):
+        __main__._terminated(signal.SIGTERM, None)

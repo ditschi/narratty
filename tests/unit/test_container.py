@@ -556,3 +556,27 @@ def test_an_image_with_another_narratty_version_is_announced(
     assert "0.6.1" in capsys.readouterr().err
     real_warn_image_version(Runtime.DOCKER, "img:old", current="0.6.1+local")
     assert capsys.readouterr().err == "", "the same release, built elsewhere"
+
+
+def test_an_interrupted_container_is_removed(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+
+    from narratty.container import ContainerSpec, run
+
+    removed: list[list[str]] = []
+    monkeypatch.setattr(
+        container.subprocess,
+        "run",
+        lambda argv, **k: removed.append(argv) or subprocess.CompletedProcess(argv, 0),
+    )
+    started: list[list[str]] = []
+
+    def interrupted(argv: Sequence[str]) -> int:
+        started.append(list(argv))
+        raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        run(ContainerSpec(Runtime.PODMAN, "img:test", ["build"], []), runner=interrupted)
+    name = started[0][started[0].index("--name") + 1]
+    assert name.startswith("narratty-")
+    assert removed == [["podman", "rm", "--force", name]]

@@ -13,13 +13,15 @@ and runs hardened: no network, all capabilities dropped, read-only root filesyst
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import uuid
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -76,6 +78,7 @@ class ContainerSpec:
     entrypoint: str | None = None
     interactive: bool = False
     hostname: str | None = None
+    name: str | None = None
 
 
 def _user_flags(engine: Runtime) -> list[str]:
@@ -106,6 +109,8 @@ def run_argv(spec: ContainerSpec) -> list[str]:
         argv += ["--interactive"]
     if spec.hostname:
         argv += ["--hostname", spec.hostname]
+    if spec.name:
+        argv += ["--name", spec.name]
     if spec.entrypoint:
         argv += ["--entrypoint", spec.entrypoint]
     for mount in spec.mounts:
@@ -122,8 +127,23 @@ def _run(argv: Sequence[str]) -> int:
 
 
 def run(spec: ContainerSpec, *, runner: Runner | None = None) -> int:
-    """Run the container, streaming its output; returns its exit code."""
-    return (runner or _run)(run_argv(spec))
+    """Run the container, streaming its output; returns its exit code.
+
+    Interrupted (Ctrl+C, SIGTERM), it removes the container: the engine's client goes,
+    but the container would keep running.
+    """
+    named = spec if spec.name else replace(spec, name=f"narratty-{uuid.uuid4().hex[:12]}")
+    try:
+        return (runner or _run)(run_argv(named))
+    except BaseException:
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            subprocess.run(  # noqa: S603
+                [named.engine.value, "rm", "--force", str(named.name)],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+        raise
 
 
 def stdout_is_tty() -> bool:

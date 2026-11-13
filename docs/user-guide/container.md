@@ -73,6 +73,8 @@ overrides it for one run.
 | `ro` | the real directory, read-only | the demo only reads; enforced in the container only |
 
 `--keep-workspace` keeps the snapshot (under the cache directory) for inspection.
+A build stopped with Ctrl+C or `kill` (SIGTERM) removes its container and snapshot
+(since 0.7).
 `workspace.include_uncommitted: false` snapshots exactly `HEAD`.
 
 Files the demo produces can be copied out with `workspace.artifacts`, a list of globs
