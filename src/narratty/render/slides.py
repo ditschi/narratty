@@ -16,6 +16,7 @@ from urllib.parse import unquote
 from markdown_it import MarkdownIt
 
 from narratty.errors import RenderError
+from narratty.render.overlays import frame_px
 from narratty.spec.model import Slide, SlideTable, SlideTheme, Spec
 
 COLORS = {
@@ -112,6 +113,8 @@ class Look:
     """Height of the frame at the top, in video pixels (``slides.frame``); the slide is below it."""
     band_color: str | None = None
     """Colour of the frame: the terminal's background; unset: the slide background."""
+    background: str | None = None
+    """Background of dark slides: the terminal's, when known, so both look alike."""
 
     @property
     def design_height(self) -> int:
@@ -134,7 +137,9 @@ def look_of(spec: Spec) -> Look:
         height=spec.terminal.height,
         css=css,
         classes=spec.slides.classes or "",
+        band=frame_px(spec),
         band_color=palette["background"] if palette else None,
+        background=palette["background"] if palette else None,
     )
 
 
@@ -175,6 +180,8 @@ def page(slide: Slide, look: Look | SlideTheme, workspace: Path) -> str:
         "item_pad": round(height * 0.012),
     }
     colors = COLORS[theme]
+    if theme == "dark" and look.background:
+        colors = colors | {"bg": look.background}
     band_color = look.band_color or colors["bg"]
     style = (
         _LAYOUT.format(**colors, **sizes, band_color=band_color)

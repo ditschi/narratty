@@ -92,9 +92,13 @@ const shown = overlays.map((o) => {
   s.fontSize = o.size + "cqw"; s.color = o.color; s.fontWeight = o.bold ? "bold" : "normal";
   if (o.background) s.background = o.background;
   const [dx, dy] = [h === "center" ? "-50%" : "0", v === "center" ? "-50%" : "0"];
-  if (h === "center") s.left = "50%"; else s[h] = m;
-  if (v === "center") s.top = "50%"; else s[v] = m;
-  s.translate = dx + " " + dy;
+  if (o.position === "frame") {
+    s.left = m; s.top = (o.band / 2) + "cqw"; s.translate = "0 -50%";
+  } else {
+    if (h === "center") s.left = "50%"; else s[h] = m;
+    if (v === "center") s.top = "50%"; else s[v] = m;
+    s.translate = dx + " " + dy;
+  }
   stage.appendChild(el);
   return el;
 });
@@ -126,6 +130,7 @@ const views = browsers.map((b) => {
   else el.querySelector(".bar").remove();
   el.querySelector(".page").src = b.page;
   el.querySelector(".view").style.height = b.view_height + "cqw";
+  if (b.top) el.style.top = b.top + "cqw";
   stage.appendChild(el);
   return el;
 });
@@ -143,6 +148,23 @@ if (browsers.length) browse();
 """
 
 
+# A frame without a known colour takes the player's background.
+_BAND_JS = """
+setTimeout(() => {
+  const term = document.querySelector("#player .ap-term, #player .ap-terminal");
+  if (term) document.getElementById("band").style.background = getComputedStyle(term).backgroundColor;
+}, 100);
+"""
+
+
+def _band_html(band: Mapping[str, object] | None) -> str:
+    """The frame above the player (``slides.frame``): ``height`` in percent of the width."""
+    if not band:
+        return ""
+    color = f"background:{band['color']};" if band.get("color") else ""
+    return f'<div id="band" style="height:{band["height"]}cqw;{color}"></div>'
+
+
 def player_page(
     title: str,
     cast: str,
@@ -150,6 +172,7 @@ def player_page(
     *,
     theme: str | None = None,
     palette: Mapping[str, str] | None = None,
+    band: Mapping[str, object] | None = None,
     overlays: Sequence[Mapping[str, object]] = (),
     browsers: Sequence[Mapping[str, object]] = (),
 ) -> str:
@@ -175,7 +198,7 @@ body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; backgr
 {_OVERLAY_CSS}{_BROWSER_CSS}{palette_css(palette) if palette else ""}</style>
 </head>
 <body>
-<div id="stage"><div id="player"></div></div>
+<div id="stage">{_band_html(band)}<div id="player"></div></div>
 <script src="{_CDN}/asciinema-player.min.js" integrity="{_JS_SRI}" crossorigin="anonymous"></script>
 <script>
 const player = AsciinemaPlayer.create(
@@ -183,7 +206,7 @@ const player = AsciinemaPlayer.create(
 );
 const overlays = {_script_json(list(overlays))};
 const browsers = {_script_json(list(browsers))};
-{_OVERLAY_JS}{_BROWSER_JS}</script>
+{_OVERLAY_JS}{_BROWSER_JS}{_BAND_JS if band and not band.get("color") else ""}</script>
 </body>
 </html>
 """

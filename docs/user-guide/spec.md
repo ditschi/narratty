@@ -104,6 +104,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `slides.theme` | `dark` | Look of every [slide](#slides): `dark` or `light` (since 0.6) |
 | `slides.css` | none | A CSS file, relative to the spec, that restyles every slide, such as a Marp theme (since 0.8), see [Themes](#themes) |
 | `slides.classes` | none | Classes of every slide's `<section>`, separated by spaces, such as `invert` (since 0.8) |
+| `slides.frame` | `false` | A band at the top of the video that shows the heading overlays, over the terminal and over slides alike (since 0.8), see [Frame](#frame) |
 | `scenes` | required | At least one scene, or a `markdown` entry |
 
 ## `tts`
@@ -436,7 +437,7 @@ line. The top right is usually free of terminal text; the bottom is shared with
 
 | Style key | `default` | Meaning |
 |---|---|---|
-| `position` | `bottom-right` | `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right` |
+| `position` | `bottom-right` | `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right`, or `frame`: in the band of [`slides.frame`](#frame), at the size of a slide title (since 0.8) |
 | `size` | `medium` | `small`, `medium`, `large`, or a factor of `terminal.font_size` (`1.3` = medium) |
 | `color` | `#ffffff` | Text colour, `#rrggbb` |
 | `background` | `#000000b3` | Box colour, `#rrggbbaa` (the last two digits are the opacity) |
@@ -448,7 +449,8 @@ line. The top right is usually free of terminal text; the bottom is shared with
 Built-in styles: `default` (above) and `chapter` (`top-right`, `large`, bold, hides
 after `3s`). Since 0.5 a chapter no longer keeps; `overlay_styles: {chapter: {keep: true}}`
 brings back the old behaviour. [Markdown input](markdown.md#heading-overlays) adds
-`heading-1` to `heading-4`, `breadcrumb` and `file` (since 0.5).
+`heading-1` to `heading-4`, `breadcrumb` and `file` (since 0.5), and `frame` (`frame`,
+bold, the slide accent colour, kept until the next one; since 0.8).
 `overlay_styles` changes them or adds your own; each style starts from `default`, so
 it only lists what differs. Overlays fade in and out. They need the mp4 to be
 re-encoded, which `build` does when a spec has any; in the [cast page](building.md#asciicast-with-narration)
@@ -619,7 +621,36 @@ terminal:
 `magenta`, `cyan`, `white` and their `bright…` variants (`brightBlack` …
 `brightWhite`). Unset colours are Dracula's. The cast page's player uses the same
 colours. Give the terminal the background of the slides, and the video does not change
-colour between them.
+colour between them. The other way round, `dark` slides take the terminal's background
+when narratty knows it: with the default Dracula theme or a colour mapping.
+
+### Frame
+
+Since narratty 0.8.
+
+`slides.frame: true` keeps a band at the top of the video, about 2.6 times the font
+size high. The terminal is recorded below it, and slides leave it empty, so what is in
+the band stays put while the picture below changes between terminal and slides:
+
+```yaml
+slides: {frame: true}
+scenes:
+  - markdown: docs/architecture.md
+    heading_overlays: 3     # the headings fill the frame
+    prose: slides
+```
+
+- [Heading overlays](markdown.md#heading-overlays) and breadcrumbs take the `frame`
+  style: drawn in the band, at the size of a slide title and where it starts, and kept
+  until the next heading. Other overlays keep their place; an overlay of your own goes
+  there with `position: frame`.
+- A slide whose title is the text in the band leaves its title out.
+- The band has the terminal's background (filled from the top row of the recording).
+  With the default Dracula terminal and `dark` slides that is the slides' background
+  too; otherwise give `terminal.theme` the slides' background, see [Themes](#themes).
+- Browser views start below the band. The cast page draws the band above the player.
+- `overlay_styles: {frame: {color: "#…"}}` sets the colour, for example to match the
+  title colour of a `slides.css`.
 
 ## Spec versions
 
@@ -645,4 +676,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 | 0.5 | `requires.narratty`, `markdown` scene entries and the top-level `narration` ([Markdown input](markdown.md)), overlay styles `heading-1` to `heading-4`, `breadcrumb` and `file`, `browser` `address` and `data:` URLs |
 | 0.6 | `slide` action and `slides.theme`, Mermaid diagrams in browser views, `run` `expect_output`; in Markdown input the `table`, `slide`, `pause` and `spec` comments, `mermaid` blocks, `check_output` and the `any-output` block option |
 | 0.7 | `slide` `focus`, `code` and `lang`, `run` `show` and `max_lines`; in Markdown input the `focus`, `skip-rest`, `run` and `clear` comments, the `slide` comment's `focus` and `hold` keys, the `table` comment's `hold` and a list for its `say`, the `show` block option and the `say=…`, `instead=…`, `lines=…`, `until=…`, `then=…` and `timeout=…` block options, `sections` with `include` / `exclude`, and the entry keys `footnotes`, `admonitions`, `image_titles`, `lint`, `say` and `clear_on` |
-| 0.8 | `slide` `points` and `current`, `slides.css` and `slides.classes`, `terminal.theme` as a colour mapping; the markdown entry key `prose` |
+| 0.8 | `slide` `points` and `current`, `slides.css`, `slides.classes` and `slides.frame`, `terminal.theme` as a colour mapping, the overlay position and style `frame`; the markdown entry key `prose` |

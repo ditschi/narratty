@@ -45,6 +45,6 @@ def test_colour_mapping_becomes_a_player_theme(tmp_path: Path) -> None:
     colors = TerminalColors(background="#455a64", foreground="#fff8e1")
     assert player_theme(colors) == CUSTOM_THEME
     page = player_page("T", "{}", audio, theme=CUSTOM_THEME, palette=colors.palette())
-    assert f".asciinema-player-theme-{CUSTOM_THEME}{{--term-color-0:#21222c;" in page
+    assert f".asciinema-player-theme-{CUSTOM_THEME}{{--term-color-0:#000000;" in page
     assert "--term-color-background:#455a64" in page
     assert "--term-color-foreground:#fff8e1" in page

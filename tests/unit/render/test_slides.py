@@ -126,7 +126,7 @@ def test_look_of_the_spec(tmp_path: Path) -> None:
     assert spec.slides.css is not None and spec.slides.css.startswith("data:text/css;base64,")
     look = slides.look_of(spec)
     assert (look.css, look.classes, look.band_color) == ("h1{color:red}", "invert", "#101010")
-    assert slides.look_of(parse_spec("scenes: [{id: a}]\n", tmp_path / "u.yaml")).band_color == "#282a36"
+    assert slides.look_of(parse_spec("scenes: [{id: a}]\n", tmp_path / "u.yaml")).band_color == "#1e1f29"
 
 
 def test_a_missing_css_file_is_reported_at_its_key(tmp_path: Path) -> None:
@@ -202,3 +202,21 @@ def test_slides_have_no_bar(tmp_path: Path) -> None:
     spec = parse_spec(SPEC, Path("/tmp/t.narratty.yaml"))
     (data,) = browser.page_views([shot], spec.terminal)
     assert data["bar"] is None and data["bar_height"] == 0
+
+
+def test_a_container_gets_the_css_embedded_in_its_compiled_spec(tmp_path: Path) -> None:
+    from narratty.spec.compile import container_spec
+
+    (tmp_path / "theme.css").write_text("h1{color:red}")
+    spec = tmp_path / "t.narratty.yaml"
+    spec.write_text("slides: {css: theme.css}\nscenes: [{id: a, narration: Hi.}]\n")
+    compiled = container_spec(spec, tmp_path / "cache")
+    assert compiled is not None, "compiled although it has no Markdown"
+    text = compiled.read_text()
+    assert "data:text/css;base64," in text and "theme.css" not in text
+    assert parse_document(text, tmp_path / "elsewhere" / "t.narratty.yaml").spec.slides.css == (
+        parse_document(spec.read_text(), spec).spec.slides.css
+    ), "it loads without the file"
+    plain = tmp_path / "plain.narratty.yaml"
+    plain.write_text("scenes: [{id: a, narration: Hi.}]\n")
+    assert container_spec(plain, tmp_path / "cache") is None

@@ -503,7 +503,8 @@
                 "right",
                 "bottom-left",
                 "bottom",
-                "bottom-right"
+                "bottom-right",
+                "frame"
               ],
               "type": "string"
             },
@@ -630,7 +631,7 @@
         },
         "style": {
           "default": "default",
-          "description": "Named style from overlay_styles (built in: default, chapter, heading-1, heading-2, heading-3, heading-4, breadcrumb, file).",
+          "description": "Named style from overlay_styles (built in: default, chapter, heading-1, heading-2, heading-3, heading-4, breadcrumb, file, frame).",
           "title": "Style",
           "type": "string"
         }
@@ -657,7 +658,8 @@
                 "right",
                 "bottom-left",
                 "bottom",
-                "bottom-right"
+                "bottom-right",
+                "frame"
               ],
               "type": "string"
             },
@@ -1526,6 +1528,12 @@
           "default": null,
           "description": "Classes of every slide's <section>, separated by spaces, such as invert (since 0.8).",
           "title": "Classes"
+        },
+        "frame": {
+          "default": false,
+          "description": "A band at the top of the video that shows heading overlays, over the terminal and over slides alike (since 0.8).",
+          "title": "Frame",
+          "type": "boolean"
         }
       },
       "title": "Slides",
@@ -2962,7 +2970,8 @@
       "default": {
         "theme": "dark",
         "css": null,
-        "classes": null
+        "classes": null,
+        "frame": false
       }
     },
     "scenes": {

@@ -262,9 +262,19 @@ BUILTIN_OVERLAY_STYLES = (
     "heading-4",
     "breadcrumb",
     "file",
+    "frame",
 )
 OverlayPosition = Literal[
-    "top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"
+    "top-left",
+    "top",
+    "top-right",
+    "left",
+    "center",
+    "right",
+    "bottom-left",
+    "bottom",
+    "bottom-right",
+    "frame",
 ]
 _COLOR = r"^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
 
@@ -494,6 +504,11 @@ class Slides(_Model):
         None,
         pattern=r"^[\w-]+( [\w-]+)*$",
         description="Classes of every slide's <section>, separated by spaces, such as invert (since 0.8).",
+    )
+    frame: bool = Field(
+        False,
+        description="A band at the top of the video that shows heading overlays, over the terminal "
+        "and over slides alike (since 0.8).",
     )
 
 
@@ -847,25 +862,25 @@ class Timing(_Model):
 
 COLOR = r"^#[0-9a-fA-F]{6}$"
 DRACULA = {
-    "background": "#282a36",
+    "background": "#1e1f29",
     "foreground": "#f8f8f2",
     "selection": "#44475a",
-    "cursor": "#f8f8f2",
-    "black": "#21222c",
+    "cursor": "#bbbbbb",
+    "black": "#000000",
     "red": "#ff5555",
     "green": "#50fa7b",
     "yellow": "#f1fa8c",
     "blue": "#bd93f9",
     "magenta": "#ff79c6",
     "cyan": "#8be9fd",
-    "white": "#f8f8f2",
-    "brightBlack": "#6272a4",
-    "brightRed": "#ff6e6e",
-    "brightGreen": "#69ff94",
-    "brightYellow": "#ffffa5",
-    "brightBlue": "#d6acff",
-    "brightMagenta": "#ff92df",
-    "brightCyan": "#a4ffff",
+    "white": "#bbbbbb",
+    "brightBlack": "#555555",
+    "brightRed": "#ff5555",
+    "brightGreen": "#50fa7b",
+    "brightYellow": "#f1fa8c",
+    "brightBlue": "#bd93f9",
+    "brightMagenta": "#ff79c6",
+    "brightCyan": "#8be9fd",
     "brightWhite": "#ffffff",
 }
 """VHS's Dracula theme: the default terminal colours, and the base of a theme mapping."""

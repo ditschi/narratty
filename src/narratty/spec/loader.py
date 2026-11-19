@@ -366,6 +366,7 @@ def _embed_slide_css(plain: dict[str, Any], data: Any, file: Path) -> None:
         message = f"cannot read {css}: {error.strerror or error}"
         raise SpecError(file, [Issue("slides.css", message, line, column)]) from error
     slides["css"] = "data:text/css;base64," + base64.b64encode(content).decode("ascii")
+    data["slides"]["css"] = slides["css"]  # the compiled spec a container gets is written from this
 
 
 def read_spec_text(path: Path) -> str:

@@ -1323,15 +1323,26 @@ in the image.
 
 ### 3. Frame
 - `slides.frame: true` reserves a band at the top of the video (2.6 × font size). VHS
-  records the terminal below it; ffmpeg pads the band in the terminal background.
-  Slide pages leave the same band empty.
-- The band shows overlays of the new style `frame` (top left, bold, large, kept until
-  the next one). With a frame, Markdown heading overlays use it instead of fading in
-  at the top right, so the section heading stays put while the picture below changes
-  between terminal and slides. Slides whose title is the heading drop it.
-- The cast page draws the band as a bar above the player.
+  records the terminal below it (`Set Height` minus the band); ffmpeg pads the band and
+  fills it with the recording's top row, which is the terminal background whatever the
+  theme. Slide pages leave the same band empty (the section starts below it, the page
+  background is the terminal's when known).
+- The band shows overlays at the new position `frame`: left where a slide title starts,
+  at its size, centred in the band, no box or outline. The built-in style `frame`
+  (accent colour, kept until the next one) is what Markdown heading overlays and
+  breadcrumbs get at render time when the frame is on (`overlays.resolve`), so the
+  section heading stays put while the picture below changes between terminal and
+  slides. The Markdown expansion does not know about the frame; `heading_overlays`
+  still decides which headings show.
+- A slide whose title is the frame text when it appears drops the title
+  (`browser.without_frame_titles`), so prose slides do not repeat the heading.
+- Web pages start below the band; the cast recorder gets the smaller terminal; the cast
+  page draws the band as a bar above the player (its colour from the palette, else the
+  player's background).
 - Without a matching slide background (step 2) the band changes colour with the
-  picture; the built-in `dark` look matches the default Dracula terminal.
+  picture. `dark` slides take the terminal background when it is known (Dracula, or a
+  colour mapping), so the default look matches. `DRACULA` holds VHS's own values
+  (background `#1e1f29`), not the Dracula spec's.
 
 ### Tests and docs
 - Golden expansions for `prose: slides` (paragraphs, lists, lead-ins, code), unit tests

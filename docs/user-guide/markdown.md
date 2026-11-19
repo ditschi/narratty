@@ -882,6 +882,11 @@ The title card stays while the text before the first block is spoken, so the int
 does not play over an empty prompt; a `duration_ms` for `heading-1` in
 `overlay_styles` applies instead. Change them like any style in [`overlay_styles`](spec.md#overlays).
 
+With [`slides.frame: true`](spec.md#frame) (since 0.8) all of them take the `frame`
+style instead: the heading stands in a band at the top of the video, at the size of a
+slide title, until the next heading, over the terminal and over slides alike. Prose
+slides then leave out the title the band already shows.
+
 ## Snippets and mkdocs
 
 The doc is read the way this repo's mkdocs config renders it: admonitions,

@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from narratty.render.overlays import frame_px
 from narratty.render.pauses import SETTLE_MS, Pause, command_keyword
 from narratty.render.script import (
     END_CUE,
@@ -262,7 +263,7 @@ def build_tape(
         f"Output {json.dumps(str(output))}",
         f"Set Shell {vhs_shell}",
         f"Set Width {term.width}",
-        f"Set Height {term.height}",
+        f"Set Height {term.height - frame_px(spec)}",
         f"Set FontSize {term.font_size}",
         f"Set FontFamily {json.dumps(FONT_FAMILY)}",
         f"Set Theme {vhs_theme(term)}",

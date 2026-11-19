@@ -33,7 +33,7 @@ from typing import Any
 
 from narratty.errors import MissingDependencyError, RenderError
 from narratty.render import slides
-from narratty.render.overlays import FADE_MS, OverlayImage
+from narratty.render.overlays import FADE_MS, OverlayImage, Shown, frame_px
 from narratty.render.script import END_CUE, overlay_cue
 from narratty.spec.model import Browser, ShowBrowser, ShowOverlay, ShowSlide, Slide, Spec, Terminal
 
@@ -161,6 +161,24 @@ def schedule(spec: Spec, times: Mapping[str, int]) -> list[View]:
                     joined = True
             views.append(replace(view, start_ms=start, end_ms=stop, joined=joined))
     return [view for view in views if view.end_ms > view.start_ms]
+
+
+def without_frame_titles(views: Sequence[View], shown: Sequence[Shown]) -> list[View]:
+    """``views`` without the title of a slide whose title the frame shows as it appears."""
+    result = []
+    for view in views:
+        slide = view.slide
+        if slide is not None and slide.title and slide.html is None:
+            framed = any(
+                item.look.position == "frame"
+                and item.text == slide.title
+                and item.start_ms <= view.start_ms < item.end_ms
+                for item in shown
+            )
+            if framed:
+                view = replace(view, slide=slide.model_copy(update={"title": None}))
+        result.append(view)
+    return result
 
 
 def scaled(views: Sequence[View], factor: float) -> list[View]:
@@ -492,6 +510,7 @@ def _shoot(spec: Spec, view: View, workspace: Path, directory: Path, number: int
     bar_px = bar_height(spec.terminal)
     url = page_url(browser.url, workspace)
     check_network(spec, url)
+    height -= frame_px(spec)  # a web page stays below the frame
     scroll_px = capture(url, width, height - bar_px, browser.scroll, browser.load_ms, page, chromium=chromium)
     bar = draw_bar(browser.address or browser.url, width, bar_px, directory / f"browser-{number}-bar.png")
     return Shot(view, bar, page, height - bar_px, scroll_px)
@@ -505,25 +524,31 @@ def _overlap_ms(shots: Sequence[Shot], number: int) -> int:
     return min(FADE_MS, following.end_ms - following.start_ms)
 
 
-def images(shots: Sequence[Shot], bar_px: int) -> list[OverlayImage]:
-    """Each shot as images for ffmpeg: the page (scrolling) and the bar above it."""
+def images(shots: Sequence[Shot], bar_px: int, band: int = 0) -> list[OverlayImage]:
+    """Each shot as images for ffmpeg: the page (scrolling) and the bar above it.
+
+    Web pages start below a frame ``band`` pixels high; slides draw it themselves.
+    """
     result = []
     for number, shot in enumerate(shots):
         overlap = _overlap_ms(shots, number)
         start, end, fade_out = shot.view.start_ms, shot.view.end_ms + overlap, not overlap
-        top = str(bar_px) if shot.bar else "0"
+        top = str(band + bar_px) if shot.bar else "0"
         result.append(
             OverlayImage(
                 shot.page, "0", top, start, end, shot.view_px, shot.scroll_px, shot.scroll_ms, fade_out
             )
         )
         if shot.bar:
-            result.append(OverlayImage(shot.bar, "0", "0", start, end, fade_out=fade_out))
+            result.append(OverlayImage(shot.bar, "0", str(band), start, end, fade_out=fade_out))
     return result
 
 
-def page_views(shots: Sequence[Shot], terminal: Terminal) -> list[dict[str, Any]]:
-    """The views as data for the cast page (times in seconds, sizes in percent of the width)."""
+def page_views(shots: Sequence[Shot], terminal: Terminal, band: int = 0) -> list[dict[str, Any]]:
+    """The views as data for the cast page (times in seconds, sizes in percent of the width).
+
+    ``top`` keeps web pages below a frame ``band`` pixels high; slides draw it themselves.
+    """
 
     def data_url(path: Path) -> str:
         return "data:image/png;base64," + base64.b64encode(path.read_bytes()).decode("ascii")
@@ -540,6 +565,7 @@ def page_views(shots: Sequence[Shot], terminal: Terminal) -> list[dict[str, Any]
             "view_height": round(100 * shot.view_px / width, 3),
             "scroll_by": round(100 * shot.scroll_px / width, 3),
             "fade": FADE_MS / 1000,
+            "top": round(100 * band / width, 3) if shot.bar else 0,
         }
         for number, shot in enumerate(shots)
     ]

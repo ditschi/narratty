@@ -80,7 +80,7 @@ def test_theme_colours_are_passed_as_json() -> None:
     theme = json.loads(vhs_theme(term))
     assert theme["background"] == "#455a64"
     assert theme["foreground"] == "#f8f8f2", "unset colours are Dracula's"
-    assert theme["brightMagenta"] == "#ff92df"
+    assert theme["brightMagenta"] == "#ff79c6"
     assert vhs_theme(parse_spec("scenes: [{id: a}]\n", Path("/t.yaml")).terminal) == '"Dracula"'
 
 
