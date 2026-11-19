@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import difflib
 from dataclasses import dataclass
 from pathlib import Path
@@ -341,11 +342,30 @@ def parse_document(text: str, file: Path) -> Document:
     origins: list[int | ExpandedScene] = []
     if isinstance(data.get("scenes"), list):
         plain["scenes"], origins = _expand_scenes(data["scenes"], data, file)
+    _embed_slide_css(plain, data, file)
     try:
         return Document(Spec.model_validate(plain), data, origins)
     except ValidationError as error:
         issues = [_scene_issue(item, origins, data) for item in error.errors()]
         raise SpecError(file, issues) from error
+
+
+def _embed_slide_css(plain: dict[str, Any], data: Any, file: Path) -> None:
+    """``slides.css`` read from its file into a ``data:`` URL, so sandboxed runs have it too."""
+    slides = plain.get("slides")
+    if not isinstance(slides, dict):
+        return
+    css = slides.get("css")
+    if not isinstance(css, str) or not css or css.startswith("data:"):
+        return
+    path = file.parent / css
+    try:
+        content = path.read_bytes()
+    except OSError as error:
+        line, column = position(data, ("slides", "css"))
+        message = f"cannot read {css}: {error.strerror or error}"
+        raise SpecError(file, [Issue("slides.css", message, line, column)]) from error
+    slides["css"] = "data:text/css;base64," + base64.b64encode(content).decode("ascii")
 
 
 def read_spec_text(path: Path) -> str:

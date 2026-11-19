@@ -11,7 +11,7 @@ from narratty.errors import RenderError
 from narratty.render import browser, slides
 from narratty.render.overlays import planned_times
 from narratty.render.script import build_script
-from narratty.spec.loader import parse_spec
+from narratty.spec.loader import SpecError, parse_document, parse_spec
 from narratty.spec.model import Slide
 from narratty.timeline import build_timeline
 
@@ -25,7 +25,7 @@ def _slide(**keys: object) -> Slide:
 @pytest.mark.parametrize(
     ("keys", "message"),
     [
-        ({}, "exactly one of: table, mermaid, image, html, code"),
+        ({}, "exactly one of: table, mermaid, image, html, code, points"),
         ({"mermaid": "graph TD", "lang": "json"}, "lang only applies to code slides"),
         ({"code": "x", "lang": "a b"}, "lang"),
         ({"mermaid": "graph TD", "image": "a.png"}, "exactly one of"),
@@ -54,7 +54,7 @@ def test_highlight_picks_the_page() -> None:
 
 def test_table_page(tmp_path: Path) -> None:
     page = slides.page(_slide(title="Risks", table=TABLE, rows=2, highlight=3), "dark", tmp_path)
-    assert "<header>Risks</header>" in page
+    assert "<h1>Risks</h1>" in page
     assert "<th>Hazard</th>" in page
     assert '<tr class="mark"><td>h3</td><td><code>f3</code> &lt;b&gt;x&lt;/b&gt;</td></tr>' in page
     assert "h2" not in page and "h5" not in page, "only the rows of page 2"
@@ -80,9 +80,9 @@ def test_mermaid_focus_is_carried_to_the_rendered_page(tmp_path: Path) -> None:
 
 def test_code_is_highlighted(tmp_path: Path) -> None:
     page = slides.page(_slide(code='{"status": "ok"}', lang="json", title="Response"), "dark", tmp_path)
-    assert '<pre class="code" style="font-size:2.400vw"><code>' in page
+    assert '<pre class="code" style="font-size:30.72px"><code>' in page
     assert '<span style="color: #FF79C6">"status"</span>' in page, "dracula colours"
-    assert "<header>Response</header>" in page
+    assert "<h1>Response</h1>" in page
     assert "code,pre{font-variant-ligatures:none}" in page, "-> stays two characters, not an arrow"
     light = slides.page(_slide(code="<b>&</b>", lang="no-such-language", theme="light"), "dark", tmp_path)
     assert "&lt;b&gt;&amp;&lt;/b&gt;" in light, "unknown languages are plain text"
@@ -106,9 +106,38 @@ def test_current_needs_points_within_range() -> None:
         _slide(points=["a", "b"], current=3)
 
 
+def test_a_css_file_comes_after_the_built_in_look(tmp_path: Path) -> None:
+    look = slides.Look(width=1920, height=1080, css="section{background:#455a64}", classes="invert lead")
+    page = slides.page(_slide(points=["A"], title="T"), look, tmp_path)
+    assert page.index(":where(section.slide)") < page.index("section{background:#455a64}")
+    assert '<section class="slide points invert lead"><h1>T</h1><div class="content">' in page
+    assert "html{zoom:1.500000}" in page, "laid out 1280 px wide, zoomed to the video"
+    assert "section.slide{width:1280px;height:720px;" in page
+
+
+def test_look_of_the_spec(tmp_path: Path) -> None:
+    (tmp_path / "theme.css").write_text("h1{color:red}")
+    spec = parse_document(
+        "slides: {css: theme.css, classes: invert}\n"
+        "terminal: {theme: {background: '#101010'}}\n"
+        "scenes: [{id: a}]\n",
+        tmp_path / "t.narratty.yaml",
+    ).spec
+    assert spec.slides.css is not None and spec.slides.css.startswith("data:text/css;base64,")
+    look = slides.look_of(spec)
+    assert (look.css, look.classes, look.band_color) == ("h1{color:red}", "invert", "#101010")
+    assert slides.look_of(parse_spec("scenes: [{id: a}]\n", tmp_path / "u.yaml")).band_color == "#282a36"
+
+
+def test_a_missing_css_file_is_reported_at_its_key(tmp_path: Path) -> None:
+    with pytest.raises(SpecError, match="cannot read missing.css") as error:
+        parse_document("slides:\n  css: missing.css\nscenes: [{id: a}]\n", tmp_path / "t.narratty.yaml")
+    assert error.value.issues[0].line == 2
+
+
 def test_long_code_gets_smaller(tmp_path: Path) -> None:
     page = slides.page(_slide(code="\n".join(["x" * 120] * 3)), "dark", tmp_path)
-    assert 'style="font-size:1.181vw"' in page
+    assert 'style="font-size:15.11px"' in page
 
 
 def test_image_from_the_workspace(tmp_path: Path) -> None:

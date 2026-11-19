@@ -1088,6 +1088,7 @@ def build_cast(
             recording.cast,
             outputs.audio,
             theme=player_theme(spec.terminal.theme),
+            palette=spec.terminal.palette() if not isinstance(spec.terminal.theme, str) else None,
             overlays=overlays,
             browsers=views,
         )

@@ -102,6 +102,8 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | `overlay_styles` | `{}` | Named overlay styles; see [Overlays](#overlays) (since 0.3) |
 | `narration` | `all` | Default narration rule of `markdown` entries: `all` or `none`; see [Markdown input](markdown.md) (since 0.5) |
 | `slides.theme` | `dark` | Look of every [slide](#slides): `dark` or `light` (since 0.6) |
+| `slides.css` | none | A CSS file, relative to the spec, that restyles every slide, such as a Marp theme (since 0.8), see [Themes](#themes) |
+| `slides.classes` | none | Classes of every slide's `<section>`, separated by spaces, such as `invert` (since 0.8) |
 | `scenes` | required | At least one scene, or a `markdown` entry |
 
 ## `tts`
@@ -132,7 +134,7 @@ Every `*_ms` key and `hold` take milliseconds (`1500`) or a duration with a unit
 | Key | Default | Meaning |
 |---|---|---|
 | `width`, `height` | `1200`, `700` | Video size in pixels |
-| `theme` | `Dracula` | Any VHS theme |
+| `theme` | `Dracula` | Any VHS theme, or a mapping of terminal colours (since 0.8), see [Themes](#themes) |
 | `font_size` | `22` | Font size |
 | `typing_speed_ms` | `40` | Time per typed key |
 | `shell` | `bash` | `bash`, `zsh`, `fish` or `sh` |
@@ -578,10 +580,46 @@ scenes:
           focus: db
 ```
 
-Exactly one of `table`, `mermaid`, `image`, `html` and `code` is given. A table taller than
+Exactly one of `table`, `mermaid`, `image`, `html`, `code` and `points` is given. A table taller than
 the slide moves up so that the highlighted row stays in view. A Markdown doc makes
 slides from its tables, `mermaid` blocks, images and blocks marked `show`; see
 [Markdown input](markdown.md#slides).
+
+### Themes
+
+Since narratty 0.8.
+
+Each slide is an HTML page with one `<section class="slide KIND">`, laid out 1280 px
+wide and zoomed to the video. `KIND` is `table`, `mermaid`, `code`, `points` or
+`image`; the section holds an `h1` with the title and a `div.content` with a `table`,
+`pre`, `ul` or `img`. `slides.css` adds a CSS file after the built-in look, whose
+rules have no specificity, so any rule in the file wins; what the file leaves out keeps
+the built-in look. A [Marp](https://marp.app) theme is such a file: Marp themes are CSS
+for `section`, `h1`, `ul`, `table` and `pre`, written for the same 1280 px width.
+
+```yaml
+slides:
+  css: themes/gaia.css      # a Marp theme, or your own
+  classes: invert           # Gaia's dark variant
+terminal:
+  theme:                    # the terminal in the theme's colours
+    background: "#455a64"
+    foreground: "#fff8e1"
+```
+
+- The file is read when the spec is loaded and embedded, so sandboxed builds have it.
+- Fonts from the web (`@import` of a font service, `url(https://…)`) need network,
+  which builds do not have: use fonts installed in the image, or embed them as
+  `data:` URLs.
+- A current point is `li.current`, the ones before it `li.done`, after it `li.next`;
+  a highlighted table row is `tr.mark`.
+
+`terminal.theme` takes a mapping of the colours of a VHS theme: `background`,
+`foreground`, `selection`, `cursor`, `black`, `red`, `green`, `yellow`, `blue`,
+`magenta`, `cyan`, `white` and their `bright…` variants (`brightBlack` …
+`brightWhite`). Unset colours are Dracula's. The cast page's player uses the same
+colours. Give the terminal the background of the slides, and the video does not change
+colour between them.
 
 ## Spec versions
 
@@ -607,4 +645,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 | 0.5 | `requires.narratty`, `markdown` scene entries and the top-level `narration` ([Markdown input](markdown.md)), overlay styles `heading-1` to `heading-4`, `breadcrumb` and `file`, `browser` `address` and `data:` URLs |
 | 0.6 | `slide` action and `slides.theme`, Mermaid diagrams in browser views, `run` `expect_output`; in Markdown input the `table`, `slide`, `pause` and `spec` comments, `mermaid` blocks, `check_output` and the `any-output` block option |
 | 0.7 | `slide` `focus`, `code` and `lang`, `run` `show` and `max_lines`; in Markdown input the `focus`, `skip-rest`, `run` and `clear` comments, the `slide` comment's `focus` and `hold` keys, the `table` comment's `hold` and a list for its `say`, the `show` block option and the `say=…`, `instead=…`, `lines=…`, `until=…`, `then=…` and `timeout=…` block options, `sections` with `include` / `exclude`, and the entry keys `footnotes`, `admonitions`, `image_titles`, `lint`, `say` and `clear_on` |
-| 0.8 | `slide` `points` and `current`; the markdown entry key `prose` |
+| 0.8 | `slide` `points` and `current`, `slides.css` and `slides.classes`, `terminal.theme` as a colour mapping; the markdown entry key `prose` |

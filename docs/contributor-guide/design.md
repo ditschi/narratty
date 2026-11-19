@@ -1305,12 +1305,15 @@ in the image.
 
 ### 2. Themes
 - Slide pages become semantic: `<section class="slide KIND">` with an `h1` title and
-  `ul` (points), `table`, `pre` (code, Mermaid) or `img`. The built-in `dark` and
+  `ul` (points), `table`, `pre` (code, Mermaid) or `img` in a `div.content`. The built-in `dark` and
   `light` looks are CSS for these elements.
 - `slides.css`: a CSS file, relative to the spec, added after the built-in CSS. A Marp
   theme (Marp themes are CSS for `section`, `h1`, `ul`, `table`, `pre`) works as is.
-  With a CSS file the page is laid out 1280 px wide, as Marp themes expect, and zoomed
-  to the video width. `slides.class` sets classes on the section, such as Gaia's `invert`.
+  Every page is laid out 1280 px wide, as Marp themes expect, and zoomed to the video
+  width; the built-in look uses `:where()` selectors, so any rule of the file wins and
+  what it leaves out keeps the built-in look. `slides.classes` sets classes on the
+  section, such as Gaia's `invert` (`class` would clash with Python's keyword in the
+  model).
 - Remote `@import` and `url()` fonts need network, which the sandbox does not have:
   fonts must be installed in the image or embedded as `data:` URLs (documented).
 - `terminal.theme` also takes a mapping of VHS theme colours (`background`,
@@ -1334,7 +1337,7 @@ in the image.
 - Golden expansions for `prose: slides` (paragraphs, lists, lead-ins, code), unit tests
   for key points, slide pages, the theme mapping, the frame's ffmpeg graph and overlay.
 - User guide: `markdown.md` (Prose slides), `spec.md` (`points`, `slides.css`,
-  `slides.class`, `slides.frame`, `terminal.theme` mapping), with "(since 0.8)".
+  `slides.classes`, `slides.frame`, `terminal.theme` mapping), with "(since 0.8)".
 
 ---
 

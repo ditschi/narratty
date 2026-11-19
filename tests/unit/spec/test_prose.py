@@ -22,7 +22,8 @@ from narratty.spec.markdown.prose import key_point
             "Every command waits until the prompt is back",
         ),
         (
-            "A line `...` stands for any lines, also none; `...` within a line for any text, as in `Python 3...`.",
+            "A line `...` stands for any lines, also none; `...` within a line for any text, "
+            "as in `Python 3...`.",
             "A line `...` stands for any lines",
         ),
         ("See [the guide](guide.md) for more.", "See the guide for more"),

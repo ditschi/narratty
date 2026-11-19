@@ -483,7 +483,7 @@ def _shoot(spec: Spec, view: View, workspace: Path, directory: Path, number: int
         else:
             html_file = directory / f"slide-{number}.html"
             html_file.parent.mkdir(parents=True, exist_ok=True)
-            html_file.write_text(slides.page(view.slide, spec.slides.theme, workspace), encoding="utf-8")
+            html_file.write_text(slides.page(view.slide, slides.look_of(spec), workspace), encoding="utf-8")
             url = html_file.as_uri()
         capture(url, width, height, "none", SLIDE_LOAD_MS, page, chromium=chromium)
         return Shot(view, None, page, height, 0)

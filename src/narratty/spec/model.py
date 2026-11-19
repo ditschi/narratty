@@ -484,6 +484,17 @@ class ShowSlide(_Model):
 
 class Slides(_Model):
     theme: SlideTheme = Field("dark", description="Look of every slide: dark or light.")
+    css: str | None = Field(
+        None,
+        min_length=1,
+        description="A CSS file, relative to the spec, added after the built-in look, such as a Marp "
+        "theme; slides are 1280 px wide <section> elements (since 0.8).",
+    )
+    classes: str | None = Field(
+        None,
+        pattern=r"^[\w-]+( [\w-]+)*$",
+        description="Classes of every slide's <section>, separated by spaces, such as invert (since 0.8).",
+    )
 
 
 ACTION_KEYS = (
@@ -834,10 +845,68 @@ class Timing(_Model):
     )
 
 
+COLOR = r"^#[0-9a-fA-F]{6}$"
+DRACULA = {
+    "background": "#282a36",
+    "foreground": "#f8f8f2",
+    "selection": "#44475a",
+    "cursor": "#f8f8f2",
+    "black": "#21222c",
+    "red": "#ff5555",
+    "green": "#50fa7b",
+    "yellow": "#f1fa8c",
+    "blue": "#bd93f9",
+    "magenta": "#ff79c6",
+    "cyan": "#8be9fd",
+    "white": "#f8f8f2",
+    "brightBlack": "#6272a4",
+    "brightRed": "#ff6e6e",
+    "brightGreen": "#69ff94",
+    "brightYellow": "#ffffa5",
+    "brightBlue": "#d6acff",
+    "brightMagenta": "#ff92df",
+    "brightCyan": "#a4ffff",
+    "brightWhite": "#ffffff",
+}
+"""VHS's Dracula theme: the default terminal colours, and the base of a theme mapping."""
+
+
+class TerminalColors(_Model):
+    """Terminal colours as in a VHS theme; unset ones are Dracula's (since 0.8)."""
+
+    background: str | None = Field(None, pattern=COLOR)
+    foreground: str | None = Field(None, pattern=COLOR)
+    selection: str | None = Field(None, pattern=COLOR)
+    cursor: str | None = Field(None, pattern=COLOR)
+    black: str | None = Field(None, pattern=COLOR)
+    red: str | None = Field(None, pattern=COLOR)
+    green: str | None = Field(None, pattern=COLOR)
+    yellow: str | None = Field(None, pattern=COLOR)
+    blue: str | None = Field(None, pattern=COLOR)
+    magenta: str | None = Field(None, pattern=COLOR)
+    cyan: str | None = Field(None, pattern=COLOR)
+    white: str | None = Field(None, pattern=COLOR)
+    brightBlack: str | None = Field(None, pattern=COLOR)  # noqa: N815 (VHS's key)
+    brightRed: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightGreen: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightYellow: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightBlue: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightMagenta: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightCyan: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightWhite: str | None = Field(None, pattern=COLOR)  # noqa: N815
+
+    def palette(self) -> dict[str, str]:
+        """All colours, Dracula's where unset."""
+        return DRACULA | self.model_dump(exclude_none=True)
+
+
 class Terminal(_Model):
     width: int = Field(1200, ge=100)
     height: int = Field(700, ge=100)
-    theme: str = "Dracula"
+    theme: str | TerminalColors = Field(
+        "Dracula", description="A VHS theme name, or colours of one (since 0.8); unset colours are Dracula's."
+    )
+
     font_size: int = Field(22, ge=6)
     typing_speed_ms: Duration = Field(40, gt=0)
     shell: Literal["bash", "zsh", "fish", "sh"] = "bash"
@@ -845,6 +914,12 @@ class Terminal(_Model):
     layout: Literal["plain", "editor"] = Field(
         "plain", description="`editor`: a file explorer with preview on top, the shell below (tmux + yazi)."
     )
+
+    def palette(self) -> dict[str, str] | None:
+        """The terminal colours when known: a mapping, or the default Dracula."""
+        if isinstance(self.theme, TerminalColors):
+            return self.theme.palette()
+        return dict(DRACULA) if self.theme.strip().casefold() == "dracula" else None
 
 
 class Requires(_Model):

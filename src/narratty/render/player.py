@@ -13,6 +13,8 @@ import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from narratty.spec.model import TerminalColors
+
 PLAYER_VERSION = "3.17.0"
 _CDN = f"https://cdn.jsdelivr.net/npm/asciinema-player@{PLAYER_VERSION}/dist/bundle"
 _JS_SRI = "sha384-s55nTYAdrPwGWmKKQ1lCnoB8H9LbqmsXsqqqPAHK2+T5h9IfI2dTXTDXJcZnySJD"
@@ -34,10 +36,31 @@ PLAYER_THEMES = frozenset(
 )
 
 
-def player_theme(vhs_theme: str) -> str | None:
+CUSTOM_THEME = "narratty"
+"""The player theme made from a terminal colour mapping (see :func:`palette_css`)."""
+_ANSI = (
+    "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+    "brightBlack", "brightRed", "brightGreen", "brightYellow",
+    "brightBlue", "brightMagenta", "brightCyan", "brightWhite",
+)  # fmt: skip
+
+
+def player_theme(vhs_theme: str | TerminalColors) -> str | None:
     """The player theme matching ``vhs_theme`` (``Solarized Dark`` → ``solarized-dark``)."""
+    if isinstance(vhs_theme, TerminalColors):
+        return CUSTOM_THEME
     name = vhs_theme.strip().lower().replace(" ", "-")
     return name if name in PLAYER_THEMES else None
+
+
+def palette_css(palette: Mapping[str, str]) -> str:
+    """The player theme :data:`CUSTOM_THEME` with ``palette``'s colours."""
+    colors = [f"--term-color-{number}:{palette[name]}" for number, name in enumerate(_ANSI)]
+    colors += [
+        f"--term-color-foreground:{palette['foreground']}",
+        f"--term-color-background:{palette['background']}",
+    ]
+    return f".asciinema-player-theme-{CUSTOM_THEME}{{{';'.join(colors)}}}\n"
 
 
 def _script_json(value: object) -> str:
@@ -126,6 +149,7 @@ def player_page(
     audio: Path,
     *,
     theme: str | None = None,
+    palette: Mapping[str, str] | None = None,
     overlays: Sequence[Mapping[str, object]] = (),
     browsers: Sequence[Mapping[str, object]] = (),
 ) -> str:
@@ -148,7 +172,7 @@ def player_page(
 <link rel="stylesheet" href="{_CDN}/asciinema-player.css" integrity="{_CSS_SRI}" crossorigin="anonymous">
 <style>
 body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: #1e1e1e; }}
-{_OVERLAY_CSS}{_BROWSER_CSS}</style>
+{_OVERLAY_CSS}{_BROWSER_CSS}{palette_css(palette) if palette else ""}</style>
 </head>
 <body>
 <div id="stage"><div id="player"></div></div>
