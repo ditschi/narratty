@@ -1,0 +1,80 @@
+- source: prose.md:3
+  id: prose-1
+  narration: Since 0.8. This paragraph is long enough to get a slide of its own (it explains the 
+    setup), so the terminal is not idle while it is spoken. It has a second sentence.
+  actions:
+  - overlay:
+      text: Prose
+      style: heading-1
+  - slide:
+      title: Prose
+      points:
+      - This paragraph is long enough to get a slide of its own
+      current: 1
+- source: prose.md:10
+  id: prose-2
+  narration: 'The last paragraph before a block introduces it:'
+  actions:
+  - run: echo hi
+  - wait:
+      prompt: true
+- source: prose.md:16
+  id: prose-lists-1
+  narration: 'Check these before you start:'
+  actions:
+  - overlay:
+      text: Lists
+      style: heading-2
+  - slide:
+      title: Lists
+      points:
+      - The [power supply](power.md) is off, and the board is unplugged.
+      - The cable is in `USB0`.
+- source: prose.md:18
+  id: prose-lists-2
+  narration: The power supply is off, and the board is unplugged.
+  actions:
+  - slide:
+      title: Lists
+      points:
+      - The [power supply](power.md) is off, and the board is unplugged.
+      - The cable is in `USB0`.
+      current: 1
+- source: prose.md:19
+  id: prose-lists-3
+  narration: The cable is in USB0.
+  actions:
+  - slide:
+      title: Lists
+      points:
+      - The [power supply](power.md) is off, and the board is unplugged.
+      - The cable is in `USB0`.
+      current: 2
+- source: prose.md:21
+  id: prose-lists-4
+  narration: A say comment is spoken too. It gets a key point.
+  actions:
+  - slide:
+      title: Lists
+      points:
+      - A say comment is spoken too
+      current: 1
+- source: prose.md:27
+  id: prose-code-1
+  narration: 'A spec comment sets keys: The comment is YAML, invisible on the page.'
+  actions:
+  - overlay:
+      text: Code
+      style: heading-2
+  - slide:
+      code: 'tts: {voice: am_michael}'
+      lang: yaml
+- source: prose.md:35
+  id: prose-code-2
+  narration: Write a YAML spec when the video needs more than the doc, for example scenes before it.
+  actions:
+  - slide:
+      title: Code
+      points:
+      - Write a YAML spec when the video needs more than the doc
+      current: 1

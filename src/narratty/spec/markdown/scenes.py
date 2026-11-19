@@ -27,6 +27,7 @@ from narratty.spec.markdown.parse import (
     Table,
     Text,
 )
+from narratty.spec.markdown.prose import key_point
 from narratty.spec.markdown.shell import Command, clean_command, split_commands
 from narratty.spec.markdown.source import fail
 from narratty.spec.model import (
@@ -69,6 +70,8 @@ HOLDS = ("next-block", "next-heading")
 VISUALS = "a table, image or mermaid block"
 NOTHING = ":"  # the shell command that does nothing, run in place of a no-run command
 IMAGE_HOLD_MS = 3000  # an image scene without narration
+PROSE_MIN_WORDS = 15  # text before a block's lead-in shorter than this stays with the block
+PROSE_SHORT_WORDS = 4  # a shorter text ("Since 0.8.") gets no key point; it is spoken with the next
 MAX_URL_CHARS = 2 * 1024 * 1024  # Chromium does not load longer URLs
 _COMMENT = re.compile(r"^\s*narratty:\s*(?P<kind>[\w-]*)(?P<body>.*)$", re.DOTALL)
 _FIELD = re.compile(r"\{([^{}]+)\}")
@@ -202,6 +205,7 @@ class _Builder:
         self.scenes: list[ExpandedScene] = []
         self.notes: list[Note] = []
         self.section = ""
+        self.title = ""  # of the section, for prose slides
         self.count = 0
         self.spoken: list[str] = []
         self.unassigned: list[tuple[Block, str]] = []  # notes waiting for their scene's id
@@ -358,6 +362,7 @@ class _Builder:
         self.flush()
         self.diagram = self.held = None
         self.section, self.count, self.level = id_part(block.slug), 0, block.level
+        self.title = block.title
         # Overlays of headings that got no scene give way to this one.
         self.overlays = [
             (level, action) for level, action in self.overlays if level is None or level < block.level
@@ -748,10 +753,24 @@ class _Builder:
                     block.file, block.line, f"'{sorted(keyed)[0]}=…' only applies to shell and console blocks"
                 )
             self.file(block, options)
-        elif not block.lang:
-            self.note(block, None, "code block: left out (no language)")
         else:
-            self.note(block, None, f'{block.lang} block: left out (no title; add a title or narratty="show")')
+            self.untitled(block, options, keyed)
+
+    def untitled(self, block: Code, options: set[str], keyed: dict[str, str]) -> None:
+        """A block without a title in a language that does not run: a code slide with prose slides."""
+        if self.entry.prose != "slides":
+            if not block.lang:
+                self.note(block, None, "code block: left out (no language)")
+            else:
+                self.note(
+                    block, None, f'{block.lang} block: left out (no title; add a title or narratty="show")'
+                )
+            return
+        if keyed:
+            raise fail(
+                block.file, block.line, f"'{sorted(keyed)[0]}=…' only applies to shell and console blocks"
+            )
+        self.show_code(block, options | {"show"})
 
     def show_code(self, block: Code, options: set[str]) -> None:
         """A code slide while the text around it is spoken, like an image; nothing is written."""
@@ -794,6 +813,8 @@ class _Builder:
         say = run.get("say", self.entry.say)
         if say == "after" and "hidden" not in options:
             self.flush()  # the text before the block is spoken first, on its own
+        elif "hidden" not in options:
+            self.prose_before()
         scene_id = self.next_id(block)
         if "hidden" in options:
             self.emit(block, {"id": scene_id, "hidden": True, "actions": actions, **extra})
@@ -830,6 +851,8 @@ class _Builder:
         assert block.title is not None
         if extra := sorted(options - {"hidden"}):
             raise fail(block.file, block.line, f"{extra[0]!r} only applies to shell and console blocks")
+        if "hidden" not in options:
+            self.prose_before()
         scene_id = self.next_id(block)
         write = {"run": write_file(block.title, block.content)}
         self.emit(
@@ -854,13 +877,19 @@ class _Builder:
 
         Table pages no ``pause`` comment brought up yet follow as silent scenes.
         """
-        if self.spoken or self.image:
+        if (self.spoken or self.image) and not (
+            not self.image and self.held is None and self.prose_scenes(len(self.spoken))
+        ):
+            rest = self.prose_after_view()
             if self.held is not None and not self.image:  # the slide stays for this text
                 self.overlays.append((None, {"slide": self.held[0]}))
             first = self.unassigned[0][0] if self.unassigned else None
             assert first is not None
             hold = [] if self.spoken else [{"hold": IMAGE_HOLD_MS}]
             self.scene(first, self.next_id(None), hold, {})
+            if rest is not None:
+                self.spoken, self.unassigned = rest
+                self.prose_scenes(len(self.spoken))
         while pages and self.pages:
             assert self.pages_block is not None
             page = self.pages.pop(0)
@@ -869,6 +898,96 @@ class _Builder:
                 self.pages_block, {"id": scene_id, "actions": [{"slide": page}, {"hold": IMAGE_HOLD_MS}]}
             )
             self.note(self.pages_block, scene_id, f"table: page {page['page']}, silent")
+
+    def prose_before(self) -> None:
+        """With prose slides, the paragraphs before a block's lead-in get slides of their own.
+
+        Only when they take a while: a short line such as "Since 0.6." stays with the block.
+        """
+        if self.entry.prose != "slides" or self.image or len(self.spoken) < 2:
+            return
+        if sum(len(text.split()) for text in self.spoken[:-1]) >= PROSE_MIN_WORDS:
+            self.prose_scenes(len(self.spoken) - 1)
+
+    def prose_after_view(self) -> tuple[list[str], list[tuple[Block, str]]] | None:
+        """With prose slides, the text after a view's first paragraph, taken out for prose slides."""
+        if self.entry.prose != "slides" or not self.image or len(self.spoken) - self.after < 2:
+            return None
+        if self.spoken_sources() is None:
+            return None
+        return self.detach(self.after + 1)
+
+    def detach(self, count: int) -> tuple[list[str], list[tuple[Block, str]]]:
+        """Keep the first ``count`` spoken texts and the notes up to the last of them; return the rest."""
+        units = self.spoken_sources()
+        assert units is not None and 0 < count <= len(units)
+        last = units[count - 1][0]
+        cut = next(number for number, (block, _) in enumerate(self.unassigned) if block is last) + 1
+        rest = (self.spoken[count:], self.unassigned[cut:])
+        self.spoken, self.unassigned = self.spoken[:count], self.unassigned[:cut]
+        return rest
+
+    def prose_scenes(self, count: int) -> bool:
+        """With prose slides, a scene per paragraph or list item of the first ``count`` spoken texts.
+
+        Paragraphs show the list of their key points, list items the list's items; the one
+        spoken is marked. Returns False (and changes nothing) when it does not apply.
+        """
+        units = self.spoken_sources()
+        if self.entry.prose != "slides" or units is None or not count:
+            return False
+        rest = self.detach(count)
+        used = units[:count]
+        roles = _prose_roles(used)
+        paragraphs, lists = _prose_content(used, roles)
+        notes, overlays = list(self.unassigned), self.overlays
+        carried: tuple[list[str], list[tuple[Block, str]]] = ([], [])  # short texts spoken with the next
+        point, item, group, first = 0, 0, -1, True
+        for number, (block, text) in enumerate(used):
+            cut = next(index for index, (source, _) in enumerate(notes) if source is block)
+            before, what = notes[:cut], notes[cut][1]
+            notes = notes[cut + 1 :]
+            role = roles[number]
+            if role == "short":
+                carried = (
+                    [*carried[0], text],
+                    [*carried[1], *before, (block, what + ", with the next text")],
+                )
+                continue
+            if role == "item":
+                if number == 0 or roles[number - 1] != "item":
+                    group, item = group + 1, 0
+                points, current = lists[group], item + 1
+                item += 1
+                what += ", shown on a list slide"
+            elif role == "lead":  # introduces the list after it: its slide, nothing marked yet
+                points, current = lists[group + 1], 0
+                what += ", introduces the list slide"
+            else:
+                points, current = paragraphs, point + 1
+                point += 1
+                what += f", key point: {points[current - 1]}"
+            slide: dict[str, Any] = {"points": list(points)} | ({"current": current} if current else {})
+            if self.title:
+                slide = {"title": self.title, **slide}
+            self.spoken = [*carried[0], text]
+            self.unassigned = [*carried[1], *before, (block, what)]
+            self.overlays = [*(overlays if first else []), (None, {"slide": slide})]
+            carried, first = ([], []), False
+            self.scene(self.unassigned[0][0], self.next_id(None), [], {})
+        self.spoken, self.unassigned = rest[0], notes + rest[1]
+        return True
+
+    def spoken_sources(self) -> list[tuple[Block, str]] | None:
+        """Each spoken text with the paragraph, list item or say comment it comes from (None: unclear)."""
+        sources = [
+            block
+            for block, what in self.unassigned
+            if what.startswith("paragraph: spoken") or what == "say comment: spoken"
+        ]
+        if len(sources) != len(self.spoken):
+            return None
+        return list(zip(sources, self.spoken, strict=True))
 
     def scene(
         self, block: Block, scene_id: str, actions: list[dict[str, Any]], extra: dict[str, Any]
@@ -950,6 +1069,46 @@ def _kind(block: Block) -> str:
     if isinstance(block, Table):
         return "table"
     return "paragraph" if isinstance(block, Text) else f"{getattr(block, 'lang', '') or 'code'} block"
+
+
+def _prose_roles(units: Sequence[tuple[Block, str]]) -> list[str]:
+    """What each spoken text is on prose slides: a list ``item``, the ``lead`` of a list, a
+    ``short`` text spoken with the next one, or a key ``point``."""
+    roles = []
+    for number, (block, text) in enumerate(units):
+        following = units[number + 1][0] if number + 1 < len(units) else None
+        if _item(block):
+            roles.append("item")
+        elif following is not None and _item(following) and text.endswith(":"):
+            roles.append("lead")
+        elif following is not None and len(text.split()) < PROSE_SHORT_WORDS:
+            roles.append("short")
+        else:
+            roles.append("point")
+    return roles
+
+
+def _prose_content(units: Sequence[tuple[Block, str]], roles: list[str]) -> tuple[list[str], list[list[str]]]:
+    """The key points of the paragraphs among ``units``, and each run of list items as written."""
+    paragraphs: list[str] = []
+    lists: list[list[str]] = []
+    for number, (block, text) in enumerate(units):
+        if roles[number] == "point":
+            paragraphs.append(key_point(_source(block) or text))
+        elif roles[number] == "item":
+            if number == 0 or roles[number - 1] != "item":
+                lists.append([])
+            lists[-1].append(_source(block) or text)
+    return paragraphs, lists
+
+
+def _item(block: Block) -> bool:
+    return isinstance(block, Text) and block.item
+
+
+def _source(block: Block) -> str:
+    """The inline Markdown of a paragraph or list item ("" for a say comment)."""
+    return (block.source or block.text) if isinstance(block, Text) else ""
 
 
 def _check_hold(options: dict[str, Any], block: Comment, kind: str) -> None:

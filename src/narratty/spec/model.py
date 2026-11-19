@@ -362,7 +362,7 @@ class ShowBrowser(_Model):
 
 
 SlideTheme = Literal["dark", "light"]
-SLIDE_CONTENT = ("table", "mermaid", "image", "html", "code")
+SLIDE_CONTENT = ("table", "mermaid", "image", "html", "code", "points")
 SLIDE_IMAGE_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -390,7 +390,7 @@ class SlideTable(_Model):
 
 
 class Slide(_Model):
-    """Exactly one of table, mermaid, image, html or code, shown full screen."""
+    """Exactly one of table, mermaid, image, html, code or points, shown full screen."""
 
     title: str | None = Field(None, min_length=1, description="Shown above the content.")
     table: SlideTable | None = None
@@ -411,6 +411,12 @@ class Slide(_Model):
         None,
         pattern=r"^[\w+#.-]+$",
         description="Language of the code, such as json or yaml; unset: plain text.",
+    )
+    points: list[Annotated[str, Field(min_length=1)]] | None = Field(
+        None, min_length=1, description="A bullet list, each item inline Markdown (since 0.8)."
+    )
+    current: int | None = Field(
+        None, ge=1, description="Item of points to mark, from 1; the others are dimmed (since 0.8)."
     )
     highlight: int | None = Field(
         None, ge=1, description="Table row to highlight, from 1; it picks the page."
@@ -454,6 +460,10 @@ class Slide(_Model):
             raise ValueError("focus only applies to Mermaid slides")
         if self.lang is not None and self.code is None:
             raise ValueError("lang only applies to code slides")
+        if self.current is not None and self.points is None:
+            raise ValueError("current only applies to points slides")
+        if self.points is not None and self.current is not None and self.current > len(self.points):
+            raise ValueError(f"current {self.current}: there are {len(self.points)} points")
         return self
 
     @property
@@ -719,6 +729,11 @@ class MarkdownEntry(_Model):
         le=6,
         description="Clear the screen where a heading of this level or higher starts a section "
         "(since 0.7). Unset: never.",
+    )
+    prose: Literal["terminal", "slides"] = Field(
+        "terminal",
+        description="terminal: text that no command, file or slide comes with leaves the terminal "
+        "on screen; slides: it shows its key points, a list its items (since 0.8).",
     )
     say: Literal["before", "during"] = Field(
         "during",

@@ -503,7 +503,7 @@ directory (`narratty doctor` shows where).
 
 Since narratty 0.6.
 
-A slide shows one table, Mermaid diagram, image, HTML page or piece of code full screen over the
+A slide shows one table, Mermaid diagram, image, HTML page, piece of code or list of points full screen over the
 terminal, with an optional title, while the narration talks about it. Like a browser
 view it stays until its scene ends or `duration_ms` has passed, and a later slide or
 browser view in the same scene replaces it. When the next scene starts with a slide or
@@ -542,6 +542,8 @@ scenes:
 | `image` | A PNG, JPEG, GIF, SVG or WebP file in the workspace, or a `data:` URL |
 | `html` | An HTML file in the workspace or a `data:` URL, shown as it is (no title or theme) |
 | `code` | Source code, syntax-highlighted and sized to fit (since 0.7) |
+| `points` | A bullet list, each item inline Markdown (since 0.8) |
+| `current` | Item of `points` to mark, from 1; the items before it are dimmed, the ones after it more so (since 0.8) |
 | `lang` | Language of `code`, such as `json` or `yaml` (any [Pygments](https://pygments.org/languages/) name); unset or unknown: plain text (since 0.7) |
 | `title` | Text above the content |
 | `highlight` | Table row to highlight, from 1 |
@@ -605,3 +607,4 @@ before 0.5 do not know `requires.narratty` and reject it as an unknown key.
 | 0.5 | `requires.narratty`, `markdown` scene entries and the top-level `narration` ([Markdown input](markdown.md)), overlay styles `heading-1` to `heading-4`, `breadcrumb` and `file`, `browser` `address` and `data:` URLs |
 | 0.6 | `slide` action and `slides.theme`, Mermaid diagrams in browser views, `run` `expect_output`; in Markdown input the `table`, `slide`, `pause` and `spec` comments, `mermaid` blocks, `check_output` and the `any-output` block option |
 | 0.7 | `slide` `focus`, `code` and `lang`, `run` `show` and `max_lines`; in Markdown input the `focus`, `skip-rest`, `run` and `clear` comments, the `slide` comment's `focus` and `hold` keys, the `table` comment's `hold` and a list for its `say`, the `show` block option and the `say=…`, `instead=…`, `lines=…`, `until=…`, `then=…` and `timeout=…` block options, `sections` with `include` / `exclude`, and the entry keys `footnotes`, `admonitions`, `image_titles`, `lint`, `say` and `clear_on` |
+| 0.8 | `slide` `points` and `current`; the markdown entry key `prose` |

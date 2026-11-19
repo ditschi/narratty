@@ -88,6 +88,24 @@ def test_code_is_highlighted(tmp_path: Path) -> None:
     assert "&lt;b&gt;&amp;&lt;/b&gt;" in light, "unknown languages are plain text"
 
 
+def test_points_mark_the_current_one(tmp_path: Path) -> None:
+    page = slides.page(
+        _slide(points=["First `one`", "Second", "Third"], current=2, title="Steps"), "dark", tmp_path
+    )
+    assert '<li class="done">First <code>one</code></li>' in page
+    assert '<li class="current">Second</li>' in page
+    assert '<li class="next">Third</li>' in page
+    plain = slides.page(_slide(points=["Only"]), "dark", tmp_path)
+    assert "<li>Only</li>" in plain, "nothing marked without current"
+
+
+def test_current_needs_points_within_range() -> None:
+    with pytest.raises(ValueError, match="current only applies to points slides"):
+        _slide(code="x", current=1)
+    with pytest.raises(ValueError, match="current 3: there are 2 points"):
+        _slide(points=["a", "b"], current=3)
+
+
 def test_long_code_gets_smaller(tmp_path: Path) -> None:
     page = slides.page(_slide(code="\n".join(["x" * 120] * 3)), "dark", tmp_path)
     assert 'style="font-size:1.181vw"' in page

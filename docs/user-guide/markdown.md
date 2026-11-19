@@ -487,6 +487,54 @@ This is its source:
 `show` works with any language, also `console` (then nothing runs). A `title` becomes
 the slide title, and a `slide` comment before the block sets its title and theme.
 
+## Prose slides
+
+<!-- narratty: skip -->
+Since narratty 0.8.
+
+By default, text that no command or slide comes with leaves the terminal on screen as
+it is. A doc with more explanation than commands then shows an unchanged terminal for
+most of its video. With `prose: slides` that text shows slides made from the doc
+itself, with no extra markup:
+
+```yaml
+scenes:
+  - markdown: docs/architecture.md
+    prose: slides
+```
+
+- **Paragraphs** show the list of their key points, titled with the section heading;
+  the point of the paragraph being spoken is marked, the others are dimmed. Each
+  paragraph is its own scene, so the slide changes with the narration.
+- **Lists** show their items as written, one marked at a time. A paragraph ending
+  with a colon right before the list shows the list already, nothing marked yet.
+- **Code blocks without a title** in a language that does not run (`yaml`, `json`, …)
+  are shown as code slides, as if marked [`show`](#code-shown-not-run).
+
+Which text gets slides:
+
+- the text after the last block of a section;
+- the text before a command block, except the paragraph right before the block, which
+  introduces it and is spoken with it; only when that text has 15 words or more, so a
+  line such as "Since 0.8." stays with the block;
+- the text after a slide, except its first paragraph, which stays with the slide.
+
+A text with fewer than four words gets no key point; it is spoken with the next one.
+Text that a [held](#how-long-a-slide-stays) slide or a browser view covers keeps it.
+
+A paragraph's key point is its first sentence, without parentheses. When that is
+longer than 75 characters, it is cut at the first comma, semicolon or colon after 25
+characters; inline code is never split.
+
+| Paragraph | Key point |
+|---|---|
+| The doc is read in order. Paragraphs collect until a block runs. | The doc is read in order |
+| Every command waits until the prompt is back, so the next one starts after it has finished. | Every command waits until the prompt is back |
+
+`narratty plan --sources` lists the key point of each paragraph. When one does not
+say much, rewrite the sentence: a first sentence that makes a weak key point usually
+reads weakly on the page, too.
+
 ## Doc comments
 
 HTML comments are invisible on the docs site and on GitHub. Those starting with
@@ -783,6 +831,7 @@ scenes:
 | `images` | `true` | Show images on a line of their own and `mermaid` blocks, see [Images](#images) |
 | `id_prefix` | file stem | Start of the generated scene ids |
 | `clear_on` | none | Clear the screen where a heading of this level or higher starts a section (since 0.7), see [Clearing the screen](#clearing-the-screen) |
+| `prose` | `terminal` | `slides` shows the key points of text that no command or slide comes with, and lists as bullet slides (since 0.8), see [Prose slides](#prose-slides) |
 | `say` | `during` | When the text before a block is spoken: `before` its commands are typed, or `during` them (since 0.7), see [Explain, then run](#explain-then-run) |
 | `check_output` | `true` | Let `narratty check` compare the output console blocks show, see [Checking docs in CI](#checking-docs-in-ci) (since 0.6) |
 | `footnotes` | `skip` | `inline` speaks each footnote after the sentence that refers to it, see [Footnotes](#footnotes) (since 0.7) |

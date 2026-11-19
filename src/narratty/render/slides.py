@@ -59,6 +59,12 @@ pre.mermaid svg{{max-width:100%!important;max-height:{diagram_height};height:aut
 pre.code{{max-width:92vw;padding:2.5vh 2.5vw;border:1px solid {line};border-radius:8px;overflow:hidden;
 font-family:'JetBrains Mono','DejaVu Sans Mono',monospace;line-height:1.35}}
 pre.code code{{color:{fg};font-family:inherit}}
+ul.points{{list-style:none;margin:4vh 0 0;padding:0 5vw;width:90vw;font-size:2.5vw;line-height:1.35;
+align-self:flex-start}}
+ul.points li{{margin:0 0 2.6vh;padding:1.2vh 1.6vw;border-left:.5vw solid transparent;border-radius:6px}}
+ul.points li.current{{border-left-color:{accent};background:{mark}}}
+ul.points li.done{{opacity:.6}}
+ul.points li.next{{opacity:.35}}
 .narratty-focus>:is(rect,polygon,circle,path,line),.narratty-focus :is(.label-container,.label-container *){{
 stroke:{accent}!important;stroke-width:4px!important;filter:drop-shadow(0 0 5px {accent})}}
 """
@@ -72,7 +78,7 @@ _INLINE = MarkdownIt("commonmark", {"html": False}).disable("image")
 
 
 def page(slide: Slide, theme: SlideTheme, workspace: Path) -> str:
-    """The HTML page of a table, Mermaid or image slide; ``theme`` unless the slide sets one."""
+    """The HTML page of a table, Mermaid, image, code or points slide; ``theme`` unless the slide sets one."""
     theme = slide.theme or theme
     footer = script = ""
     if slide.table is not None:
@@ -82,6 +88,8 @@ def page(slide: Slide, theme: SlideTheme, workspace: Path) -> str:
         body = f'<pre class="mermaid">{html.escape(slide.mermaid)}</pre>'
     elif slide.code is not None:
         body = _code(slide.code, slide.lang, theme, titled=bool(slide.title))
+    elif slide.points is not None:
+        body = _points(slide.points, slide.current)
     else:
         assert slide.image is not None
         body = f'<img alt="{html.escape(slide.title or "")}" src="{_image_src(slide.image, workspace)}">'
@@ -114,6 +122,27 @@ def _table(table: SlideTable, slide: Slide) -> tuple[str, str]:
     )
     thead = f"<thead><tr>{head}</tr></thead>" if head else ""
     return f"<table>{thead}<tbody>{body}</tbody></table>", footer
+
+
+def _points(points: list[str], current: int | None) -> str:
+    """The points as a list; ``current`` (from 1) marked, the ones before and after it dimmed."""
+    items = []
+    for number, point in enumerate(points, 1):
+        state = (
+            ""
+            if current is None
+            else "current"
+            if number == current
+            else "done"
+            if number < current
+            else "next"
+        )
+        items.append(
+            f'<li class="{state}">{_INLINE.renderInline(point)}</li>'
+            if state
+            else f"<li>{_INLINE.renderInline(point)}</li>"
+        )
+    return f'<ul class="points">{"".join(items)}</ul>'
 
 
 def _code(code: str, lang: str | None, theme: SlideTheme, *, titled: bool) -> str:

@@ -1229,7 +1229,7 @@
     },
     "Slide": {
       "additionalProperties": false,
-      "description": "Exactly one of table, mermaid, image, html or code, shown full screen.",
+      "description": "Exactly one of table, mermaid, image, html, code or points, shown full screen.",
       "properties": {
         "title": {
           "anyOf": [
@@ -1339,6 +1339,38 @@
           "default": null,
           "description": "Language of the code, such as json or yaml; unset: plain text.",
           "title": "Lang"
+        },
+        "points": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A bullet list, each item inline Markdown (since 0.8).",
+          "title": "Points"
+        },
+        "current": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Item of points to mark, from 1; the others are dimmed (since 0.8).",
+          "title": "Current"
         },
         "highlight": {
           "anyOf": [
@@ -2426,6 +2458,16 @@
           "default": null,
           "description": "Clear the screen where a heading of this level or higher starts a section (since 0.7). Unset: never.",
           "title": "Clear On"
+        },
+        "prose": {
+          "default": "terminal",
+          "description": "terminal: text that no command, file or slide comes with leaves the terminal on screen; slides: it shows its key points, a list its items (since 0.8).",
+          "enum": [
+            "terminal",
+            "slides"
+          ],
+          "title": "Prose",
+          "type": "string"
         },
         "say": {
           "default": "during",
