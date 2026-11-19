@@ -35,7 +35,7 @@ from narratty.errors import MissingDependencyError, RenderError
 from narratty.render import slides
 from narratty.render.overlays import FADE_MS, OverlayImage
 from narratty.render.script import END_CUE, overlay_cue
-from narratty.spec.model import Browser, ShowBrowser, ShowSlide, Slide, Spec, Terminal
+from narratty.spec.model import Browser, ShowBrowser, ShowOverlay, ShowSlide, Slide, Spec, Terminal
 
 CHROMIUM_NAMES = (
     "chromium",
@@ -122,12 +122,17 @@ class View:
     end_ms: int
     scene_id: str = ""
     slide: Slide | None = None
+    # Follows the view before it with no terminal in between: it fades in over that view,
+    # which stays up underneath instead of fading out.
+    joined: bool = False
 
 
 def schedule(spec: Spec, times: Mapping[str, int]) -> list[View]:
     """Every browser view and slide of ``spec`` with its start and end, given scene and cue ``times``.
 
-    A later view in the same scene replaces an earlier one.
+    A later view in the same scene replaces an earlier one. A view that ends with its scene
+    stays up until the next scene's first view when only text overlays come before that one,
+    so a change of slide (or of a table's highlighted row) never shows the terminal.
     """
     end = times[END_CUE]
     visible = [scene for scene in spec.scenes if not scene.hidden]
@@ -145,9 +150,16 @@ def schedule(spec: Spec, times: Mapping[str, int]) -> list[View]:
                 continue
             start = times[overlay_cue(scene.id, index)]
             stop = scene_end if duration is None else min(scene_end, start + duration)
-            if views and views[-1].end_ms > start:
-                views[-1] = replace(views[-1], end_ms=start)
-            views.append(replace(view, start_ms=start, end_ms=stop))
+            joined = False
+            if views:
+                last = views[-1]
+                bridged = last.end_ms == times[scene.id] and all(
+                    isinstance(before, ShowOverlay) for before in scene.actions[:index]
+                )
+                if last.end_ms >= start or bridged:
+                    views[-1] = replace(last, end_ms=start)
+                    joined = True
+            views.append(replace(view, start_ms=start, end_ms=stop, joined=joined))
     return [view for view in views if view.end_ms > view.start_ms]
 
 
@@ -485,17 +497,28 @@ def _shoot(spec: Spec, view: View, workspace: Path, directory: Path, number: int
     return Shot(view, bar, page, height - bar_px, scroll_px)
 
 
+def _overlap_ms(shots: Sequence[Shot], number: int) -> int:
+    """How long shot ``number`` stays up under the next one while that one fades in (0: not joined)."""
+    following = shots[number + 1].view if number + 1 < len(shots) else None
+    if following is None or not following.joined:
+        return 0
+    return min(FADE_MS, following.end_ms - following.start_ms)
+
+
 def images(shots: Sequence[Shot], bar_px: int) -> list[OverlayImage]:
     """Each shot as images for ffmpeg: the page (scrolling) and the bar above it."""
     result = []
-    for shot in shots:
-        start, end = shot.view.start_ms, shot.view.end_ms
+    for number, shot in enumerate(shots):
+        overlap = _overlap_ms(shots, number)
+        start, end, fade_out = shot.view.start_ms, shot.view.end_ms + overlap, not overlap
         top = str(bar_px) if shot.bar else "0"
         result.append(
-            OverlayImage(shot.page, "0", top, start, end, shot.view_px, shot.scroll_px, shot.scroll_ms)
+            OverlayImage(
+                shot.page, "0", top, start, end, shot.view_px, shot.scroll_px, shot.scroll_ms, fade_out
+            )
         )
         if shot.bar:
-            result.append(OverlayImage(shot.bar, "0", "0", start, end))
+            result.append(OverlayImage(shot.bar, "0", "0", start, end, fade_out=fade_out))
     return result
 
 
@@ -509,7 +532,7 @@ def page_views(shots: Sequence[Shot], terminal: Terminal) -> list[dict[str, Any]
     return [
         {
             "start": shot.view.start_ms / 1000,
-            "end": shot.view.end_ms / 1000,
+            "end": (shot.view.end_ms + _overlap_ms(shots, number)) / 1000,
             "scroll": [shot.scroll_ms[0] / 1000, shot.scroll_ms[1] / 1000],
             "bar": data_url(shot.bar) if shot.bar else None,
             "page": data_url(shot.page),
@@ -518,5 +541,5 @@ def page_views(shots: Sequence[Shot], terminal: Terminal) -> list[dict[str, Any]
             "scroll_by": round(100 * shot.scroll_px / width, 3),
             "fade": FADE_MS / 1000,
         }
-        for shot in shots
+        for number, shot in enumerate(shots)
     ]

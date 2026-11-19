@@ -9,7 +9,7 @@ from PIL import Image
 
 from narratty.errors import MissingDependencyError, RenderError
 from narratty.render import browser
-from narratty.render.overlays import filter_graph, planned_times
+from narratty.render.overlays import FADE_MS, filter_graph, planned_times
 from narratty.render.script import build_script
 from narratty.spec.loader import parse_spec
 from narratty.spec.model import Spec
@@ -73,6 +73,59 @@ def test_schedule_until_scene_end_duration_or_next_view() -> None:
     assert third.end_ms == times["end"]
     assert [v.scene_id for v in views] == ["one", "two", "two"]
     assert [v.scene_id for v in browser.scaled(views, 2)] == ["one", "two", "two"]
+
+
+JOINED = """\
+timing: {lead_in_ms: 100, tail_ms: 500, narration_buffer_ms: 0}
+terminal: {typing_speed_ms: 10}
+end_card: false
+scenes:
+  - id: one
+    narration: First.
+    actions:
+      - slide: {image: a.png}
+      - hold: 300
+      - slide: {image: b.png}
+  - id: two
+    narration: Second.
+    actions:
+      - overlay: Next
+      - slide: {image: c.png}
+  - id: three
+    narration: Third.
+    actions:
+      - run: ls
+      - slide: {image: d.png}
+"""
+
+
+def test_consecutive_views_join_without_the_terminal_between() -> None:
+    spec = _spec(JOINED)
+    times = planned_times(build_script(spec, build_timeline(spec, {"one": 1000, "two": 1000, "three": 1000})))
+    a, b, c, d = browser.schedule(spec, times)
+    assert not a.joined
+    assert b.joined and a.end_ms == b.start_ms, "replaced in the same scene"
+    assert c.joined and b.end_ms == c.start_ms, "only a text overlay comes before it"
+    assert not d.joined and c.end_ms == times["three"], "the command is seen before the slide"
+
+
+def test_a_joined_view_fades_in_over_the_one_before(tmp_path: Path) -> None:
+    slide = browser.Slide(image="a.png")
+    first = browser.Shot(browser.View(None, 0, 1000, "one", slide), None, tmp_path / "a.png", 720, 0)
+    second = browser.Shot(
+        browser.View(None, 1000, 3000, "one", slide, joined=True), None, tmp_path / "b.png", 720, 0
+    )
+    third = browser.Shot(browser.View(None, 5000, 6000, "two", slide), None, tmp_path / "c.png", 720, 0)
+    a, b, c = browser.images([first, second, third], bar_px=40)
+    assert (a.end_ms, a.fade_out) == (1000 + FADE_MS, False)
+    assert (b.end_ms, b.fade_out) == (3000, True)
+    assert c.fade_out
+    graph, _ = filter_graph([a, b], 2, "0:v")
+    assert graph.count("fade=t=out") == 1
+    for name in ("a.png", "b.png", "c.png"):
+        (tmp_path / name).write_bytes(b"png")
+    data = browser.page_views([first, second, third], _spec().terminal)
+    assert [view["end"] for view in data] == [(1000 + FADE_MS) / 1000, 3.0, 6.0]
 
 
 def test_page_url(tmp_path: Path) -> None:
