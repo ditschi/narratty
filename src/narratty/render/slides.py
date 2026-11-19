@@ -51,6 +51,7 @@ th,td{{padding:.45em .8em;border-bottom:1px solid {line};text-align:left}}
 th{{color:{accent}}}
 tr.mark{{background:{mark};outline:3px solid {accent}}}
 code{{font-family:'JetBrains Mono',monospace;color:{code}}}
+code,pre{{font-variant-ligatures:none}}
 a{{color:{link}}}
 img{{max-width:94vw;max-height:100%;object-fit:contain}}
 pre.mermaid{{width:94vw;text-align:center;font:1.6vw 'JetBrains Mono',monospace;white-space:pre-wrap}}
