@@ -1,6 +1,0 @@
-/* Copy only the commands of console blocks: Material's copy button would also copy
-   the "$ " prompts and the output lines. */
-.highlight code[data-md-copying] .gp,
-.highlight code[data-md-copying] .go {
-  display: none;
-}
