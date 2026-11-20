@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -2394,6 +2394,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#docs-as-presentations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs as presentations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docs as presentations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-prose-slides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Prose slides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-themes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Themes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-and-docs_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests and docs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#milestones" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3231,6 +3292,67 @@
     <span class="md-ellipsis">
       
         Comparing output: narratty check
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs-as-presentations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs as presentations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docs as presentations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-prose-slides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Prose slides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-themes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Themes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-and-docs_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests and docs
       
     </span>
   </a>
@@ -4929,6 +5051,100 @@ to it&gt;</code> and commented <code>sections</code>, <code>heading_overlays</co
   only sees the top of the buffer. The editor layout is not compared either: the
   recorder sees tmux's redraws, not the shell's output.</li>
 <li>Sandboxed, <code>check</code> runs in the narratty image like <code>build</code>, without fetching a voice.</li>
+</ul>
+<h2 id="docs-as-presentations">Docs as presentations<a class="headerlink" href="#docs-as-presentations" title="Permanent link">&para;</a></h2>
+<p>Agreed on 2026-11-19 for 0.8, after docs with more prose than commands showed an
+unchanged terminal for most of their video. A comparison on <code>docs/user-guide/markdown.md</code>
+(<code>Quick start</code> to <code>How a doc becomes scenes</code>, 2:30) found 70 % of the video without
+anything new on screen; hand-written key-point slides fixed that, and a Marp deck with
+the same narration looked more uniform, but needed a second source and showed commands
+as pasted text. Key points derived from the doc by rules came close to the hand-written
+ones. So the doc stays the only source, and three additions bring the video closer to a
+presentation:</p>
+<ol>
+<li><strong>Prose slides</strong>: paragraphs that would leave the terminal unchanged show key points.</li>
+<li><strong>Themes</strong>: slides use semantic HTML and a CSS file can restyle them (Marp themes
+   work); the terminal can take matching colours.</li>
+<li><strong>Frame</strong>: the section heading stays in a band at the top, the same over the
+   terminal and over slides.</li>
+</ol>
+<p>All additive (<code>version: 1</code>). Non-goals: a presenter mode, summaries by an LLM or a
+cloud service, a hidden second structure in the doc (key-point comments), Node or Marp
+in the image.</p>
+<h3 id="1-prose-slides">1. Prose slides<a class="headerlink" href="#1-prose-slides" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Entry key <code>prose: terminal | slides</code>, default <code>terminal</code> (the behaviour so far).</li>
+<li>With <code>slides</code>, text that is not the narration of a command, file or slide scene gets
+  slides: the text after the last block of a section, and all but the last paragraph
+  before a command block (the last one introduces the block and stays with it). Text
+  that a slide, image or browser view already covers keeps that view.</li>
+<li>Each paragraph or list item becomes its own scene, so the slide changes with the
+  narration. The new slide content <code>points</code> (a list of inline Markdown) with <code>current</code>
+  (from 1) shows a bullet list, the current item marked and the others dimmed. Titled
+  by the section heading.</li>
+<li>Paragraphs share one list of their key points. Consecutive list items get their own
+  slide with the items as written; a list is already the summary.</li>
+<li>Key point of a paragraph, from its inline Markdown (<code>spec/markdown/prose.py</code>): the
+  first sentence; parentheses removed; when longer than 75 characters, cut at the first
+  <code>,</code>, <code>;</code> or <code>:</code> after 25 characters; trailing punctuation dropped. Inline code is
+  never split.</li>
+<li>An untitled code block in another language is shown as a code slide, as with <code>show</code>,
+  while its lead-in paragraph is spoken.</li>
+<li><code>narratty plan --sources</code> lists each paragraph's key point, so authors see a weak one
+  and improve the sentence. That is the only control: a doc sentence that makes a poor
+  key point usually reads poorly too.</li>
+<li>Slide changes inside a section cross-fade (0.7.x fix: the next view fades in over the
+  one before).</li>
+</ul>
+<h3 id="2-themes">2. Themes<a class="headerlink" href="#2-themes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Slide pages become semantic: <code>&lt;section class="slide KIND"&gt;</code> with an <code>h1</code> title and
+  <code>ul</code> (points), <code>table</code>, <code>pre</code> (code, Mermaid) or <code>img</code> in a <code>div.content</code>. The built-in <code>dark</code> and
+  <code>light</code> looks are CSS for these elements.</li>
+<li><code>slides.css</code>: a CSS file, relative to the spec, added after the built-in CSS. A Marp
+  theme (Marp themes are CSS for <code>section</code>, <code>h1</code>, <code>ul</code>, <code>table</code>, <code>pre</code>) works as is.
+  Every page is laid out 1280 px wide, as Marp themes expect, and zoomed to the video
+  width; the built-in look uses <code>:where()</code> selectors, so any rule of the file wins and
+  what it leaves out keeps the built-in look. <code>slides.classes</code> sets classes on the
+  section, such as Gaia's <code>invert</code> (<code>class</code> would clash with Python's keyword in the
+  model).</li>
+<li>Remote <code>@import</code> and <code>url()</code> fonts need network, which the sandbox does not have:
+  fonts must be installed in the image or embedded as <code>data:</code> URLs (documented).</li>
+<li><code>terminal.theme</code> also takes a mapping of VHS theme colours (<code>background</code>,
+  <code>foreground</code>, <code>black</code> … <code>brightWhite</code>, <code>cursor</code>, <code>selection</code>); missing keys come from
+  Dracula. The cast page gets a matching player theme. Terminal and slides match by
+  using the same colours; narratty does not parse CSS.</li>
+</ul>
+<h3 id="3-frame">3. Frame<a class="headerlink" href="#3-frame" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>slides.frame: true</code> reserves a band at the top of the video (2.6 × font size). VHS
+  records the terminal below it (<code>Set Height</code> minus the band); ffmpeg pads the band and
+  fills it with the recording's top row, which is the terminal background whatever the
+  theme. Slide pages leave the same band empty (the section starts below it, the page
+  background is the terminal's when known).</li>
+<li>The band shows overlays at the new position <code>frame</code>: left where a slide title starts,
+  at its size, centred in the band, no box or outline. The built-in style <code>frame</code>
+  (accent colour, kept until the next one) is what Markdown heading overlays and
+  breadcrumbs get at render time when the frame is on (<code>overlays.resolve</code>), so the
+  section heading stays put while the picture below changes between terminal and
+  slides. The Markdown expansion does not know about the frame; <code>heading_overlays</code>
+  still decides which headings show.</li>
+<li>A slide whose title is the frame text when it appears drops the title
+  (<code>browser.without_frame_titles</code>), so prose slides do not repeat the heading.</li>
+<li>Web pages start below the band; the cast recorder gets the smaller terminal; the cast
+  page draws the band as a bar above the player (its colour from the palette, else the
+  player's background).</li>
+<li>Without a matching slide background (step 2) the band changes colour with the
+  picture. <code>dark</code> slides take the terminal background when it is known (Dracula, or a
+  colour mapping), so the default look matches. <code>DRACULA</code> holds VHS's own values
+  (background <code>#1e1f29</code>), not the Dracula spec's.</li>
+</ul>
+<h3 id="tests-and-docs_1">Tests and docs<a class="headerlink" href="#tests-and-docs_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Golden expansions for <code>prose: slides</code> (paragraphs, lists, lead-ins, code), unit tests
+  for key points, slide pages, the theme mapping, the frame's ffmpeg graph and overlay.</li>
+<li>User guide: <code>markdown.md</code> (Prose slides), <code>spec.md</code> (<code>points</code>, <code>slides.css</code>,
+  <code>slides.classes</code>, <code>slides.frame</code>, <code>terminal.theme</code> mapping), with "(since 0.8)".</li>
 </ul>
 <hr />
 <h2 id="milestones">Milestones<a class="headerlink" href="#milestones" title="Permanent link">&para;</a></h2>

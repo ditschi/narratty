@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -1159,6 +1159,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#themes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Themes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frame
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2237,6 +2259,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#themes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Themes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frame
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2429,6 +2473,21 @@ EOF
 <td>Look of every <a href="#slides">slide</a>: <code>dark</code> or <code>light</code> (since 0.6)</td>
 </tr>
 <tr>
+<td><code>slides.css</code></td>
+<td>none</td>
+<td>A CSS file, relative to the spec, that restyles every slide, such as a Marp theme (since 0.8), see <a href="#themes">Themes</a></td>
+</tr>
+<tr>
+<td><code>slides.classes</code></td>
+<td>none</td>
+<td>Classes of every slide's <code>&lt;section&gt;</code>, separated by spaces, such as <code>invert</code> (since 0.8)</td>
+</tr>
+<tr>
+<td><code>slides.frame</code></td>
+<td><code>false</code></td>
+<td>A band at the top of the video that shows the heading overlays, over the terminal and over slides alike (since 0.8), see <a href="#frame">Frame</a></td>
+</tr>
+<tr>
 <td><code>scenes</code></td>
 <td>required</td>
 <td>At least one scene, or a <code>markdown</code> entry</td>
@@ -2542,7 +2601,7 @@ EOF
 <tr>
 <td><code>theme</code></td>
 <td><code>Dracula</code></td>
-<td>Any VHS theme</td>
+<td>Any VHS theme, or a mapping of terminal colours (since 0.8), see <a href="#themes">Themes</a></td>
 </tr>
 <tr>
 <td><code>font_size</code></td>
@@ -3089,7 +3148,7 @@ line. The top right is usually free of terminal text; the bottom is shared with
 <tr>
 <td><code>position</code></td>
 <td><code>bottom-right</code></td>
-<td><code>top-left</code>, <code>top</code>, <code>top-right</code>, <code>left</code>, <code>center</code>, <code>right</code>, <code>bottom-left</code>, <code>bottom</code>, <code>bottom-right</code></td>
+<td><code>top-left</code>, <code>top</code>, <code>top-right</code>, <code>left</code>, <code>center</code>, <code>right</code>, <code>bottom-left</code>, <code>bottom</code>, <code>bottom-right</code>, or <code>frame</code>: in the band of <a href="#frame"><code>slides.frame</code></a>, at the size of a slide title (since 0.8)</td>
 </tr>
 <tr>
 <td><code>size</code></td>
@@ -3131,7 +3190,8 @@ line. The top right is usually free of terminal text; the bottom is shared with
 <p>Built-in styles: <code>default</code> (above) and <code>chapter</code> (<code>top-right</code>, <code>large</code>, bold, hides
 after <code>3s</code>). Since 0.5 a chapter no longer keeps; <code>overlay_styles: {chapter: {keep: true}}</code>
 brings back the old behaviour. <a href="../markdown/#heading-overlays">Markdown input</a> adds
-<code>heading-1</code> to <code>heading-4</code>, <code>breadcrumb</code> and <code>file</code> (since 0.5).
+<code>heading-1</code> to <code>heading-4</code>, <code>breadcrumb</code> and <code>file</code> (since 0.5), and <code>frame</code> (<code>frame</code>,
+bold, the slide accent colour, kept until the next one; since 0.8).
 <code>overlay_styles</code> changes them or adds your own; each style starts from <code>default</code>, so
 it only lists what differs. Overlays fade in and out. They need the mp4 to be
 re-encoded, which <code>build</code> does when a spec has any; in the <a href="../building/#asciicast-with-narration">cast page</a>
@@ -3206,10 +3266,12 @@ without network; native renders read it from <code>NARRATTY_MERMAID_JS</code> or
 directory (<code>narratty doctor</code> shows where).</p>
 <h3 id="slides">Slides<a class="headerlink" href="#slides" title="Permanent link">&para;</a></h3>
 <p>Since narratty 0.6.</p>
-<p>A slide shows one table, Mermaid diagram, image, HTML page or piece of code full screen over the
+<p>A slide shows one table, Mermaid diagram, image, HTML page, piece of code or list of points full screen over the
 terminal, with an optional title, while the narration talks about it. Like a browser
 view it stays until its scene ends or <code>duration_ms</code> has passed, and a later slide or
-browser view in the same scene replaces it.</p>
+browser view in the same scene replaces it. When the next scene starts with a slide or
+browser view (only text overlays before it), the slide stays up and the next one fades
+in over it, so the terminal does not flash between them.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">slides</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">theme</span><span class="p">:</span><span class="w"> </span><span class="nv">dark</span><span class="p p-Indicator">}</span><span class="w">              </span><span class="c1"># the default; light is the other look</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nt">scenes</span><span class="p">:</span>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">risks</span>
@@ -3265,6 +3327,14 @@ browser view in the same scene replaces it.</p>
 <td>Source code, syntax-highlighted and sized to fit (since 0.7)</td>
 </tr>
 <tr>
+<td><code>points</code></td>
+<td>A bullet list, each item inline Markdown (since 0.8)</td>
+</tr>
+<tr>
+<td><code>current</code></td>
+<td>Item of <code>points</code> to mark, from 1; the items before it are dimmed, the ones after it more so (since 0.8)</td>
+</tr>
+<tr>
 <td><code>lang</code></td>
 <td>Language of <code>code</code>, such as <code>json</code> or <code>yaml</code> (any <a href="https://pygments.org/languages/">Pygments</a> name); unset or unknown: plain text (since 0.7)</td>
 </tr>
@@ -3317,18 +3387,74 @@ one node or subgraph, or in a sequence diagram a participant (<code>C</code> for
 <a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">              </span><span class="no">api --&gt; db</span>
 <a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="w">          </span><span class="nt">focus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">db</span>
 </code></pre></div>
-<p>Exactly one of <code>table</code>, <code>mermaid</code>, <code>image</code>, <code>html</code> and <code>code</code> is given. A table taller than
+<p>Exactly one of <code>table</code>, <code>mermaid</code>, <code>image</code>, <code>html</code>, <code>code</code> and <code>points</code> is given. A table taller than
 the slide moves up so that the highlighted row stays in view. A Markdown doc makes
 slides from its tables, <code>mermaid</code> blocks, images and blocks marked <code>show</code>; see
 <a href="../markdown/#slides">Markdown input</a>.</p>
+<h3 id="themes">Themes<a class="headerlink" href="#themes" title="Permanent link">&para;</a></h3>
+<p>Since narratty 0.8.</p>
+<p>Each slide is an HTML page with one <code>&lt;section class="slide KIND"&gt;</code>, laid out 1280 px
+wide and zoomed to the video. <code>KIND</code> is <code>table</code>, <code>mermaid</code>, <code>code</code>, <code>points</code> or
+<code>image</code>; the section holds an <code>h1</code> with the title and a <code>div.content</code> with a <code>table</code>,
+<code>pre</code>, <code>ul</code> or <code>img</code>. <code>slides.css</code> adds a CSS file after the built-in look, whose
+rules have no specificity, so any rule in the file wins; what the file leaves out keeps
+the built-in look. A <a href="https://marp.app">Marp</a> theme is such a file: Marp themes are CSS
+for <code>section</code>, <code>h1</code>, <code>ul</code>, <code>table</code> and <code>pre</code>, written for the same 1280 px width.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">slides</span><span class="p">:</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">css</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">themes/gaia.css</span><span class="w">      </span><span class="c1"># a Marp theme, or your own</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">classes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">invert</span><span class="w">           </span><span class="c1"># Gaia's dark variant</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="nt">terminal</span><span class="p">:</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span><span class="nt">theme</span><span class="p">:</span><span class="w">                    </span><span class="c1"># the terminal in the theme's colours</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">    </span><span class="nt">background</span><span class="p">:</span><span class="w"> </span><span class="s">"#455a64"</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="nt">foreground</span><span class="p">:</span><span class="w"> </span><span class="s">"#fff8e1"</span>
+</code></pre></div>
+<ul>
+<li>The file is read when the spec is loaded and embedded, so sandboxed builds have it.</li>
+<li>Fonts from the web (<code>@import</code> of a font service, <code>url(https://…)</code>) need network,
+  which builds do not have: use fonts installed in the image, or embed them as
+  <code>data:</code> URLs.</li>
+<li>A current point is <code>li.current</code>, the ones before it <code>li.done</code>, after it <code>li.next</code>;
+  a highlighted table row is <code>tr.mark</code>.</li>
+</ul>
+<p><code>terminal.theme</code> takes a mapping of the colours of a VHS theme: <code>background</code>,
+<code>foreground</code>, <code>selection</code>, <code>cursor</code>, <code>black</code>, <code>red</code>, <code>green</code>, <code>yellow</code>, <code>blue</code>,
+<code>magenta</code>, <code>cyan</code>, <code>white</code> and their <code>bright…</code> variants (<code>brightBlack</code> …
+<code>brightWhite</code>). Unset colours are Dracula's. The cast page's player uses the same
+colours. Give the terminal the background of the slides, and the video does not change
+colour between them. The other way round, <code>dark</code> slides take the terminal's background
+when narratty knows it: with the default Dracula theme or a colour mapping.</p>
+<h3 id="frame">Frame<a class="headerlink" href="#frame" title="Permanent link">&para;</a></h3>
+<p>Since narratty 0.8.</p>
+<p><code>slides.frame: true</code> keeps a band at the top of the video, about 2.6 times the font
+size high. The terminal is recorded below it, and slides leave it empty, so what is in
+the band stays put while the picture below changes between terminal and slides:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">slides</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">frame</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="nt">scenes</span><span class="p">:</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">markdown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs/architecture.md</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="nt">heading_overlays</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w">     </span><span class="c1"># the headings fill the frame</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="nt">prose</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slides</span>
+</code></pre></div>
+<ul>
+<li><a href="../markdown/#heading-overlays">Heading overlays</a> and breadcrumbs take the <code>frame</code>
+  style: drawn in the band, at the size of a slide title and where it starts, and kept
+  until the next heading. Other overlays keep their place; an overlay of your own goes
+  there with <code>position: frame</code>.</li>
+<li>A slide whose title is the text in the band leaves its title out.</li>
+<li>The band has the terminal's background (filled from the top row of the recording).
+  With the default Dracula terminal and <code>dark</code> slides that is the slides' background
+  too; otherwise give <code>terminal.theme</code> the slides' background, see <a href="#themes">Themes</a>.</li>
+<li>Browser views start below the band. The cast page draws the band above the player.</li>
+<li><code>overlay_styles: {frame: {color: "#…"}}</code> sets the colour, for example to match the
+  title colour of a <code>slides.css</code>.</li>
+</ul>
 <h2 id="spec-versions">Spec versions<a class="headerlink" href="#spec-versions" title="Permanent link">&para;</a></h2>
 <p><code>version</code> changes only when a spec that worked before would break: a key is removed,
 renamed or changes its meaning. New keys, actions and short forms keep the version,
 so every <code>version: 1</code> spec keeps working with newer narratty releases.</p>
 <p>A spec that uses newer keys needs a newer narratty, which <code>version</code> does not tell.
 <code>requires.narratty</code> does:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">requires</span><span class="p">:</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">narratty</span><span class="p">:</span><span class="w"> </span><span class="s">"&gt;=0.3"</span><span class="w">   </span><span class="c1"># uses run, key: Enter and durations</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">requires</span><span class="p">:</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">narratty</span><span class="p">:</span><span class="w"> </span><span class="s">"&gt;=0.3"</span><span class="w">   </span><span class="c1"># uses run, key: Enter and durations</span>
 </code></pre></div>
 <p>narratty checks it before anything else in the spec, so an older narratty that knows
 the key reports the version to install instead of the keys it does not know. Releases
@@ -3356,6 +3482,10 @@ before 0.5 do not know <code>requires.narratty</code> and reject it as an unknow
 <tr>
 <td>0.7</td>
 <td><code>slide</code> <code>focus</code>, <code>code</code> and <code>lang</code>, <code>run</code> <code>show</code> and <code>max_lines</code>; in Markdown input the <code>focus</code>, <code>skip-rest</code>, <code>run</code> and <code>clear</code> comments, the <code>slide</code> comment's <code>focus</code> and <code>hold</code> keys, the <code>table</code> comment's <code>hold</code> and a list for its <code>say</code>, the <code>show</code> block option and the <code>say=…</code>, <code>instead=…</code>, <code>lines=…</code>, <code>until=…</code>, <code>then=…</code> and <code>timeout=…</code> block options, <code>sections</code> with <code>include</code> / <code>exclude</code>, and the entry keys <code>footnotes</code>, <code>admonitions</code>, <code>image_titles</code>, <code>lint</code>, <code>say</code> and <code>clear_on</code></td>
+</tr>
+<tr>
+<td>0.8</td>
+<td><code>slide</code> <code>points</code> and <code>current</code>, <code>slides.css</code>, <code>slides.classes</code> and <code>slides.frame</code>, <code>terminal.theme</code> as a colour mapping, the overlay position and style <code>frame</code>; the markdown entry key <code>prose</code></td>
 </tr>
 </tbody>
 </table>
