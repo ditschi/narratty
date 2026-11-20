@@ -113,6 +113,9 @@ def test_a_css_file_comes_after_the_built_in_look(tmp_path: Path) -> None:
     assert '<section class="slide points invert lead"><h1>T</h1><div class="content">' in page
     assert "html{zoom:1.500000}" in page, "laid out 1280 px wide, zoomed to the video"
     assert "section.slide{width:1280px;height:720px;" in page
+    assert "display:flex;align-items:center;justify-content:center;" in page, (
+        "centred, not stretched, under a theme"
+    )
 
 
 def test_look_of_the_spec(tmp_path: Path) -> None:

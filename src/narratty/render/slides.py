@@ -51,7 +51,8 @@ html{{zoom:{zoom}}}
 html,body{{margin:0;padding:0;overflow:hidden;background:{band_color}}}
 section.slide{{width:1280px;height:{section_height}px;box-sizing:border-box;display:flex;flex-direction:column;
 overflow:hidden;position:relative;margin:{band}px 0 0}}
-section.slide>.content{{flex:1;min-height:0;display:flex;overflow:hidden}}
+section.slide>.content{{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
+overflow:hidden}}
 :where(section.slide>.content>*){{margin:auto}}
 section.slide>footer{{position:absolute;right:26px;bottom:10px}}
 code,pre{{font-variant-ligatures:none}}
