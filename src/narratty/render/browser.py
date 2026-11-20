@@ -554,6 +554,7 @@ def page_views(shots: Sequence[Shot], terminal: Terminal, band: int = 0) -> list
         return "data:image/png;base64," + base64.b64encode(path.read_bytes()).decode("ascii")
 
     width = terminal.width
+    palette = terminal.palette()
     return [
         {
             "start": shot.view.start_ms / 1000,
@@ -566,6 +567,8 @@ def page_views(shots: Sequence[Shot], terminal: Terminal, band: int = 0) -> list
             "scroll_by": round(100 * shot.scroll_px / width, 3),
             "fade": FADE_MS / 1000,
             "top": round(100 * band / width, 3) if shot.bar else 0,
+            # Behind a slide where the player is taller than the video: the terminal's colour.
+            "background": None if shot.bar or palette is None else palette["background"],
         }
         for number, shot in enumerate(shots)
     ]

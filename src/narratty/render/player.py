@@ -131,6 +131,7 @@ const views = browsers.map((b) => {
   el.querySelector(".page").src = b.page;
   el.querySelector(".view").style.height = b.view_height + "cqw";
   if (b.top) el.style.top = b.top + "cqw";
+  if (b.background) el.style.background = b.background;
   stage.appendChild(el);
   return el;
 });
@@ -151,7 +152,7 @@ if (browsers.length) browse();
 # A frame without a known colour takes the player's background.
 _BAND_JS = """
 setTimeout(() => {
-  const term = document.querySelector("#player .ap-term, #player .ap-terminal");
+  const term = document.querySelector("#player .ap-player");
   if (term) document.getElementById("band").style.background = getComputedStyle(term).backgroundColor;
 }, 100);
 """

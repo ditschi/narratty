@@ -91,4 +91,11 @@ def test_cast_page_band(tmp_path: Path) -> None:
     assert '<div id="band" style="height:4.333cqw;background:#282a36;"></div><div id="player">' in page
     assert "getComputedStyle" not in page
     unknown = player_page("T", "{}", audio, band={"height": 4.333, "color": None})
-    assert "getComputedStyle(term).backgroundColor" in unknown, "takes the player's background"
+    assert '"#player .ap-player"' in unknown, "takes the player's background"
+
+
+def test_cast_slides_sit_on_the_terminal_colour(tmp_path: Path) -> None:
+    view = browser.View(None, 0, 1000, "one", Slide(points=["a"]))
+    (tmp_path / "p.png").write_bytes(b"png")
+    (data,) = browser.page_views([browser.Shot(view, None, tmp_path / "p.png", 700, 0)], _spec().terminal, 52)
+    assert (data["background"], data["top"]) == ("#1e1f29", 0)

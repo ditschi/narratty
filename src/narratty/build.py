@@ -1068,7 +1068,7 @@ def build_cast(
     ``fast`` skips the rest of a long pause once the output has been quiet for a moment.
     ``ignore_exit`` as in :func:`build`.
     """
-    from narratty.render.player import player_page, player_theme
+    from narratty.render.player import CUSTOM_THEME, player_page, player_theme
 
     say = log or (lambda _message: None)
     outputs = CastOutputs((output or default_output(spec_path, ".html")).resolve())
@@ -1113,8 +1113,9 @@ def build_cast(
             spec.meta.title,
             recording.cast,
             outputs.audio,
-            theme=player_theme(spec.terminal.theme),
-            palette=spec.terminal.palette() if not isinstance(spec.terminal.theme, str) else None,
+            # Known colours (Dracula, a mapping) make the player match the mp4, slides and frame.
+            theme=CUSTOM_THEME if spec.terminal.palette() else player_theme(spec.terminal.theme),
+            palette=spec.terminal.palette(),
             overlays=overlays,
             browsers=views,
             band=_page_band(spec),
