@@ -506,7 +506,9 @@ Since narratty 0.6.
 A slide shows one table, Mermaid diagram, image, HTML page or piece of code full screen over the
 terminal, with an optional title, while the narration talks about it. Like a browser
 view it stays until its scene ends or `duration_ms` has passed, and a later slide or
-browser view in the same scene replaces it.
+browser view in the same scene replaces it. When the next scene starts with a slide or
+browser view (only text overlays before it), the slide stays up and the next one fades
+in over it, so the terminal does not flash between them.
 
 ```yaml
 slides: {theme: dark}              # the default; light is the other look

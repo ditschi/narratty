@@ -83,6 +83,7 @@ def test_code_is_highlighted(tmp_path: Path) -> None:
     assert '<pre class="code" style="font-size:2.400vw"><code>' in page
     assert '<span style="color: #FF79C6">"status"</span>' in page, "dracula colours"
     assert "<header>Response</header>" in page
+    assert "code,pre{font-variant-ligatures:none}" in page, "-> stays two characters, not an arrow"
     light = slides.page(_slide(code="<b>&</b>", lang="no-such-language", theme="light"), "dark", tmp_path)
     assert "&lt;b&gt;&amp;&lt;/b&gt;" in light, "unknown languages are plain text"
 

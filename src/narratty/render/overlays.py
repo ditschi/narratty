@@ -215,6 +215,8 @@ class OverlayImage:
     view_px: int = 0
     scroll_px: int = 0
     scroll_ms: tuple[int, int] = (0, 0)
+    # False when the next image fades in over this one: it disappears under it instead.
+    fade_out: bool = True
 
 
 def margin_px(font_size: int) -> int:
@@ -327,10 +329,10 @@ def filter_graph(overlays: Sequence[OverlayImage], first_input: int, source: str
             begin, until = (ms / 1000 for ms in overlay.scroll_ms)
             progress = f"clip((t-{begin:.3f})/{max(until - begin, 0.001):.3f},0,1)"
             crop = f"crop=w=iw:h={overlay.view_px}:x=0:y='{overlay.scroll_px}*{progress}',"
+        fade_out = f",fade=t=out:st={end - length:.3f}:d={length:.3f}:alpha=1" if overlay.fade_out else ""
         parts.append(
             f"[{first_input + number}:v]{crop}format=rgba,"
-            f"fade=t=in:st={start:.3f}:d={length:.3f}:alpha=1,"
-            f"fade=t=out:st={end - length:.3f}:d={length:.3f}:alpha=1[ov{number}]"
+            f"fade=t=in:st={start:.3f}:d={length:.3f}:alpha=1{fade_out}[ov{number}]"
         )
         parts.append(
             f"[{current}][ov{number}]overlay=x={overlay.x}:y={overlay.y}:eof_action=pass[vo{number}]"
