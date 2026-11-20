@@ -500,6 +500,7 @@ class _Builder:
         """Show ``action`` with the text around it, up to the next block."""
         if self.image:  # a slide after a slide: the first one keeps its text
             self.flush_view()
+        self.prose_before()
         self.overlays.append((None, action))
         self.unassigned.append((block, what))
         self.image = True
@@ -900,14 +901,17 @@ class _Builder:
             self.note(self.pages_block, scene_id, f"table: page {page['page']}, silent")
 
     def prose_before(self) -> None:
-        """With prose slides, the paragraphs before a block's lead-in get slides of their own.
+        """With prose slides, the text before a block's or slide's lead-in gets slides of its own.
 
-        Only when they take a while: a short line such as "Since 0.6." stays with the block.
+        Only when it takes a while: a short line such as "Since 0.6." stays with the block.
+        A list right before the block is no lead-in: all of it gets its slide.
         """
-        if self.entry.prose != "slides" or self.image or len(self.spoken) < 2:
+        units = self.spoken_sources()
+        if self.entry.prose != "slides" or self.image or not units:
             return
-        if sum(len(text.split()) for text in self.spoken[:-1]) >= PROSE_MIN_WORDS:
-            self.prose_scenes(len(self.spoken) - 1)
+        count = len(units) if _item(units[-1][0]) else len(units) - 1
+        if count and sum(len(text.split()) for _, text in units[:count]) >= PROSE_MIN_WORDS:
+            self.prose_scenes(count)
 
     def prose_after_view(self) -> tuple[list[str], list[tuple[Block, str]]] | None:
         """With prose slides, the text after a view's first paragraph, taken out for prose slides."""

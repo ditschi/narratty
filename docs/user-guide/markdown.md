@@ -514,9 +514,10 @@ scenes:
 Which text gets slides:
 
 - the text after the last block of a section;
-- the text before a command block, except the paragraph right before the block, which
-  introduces it and is spoken with it; only when that text has 15 words or more, so a
-  line such as "Since 0.8." stays with the block;
+- the text before a command block or a slide, except the paragraph right before it,
+  which introduces it and is spoken with it (a list right before it is no introduction
+  and gets its slide too); only when that text has 15 words or more, so a line such as
+  "Since 0.8." stays with the block;
 - the text after a slide, except its first paragraph, which stays with the slide.
 
 A text with fewer than four words gets no key point; it is spoken with the next one.

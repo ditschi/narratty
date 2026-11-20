@@ -1283,7 +1283,8 @@ in the image.
 - Entry key `prose: terminal | slides`, default `terminal` (the behaviour so far).
 - With `slides`, text that is not the narration of a command, file or slide scene gets
   slides: the text after the last block of a section, and all but the last paragraph
-  before a command block (the last one introduces the block and stays with it). Text
+  before a command block or a slide (the last one introduces it and stays with it,
+  unless it is a list item: a list is no introduction). Text
   that a slide, image or browser view already covers keeps that view.
 - Each paragraph or list item becomes its own scene, so the slide changes with the
   narration. The new slide content `points` (a list of inline Markdown) with `current`

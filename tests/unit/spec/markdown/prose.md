@@ -33,3 +33,17 @@ tts: {voice: am_michael}
 The comment is YAML, invisible on the page.
 
 Write a YAML spec when the video needs more than the doc, for example scenes before it.
+
+## Diagram
+
+The build has three stages:
+
+- Parse the doc into blocks and paragraphs.
+- Record the commands in a terminal.
+
+```mermaid
+flowchart LR
+  a --> b
+```
+
+The diagram follows the stages.
