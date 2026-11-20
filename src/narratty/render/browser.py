@@ -59,11 +59,11 @@ MERMAID_FILE = "mermaid.min.js"
 FONTAWESOME_ENV = "NARRATTY_FONTAWESOME_JSON"
 # Diagrams not drawn yet, on a page that does not bring its own Mermaid.
 NEEDS_MERMAID_JS = (
-    "typeof window.mermaid === 'undefined' && [...document.querySelectorAll('.mermaid')]"
+    "typeof window.mermaid === 'undefined' && [...document.querySelectorAll('.mermaid:not(section)')]"
     ".some(e => !e.shadowRoot && !e.querySelector('svg') && !e.dataset.processed)"
 )
 NEEDS_FONTAWESOME = (
-    "[...document.querySelectorAll('.mermaid')].some(e => /\\bfa:[\\w-]+/.test(e.textContent))"
+    "[...document.querySelectorAll('.mermaid:not(section)')].some(e => /\\bfa:[\\w-]+/.test(e.textContent))"
 )
 # The focus ID names exactly one node or subgraph: its data-id, or its SVG id without the
 # diagram's prefix (Mermaid 11 writes "<svg id>-flowchart-<node id>-<n>" and "<svg id>-<subgraph id>").
@@ -72,7 +72,7 @@ NEEDS_FONTAWESOME = (
 RUN_MERMAID_JS = (
     "mermaid.initialize({startOnLoad: false, theme: document.body.dataset.mermaidTheme || 'default', "
     "fontFamily: 'DejaVu Sans, Noto Color Emoji, sans-serif'});"
-    "mermaid.run({querySelector: '.mermaid'})"
+    "mermaid.run({querySelector: '.mermaid:not(section)'})"
     ".then(() => {"
     "const focus = document.body.dataset.mermaidFocus;"
     "if (!focus) return;"

@@ -220,3 +220,10 @@ def test_a_container_gets_the_css_embedded_in_its_compiled_spec(tmp_path: Path) 
     plain = tmp_path / "plain.narratty.yaml"
     plain.write_text("scenes: [{id: a, narration: Hi.}]\n")
     assert container_spec(plain, tmp_path / "cache") is None
+
+
+def test_mermaid_is_not_run_on_the_slide_section(tmp_path: Path) -> None:
+    page = slides.page(_slide(mermaid="graph TD", title="Flow"), "dark", tmp_path)
+    assert '<section class="slide mermaid">' in page, "the section carries the kind as a class"
+    for script in (browser.NEEDS_MERMAID_JS, browser.NEEDS_FONTAWESOME, browser.RUN_MERMAID_JS):
+        assert "'.mermaid:not(section)'" in script and "'.mermaid'" not in script
