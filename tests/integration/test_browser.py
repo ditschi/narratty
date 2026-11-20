@@ -98,6 +98,30 @@ def test_capture_draws_mermaid_diagrams(chromium: str, tmp_path: Path) -> None:
 
 
 @pytest.mark.usefixtures("mermaid")
+def test_mermaid_labels_keep_their_size_under_the_slide_zoom(chromium: str, tmp_path: Path) -> None:
+    # Measured under a zoom, a label got a box sized for zoomed text and was clipped.
+    source = "flowchart LR\n  entry[markdown entry point]"
+    fills = []
+    for width, height in ((1280, 720), (640, 360)):  # zoom 1 and 0.5
+        page = slides.page(Slide(mermaid=source), slides.Look(width=width, height=height), tmp_path)
+        shot = tmp_path / f"{width}.png"
+        browser.capture(
+            "data:text/html;base64," + base64.b64encode(page.encode()).decode(),
+            width,
+            height,
+            "none",
+            5000,
+            shot,
+            chromium=chromium,
+        )
+        with Image.open(shot) as image:
+            colors = image.convert("RGB").getcolors(maxcolors=100_000) or []
+        fills.append(sum(count for count, color in colors if color == (31, 32, 32)))
+    assert fills[1] > 1000
+    assert 3.5 < fills[0] / fills[1] < 4.5, "the node is laid out alike, at half the size"
+
+
+@pytest.mark.usefixtures("mermaid")
 def test_capture_focuses_mermaid_node(chromium: str, tmp_path: Path) -> None:
     page = slides.page(
         Slide(mermaid='flowchart LR\n  api["🚀 API"] --> db[Database]', focus="db"), "dark", tmp_path

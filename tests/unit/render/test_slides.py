@@ -227,3 +227,11 @@ def test_mermaid_is_not_run_on_the_slide_section(tmp_path: Path) -> None:
     assert '<section class="slide mermaid">' in page, "the section carries the kind as a class"
     for script in (browser.NEEDS_MERMAID_JS, browser.NEEDS_FONTAWESOME, browser.RUN_MERMAID_JS):
         assert "'.mermaid:not(section)'" in script and "'.mermaid'" not in script
+
+
+def test_mermaid_draws_unzoomed() -> None:
+    # Mermaid sizes labels by measuring them; the slide's html zoom would skew that.
+    script = browser.RUN_MERMAID_JS
+    assert script.index("page.setProperty('zoom', '1', 'important')") < script.index("mermaid.run(")
+    assert script.endswith(".finally(() => page.setProperty('zoom', zoom, important))")
+    assert "html{zoom:" in slides.page(_slide(mermaid="graph TD"), "dark", Path())
