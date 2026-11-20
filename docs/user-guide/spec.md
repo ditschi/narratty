@@ -594,9 +594,9 @@ Since narratty 0.8.
 Each slide is an HTML page with one `<section class="slide KIND">`, laid out 1280 px
 wide and zoomed to the video. `KIND` is `table`, `mermaid`, `code`, `points` or
 `image`; the section holds an `h1` with the title and a `div.content` with a `table`,
-`pre`, `ul` or `img`. `slides.css` adds a CSS file after the built-in look, whose
+`pre` (code), `div.mermaid`, `ul` or `img`. `slides.css` adds a CSS file after the built-in look, whose
 rules have no specificity, so any rule in the file wins; what the file leaves out keeps
-the built-in look. A [Marp](https://marp.app) theme is such a file: Marp themes are CSS
+the built-in look, except the title, which takes the theme's text colour. A [Marp](https://marp.app) theme is such a file: Marp themes are CSS
 for `section`, `h1`, `ul`, `table` and `pre`, written for the same 1280 px width.
 
 ```yaml

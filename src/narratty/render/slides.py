@@ -45,7 +45,8 @@ CODE_STYLES = {"dark": "dracula", "light": "default"}  # Pygments styles
 DESIGN_WIDTH = 1280
 """Slides are laid out this many CSS pixels wide (as Marp themes are) and zoomed to the video."""
 
-# Layout every slide needs, also under a theme from ``slides.css``.
+# Layout every slide needs, also under a theme from ``slides.css``: Mermaid draws with the
+# font it measured with, and code keeps the background its highlighting colours are for.
 _LAYOUT = """
 html{{zoom:{zoom}}}
 html,body{{margin:0;padding:0;overflow:hidden;background:{band_color}}}
@@ -57,13 +58,16 @@ overflow:hidden}}
 section.slide>footer{{position:absolute;right:26px;bottom:10px}}
 code,pre{{font-variant-ligatures:none}}
 .content img{{max-width:1203px;max-height:100%;object-fit:contain}}
-pre.mermaid svg{{max-width:100%!important;max-height:{diagram_height}px;height:auto}}
+div.mermaid svg{{max-width:100%!important;max-height:{diagram_height}px;height:auto}}
+section.slide div.mermaid{{font-family:'DejaVu Sans','Noto Color Emoji',sans-serif;letter-spacing:normal}}
+section.slide pre.code{{background:{bg};color:{fg};letter-spacing:normal}}
+section.slide pre.code>code{{font-size:1em;padding:0;margin:0;background:transparent}}
 """
 # The built-in look; :where() keeps it below any rule of a slides.css.
 _LOOK = """
 :where(section.slide){{background:{bg};color:{fg};font-family:'DejaVu Sans','Noto Color Emoji',sans-serif}}
 :where(section.slide>h1){{margin:0;padding:{title_pad}px 51px 0;font-size:41px;font-weight:bold;
-color:{accent}}}
+color:{title_color}}}
 :where(section.slide>footer){{font-size:20px;opacity:.7}}
 :where(table){{border-collapse:collapse;max-width:1203px;font-size:28px}}
 :where(th,td){{padding:.45em .8em;border-bottom:1px solid {line};text-align:left}}
@@ -71,7 +75,7 @@ color:{accent}}}
 :where(tr.mark){{background:{mark};outline:3px solid {accent}}}
 :where(code){{font-family:'JetBrains Mono',monospace;color:{code}}}
 :where(a){{color:{link}}}
-:where(pre.mermaid){{width:1203px;text-align:center;font:20px 'JetBrains Mono',monospace;
+:where(div.mermaid){{width:1203px;text-align:center;font:20px 'JetBrains Mono',monospace;
 white-space:pre-wrap}}
 :where(pre.code){{max-width:1178px;padding:{code_pad}px 32px;border:1px solid {line};
 border-radius:8px;overflow:hidden;
@@ -157,7 +161,7 @@ def page(slide: Slide, look: Look | SlideTheme, workspace: Path) -> str:
         body, footer = _table(slide.table, slide)
         script = _FOLLOW_MARK
     elif slide.mermaid is not None:
-        kind, body = "mermaid", f'<pre class="mermaid">{html.escape(slide.mermaid)}</pre>'
+        kind, body = "mermaid", f'<div class="mermaid">{html.escape(slide.mermaid)}</div>'
     elif slide.code is not None:
         kind, body = "code", _code(slide.code, slide.lang, theme, look, titled=bool(slide.title))
     elif slide.points is not None:
@@ -186,7 +190,8 @@ def page(slide: Slide, look: Look | SlideTheme, workspace: Path) -> str:
     band_color = look.band_color or colors["bg"]
     style = (
         _LAYOUT.format(**colors, **sizes, band_color=band_color)
-        + _LOOK.format(**colors, **sizes)
+        # Under a slides.css the title takes the theme's text colour (Marp themes leave h1 to it).
+        + _LOOK.format(**colors, **sizes, title_color="inherit" if look.css else colors["accent"])
         + _STATES
         + look.css
     )
