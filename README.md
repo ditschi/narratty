@@ -57,6 +57,11 @@ tools native mode needs.
 - **Markdown input:** a Markdown doc becomes the video; its paragraphs are the
   narration, its code blocks run in the terminal, and tables, images and `mermaid`
   diagrams become slides.
+- **Prose slides:** text no command comes with shows its key points, taken from the
+  doc itself, and lists become bullet slides, so explanation-heavy docs make videos too.
+- **Themes and a frame:** restyle slides with a CSS file (Marp themes work), give the
+  terminal matching colours, and keep the section heading at the top over terminal and
+  slides.
 - **Output:** an MP4, or an asciicast with narration and a player page
   (`--format cast`).
 - **Local voices:** Kokoro (natural sounding, the default) or Piper

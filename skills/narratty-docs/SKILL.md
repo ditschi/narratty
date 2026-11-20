@@ -24,6 +24,9 @@ your first edit. Check `narratty --version`: this skill assumes 0.7 or later.
   their alt text.
 - Warning-type admonitions speak their type and title; footnote markers and task-list
   boxes are not spoken.
+- Text that no block comes with leaves the terminal unchanged, unless the entry sets
+  `prose: slides`: paragraphs then show their key point (the first sentence, cut at a
+  comma when over 75 characters), lists a bullet slide, untitled code a code slide.
 
 ## Workflow
 
@@ -41,7 +44,9 @@ your first edit. Check `narratty --version`: this skill assumes 0.7 or later.
    3. Use a declarative comment next to the block (`run {…}`, `pause`, `clear`, `hold`).
    4. Only then `hidden` or `skip` + `say`.
 4. **Configure once** in the `spec` comment: `clear_on: 2`, `say: before` for tutorials,
-   `sections: {exclude: [...]}`, `environment` for tools, `sandbox.env` for variables.
+   `prose: slides` (and `slides: {frame: true}` with `heading_overlays`) for docs that
+   explain more than they run, `sections: {exclude: [...]}`, `environment` for tools,
+   `sandbox.env` for variables.
 5. **Verify**: `validate` (no warnings left, or each one justified), `check` (expected
    numbers of commands run and shown only, all passing), `plan --sources`.
 6. **Build and look**: `narratty build`, extract a frame at each section change, after
@@ -62,6 +67,9 @@ your first edit. Check `narratty --version`: this skill assumes 0.7 or later.
 - `no-run` for `sudo`, editors, `open`; say in the text that the step is shown only.
 - Snippets that aren't files: `narratty="show"`, never an invented `title`.
 - Keep slides up for their conclusion with `hold`; clear with `clear_on`, not hidden `clear`.
+- With `prose: slides`, the first sentence of each paragraph is its key point: check them
+  in `plan --sources` and rewrite weak sentences; write enumerations as lists, led in by
+  a paragraph ending with ":". Never add summary comments.
 - Add terms TTS mispronounces to `tts.lexicon` (`narratty lexicon check`), never respell
   them in the text.
 - Keep FAQ/troubleshooting out of the video with `sections: {exclude: [...]}`.

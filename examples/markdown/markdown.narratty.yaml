@@ -2,6 +2,7 @@
 # The video on docs/user-guide/markdown.md, made from that page.
 meta:
   title: Markdown input
+slides: {frame: true}
 scenes:
   - id: intro
     narration: >
@@ -10,6 +11,7 @@ scenes:
     actions:
       - overlay: {text: Markdown input, style: heading-1}
   - markdown: ../../docs/user-guide/markdown.md
-    sections: [quick-start, callouts-and-tabs, images, tables, pauses, slides]
+    sections: [quick-start, callouts-and-tabs, images, tables, pauses, slides, prose-slides]
     tabs: [bash]
     heading_overlays: 2
+    prose: slides
