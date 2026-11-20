@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from narratty.render.overlays import frame_px
 from narratty.render.pauses import SETTLE_MS, Pause, command_keyword
 from narratty.render.script import (
     END_CUE,
@@ -30,7 +31,7 @@ from narratty.render.script import (
     setup_steps,
     teardown_steps,
 )
-from narratty.spec.model import Spec
+from narratty.spec.model import Spec, Terminal
 from narratty.timeline import Timeline
 
 __all__ = ["FRAMERATE", "Tape", "build_tape", "generate_tape", "prompt_setup", "quote_chunks", "uses_fast"]
@@ -48,6 +49,13 @@ FONT_FAMILY = (
     "Roboto Mono,Hack,Consolas,ui-monospace,Symbols Nerd Font Mono,monospace"
 )
 _DELIMITERS = ('"', "'", "`")
+
+
+def vhs_theme(term: Terminal) -> str:
+    """The value of VHS's ``Set Theme``: a theme name, or the JSON of a colour mapping."""
+    if isinstance(term.theme, str):
+        return json.dumps(term.theme)
+    return json.dumps({"name": "narratty", **term.theme.palette()})
 
 
 def _regex(pattern: str) -> str:
@@ -255,10 +263,10 @@ def build_tape(
         f"Output {json.dumps(str(output))}",
         f"Set Shell {vhs_shell}",
         f"Set Width {term.width}",
-        f"Set Height {term.height}",
+        f"Set Height {term.height - frame_px(spec)}",
         f"Set FontSize {term.font_size}",
         f"Set FontFamily {json.dumps(FONT_FAMILY)}",
-        f"Set Theme {json.dumps(term.theme)}",
+        f"Set Theme {vhs_theme(term)}",
         f"Set TypingSpeed {term.typing_speed_ms}ms",
         f"Set Framerate {framerate}",
     )

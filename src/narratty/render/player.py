@@ -13,6 +13,8 @@ import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from narratty.spec.model import TerminalColors
+
 PLAYER_VERSION = "3.17.0"
 _CDN = f"https://cdn.jsdelivr.net/npm/asciinema-player@{PLAYER_VERSION}/dist/bundle"
 _JS_SRI = "sha384-s55nTYAdrPwGWmKKQ1lCnoB8H9LbqmsXsqqqPAHK2+T5h9IfI2dTXTDXJcZnySJD"
@@ -34,10 +36,31 @@ PLAYER_THEMES = frozenset(
 )
 
 
-def player_theme(vhs_theme: str) -> str | None:
+CUSTOM_THEME = "narratty"
+"""The player theme made from a terminal colour mapping (see :func:`palette_css`)."""
+_ANSI = (
+    "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+    "brightBlack", "brightRed", "brightGreen", "brightYellow",
+    "brightBlue", "brightMagenta", "brightCyan", "brightWhite",
+)  # fmt: skip
+
+
+def player_theme(vhs_theme: str | TerminalColors) -> str | None:
     """The player theme matching ``vhs_theme`` (``Solarized Dark`` → ``solarized-dark``)."""
+    if isinstance(vhs_theme, TerminalColors):
+        return CUSTOM_THEME
     name = vhs_theme.strip().lower().replace(" ", "-")
     return name if name in PLAYER_THEMES else None
+
+
+def palette_css(palette: Mapping[str, str]) -> str:
+    """The player theme :data:`CUSTOM_THEME` with ``palette``'s colours."""
+    colors = [f"--term-color-{number}:{palette[name]}" for number, name in enumerate(_ANSI)]
+    colors += [
+        f"--term-color-foreground:{palette['foreground']}",
+        f"--term-color-background:{palette['background']}",
+    ]
+    return f".asciinema-player-theme-{CUSTOM_THEME}{{{';'.join(colors)}}}\n"
 
 
 def _script_json(value: object) -> str:
@@ -69,9 +92,13 @@ const shown = overlays.map((o) => {
   s.fontSize = o.size + "cqw"; s.color = o.color; s.fontWeight = o.bold ? "bold" : "normal";
   if (o.background) s.background = o.background;
   const [dx, dy] = [h === "center" ? "-50%" : "0", v === "center" ? "-50%" : "0"];
-  if (h === "center") s.left = "50%"; else s[h] = m;
-  if (v === "center") s.top = "50%"; else s[v] = m;
-  s.translate = dx + " " + dy;
+  if (o.position === "frame") {
+    s.left = m; s.top = (o.band / 2) + "cqw"; s.translate = "0 -50%";
+  } else {
+    if (h === "center") s.left = "50%"; else s[h] = m;
+    if (v === "center") s.top = "50%"; else s[v] = m;
+    s.translate = dx + " " + dy;
+  }
   stage.appendChild(el);
   return el;
 });
@@ -103,6 +130,8 @@ const views = browsers.map((b) => {
   else el.querySelector(".bar").remove();
   el.querySelector(".page").src = b.page;
   el.querySelector(".view").style.height = b.view_height + "cqw";
+  if (b.top) el.style.top = b.top + "cqw";
+  if (b.background) el.style.background = b.background;
   stage.appendChild(el);
   return el;
 });
@@ -120,12 +149,31 @@ if (browsers.length) browse();
 """
 
 
+# A frame without a known colour takes the player's background.
+_BAND_JS = """
+setTimeout(() => {
+  const term = document.querySelector("#player .ap-player");
+  if (term) document.getElementById("band").style.background = getComputedStyle(term).backgroundColor;
+}, 100);
+"""
+
+
+def _band_html(band: Mapping[str, object] | None) -> str:
+    """The frame above the player (``slides.frame``): ``height`` in percent of the width."""
+    if not band:
+        return ""
+    color = f"background:{band['color']};" if band.get("color") else ""
+    return f'<div id="band" style="height:{band["height"]}cqw;{color}"></div>'
+
+
 def player_page(
     title: str,
     cast: str,
     audio: Path,
     *,
     theme: str | None = None,
+    palette: Mapping[str, str] | None = None,
+    band: Mapping[str, object] | None = None,
     overlays: Sequence[Mapping[str, object]] = (),
     browsers: Sequence[Mapping[str, object]] = (),
 ) -> str:
@@ -148,10 +196,10 @@ def player_page(
 <link rel="stylesheet" href="{_CDN}/asciinema-player.css" integrity="{_CSS_SRI}" crossorigin="anonymous">
 <style>
 body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: #1e1e1e; }}
-{_OVERLAY_CSS}{_BROWSER_CSS}</style>
+{_OVERLAY_CSS}{_BROWSER_CSS}{palette_css(palette) if palette else ""}</style>
 </head>
 <body>
-<div id="stage"><div id="player"></div></div>
+<div id="stage">{_band_html(band)}<div id="player"></div></div>
 <script src="{_CDN}/asciinema-player.min.js" integrity="{_JS_SRI}" crossorigin="anonymous"></script>
 <script>
 const player = AsciinemaPlayer.create(
@@ -159,7 +207,7 @@ const player = AsciinemaPlayer.create(
 );
 const overlays = {_script_json(list(overlays))};
 const browsers = {_script_json(list(browsers))};
-{_OVERLAY_JS}{_BROWSER_JS}</script>
+{_OVERLAY_JS}{_BROWSER_JS}{_BAND_JS if band and not band.get("color") else ""}</script>
 </body>
 </html>
 """

@@ -240,9 +240,13 @@ def mux(
     burn: bool = False,
     overlays: Sequence[OverlayImage] = (),
     fast: bool = False,
+    band: int = 0,
     runner: Runner = _run,
 ) -> None:
     """Combine the silent video with the narration track (AAC).
+
+    ``band`` adds that many pixels on top (``slides.frame``), filled with the picture's top
+    rows: the terminal's background (two, as 4:2:0 video needs an even height).
 
     ``subtitles`` (an SRT) becomes a soft subtitle track, or with ``burn`` is drawn
     into the picture. ``fast`` (drafts) scales the picture to half size and encodes it
@@ -266,10 +270,16 @@ def mux(
     # -shortest would also stop at the last subtitle, so a soft track ends at the video instead.
     length = ["-shortest"]
     burn_subtitles = subtitles is not None and burn
-    if burn_subtitles or overlays or fast:
+    if burn_subtitles or overlays or fast or band:
         graph, source = [], "0:v"
+        if band:
+            graph.append(
+                f"[0:v]split[vhs][edge];[edge]crop=iw:2:0:0,scale=iw:{band}[strip];"
+                f"[vhs]pad=iw:ih+{band}:0:{band}[padded];[padded][strip]overlay=0:0[framed]"
+            )
+            source = "framed"
         if subtitles is not None and burn:
-            graph.append(f"[0:v]subtitles={subtitles.name}:force_style='{BURN_STYLE}'[subs]")
+            graph.append(f"[{source}]subtitles={subtitles.name}:force_style='{BURN_STYLE}'[subs]")
             source = "subs"
         if overlays:
             layered, source = filter_graph(overlays, 2, source)

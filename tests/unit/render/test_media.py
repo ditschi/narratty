@@ -248,3 +248,18 @@ def test_run_vhs_reports_each_line_as_it_arrives(tmp_path: Path, monkeypatch: py
     monkeypatch.setenv("FAIL", "1")
     with pytest.raises(RenderError, match="recording failed"):
         media.run_vhs(tmp_path / "t.tape", tmp_path)
+
+
+def test_mux_adds_the_frame_above_the_picture(tmp_path: Path) -> None:
+    runner = FakeRunner()
+    srt = tmp_path / "subtitles.srt"
+    media.mux(
+        Path("v.mp4"), Path("a.wav"), tmp_path / "o.mp4", subtitles=srt, burn=True, band=57, runner=runner
+    )
+    argv, _ = runner.calls[0]
+    graph = argv[argv.index("-filter_complex") + 1]
+    assert graph.startswith(
+        "[0:v]split[vhs][edge];[edge]crop=iw:2:0:0,scale=iw:57[strip];"
+        "[vhs]pad=iw:ih+57:0:57[padded];[padded][strip]overlay=0:0[framed];[framed]subtitles="
+    ), "the band is filled with the terminal's top row, before anything is drawn on it"
+    assert argv[argv.index("-c:v") + 1] == "libx264"

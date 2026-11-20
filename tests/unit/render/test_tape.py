@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from narratty.render.script import HelperPlacement
-from narratty.render.tape import FONT_FAMILY, VHS_SHELLS, generate_tape, prompt_setup, quote_chunks
+from narratty.render.tape import FONT_FAMILY, VHS_SHELLS, generate_tape, prompt_setup, quote_chunks, vhs_theme
 from narratty.spec.loader import parse_spec
 from narratty.timeline import build_timeline
 
@@ -71,6 +71,17 @@ def test_header_and_setup() -> None:
         "Set Framerate 30",
     ]
     assert "Type@1ms \"PS1='demo> '; clear\"" in lines
+
+
+def test_theme_colours_are_passed_as_json() -> None:
+    term = parse_spec(
+        "terminal: {theme: {background: '#455a64'}}\nscenes: [{id: a}]\n", Path("/t.yaml")
+    ).terminal
+    theme = json.loads(vhs_theme(term))
+    assert theme["background"] == "#455a64"
+    assert theme["foreground"] == "#f8f8f2", "unset colours are Dracula's"
+    assert theme["brightMagenta"] == "#ff79c6"
+    assert vhs_theme(parse_spec("scenes: [{id: a}]\n", Path("/t.yaml")).terminal) == '"Dracula"'
 
 
 def test_scenes() -> None:

@@ -48,6 +48,10 @@ class Text(Block):
     """``(type, title)`` of the admonition or alert this paragraph opens; title None: none given."""
     footnotes: tuple[tuple[int, str], ...] = ()
     """``(position, text)`` of each footnote referred to: where its sentence ends in ``text``."""
+    item: bool = False
+    """A list item (each of its paragraphs is one)."""
+    source: str = ""
+    """The inline Markdown, for key points on slides."""
 
 
 @dataclass(frozen=True)
@@ -241,7 +245,10 @@ class _Walker:
             text += "."
         links = tuple(_links(node.children[0])) if node.children else ()
         notes = tuple((_sentence_end(text, at), self.footnotes.get(label, "")) for at, label in refs)
-        self.blocks.append(Text(*self.at(node), text, links, callout, notes))
+        source = node.children[0].content if node.children else ""
+        if item:
+            source = _TASK.sub("", source)
+        self.blocks.append(Text(*self.at(node), text, links, callout, notes, item, source))
 
     def code(self, node: SyntaxTreeNode) -> Code:
         lang, attrs = parse_info(node.info)

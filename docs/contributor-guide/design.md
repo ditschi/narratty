@@ -1258,6 +1258,98 @@ to it>` and commented `sections`, `heading_overlays`, an intro scene, `tts` and
   recorder sees tmux's redraws, not the shell's output.
 - Sandboxed, `check` runs in the narratty image like `build`, without fetching a voice.
 
+## Docs as presentations
+
+Agreed on 2026-11-19 for 0.8, after docs with more prose than commands showed an
+unchanged terminal for most of their video. A comparison on `docs/user-guide/markdown.md`
+(`Quick start` to `How a doc becomes scenes`, 2:30) found 70 % of the video without
+anything new on screen; hand-written key-point slides fixed that, and a Marp deck with
+the same narration looked more uniform, but needed a second source and showed commands
+as pasted text. Key points derived from the doc by rules came close to the hand-written
+ones. So the doc stays the only source, and three additions bring the video closer to a
+presentation:
+
+1. **Prose slides**: paragraphs that would leave the terminal unchanged show key points.
+2. **Themes**: slides use semantic HTML and a CSS file can restyle them (Marp themes
+   work); the terminal can take matching colours.
+3. **Frame**: the section heading stays in a band at the top, the same over the
+   terminal and over slides.
+
+All additive (`version: 1`). Non-goals: a presenter mode, summaries by an LLM or a
+cloud service, a hidden second structure in the doc (key-point comments), Node or Marp
+in the image.
+
+### 1. Prose slides
+- Entry key `prose: terminal | slides`, default `terminal` (the behaviour so far).
+- With `slides`, text that is not the narration of a command, file or slide scene gets
+  slides: the text after the last block of a section, and all but the last paragraph
+  before a command block (the last one introduces the block and stays with it). Text
+  that a slide, image or browser view already covers keeps that view.
+- Each paragraph or list item becomes its own scene, so the slide changes with the
+  narration. The new slide content `points` (a list of inline Markdown) with `current`
+  (from 1) shows a bullet list, the current item marked and the others dimmed. Titled
+  by the section heading.
+- Paragraphs share one list of their key points. Consecutive list items get their own
+  slide with the items as written; a list is already the summary.
+- Key point of a paragraph, from its inline Markdown (`spec/markdown/prose.py`): the
+  first sentence; parentheses removed; when longer than 75 characters, cut at the first
+  `, `, `; ` or `: ` after 25 characters; trailing punctuation dropped. Inline code is
+  never split.
+- An untitled code block in another language is shown as a code slide, as with `show`,
+  while its lead-in paragraph is spoken.
+- `narratty plan --sources` lists each paragraph's key point, so authors see a weak one
+  and improve the sentence. That is the only control: a doc sentence that makes a poor
+  key point usually reads poorly too.
+- Slide changes inside a section cross-fade (0.7.x fix: the next view fades in over the
+  one before).
+
+### 2. Themes
+- Slide pages become semantic: `<section class="slide KIND">` with an `h1` title and
+  `ul` (points), `table`, `pre` (code, Mermaid) or `img` in a `div.content`. The built-in `dark` and
+  `light` looks are CSS for these elements.
+- `slides.css`: a CSS file, relative to the spec, added after the built-in CSS. A Marp
+  theme (Marp themes are CSS for `section`, `h1`, `ul`, `table`, `pre`) works as is.
+  Every page is laid out 1280 px wide, as Marp themes expect, and zoomed to the video
+  width; the built-in look uses `:where()` selectors, so any rule of the file wins and
+  what it leaves out keeps the built-in look. `slides.classes` sets classes on the
+  section, such as Gaia's `invert` (`class` would clash with Python's keyword in the
+  model).
+- Remote `@import` and `url()` fonts need network, which the sandbox does not have:
+  fonts must be installed in the image or embedded as `data:` URLs (documented).
+- `terminal.theme` also takes a mapping of VHS theme colours (`background`,
+  `foreground`, `black` … `brightWhite`, `cursor`, `selection`); missing keys come from
+  Dracula. The cast page gets a matching player theme. Terminal and slides match by
+  using the same colours; narratty does not parse CSS.
+
+### 3. Frame
+- `slides.frame: true` reserves a band at the top of the video (2.6 × font size). VHS
+  records the terminal below it (`Set Height` minus the band); ffmpeg pads the band and
+  fills it with the recording's top row, which is the terminal background whatever the
+  theme. Slide pages leave the same band empty (the section starts below it, the page
+  background is the terminal's when known).
+- The band shows overlays at the new position `frame`: left where a slide title starts,
+  at its size, centred in the band, no box or outline. The built-in style `frame`
+  (accent colour, kept until the next one) is what Markdown heading overlays and
+  breadcrumbs get at render time when the frame is on (`overlays.resolve`), so the
+  section heading stays put while the picture below changes between terminal and
+  slides. The Markdown expansion does not know about the frame; `heading_overlays`
+  still decides which headings show.
+- A slide whose title is the frame text when it appears drops the title
+  (`browser.without_frame_titles`), so prose slides do not repeat the heading.
+- Web pages start below the band; the cast recorder gets the smaller terminal; the cast
+  page draws the band as a bar above the player (its colour from the palette, else the
+  player's background).
+- Without a matching slide background (step 2) the band changes colour with the
+  picture. `dark` slides take the terminal background when it is known (Dracula, or a
+  colour mapping), so the default look matches. `DRACULA` holds VHS's own values
+  (background `#1e1f29`), not the Dracula spec's.
+
+### Tests and docs
+- Golden expansions for `prose: slides` (paragraphs, lists, lead-ins, code), unit tests
+  for key points, slide pages, the theme mapping, the frame's ffmpeg graph and overlay.
+- User guide: `markdown.md` (Prose slides), `spec.md` (`points`, `slides.css`,
+  `slides.classes`, `slides.frame`, `terminal.theme` mapping), with "(since 0.8)".
+
 ---
 
 ## Milestones

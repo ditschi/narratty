@@ -53,9 +53,25 @@ BUILTIN_STYLES: dict[str, OverlayStyle] = {
     "heading-4": OverlayStyle(position="top-right", size="small", duration_ms=2500),
     "breadcrumb": OverlayStyle(position="top-right", size="small"),
     "file": OverlayStyle(position="top", size="small"),
+    # The band of slides.frame: the heading stays there until the next one.
+    "frame": OverlayStyle(position="frame", color="#bd93f9", box=False, bold=True, keep=True),
 }
 SIZES = {"small": 1.0, "medium": 1.3, "large": 1.8}
 FADE_MS = 200
+HEADING_STYLES = ("heading-1", "heading-2", "heading-3", "heading-4", "breadcrumb")
+"""Styles of Markdown heading overlays; with ``slides.frame`` they are drawn in the frame."""
+FRAME_HEIGHT = 2.6
+"""Height of the frame, in font sizes."""
+FRAME_TITLE = (51, 41)
+"""Left edge and size of the frame's text, in pixels of the 1280 px wide slide (its title's)."""
+
+
+def frame_px(spec: Spec) -> int:
+    """Height of the band at the top of the video (``slides.frame``), 0 without one.
+
+    Even, so the terminal below it keeps the even height video encoders need.
+    """
+    return 2 * round(spec.terminal.font_size * FRAME_HEIGHT / 2) if spec.slides.frame else 0
 
 
 @dataclass(frozen=True)
@@ -73,12 +89,16 @@ class Look:
 
 
 def resolve(spec: Spec, overlay: Overlay) -> Look:
-    """The look of ``overlay``: built-in default, then ``overlay_styles``, then its own keys."""
+    """The look of ``overlay``: built-in default, then ``overlay_styles``, then its own keys.
+
+    With ``slides.frame``, heading overlays take the ``frame`` style instead of theirs.
+    """
+    style = "frame" if spec.slides.frame and overlay.style in HEADING_STYLES else overlay.style
     layers = [
         BUILTIN_STYLES["default"],
         spec.overlay_styles.get("default"),
-        BUILTIN_STYLES.get(overlay.style) if overlay.style != "default" else None,
-        spec.overlay_styles.get(overlay.style) if overlay.style != "default" else None,
+        BUILTIN_STYLES.get(style) if style != "default" else None,
+        spec.overlay_styles.get(style) if style != "default" else None,
         overlay,
     ]
     values: dict[str, Any] = {}
@@ -269,7 +289,7 @@ def draw(text: str, look: Look, font_px: int, path: Path) -> Path:
 
     font = _font(look.bold, font_px)
     spacing = round(font_px * 0.3)
-    stroke = 0 if look.box else max(2, round(font_px / 10))
+    stroke = 0 if look.box or look.position == "frame" else max(2, round(font_px / 10))
     ascent, descent = font.getmetrics()
     lines = text.splitlines() or [text]
     probe = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
@@ -304,12 +324,18 @@ def draw(text: str, look: Look, font_px: int, path: Path) -> Path:
 def images(spec: Spec, shown: Sequence[Shown], directory: Path) -> list[OverlayImage]:
     """Draw each overlay into ``directory`` and say where ffmpeg puts it."""
     font_size = spec.terminal.font_size
+    width = spec.terminal.width
     result = []
     for number, item in enumerate(shown):
-        png = draw(
-            item.text, item.look, round(font_size * item.look.scale), directory / f"overlay-{number}.png"
-        )
-        x, y = placement(item.look.position, margin_px(font_size))
+        if item.look.position == "frame":  # where and as large as a slide's title
+            left, size = (round(px * width / 1280) for px in FRAME_TITLE)
+            png = draw(item.text, item.look, size, directory / f"overlay-{number}.png")
+            x, y = str(left), f"({frame_px(spec) or round(font_size * FRAME_HEIGHT)}-h)/2"
+        else:
+            png = draw(
+                item.text, item.look, round(font_size * item.look.scale), directory / f"overlay-{number}.png"
+            )
+            x, y = placement(item.look.position, margin_px(font_size))
         result.append(OverlayImage(png, x, y, item.start_ms, item.end_ms))
     return result
 
@@ -344,16 +370,17 @@ def filter_graph(overlays: Sequence[OverlayImage], first_input: int, source: str
 # ── cast: HTML boxes ──────────────────────────────────────────────────────────
 
 
-def page_overlays(shown: Sequence[Shown], terminal: Terminal) -> list[dict[str, Any]]:
+def page_overlays(shown: Sequence[Shown], terminal: Terminal, band: int = 0) -> list[dict[str, Any]]:
     """The overlays as data for the cast page (times in seconds).
 
-    ``size`` and ``margin`` are in percent of the player's width, matching the mp4.
+    ``size`` and ``margin`` are in percent of the player's width, matching the mp4; a
+    ``frame`` overlay also gets its ``band`` (the frame's height).
     """
     from narratty.render.cast import CELL_WIDTH, terminal_size
 
     cols, _ = terminal_size(terminal)
     font = 100 / (cols * CELL_WIDTH)  # terminal.font_size in percent of the width
-    return [
+    data = [
         {
             "text": item.text,
             "start": item.start_ms / 1000,
@@ -367,3 +394,9 @@ def page_overlays(shown: Sequence[Shown], terminal: Terminal) -> list[dict[str, 
         }
         for item in shown
     ]
+    left, size = (round(100 * px / 1280, 3) for px in FRAME_TITLE)
+    height = round(100 * (band or terminal.font_size * FRAME_HEIGHT) / terminal.width, 3)
+    for item in data:
+        if item["position"] == "frame":
+            item |= {"size": size, "margin": left, "band": height}
+    return data

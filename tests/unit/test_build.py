@@ -211,6 +211,7 @@ def test_draft_build_burns_in_the_narration(tmp_path: Path, monkeypatch: pytest.
         "burn": True,
         "overlays": [],
         "fast": True,
+        "band": 0,
     }
     assert fake.render_kwargs["fast"] is True  # a draft fills its pauses with still frames
     assert "Hello there." in fake.srt

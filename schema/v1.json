@@ -503,7 +503,8 @@
                 "right",
                 "bottom-left",
                 "bottom",
-                "bottom-right"
+                "bottom-right",
+                "frame"
               ],
               "type": "string"
             },
@@ -630,7 +631,7 @@
         },
         "style": {
           "default": "default",
-          "description": "Named style from overlay_styles (built in: default, chapter, heading-1, heading-2, heading-3, heading-4, breadcrumb, file).",
+          "description": "Named style from overlay_styles (built in: default, chapter, heading-1, heading-2, heading-3, heading-4, breadcrumb, file, frame).",
           "title": "Style",
           "type": "string"
         }
@@ -657,7 +658,8 @@
                 "right",
                 "bottom-left",
                 "bottom",
-                "bottom-right"
+                "bottom-right",
+                "frame"
               ],
               "type": "string"
             },
@@ -1229,7 +1231,7 @@
     },
     "Slide": {
       "additionalProperties": false,
-      "description": "Exactly one of table, mermaid, image, html or code, shown full screen.",
+      "description": "Exactly one of table, mermaid, image, html, code or points, shown full screen.",
       "properties": {
         "title": {
           "anyOf": [
@@ -1339,6 +1341,38 @@
           "default": null,
           "description": "Language of the code, such as json or yaml; unset: plain text.",
           "title": "Lang"
+        },
+        "points": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A bullet list, each item inline Markdown (since 0.8).",
+          "title": "Points"
+        },
+        "current": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Item of points to mark, from 1; the others are dimmed (since 0.8).",
+          "title": "Current"
         },
         "highlight": {
           "anyOf": [
@@ -1466,6 +1500,40 @@
           ],
           "title": "Theme",
           "type": "string"
+        },
+        "css": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A CSS file, relative to the spec, added after the built-in look, such as a Marp theme; slides are 1280 px wide <section> elements (since 0.8).",
+          "title": "Css"
+        },
+        "classes": {
+          "anyOf": [
+            {
+              "pattern": "^[\\w-]+( [\\w-]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Classes of every slide's <section>, separated by spaces, such as invert (since 0.8).",
+          "title": "Classes"
+        },
+        "frame": {
+          "default": false,
+          "description": "A band at the top of the video that shows heading overlays, over the terminal and over slides alike (since 0.8).",
+          "title": "Frame",
+          "type": "boolean"
         }
       },
       "title": "Slides",
@@ -1487,9 +1555,17 @@
           "type": "integer"
         },
         "theme": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/TerminalColors"
+            }
+          ],
           "default": "Dracula",
-          "title": "Theme",
-          "type": "string"
+          "description": "A VHS theme name, or colours of one (since 0.8); unset colours are Dracula's.",
+          "title": "Theme"
         },
         "font_size": {
           "default": 22,
@@ -1541,6 +1617,274 @@
         }
       },
       "title": "Terminal",
+      "type": "object"
+    },
+    "TerminalColors": {
+      "additionalProperties": false,
+      "description": "Terminal colours as in a VHS theme; unset ones are Dracula's (since 0.8).",
+      "properties": {
+        "background": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Background"
+        },
+        "foreground": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Foreground"
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selection"
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cursor"
+        },
+        "black": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Black"
+        },
+        "red": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Red"
+        },
+        "green": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Green"
+        },
+        "yellow": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Yellow"
+        },
+        "blue": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blue"
+        },
+        "magenta": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Magenta"
+        },
+        "cyan": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cyan"
+        },
+        "white": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "White"
+        },
+        "brightBlack": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brightblack"
+        },
+        "brightRed": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brightred"
+        },
+        "brightGreen": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brightgreen"
+        },
+        "brightYellow": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brightyellow"
+        },
+        "brightBlue": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brightblue"
+        },
+        "brightMagenta": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brightmagenta"
+        },
+        "brightCyan": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brightcyan"
+        },
+        "brightWhite": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brightwhite"
+        }
+      },
+      "title": "TerminalColors",
       "type": "object"
     },
     "Timing": {
@@ -2427,6 +2771,16 @@
           "description": "Clear the screen where a heading of this level or higher starts a section (since 0.7). Unset: never.",
           "title": "Clear On"
         },
+        "prose": {
+          "default": "terminal",
+          "description": "terminal: text that no command, file or slide comes with leaves the terminal on screen; slides: it shows its key points, a list its items (since 0.8).",
+          "enum": [
+            "terminal",
+            "slides"
+          ],
+          "title": "Prose",
+          "type": "string"
+        },
         "say": {
           "default": "during",
           "description": "When the text before a command block is spoken: before its commands are typed, or during them (since 0.7). A `run` comment changes it per block.",
@@ -2614,7 +2968,10 @@
     "slides": {
       "$ref": "#/$defs/Slides",
       "default": {
-        "theme": "dark"
+        "theme": "dark",
+        "css": null,
+        "classes": null,
+        "frame": false
       }
     },
     "scenes": {

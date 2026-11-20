@@ -262,9 +262,19 @@ BUILTIN_OVERLAY_STYLES = (
     "heading-4",
     "breadcrumb",
     "file",
+    "frame",
 )
 OverlayPosition = Literal[
-    "top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"
+    "top-left",
+    "top",
+    "top-right",
+    "left",
+    "center",
+    "right",
+    "bottom-left",
+    "bottom",
+    "bottom-right",
+    "frame",
 ]
 _COLOR = r"^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
 
@@ -362,7 +372,7 @@ class ShowBrowser(_Model):
 
 
 SlideTheme = Literal["dark", "light"]
-SLIDE_CONTENT = ("table", "mermaid", "image", "html", "code")
+SLIDE_CONTENT = ("table", "mermaid", "image", "html", "code", "points")
 SLIDE_IMAGE_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -390,7 +400,7 @@ class SlideTable(_Model):
 
 
 class Slide(_Model):
-    """Exactly one of table, mermaid, image, html or code, shown full screen."""
+    """Exactly one of table, mermaid, image, html, code or points, shown full screen."""
 
     title: str | None = Field(None, min_length=1, description="Shown above the content.")
     table: SlideTable | None = None
@@ -411,6 +421,12 @@ class Slide(_Model):
         None,
         pattern=r"^[\w+#.-]+$",
         description="Language of the code, such as json or yaml; unset: plain text.",
+    )
+    points: list[Annotated[str, Field(min_length=1)]] | None = Field(
+        None, min_length=1, description="A bullet list, each item inline Markdown (since 0.8)."
+    )
+    current: int | None = Field(
+        None, ge=1, description="Item of points to mark, from 1; the others are dimmed (since 0.8)."
     )
     highlight: int | None = Field(
         None, ge=1, description="Table row to highlight, from 1; it picks the page."
@@ -454,6 +470,10 @@ class Slide(_Model):
             raise ValueError("focus only applies to Mermaid slides")
         if self.lang is not None and self.code is None:
             raise ValueError("lang only applies to code slides")
+        if self.current is not None and self.points is None:
+            raise ValueError("current only applies to points slides")
+        if self.points is not None and self.current is not None and self.current > len(self.points):
+            raise ValueError(f"current {self.current}: there are {len(self.points)} points")
         return self
 
     @property
@@ -474,6 +494,22 @@ class ShowSlide(_Model):
 
 class Slides(_Model):
     theme: SlideTheme = Field("dark", description="Look of every slide: dark or light.")
+    css: str | None = Field(
+        None,
+        min_length=1,
+        description="A CSS file, relative to the spec, added after the built-in look, such as a Marp "
+        "theme; slides are 1280 px wide <section> elements (since 0.8).",
+    )
+    classes: str | None = Field(
+        None,
+        pattern=r"^[\w-]+( [\w-]+)*$",
+        description="Classes of every slide's <section>, separated by spaces, such as invert (since 0.8).",
+    )
+    frame: bool = Field(
+        False,
+        description="A band at the top of the video that shows heading overlays, over the terminal "
+        "and over slides alike (since 0.8).",
+    )
 
 
 ACTION_KEYS = (
@@ -720,6 +756,11 @@ class MarkdownEntry(_Model):
         description="Clear the screen where a heading of this level or higher starts a section "
         "(since 0.7). Unset: never.",
     )
+    prose: Literal["terminal", "slides"] = Field(
+        "terminal",
+        description="terminal: text that no command, file or slide comes with leaves the terminal "
+        "on screen; slides: it shows its key points, a list its items (since 0.8).",
+    )
     say: Literal["before", "during"] = Field(
         "during",
         description="When the text before a command block is spoken: before its commands are typed, "
@@ -819,10 +860,68 @@ class Timing(_Model):
     )
 
 
+COLOR = r"^#[0-9a-fA-F]{6}$"
+DRACULA = {
+    "background": "#1e1f29",
+    "foreground": "#f8f8f2",
+    "selection": "#44475a",
+    "cursor": "#bbbbbb",
+    "black": "#000000",
+    "red": "#ff5555",
+    "green": "#50fa7b",
+    "yellow": "#f1fa8c",
+    "blue": "#bd93f9",
+    "magenta": "#ff79c6",
+    "cyan": "#8be9fd",
+    "white": "#bbbbbb",
+    "brightBlack": "#555555",
+    "brightRed": "#ff5555",
+    "brightGreen": "#50fa7b",
+    "brightYellow": "#f1fa8c",
+    "brightBlue": "#bd93f9",
+    "brightMagenta": "#ff79c6",
+    "brightCyan": "#8be9fd",
+    "brightWhite": "#ffffff",
+}
+"""VHS's Dracula theme: the default terminal colours, and the base of a theme mapping."""
+
+
+class TerminalColors(_Model):
+    """Terminal colours as in a VHS theme; unset ones are Dracula's (since 0.8)."""
+
+    background: str | None = Field(None, pattern=COLOR)
+    foreground: str | None = Field(None, pattern=COLOR)
+    selection: str | None = Field(None, pattern=COLOR)
+    cursor: str | None = Field(None, pattern=COLOR)
+    black: str | None = Field(None, pattern=COLOR)
+    red: str | None = Field(None, pattern=COLOR)
+    green: str | None = Field(None, pattern=COLOR)
+    yellow: str | None = Field(None, pattern=COLOR)
+    blue: str | None = Field(None, pattern=COLOR)
+    magenta: str | None = Field(None, pattern=COLOR)
+    cyan: str | None = Field(None, pattern=COLOR)
+    white: str | None = Field(None, pattern=COLOR)
+    brightBlack: str | None = Field(None, pattern=COLOR)  # noqa: N815 (VHS's key)
+    brightRed: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightGreen: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightYellow: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightBlue: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightMagenta: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightCyan: str | None = Field(None, pattern=COLOR)  # noqa: N815
+    brightWhite: str | None = Field(None, pattern=COLOR)  # noqa: N815
+
+    def palette(self) -> dict[str, str]:
+        """All colours, Dracula's where unset."""
+        return DRACULA | self.model_dump(exclude_none=True)
+
+
 class Terminal(_Model):
     width: int = Field(1200, ge=100)
     height: int = Field(700, ge=100)
-    theme: str = "Dracula"
+    theme: str | TerminalColors = Field(
+        "Dracula", description="A VHS theme name, or colours of one (since 0.8); unset colours are Dracula's."
+    )
+
     font_size: int = Field(22, ge=6)
     typing_speed_ms: Duration = Field(40, gt=0)
     shell: Literal["bash", "zsh", "fish", "sh"] = "bash"
@@ -830,6 +929,12 @@ class Terminal(_Model):
     layout: Literal["plain", "editor"] = Field(
         "plain", description="`editor`: a file explorer with preview on top, the shell below (tmux + yazi)."
     )
+
+    def palette(self) -> dict[str, str] | None:
+        """The terminal colours when known: a mapping, or the default Dracula."""
+        if isinstance(self.theme, TerminalColors):
+            return self.theme.palette()
+        return dict(DRACULA) if self.theme.strip().casefold() == "dracula" else None
 
 
 class Requires(_Model):

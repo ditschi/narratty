@@ -61,6 +61,7 @@ def _dump(data: object) -> str:
             "features-breadcrumb",
             {"heading_overlays": {"levels": 3, "breadcrumb": True}, "file_titles": False},
         ),
+        ("prose", {"prose": "slides", "heading_overlays": 2}),
         (
             "features-overrides",
             {"overrides": {"typed": {"narration": "Run it like this.", "before": ["enter"], "fast": True}}},
@@ -82,6 +83,10 @@ def test_every_doc_page_expands(path: Path) -> None:
     rel = path.relative_to(ROOT)
     document = parse_document(f"scenes:\n  - markdown: {rel}\n", ROOT / "corpus.narratty.yaml")
     assert document.spec.scenes
+    slides = parse_document(
+        f"scenes:\n  - markdown: {rel}\n    prose: slides\n", ROOT / "corpus.narratty.yaml"
+    )
+    assert slides.spec.scenes
 
 
 # ── sections ──────────────────────────────────────────────────────────────────

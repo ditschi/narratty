@@ -675,7 +675,7 @@ def overlay_images(
     Browser views come first, so overlays are drawn on top of them.
     """
     from narratty.render import browser
-    from narratty.render.overlays import images, planned_times, scaled, schedule
+    from narratty.render.overlays import frame_px, images, planned_times, scaled, schedule
     from narratty.render.script import build_script
 
     spec = planned.spec
@@ -686,10 +686,27 @@ def overlay_images(
     else:
         times = planned_times(build_script(spec, planned.timeline))
         scale = video_ms / planned.timeline.total_ms if planned.timeline.total_ms else 1.0
-    views = browser.scaled(browser.schedule(spec, times), scale)
-    shots = browser.shoot(spec, views, workspace, work / "browser")
     shown = scaled(schedule(spec, times), scale)
-    return browser.images(shots, browser.bar_height(spec.terminal)) + images(spec, shown, work / "overlays")
+    views = browser.without_frame_titles(browser.scaled(browser.schedule(spec, times), scale), shown)
+    shots = browser.shoot(spec, views, workspace, work / "browser")
+    band = frame_px(spec)
+    return browser.images(shots, browser.bar_height(spec.terminal), band) + images(
+        spec, shown, work / "overlays"
+    )
+
+
+def _page_band(spec: Spec) -> dict[str, Any] | None:
+    """The frame of the cast page: its height in percent of the width and its colour."""
+    from narratty.render.overlays import frame_px
+
+    band = frame_px(spec)
+    if not band:
+        return None
+    palette = spec.terminal.palette()
+    return {
+        "height": round(100 * band / spec.terminal.width, 3),
+        "color": palette["background"] if palette else None,
+    }
 
 
 def _cache_exclusions(ws: PreparedWorkspace, paths: Sequence[Path]) -> frozenset[Path]:
@@ -913,8 +930,17 @@ def build(
         overlays = overlay_images(planned, video_ms, work, ws.path, layout)
         if overlays:
             say(f"drawing {len(overlays)} overlays")
+        from narratty.render.overlays import frame_px
+
         media.mux(
-            silent, track, output, subtitles=srt, burn=mode == "burn", overlays=overlays, fast=planned.draft
+            silent,
+            track,
+            output,
+            subtitles=srt,
+            burn=mode == "burn",
+            overlays=overlays,
+            fast=planned.draft,
+            band=frame_px(planned.spec),
         )
         if mode == "files":
             SubtitleFiles.beside(output).write(cues)
@@ -1042,7 +1068,7 @@ def build_cast(
     ``fast`` skips the rest of a long pause once the output has been quiet for a moment.
     ``ignore_exit`` as in :func:`build`.
     """
-    from narratty.render.player import player_page, player_theme
+    from narratty.render.player import CUSTOM_THEME, player_page, player_theme
 
     say = log or (lambda _message: None)
     outputs = CastOutputs((output or default_output(spec_path, ".html")).resolve())
@@ -1070,26 +1096,29 @@ def build_cast(
         if subtitle_mode(planned, subtitles) != "none":
             starts = {p.scene_id: p.start_ms for p in used}
             SubtitleFiles.beside(outputs.page).write(cues_for(narrations(planned, starts)))
-        overlays: list[dict[str, Any]] = []
-        times = recording.scene_starts_ms | recording.cues_ms
-        if has_overlays(spec):
-            from narratty.render.overlays import page_overlays, schedule
+        from narratty.render.overlays import frame_px, page_overlays, schedule
 
-            overlays = page_overlays(schedule(spec, times), spec.terminal)
+        times = recording.scene_starts_ms | recording.cues_ms
+        shown = schedule(spec, times) if has_overlays(spec) else []
+        overlays = page_overlays(shown, spec.terminal, frame_px(spec))
         views: list[dict[str, Any]] = []
         if has_browsers(spec):
             from narratty.render import browser
 
             say(browser.capture_note(spec) or "capturing browser views")
-            shots = browser.shoot(spec, browser.schedule(spec, times), ws.path, work / "browser")
-            views = browser.page_views(shots, spec.terminal)
+            scheduled = browser.without_frame_titles(browser.schedule(spec, times), shown)
+            shots = browser.shoot(spec, scheduled, ws.path, work / "browser")
+            views = browser.page_views(shots, spec.terminal, frame_px(spec))
         page = player_page(
             spec.meta.title,
             recording.cast,
             outputs.audio,
-            theme=player_theme(spec.terminal.theme),
+            # Known colours (Dracula, a mapping) make the player match the mp4, slides and frame.
+            theme=CUSTOM_THEME if spec.terminal.palette() else player_theme(spec.terminal.theme),
+            palette=spec.terminal.palette(),
             overlays=overlays,
             browsers=views,
+            band=_page_band(spec),
         )
         outputs.page.write_text(page, encoding="utf-8")
         _export_artifacts(planned, ws.path, outputs.page, say)
@@ -1109,6 +1138,7 @@ def _record_cast(
     """Play the script in a pseudo-terminal; the exit log ends up in ``work``."""
     from narratty.bridge import shim_env
     from narratty.render.cast import record
+    from narratty.render.overlays import frame_px
     from narratty.render.script import build_script
 
     spec = planned.spec
@@ -1119,7 +1149,7 @@ def _record_cast(
     exit_log = fresh_exit_log(work, bridge)
     recording = record(
         build_script(spec, planned.timeline, exit_log=exit_log, placement=placement),
-        terminal=spec.terminal,
+        terminal=spec.terminal.model_copy(update={"height": spec.terminal.height - frame_px(spec)}),
         cwd=ws.path,
         env=env,
         title=spec.meta.title,

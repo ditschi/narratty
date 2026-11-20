@@ -50,3 +50,36 @@ def test_an_overlay_shows_only_in_its_interval(tmp_path: Path) -> None:
     assert max(before) < 40, before
     assert min(during) > 215, during
     assert max(after) < 40, after
+
+
+def test_the_frame_band_has_the_terminals_background(tmp_path: Path) -> None:
+    video, audio, out = tmp_path / "silent.mp4", tmp_path / "voice.wav", tmp_path / "out.mp4"
+    _ffmpeg(
+        "-f", "lavfi", "-i", f"color=c=0x3060c0:s={SIZE}x{SIZE}:r=25:d=2",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", str(video),
+    )  # fmt: skip
+    _ffmpeg("-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono", "-t", "2", str(audio))
+
+    media.mux(video, audio, out, band=16)
+
+    size = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(out)],
+        check=True, capture_output=True, text=True,
+    ).stdout.split()[0]  # fmt: skip
+    assert size == f"{SIZE},{SIZE + 16}"
+    raw = _ffmpeg(
+        "-ss",
+        "1",
+        "-i",
+        str(out),
+        "-frames:v",
+        "1",
+        "-vf",
+        "crop=2:2:30:6",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "rgb24",
+        "-",
+    )
+    assert all(abs(a - b) < 24 for a, b in zip(raw[:3], (0x30, 0x60, 0xC0), strict=True)), tuple(raw[:3])
