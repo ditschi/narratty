@@ -69,7 +69,13 @@ NEEDS_FONTAWESOME = (
 # diagram's prefix (Mermaid 11 writes "<svg id>-flowchart-<node id>-<n>" and "<svg id>-<subgraph id>").
 # In a sequence diagram it names a participant (both its boxes, top and bottom): a box is a
 # <rect class="actor" name="<id>"> in a <g>, an actor figure a <g class="actor-man" name="<id>">.
+# Mermaid sizes each label by measuring it, and a page zoom (slides zoom their 1280 px layout to
+# the video) scales those measurements but not the text, which then overflows its box and is
+# clipped. So the diagrams are drawn unzoomed; the page zoom scales them afterwards, text and all.
 RUN_MERMAID_JS = (
+    "const page = document.documentElement.style, zoom = page.getPropertyValue('zoom'),"
+    " important = page.getPropertyPriority('zoom');"
+    "page.setProperty('zoom', '1', 'important');"
     "mermaid.initialize({startOnLoad: false, theme: document.body.dataset.mermaidTheme || 'default', "
     "fontFamily: 'DejaVu Sans, Noto Color Emoji, sans-serif'});"
     "mermaid.run({querySelector: '.mermaid:not(section)'})"
@@ -100,6 +106,7 @@ RUN_MERMAID_JS = (
     "found[0].classList.add('narratty-focus');"
     "})"
     ".catch(e => { throw new Error((e && (e.message || e.str)) || String(e)); })"
+    ".finally(() => page.setProperty('zoom', zoom, important))"
 )
 
 
