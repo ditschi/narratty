@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 430" width="100%" height="100%">
+  <!-- Editable source of logo.svg. logo.svg has the text converted to paths
+       (JetBrains Mono NL ExtraBold/Bold) so it renders the same everywhere. -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1E2E" />
+      <stop offset="100%" stop-color="#11111B" />
+    </linearGradient>
+    <style>
+      .mono-text {
+        font-family: 'Fira Code', 'JetBrains Mono', Monaco, Consolas, monospace;
+        text-rendering: optimizeLegibility;
+      }
+    </style>
+  </defs>
+
+  <!-- Speech bubble / terminal container -->
+  <path d="M 96,64
+           H 416
+           A 48,48 0 0 1 464,112
+           V 280
+           A 48,48 0 0 1 416,328
+           H 176
+           L 96,392
+           V 328
+           A 48,48 0 0 1 48,280
+           V 112
+           A 48,48 0 0 1 96,64 Z"
+        fill="url(#bgGrad)"
+        stroke="#89B4FA"
+        stroke-width="8"
+        stroke-linejoin="round"/>
+
+  <!-- Window control buttons -->
+  <circle cx="96" cy="110" r="12" fill="#F38BA8" />
+  <circle cx="136" cy="110" r="12" fill="#F9E2AF" />
+  <circle cx="176" cy="110" r="12" fill="#A6E3A1" />
+
+  <!-- Command row -->
+  <g transform="translate(80, 175)">
+    <text x="0" y="40" class="mono-text" font-size="56" font-weight="900" fill="#A6E3A1">&gt;</text>
+    <text x="48" y="40" class="mono-text" font-size="56" font-weight="900" fill="#CDD6F4">narra</text>
+    <text x="215" y="40" class="mono-text" font-size="56" font-weight="900" fill="#89DCEB">tty</text>
+    <text x="315" y="40" class="mono-text" font-size="56" font-weight="900" fill="#F5E0DC">_</text>
+  </g>
+
+  <!-- Output line -->
+  <g transform="translate(80, 265)">
+    <text x="0" y="0" class="mono-text" font-size="19" font-weight="bold"
+          letter-spacing="-0.5px" word-spacing="-1px" fill="#6C7086"># compiling terminal story...</text>
+  </g>
+</svg>
