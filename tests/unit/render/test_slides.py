@@ -114,6 +114,7 @@ def test_a_css_file_comes_after_the_built_in_look(tmp_path: Path) -> None:
     assert "html{zoom:1.500000}" in page, "laid out 1280 px wide, zoomed to the video"
     assert "font-weight:bold;\ncolor:inherit}" in page, "the title takes the theme's colour"
     assert "section.slide pre.code{background:#282a36;color:#f8f8f2;" in page, "code stays readable"
+    assert "color:inherit;\npadding:0;margin:0;background:transparent}" in page, "also its plain text"
     assert "section.slide{width:1280px;height:720px;" in page
     assert "display:flex;align-items:center;justify-content:center;" in page, (
         "centred, not stretched, under a theme"

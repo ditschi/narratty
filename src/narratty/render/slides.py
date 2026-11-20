@@ -61,7 +61,8 @@ code,pre{{font-variant-ligatures:none}}
 div.mermaid svg{{max-width:100%!important;max-height:{diagram_height}px;height:auto}}
 section.slide div.mermaid{{font-family:'DejaVu Sans','Noto Color Emoji',sans-serif;letter-spacing:normal}}
 section.slide pre.code{{background:{bg};color:{fg};letter-spacing:normal}}
-section.slide pre.code>code{{font-size:1em;padding:0;margin:0;background:transparent}}
+section.slide pre.code>code{{display:block;font:inherit;font-size:1em;letter-spacing:normal;color:inherit;
+padding:0;margin:0;background:transparent}}
 """
 # The built-in look; :where() keeps it below any rule of a slides.css.
 _LOOK = """
