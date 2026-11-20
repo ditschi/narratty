@@ -97,6 +97,11 @@ def test_capture_draws_mermaid_diagrams(chromium: str, tmp_path: Path) -> None:
     assert counts.get((31, 32, 32), 0) > 1000, "the nodes are filled in the dark theme's colour"
 
 
+ACCENT = (189, 147, 249)  # the dark slide theme's accent, used for the focus outline
+# Slides are laid out for the video's size; the focus tests capture them at 600 × 400.
+FOCUS_LOOK = slides.Look(theme="dark", width=600, height=400)
+
+
 @pytest.mark.usefixtures("mermaid")
 def test_mermaid_labels_keep_their_size_under_the_slide_zoom(chromium: str, tmp_path: Path) -> None:
     # Measured under a zoom, a label got a box sized for zoomed text and was clipped.
@@ -124,7 +129,7 @@ def test_mermaid_labels_keep_their_size_under_the_slide_zoom(chromium: str, tmp_
 @pytest.mark.usefixtures("mermaid")
 def test_capture_focuses_mermaid_node(chromium: str, tmp_path: Path) -> None:
     page = slides.page(
-        Slide(mermaid='flowchart LR\n  api["🚀 API"] --> db[Database]', focus="db"), "dark", tmp_path
+        Slide(mermaid='flowchart LR\n  api["🚀 API"] --> db[Database]', focus="db"), FOCUS_LOOK, tmp_path
     )
     shot = tmp_path / "focused.png"
     browser.capture(
@@ -138,15 +143,12 @@ def test_capture_focuses_mermaid_node(chromium: str, tmp_path: Path) -> None:
     )
     with Image.open(shot) as image:
         colors = {color: count for count, color in image.convert("RGB").getcolors(maxcolors=100_000) or []}
-    assert colors.get((189, 147, 249), 0) > 0, "the focused node uses the slide accent"
-
-
-ACCENT = (189, 147, 249)  # the dark slide theme's accent, used for the focus outline
+    assert colors.get(ACCENT, 0) > 0, "the focused node uses the slide accent"
 
 
 def _accent_span(source: str, focus: str, chromium: str, tmp_path: Path) -> tuple[int, int]:
     """Leftmost and rightmost x of the focus outline on a 600 px wide slide."""
-    page = slides.page(Slide(mermaid=source, focus=focus), "dark", tmp_path)
+    page = slides.page(Slide(mermaid=source, focus=focus), FOCUS_LOOK, tmp_path)
     shot = tmp_path / "focused.png"
     browser.capture(
         "data:text/html;base64," + base64.b64encode(page.encode()).decode(),
