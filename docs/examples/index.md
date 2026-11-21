@@ -10,6 +10,7 @@ one with `narratty build <spec>`.
 | [Voices and engines](voices.md) | Kokoro and Piper voices, English and German | `tts.provider`, `tts.voice` |
 | [Pronunciation](pronunciation.md) | Terms spelled as in the code, spoken correctly | `tts.lexicon` |
 | [Terminal look](terminal.md) | Theme, font, prompt, typing speed | `terminal` |
+| [Slides and themes](slides.md) | Prose slides, a CSS theme, matching terminal colours and the frame | `prose: slides`, `slides.css`, `slides.frame` |
 | [Editor layout](editor-layout.md) | Explorer, preview and shell in one tmux window | `terminal.layout: editor` |
 | [Subtitles and drafts](subtitles.md) | Burned-in subtitles; a fast preview without TTS | `subtitles`, `--draft` |
 | [Asciicast player](cast.md) | Selectable terminal text with a narration track | `--format cast` |
@@ -22,5 +23,5 @@ All recordings except the end card example are built with `--no-end-card`.
 `examples/render-docs.sh` rebuilds them (`--only browser` just the specs whose path
 contains `browser`) and stores a fingerprint of each spec next to it; a unit test
 fails when a spec changed since its videos were rendered. Videos made from Markdown,
-like the one on [Markdown input](../user-guide/markdown.md), are rendered in CI before
-each docs deploy instead, so they always match their page (`examples/render-ci-videos.sh`).
+like the ones on [Markdown input](../user-guide/markdown.md) and
+[Slides and themes](slides.md), are rendered in CI before each docs deploy instead, so they always match their page (`examples/render-ci-videos.sh`).

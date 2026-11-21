@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../../schema/v1.json
+# Prose slides, a theme of its own and the frame, from a doc that explains more than it runs.
+slides: {frame: true, css: theme.css}
+overlay_styles:
+  frame: {color: "#7cc4ff"}
+terminal:
+  theme: {background: "#0f2233", foreground: "#e6edf3", blue: "#7cc4ff", brightBlack: "#6b8299"}
+scenes:
+  - markdown: pipeline.md
+    heading_overlays: 2
+    prose: slides

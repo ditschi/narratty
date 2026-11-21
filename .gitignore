@@ -38,3 +38,4 @@ out/
 
 # Rendered in CI before each docs deploy (examples/render-ci-videos.sh)
 docs/assets/examples/markdown.mp4
+docs/assets/examples/slides.mp4

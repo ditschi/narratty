@@ -78,3 +78,41 @@
       points:
       - Write a YAML spec when the video needs more than the doc
       current: 1
+- source: prose.md:39
+  id: prose-diagram-1
+  narration: 'The build has three stages:'
+  actions:
+  - overlay:
+      text: Diagram
+      style: heading-2
+  - slide:
+      title: Diagram
+      points:
+      - Parse the doc into blocks and paragraphs.
+      - Record the commands in a terminal.
+- source: prose.md:41
+  id: prose-diagram-2
+  narration: Parse the doc into blocks and paragraphs.
+  actions:
+  - slide:
+      title: Diagram
+      points:
+      - Parse the doc into blocks and paragraphs.
+      - Record the commands in a terminal.
+      current: 1
+- source: prose.md:42
+  id: prose-diagram-3
+  narration: Record the commands in a terminal.
+  actions:
+  - slide:
+      title: Diagram
+      points:
+      - Parse the doc into blocks and paragraphs.
+      - Record the commands in a terminal.
+      current: 2
+- source: prose.md:44
+  id: prose-diagram-4
+  narration: The diagram follows the stages.
+  actions:
+  - slide:
+      mermaid: "flowchart LR\n  a --> b\n"

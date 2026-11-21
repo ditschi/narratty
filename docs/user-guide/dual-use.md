@@ -15,7 +15,9 @@ The doc is read top to bottom. The paragraph directly before a block is its lead
 is spoken while that block runs; by default **narration and typing start together**. A
 paragraph after a block is spoken in the next scene, while the output is still on
 screen. A `run` comment before a block changes the order per block, see
-[Choosing who goes first](#choosing-who-goes-first-voice-or-command). See also
+[Choosing who goes first](#choosing-who-goes-first-voice-or-command). Text that no block
+comes with leaves the terminal on screen as it is, unless the entry sets
+[`prose: slides`](markdown.md#prose-slides): then it shows its key points. See also
 [How a doc becomes scenes](markdown.md#how-a-doc-becomes-scenes).
 
 ## Rules
@@ -77,15 +79,33 @@ screen. A `run` comment before a block changes the order per block, see
 19. **Remove old workarounds when you upgrade.** A `say Warning!` or a footnote
     `skip` + `say` from before 0.7 now doubles up with the new defaults.
 
+### Let the prose carry the slides
+
+20. **Turn on `prose: slides` for docs that explain more than they run**: architecture
+    and concept pages, release notes, hardware set-up. Text that no command or slide
+    comes with then shows its key points instead of an unchanged terminal. A tutorial
+    with a command every few sentences needs it less.
+21. **Make the first sentence of each paragraph its point.** It becomes the key point,
+    cut at a comma when it is longer than 75 characters. `narratty plan --sources` lists
+    every key point; rewrite the sentence when one says little. Readers who skim the
+    page profit from the same sentence, so don't add a summary comment instead.
+22. **Write enumerations as lists.** A list becomes a bullet slide with its items as
+    written, one marked while it is spoken. End the paragraph before it with a colon,
+    and the slide appears with that paragraph.
+23. **Keep the heading in view in long videos** with `slides: {frame: true}` and
+    `heading_overlays`: the section heading stays at the top over terminal and slides.
+    For a look of your own, give `slides.css` a theme and `terminal.theme` its colours,
+    see [Themes](spec.md#themes).
+
 ### Check before you build
 
-20. **Run `narratty validate`, then `narratty check`, after every edit.** Treat each
+24. **Run `narratty validate`, then `narratty check`, after every edit.** Treat each
     warning as a to-do item. `check` runs the commands as the video would and reports
     "N commands ran, M shown only"; nothing ran means nothing is wired up.
-21. **Run `narratty plan --sources`** to see what each Markdown element became and why
+25. **Run `narratty plan --sources`** to see what each Markdown element became and why
     something was left out. Run `check` first: `plan` then uses the measured command
     durations.
-22. **Look at the video at section changes** and after slides. Extract frames with
+26. **Look at the video at section changes** and after slides. Extract frames with
     `ffmpeg -ss <t> -i out.mp4 -frames:v 1 f.png`, and read the `.srt`.
 
 ## What each element becomes
@@ -93,12 +113,13 @@ screen. A `run` comment before a block changes the order per block, see
 | Element | On the page | In the video | Recommendation |
 |---|---|---|---|
 | Heading | Structure | Chapter overlay (`heading_overlays`); the H1 card stays during the intro | One heading per step; it also scopes `sections` |
-| Paragraph | Text | Lead-in of the next block, or the scene after a block | Short before a block, explanations after it |
+| Paragraph | Text | Lead-in of the next block, or the scene after a block; with `prose: slides`, text no block comes with shows its key point | Short before a block, explanations after it; the first sentence says the point |
+| List | Items | Read item by item; with `prose: slides`, a bullet slide marking the item spoken | Enumerations, steps without commands |
 | `console` block | Command and output | Typed, run, output compared by `check` | The default for shell examples |
 | `bash` block | Script | Each command runs; output not compared | Scripts readers copy as a whole |
 | Code with `title` | File listing | Written hidden, shown with `cat` and a file overlay | Config files the demo needs |
 | Code with `narratty="show"` | Listing | Highlighted code slide | Responses, excerpts, examples |
-| Code without either | Listing | Left out (`validate` warns) | Add `show` or a `title` |
+| Code without either | Listing | Left out (`validate` warns); with `prose: slides`, a code slide | Add `show` or a `title`, or use `prose: slides` |
 | Table | Table | Left out; slide with a `table` or `slide` comment | Decisions and comparisons: `table {say: "If {A}, {B}."}` |
 | `mermaid` | Diagram | Slide; `focus` comments walk flowchart nodes and sequence participants | One short paragraph per node |
 | Image on its own line | Image | Slide titled with the alt text | Write a meaningful alt text |
@@ -135,7 +156,9 @@ With `say: after`, keep the lead-in very short: it is spoken over an idle prompt
 6. Set `clear_on: 2`, pick the sections with `sections: {exclude: [...]}`, and add
    `environment.packages` when `check` reports a missing tool (exit 127).
 7. Add a `table` comment to tables the video needs and `focus` comments to diagrams.
-8. Run `check`, then `build`, and look at the frames at each section change.
+8. For a guide that explains more than it runs, set `prose: slides` and read the key
+   points in `narratty plan --sources`; rewrite first sentences that say little.
+9. Run `check`, then `build`, and look at the frames at each section change.
 
 Expect to change about a sixth of the reader-visible text, and most of those changes
 improve the written guide as well.

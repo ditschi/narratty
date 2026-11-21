@@ -108,6 +108,7 @@ nav:
       - Voices and engines: examples/voices.md
       - Pronunciation: examples/pronunciation.md
       - Terminal look: examples/terminal.md
+      - Slides and themes: examples/slides.md
       - Editor layout: examples/editor-layout.md
       - Subtitles and drafts: examples/subtitles.md
       - Asciicast player: examples/cast.md

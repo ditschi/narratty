@@ -30,6 +30,12 @@ demo with no doc behind it.
 - **[Markdown input](user-guide/markdown.md):** a Markdown doc becomes the video; its
   paragraphs are the narration, its code blocks run in the terminal, and tables,
   images and `mermaid` diagrams become slides.
+- **[Prose slides](user-guide/markdown.md#prose-slides):** text no command comes with
+  shows its key points, taken from the doc itself, and lists become bullet slides, so
+  explanation-heavy docs make videos too.
+- **[Themes](user-guide/spec.md#themes) and a [frame](user-guide/spec.md#frame):**
+  restyle slides with a CSS file (Marp themes work), give the terminal matching colours,
+  and keep the section heading at the top over terminal and slides.
 - **Output:** an MP4, or an asciicast with narration and a player page
   (`--format cast`).
 - **[Local voices](user-guide/voices.md):** Kokoro (natural sounding, the default) or Piper

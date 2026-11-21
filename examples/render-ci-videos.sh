@@ -10,3 +10,6 @@ mkdir -p "$out"
 
 # The video of docs/user-guide/markdown.md, made from that page.
 narratty build examples/markdown/markdown.narratty.yaml --no-end-card -o "$out/markdown.mp4" "$@"
+
+# Prose slides, a theme and the frame (docs/examples/slides.md).
+narratty build examples/slides/slides.narratty.yaml --no-end-card -o "$out/slides.mp4" "$@"
