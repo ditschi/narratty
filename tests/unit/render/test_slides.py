@@ -64,7 +64,7 @@ def test_table_page(tmp_path: Path) -> None:
 
 def test_light_theme_and_mermaid(tmp_path: Path) -> None:
     page = slides.page(_slide(mermaid="graph TD\n  a --> b", theme="light"), "dark", tmp_path)
-    assert '<pre class="mermaid">graph TD\n  a --&gt; b</pre>' in page
+    assert '<div class="mermaid">graph TD\n  a --&gt; b</div>' in page
     assert 'data-mermaid-theme="default"' in page
     assert "#ffffff" in page
     assert 'data-mermaid-theme="dark"' in slides.page(_slide(mermaid="graph TD"), "dark", tmp_path)
@@ -112,7 +112,13 @@ def test_a_css_file_comes_after_the_built_in_look(tmp_path: Path) -> None:
     assert page.index(":where(section.slide)") < page.index("section{background:#455a64}")
     assert '<section class="slide points invert lead"><h1>T</h1><div class="content">' in page
     assert "html{zoom:1.500000}" in page, "laid out 1280 px wide, zoomed to the video"
+    assert "font-weight:bold;\ncolor:inherit}" in page, "the title takes the theme's colour"
+    assert "section.slide pre.code{background:#282a36;color:#f8f8f2;" in page, "code stays readable"
+    assert "color:inherit;\npadding:0;margin:0;background:transparent}" in page, "also its plain text"
     assert "section.slide{width:1280px;height:720px;" in page
+    assert "display:flex;align-items:center;justify-content:center;" in page, (
+        "centred, not stretched, under a theme"
+    )
 
 
 def test_look_of_the_spec(tmp_path: Path) -> None:

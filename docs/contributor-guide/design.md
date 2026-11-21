@@ -1305,7 +1305,8 @@ in the image.
 
 ### 2. Themes
 - Slide pages become semantic: `<section class="slide KIND">` with an `h1` title and
-  `ul` (points), `table`, `pre` (code, Mermaid) or `img` in a `div.content`. The built-in `dark` and
+  `ul` (points), `table`, `pre` (code), `div.mermaid` (not a `pre`, which themes style as
+  code) or `img` in a `div.content`. The built-in `dark` and
   `light` looks are CSS for these elements.
 - `slides.css`: a CSS file, relative to the spec, added after the built-in CSS. A Marp
   theme (Marp themes are CSS for `section`, `h1`, `ul`, `table`, `pre`) works as is.
