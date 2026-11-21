@@ -3396,9 +3396,9 @@ slides from its tables, <code>mermaid</code> blocks, images and blocks marked <c
 <p>Each slide is an HTML page with one <code>&lt;section class="slide KIND"&gt;</code>, laid out 1280 px
 wide and zoomed to the video. <code>KIND</code> is <code>table</code>, <code>mermaid</code>, <code>code</code>, <code>points</code> or
 <code>image</code>; the section holds an <code>h1</code> with the title and a <code>div.content</code> with a <code>table</code>,
-<code>pre</code>, <code>ul</code> or <code>img</code>. <code>slides.css</code> adds a CSS file after the built-in look, whose
+<code>pre</code> (code), <code>div.mermaid</code>, <code>ul</code> or <code>img</code>. <code>slides.css</code> adds a CSS file after the built-in look, whose
 rules have no specificity, so any rule in the file wins; what the file leaves out keeps
-the built-in look. A <a href="https://marp.app">Marp</a> theme is such a file: Marp themes are CSS
+the built-in look, except the title, which takes the theme's text colour. A <a href="https://marp.app">Marp</a> theme is such a file: Marp themes are CSS
 for <code>section</code>, <code>h1</code>, <code>ul</code>, <code>table</code> and <code>pre</code>, written for the same 1280 px width.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">slides</span><span class="p">:</span>
 <a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">css</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">themes/gaia.css</span><span class="w">      </span><span class="c1"># a Marp theme, or your own</span>
