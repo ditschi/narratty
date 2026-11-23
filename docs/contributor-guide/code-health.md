@@ -1,194 +1,175 @@
 # Code health
 
-`nox -s code-health` scores every Python file from 1 to 10, modelled on CodeScene's
-[Code Health](https://codescene.io/docs/guides/technical/code-health.html): green ≥ 9.0,
-yellow 4.0–8.9, red < 4.0. CodeScene's research ("AI-Ready Code", Tornhill 2026) found
-that AI-assisted changes to unhealthy code carry at least 60 % more defects, so we hold
-changed code to 9.5. The score does not replace tests, coverage or review.
+Code health is scored from 1 to 10 per file and for the repository, modelled on CodeScene's
+[Code Health](https://codescene.io/docs/guides/technical/code-health.html): healthy ≥ 9,
+warning 4–9, alert < 4. CodeScene's research ("AI-Ready Code", Tornhill 2026) found that
+AI-assisted changes to unhealthy code carry at least 60 % more defects. Our target is 10,
+no finding at all; 9.5 is only the floor on the way there. The score does not replace
+tests, coverage or review.
 
-We do not use CodeScene itself (its score needs a paid token). The checker in
-`tools/code_health/` rebuilds the smells from Python's AST with the standard library
-only; its cyclomatic numbers match [lizard](https://github.com/terryyin/lizard) and its
-cognitive complexity follows SonarSource (close to
-[complexipy](https://github.com/rohaquinlop/complexipy)).
+The scores come from [aihealth](https://github.com/epatel/ai-health) (MIT), the same tool
+in all of the owner's Python repositories. Its core is deterministic and needs no AI. It
+also scores the Go helper in `agent/` and the shell scripts.
 
 ## Usage
 
 ```bash
-nox -s code-health                          # every file, gate against the baseline
-nox -s code-health -- --changed             # files changed since origin/main, uncommitted ones included
-nox -s code-health -- --changed v0.4.0      # ... since another base
-nox -s code-health -- --json --changed      # the same as JSON, for agents
-nox -s code-health -- src/narratty/build.py # these files (what the pre-commit hook does)
-nox -s code-health -- --update-baseline     # record improved scores (ratchet)
+nox -s code-health                          # aihealth scan .: project score, worst files
+nox -s code-health -- delta                 # your uncommitted changes against HEAD
+nox -s code-health -- delta --staged        # what the pre-commit hook checks
+nox -s code-health -- delta --format json   # the same for agents (also: markdown)
+nox -s code-health -- scan . --report       # full report in AI-HEALTH.md
+nox -s code-health-components -- main       # component scores, merge base vs working tree
 ```
 
-The table lists files with smells, worst first, each smell with its line, the function
-or class, the measured value and what it costs. The JSON has the same data under
-`reports`, plus `repo_score`, `worst_file` and `gate.violations`.
+`delta` names every new or worsened smell with `path:line` and a fix hint, and exits with
+1 when health got worse. The session always passes `--config .aihealth.toml`: aihealth
+otherwise looks for the file in the scanned folder and silently falls back to its
+defaults. Run aihealth directly with
+`uv run --isolated --only-group code-health aihealth ... --config .aihealth.toml`.
 
-## Score
+aihealth is pinned once, in the `code-health` dependency group of `pyproject.toml` (a git
+commit, locked in `uv.lock`), so every run comes from uv's cache. On first use it
+downloads its tree-sitter grammars (about 30 MB) to `~/.cache/tree-sitter-language-pack`.
 
-Every file starts at 10.0. Each smell deducts a weight, which grows with how far the value
-is over its threshold and is capped per occurrence; one kind of smell deducts at most 3.0
-per file, and no file drops below 1.0. The repository score is the mean of the file
-scores weighted by their code lines (no blank lines, comments or docstrings).
+## Profile
 
-Thresholds and weights live in [`code-health.toml`](https://github.com/ditschi/narratty/blob/main/code-health.toml),
-which also marks each one as a CodeScene default or as our own assumption. Scores are only
-comparable within one `version` of that file.
+[`.aihealth.toml`](https://github.com/ditschi/narratty/blob/main/.aihealth.toml) holds the
+profile "strict", the only place to change it:
 
-| Level | Smell | Starts at |
+| Key | Value | aihealth default |
 |---|---|---|
-| Function | Complex Method | cyclomatic complexity > 9 (`and`/`or` count) |
-| | Cognitive complexity | > 15 (SonarSource) |
-| | Large Method | > 70 code lines |
-| | Brain Method | ≥ 60 lines, CC ≥ 15 and nesting ≥ 3 at once |
-| | Many arguments | ≥ 5 parameters; `self`/`cls`, typer options and pytest fixtures excluded |
-| | Nested complexity | if/for/while/except/match nested 4 deep (`elif`, `with` and `try:` do not nest) |
-| | Bumpy Road | ≥ 2 separate top-level blocks nested ≥ 2 deep |
-| | Complex Conditional | ≥ 4 `and`/`or` in one condition |
-| | Duplication (DRY) | ≥ 6 identical normalised lines elsewhere (test files excluded) |
-| Module | Large File | > 1000 code lines |
-| | Many functions | > 60 functions and methods |
-| | God Class | ≥ 300 lines, ≥ 20 methods and summed CC ≥ 80 |
-| | Low Cohesion | LCOM4 ≥ 2 in a class with ≥ 4 methods (dunders and methods not using `self` left out) |
-| | Primitive Obsession | ≥ 70 % of ≥ 20 annotated parameters are `str`/`int`/`float`/`bool`/`bytes` |
-| Tests | Large Assertion Block | ≥ 6 consecutive asserts |
-| | Duplicated Assertion Block | the same 3 consecutive asserts in more than one test of a file |
+| `thresholds.large_file` | 600 code lines | 1000 |
+| `thresholds.primitive_obsession` | 30 % of typed parameters | 60 % |
+| `score.decay` | 8 | 15 |
+| `score.symbol_cap` | 4 | 4 |
+| `score.density_loc` | 100000 (large files get no relief from a low smell density) | 300 |
+| `delta.tolerance` | 0.0 (any degradation fails) | 0.1 |
+
+The other thresholds are aihealth's CodeScene-style defaults: more than 4 parameters,
+cyclomatic complexity above 9, functions above 70 code lines, nesting 4 deep, 2 bumps, 2
+`and`/`or` in one condition, cognitive complexity above 15, LCOM4 of 3.
 
 ## Gate
 
-Pre-commit (`code-health` hook) and CI (`nox -s code-health -- --changed origin/main`) fail when
+- **pre-commit**: `aihealth delta --staged` fails when staged changes make code health
+  worse; new files may not have any smell. A second hook rejects suppressions without a
+  reason.
+- **Pull requests**: `aihealth delta` from the merge base to `HEAD` (not `origin/main`:
+  newer commits on main are not the branch's doing), then
+  `tools/aihealth_components.py`, which fails when the score of a component
+  (`src/narratty`, `tests`, `agent`, `tools`, `docker`, `examples`) drops against the merge
+  base. `aihealth scan` writes the report into the job summary. The tree-sitter grammars are
+  cached.
+- The delta tolerance of 0 is the ratchet: nothing may get worse, so the score only rises.
 
-- a changed file scores below 9.5, unless it is listed in the baseline and has not
-  dropped below the score recorded there,
-- a changed file scores lower than it did at the base revision (`HEAD` for pre-commit,
-  the merge base for `--changed`),
-- the repository score drops below the one recorded in the baseline.
-
-`code-health-baseline.json` is the ratchet while the repository is below its target: it
-records the files below 9.5 with their scores and the repository score. After improving
-code, run `nox -s code-health -- --update-baseline` and commit the file; the update is
-refused while the gate fails, so the recorded scores only go up. Start a new baseline only
-when `code-health.toml` gets a new `version`.
+Linters no longer judge structure: ruff's `C90` and pylint's duplicate check are off, so
+each smell has one source, aihealth.
 
 ## Fix smells, do not suppress them
 
 Refactor rather than suppress: extract functions, return early, replace branches with
-lookup tables, group parameters into a dataclass, split modules by responsibility.
+lookup tables, name complex conditions, group parameters into a dataclass, introduce small
+domain types instead of raw strings and numbers, split modules by responsibility.
 Behaviour must not change, and the tests must stay green.
 
-When a smell really is the clearest way to write something, suppress it on its line, or
-in a comment right above it (decorators may sit in between), and say why:
+aihealth suppressions apply to a whole file and must give a reason after ` -- ` (without
+it aihealth reads the text as part of the smell name and ignores the comment without a
+word; a pre-commit hook enforces it):
 
 ```python
-# code-health: ignore[complex-method] one flat branch per Docker error keeps the mapping readable
-def classify(error: str) -> ExitCode:
-    ...
+# aihealth: disable=primitive_obsession -- typer command: options are plain values by design
 ```
 
-A suppression without a reason is ignored and costs 0.5 itself. Module smells
-(`large-file`, `many-functions`, `primitive-obsession`) are suppressed in the file's
-leading comment block.
+## The earlier own checker
+
+Before aihealth was chosen, `tools/code_health/` scored the repository with its own AST
+checks (`code-health.toml`, `code-health-baseline.json`, `nox -s code-health-own`). It
+stays as a cross-check, in CI as well, until the aihealth gate runs green. Its test smells
+(`tools/code_health/assertions.py`: large and duplicated assertion blocks, which aihealth
+does not have yet) are meant as a template for a contribution to aihealth.
 
 ## Steckbrief Code Health
 
 The profile below follows the outline shared by all repositories whose code health
-approaches are compared later; it is kept in German like that outline.
+approaches are compared; it is kept in German like that outline.
 
 ### 1. Messumfang
 
-Gezählt werden alle Python-Dateien unter `src/`, `tests/` und `tools/` sowie `noxfile.py`
-(`include` in `code-health.toml`). Nicht gezählt werden `src/narratty/_version.py`
-(generiert), der Go-Helfer `agent/` (eigene Sprache, eigenes `go vet`), Shell-Skripte,
-YAML-Specs, Docs und Docker-Dateien: Dort entstehen die Defekte, die das Whitepaper
-meint, kaum, und Python-Werkzeuge messen sie nicht sinnvoll. Tests zählen mit, aber mit
-Test-Smells statt Duplikaten. Codezeilen sind Zeilen ohne Leerzeilen, Kommentare und
-Docstrings.
+aihealth bewertet alle Dateien in seinen Sprachen: Python unter `src/`, `tests/`, `tools/`
+und `noxfile.py`, Go in `agent/`, Shell-Skripte in `docker/` und `examples/` (218 Dateien,
+24.186 Codezeilen). Ausgeschlossen (`[scan] exclude`): das generierte
+`src/narratty/_version.py`, die mkdocs-Ausgabe `site/` und `.nox/`. Nicht bewertet werden
+YAML-Specs, Markdown, Dockerfiles und CI-Workflows; dafür hat aihealth keine Sprache, und
+dort entstehen die Defekte, um die es geht, kaum. Tests zählen voll mit.
 
 ### 2. Tools und Versionen
 
-| Sprache | Tool | Rolle |
+| Sprache | Tool | Version |
 |---|---|---|
-| Python | eigener Checker `tools/code_health/` (Standardbibliothek: `ast`, `tokenize`, `tomllib`; Python ≥ 3.11, im Repo 3.12) | alle Metriken, Score, Gate |
-| Python | nox (Session `code-health`), uv, pre-commit | Aufruf |
-| Python | lizard 1.26.1, complexipy 9.0.0 (beide MIT) | nur Gegenprobe, keine Abhängigkeit |
+| Python, Go, Shell | aihealth (tree-sitter 0.26, tree-sitter-language-pack 1.25) | v0.4.0, gepinnt auf Commit `033d1867` |
+| alle | uv (dependency group `code-health`, `uv.lock`), nox, pre-commit | wie im Repo |
+| Python | eigener Checker `tools/code_health/` (nur stdlib) | Gegenprobe, Config-Version 1 |
+| Python | ruff (ohne `C90`), mypy strict, vulture, fawltydeps, pylint (nur zyklische Imports) | unverändert, ohne Strukturregeln |
 
-Begründung: Das Repo setzt auf uv, nox, ruff und mypy. ruff liefert zwar C901,
-PLR0913 und PLR1702, aber nur Ja/Nein-Treffer ohne `and`/`or` in der Komplexität, ohne
-kognitive Komplexität, Bumpy Road, LCOM4 und Assertion-Blöcke. Ein Checker in reinem
-Python braucht keine weitere Abhängigkeit, läuft als nox-Session, wird von ruff und mypy
-geprüft wie der übrige Code und misst sich selbst. radon und xenon (letzte Releases 2023
-und 2024) und jscpd (npm) passen schlechter zum Setup.
+Eingebunden als uv dependency group statt als Extra: Sie landet nie in den veröffentlichten
+Paket-Metadaten, die keine Git-URLs enthalten dürfen, und `uv run --isolated --only-group`
+braucht keine eigene Umgebung neben `.venv`. Das passt zu den vorhandenen Hooks, die ruff
+und mypy genauso starten.
 
 ### 3. Abgebildete Smells
 
-| CodeScene-Kriterium | Hier | Umsetzung |
-|---|---|---|
-| Complex Method | `complex_method` | McCabe inkl. `and`/`or` und Comprehensions (= lizard) |
-| Large Method | `large_method` | Codezeilen je Funktion |
-| Brain Method | `brain_method` | groß, komplex und verschachtelt zugleich |
-| Excess Function Arguments | `many_arguments` | ohne `self`/`cls`, Typer-Optionen, pytest-Fixtures |
-| Primitive Obsession | `primitive_obsession` | Anteil primitiver Annotationen je Modul |
-| Code Duplication (DRY) | `duplication` | gleiche normalisierte 6-Zeilen-Fenster über alle Dateien |
-| Deep, Nested Complexity | `nested_complexity` | if/for/while/except/match-Tiefe |
-| Bumpy Road | `bumpy_road` | getrennte Top-Level-Blöcke mit Tiefe ≥ 2 |
-| Complex Conditional | `complex_conditional` | `and`/`or` je Bedingung |
-| (kognitive Komplexität, Sonar) | `cognitive_complexity` | SonarSource-Regeln |
-| Lines of Code in a Single File | `large_file` | Codezeilen je Datei |
-| Large Module / viele Funktionen | `many_functions` | Funktionen und Methoden je Datei |
-| Brain/God Class | `god_class` | Zeilen, Methoden und Summe der Komplexität |
-| Low Cohesion | `low_cohesion` | LCOM4 je Klasse |
-| Large Assertion Blocks | `large_assertion_block` | aufeinanderfolgende `assert` |
-| Duplicated Assertion Blocks | `duplicated_assertion_block` | gleiche 3er-Folgen in mehreren Tests |
-
-Nicht abgebildet: Low Cohesion auf Modulebene (würde fast jedes Utility-Modul treffen),
-String-Heavy Arguments (in Primitive Obsession enthalten), Overall Code Complexity und
-Functions with many returns (durch zyklomatische und kognitive Komplexität abgedeckt),
-Change Coupling und Hotspots aus der Git-Historie (kein Smell der Datei, sondern
-Priorisierung; wird beim Refactoring von Hand genutzt).
+aihealth deckt ab: Brain Method, Large Method, Complex Method, Cognitive Complexity, Deep
+Nesting, Bumpy Road, Excess Arguments, Complex Conditional, Large File, Low Cohesion
+(LCOM4), Primitive Obsession und Code Duplication (Deep Widget Tree und Missing Phony
+betreffen hier nichts). Nicht abgebildet: Large und Duplicated Assertion Blocks (hat
+aihealth noch nicht; der eigene Checker misst sie als Gegenprobe und dient als Vorlage für
+einen Upstream-Beitrag), God Class als eigener Smell (über Large File, Low Cohesion und
+Brain Method abgedeckt), Many Functions per Module (über Large File abgedeckt). Change
+Coupling und Hotspots aus der Git-Historie sind keine Datei-Smells und dienen nur der
+Priorisierung.
 
 ### 4. Schwellen, Gewichte und Score-Formel
 
-Alle Werte stehen versioniert in `code-health.toml` (`version = 1`) und sind dort als
-CodeScene-Default oder Annahme markiert; siehe auch die Tabelle unter [Score](#score).
-Formel je Datei: `score = max(1.0, 10 - Σ_Art min(3.0, Σ_Treffer min(max, weight + step · (Wert - Schwelle))))`.
-Repo-Score: Mittelwert der Datei-Scores, gewichtet mit Codezeilen; die schlechteste Datei
-wird mit ausgegeben. Bänder wie CodeScene: grün ≥ 9.0, gelb 4.0–8.9, rot < 4.0.
+Profil "strict" in `.aihealth.toml` (siehe [Profile](#profile)), vom Owner bestätigt:
+`large_file = 600`, `primitive_obsession = 0.3`, `decay = 8`, `symbol_cap = 4`,
+`density_loc = 100000`, `tolerance = 0.0`. Übrige Schwellen und die Gewichte sind die
+Defaults von aihealth v0.4.0 (`src/aihealth/config.py`). Die Score-Formel ist die von
+aihealth: Abzüge der Smells, je Symbol gedeckelt (`symbol_cap`), über eine Abklingkurve
+(`decay`) auf 1–10 abgebildet; der Repo-Score ist der mit Codezeilen gewichtete Mittelwert.
 
 ### 5. Bedienung
 
-`nox -s code-health` (oder `python -m tools.code_health`) mit `--changed [BASE]` (Dateien
-seit dem Merge-Base mit `origin/main`, inklusive nicht committeter), `--json` für Agents
-(`repo_score`, `worst_file`, `gate.violations`, `reports[].smells[]` mit `kind`, `line`,
-`symbol`, `value`, `deduction`), Dateien als Argumente (pre-commit), `--update-baseline`,
-`--exit-zero`. Ausgabe sonst als Tabelle mit Datei, Score und Smells samt Zeile.
-Laufzeit für 200 Dateien und 24.000 Codezeilen: etwa 1,7 s komplett, etwa 3,4 s mit
-`--changed` (zweiter Durchlauf für die Basisrevision).
+`nox -s code-health` (Standard `scan .`) und `nox -s code-health -- delta [--staged |
+--base REV --head REV]`, jeweils mit `--config .aihealth.toml`. Ausgabe als Text,
+`--format markdown` für Agents und Berichte oder `--format json` (Dateien mit `findings`:
+`smell`, `line`, `symbol`, `value`, `threshold`, `hint`, `penalty`). Der Modus für geänderte
+Dateien ist `delta`. Laufzeit: `aihealth --version` 0,3 s aus dem Cache, `delta` über den
+Branch wenige Sekunden, `scan .` 6–15 s, der Komponenten-Vergleich etwa 10 s. aihealth
+bietet zusätzlich einen MCP-Server und Claude-Code-Hooks; beides ist hier nicht
+eingerichtet.
 
 ### 6. Gate
 
-pre-commit-Hook `code-health` (gegen `HEAD`), Schritt "Code health (changed files)" im
-PR-Workflow (`--changed origin/<base>`) und `code-health` in den Standard-Sessions von
-`nox`. Geänderte Dateien brauchen ≥ 9.5 oder dürfen als Baseline-Datei nicht unter ihren
-Baseline-Wert fallen; keine geänderte Datei darf schlechter werden als in der
-Basisrevision; der Repo-Score darf nicht unter den Baseline-Wert fallen.
-`code-health-baseline.json` ist die Ratchet; `--update-baseline` schreibt sie nur, wenn
-das Gate grün ist (oder bei neuer Config-Version). Suppressions nur inline als
-`# code-health: ignore[smell] Begründung`; ohne Begründung wirkungslos und selbst ein
-Smell (−0.5).
+pre-commit: `code-health` (`delta --staged`) und `aihealth-disable-reason` (pygrep, Regex
+`aihealth:[ \t]*disable=(?![\w, \t]+-- .{10})`). PR-Workflow: `delta` von der Merge-Base
+zu `HEAD`, Komponenten-Vergleich (`tools/aihealth_components.py`, Toleranz 0), `scan` als
+Bericht in der Job-Zusammenfassung, Cache für die Grammatiken und bis zur Ablösung die
+Gegenprobe mit dem eigenen Checker. Ratchet: Toleranz 0, also keine Verschlechterung; eine
+Baseline-Datei braucht aihealth dafür nicht (die des eigenen Checkers bleibt für die
+Gegenprobe). Suppressions: nur dateiweit als `# aihealth: disable=<smell> -- <Grund>`.
 
 ### 7. Ergebnis
 
-Vorher (Config-Version 1, Stand des Branches `feat/code-health`): Repo-Score **7.91**
-(gelb), 200 Dateien, 23.851 Codezeilen, 44 Dateien unter 9.5. Schlechteste Dateien:
-`src/narratty/build.py` 1.00, `src/narratty/spec/markdown/scenes.py` 1.00,
-`render/scene_cache.py` 3.55, `render/browser.py` 4.52, `spec/model.py` 4.55. Häufigste
-Smells: Complex Method (84), viele Argumente (70), kognitive Komplexität (34),
-Duplikate (17), Large Assertion Block (16), Bumpy Road (13).
+Vorher (aihealth v0.4.0, strict, Branch `feat/code-health`): Repo-Score **7.26**
+(warning), 148 Dateien healthy, 65 warning, 5 alert, 366 Funde in 85 Dateien. Häufigste
+Funde: Complex Method (85), Complex Conditional (69), Primitive Obsession (59), Excess
+Arguments (57), Cognitive Complexity (35), Code Duplication (33). Schlechteste Dateien:
+`src/narratty/build.py` 1.64, `spec/markdown/scenes.py` 1.67, `spec/model.py` 3.24,
+`render/scene_cache.py` 3.50, `spec/markdown/shell.py` 3.83. Zum Vergleich: main hatte
+mit der Default-Kurve 8.28 und mit strict 7.11; der eigene Checker kam auf 7.91.
 
-Nachher: offen, die Refactorings warten auf die Freigabe des Owners.
+Nachher: offen, die Refactorings in Richtung 10 warten auf die Freigabe des Owners.
 
 ### 8. Skills
 
@@ -198,19 +179,22 @@ github/awesome-copilot@refactor-method-complexity-reduce und @refactor,
 wondelai/skills@refactoring-patterns, wshobson/agents@python-design-patterns,
 addyosmani/agent-skills@code-review-and-quality, mryll/skills@low-complexity,
 anthropics/knowledge-work-plugins@tech-debt. Ausgeschlossen: `*@codehealth-mcp`
-(kostenpflichtiges Token). Empfohlen und vom Owner projektlokal installiert: `py-complexity` und `py-code-health`
-(`.claude/skills/`, Commit `b083571` in `skills-lock.json`). Übernommen werden ihre
-Refactoring-Muster; gemessen wird weiter mit `nox -s code-health`. Ihre Anweisungen,
-radon, lizard, xenon und wily als Abhängigkeiten aufzunehmen und `py-quality-setup` laufen
-zu lassen (ändert `.claude/settings.local.json`), gelten hier nicht (Hinweis in AGENTS.md).
+(kostenpflichtiges Token). Installiert (vom Owner, projektlokal): `py-complexity` und
+`py-code-health` (`.claude/skills/`, Commit `b083571` in `skills-lock.json`). Übernommen
+werden ihre Refactoring-Muster, gemessen wird mit aihealth. Ihre Anweisungen, radon,
+lizard, xenon und wily als Abhängigkeiten aufzunehmen und `py-quality-setup` laufen zu
+lassen, gelten hier nicht (Hinweis in AGENTS.md).
 
 ### 9. Erfahrungen
 
-Gut: Ein reiner AST-Checker ist schnell, ohne Abhängigkeiten und prüft sich selbst; die
-Werte stimmen mit lizard überein. Der Vergleich mit der Basisrevision macht "nicht
-schlechter werden" ohne gespeicherte Datei-Scores möglich. Weniger gut: kognitive
-Komplexität weicht in Randfällen (Comprehensions) um bis zu etwa 20 % von complexipy ab,
-und ohne Ausnahmen für Typer-Optionen und pytest-Fixtures wäre fast jeder CLI-Befehl ein
-Smell. Übertragbar: Score-Formel mit Deckel je Smell-Art, Ratchet-Baseline, die sich
-nur bei grünem Gate aktualisieren lässt, Suppressions nur mit Begründung. Projektspezifisch:
-die Typer-Ausnahme und die Wahl der Verzeichnisse.
+Gut: Der eigene Prototyp zeigte früh dieselben Hotspots wie aihealth (`build.py`,
+`scenes.py`, `scene_cache.py`) und lag im Repo-Score nah dran (7.91 gegen 7.11 mit
+strict); mit ihm ließen sich Gate-Logik und Ratchet erproben. aihealth bringt Go und Shell
+mit und braucht keine Baseline-Datei, weil `delta` gegen die Basisrevision rechnet.
+Weniger gut: aihealth unterdrückt nur dateiweit, und ein Formfehler im
+Suppression-Kommentar fällt nicht auf (daher der pygrep-Hook). Unter strict scheitern auch
+frisch geschriebene kleine Hilfsmodule an Primitive Obsession (30 %); typer-Befehle und
+Test-Helfer haben naturgemäß viele `str`- und `int`-Parameter. Übertragbar: Pin auf einen
+Commit in einer uv dependency group, `--config` immer ausdrücklich, Delta gegen die
+Merge-Base, Komponenten-Vergleich als kleines Skript, pygrep-Hook für Begründungen.
+Projektspezifisch: die Komponentenliste und die Gegenprobe mit dem eigenen Checker.

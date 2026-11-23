@@ -17,18 +17,23 @@
 
 ## Code health
 
-- Before every commit run `nox -s code-health -- --changed` (add `--json` to parse it). Every
-  changed file must score at least 9.5 and must not get worse; the repository score must not
-  drop below `code-health-baseline.json`. Pre-commit and CI enforce the same gate.
+- Before every commit run `nox -s code-health -- delta` (aihealth; `--format json` or
+  `--format markdown` to parse it) and fix what it reports. Nothing may get worse, new files
+  may have no smell; the target is 10. Pre-commit (`delta --staged`) and CI (delta from the
+  merge base plus component scores) enforce it.
 - Fix smells by refactoring, keeping behaviour and tests unchanged; do not suppress them.
-  A suppression needs a reason: `# code-health: ignore[<smell>] <why>`.
-- After raising scores, run `nox -s code-health -- --update-baseline` and commit the baseline.
-- Thresholds and weights are in `code-health.toml`, explained in
-  `docs/contributor-guide/code-health.md`.
+  A suppression is file-wide and needs a reason after ` -- `:
+  `# aihealth: disable=<smell> -- <why>`.
+- Always pass `--config .aihealth.toml` when calling aihealth directly (the nox session does).
+  The profile lives only there; aihealth is pinned only in the `code-health` dependency group.
+- ruff has no structure rules (`C90`); aihealth is the one source for structure smells.
+- The earlier own checker (`tools/code_health/`, `nox -s code-health-own`) is only a
+  cross-check; do not extend it.
 - The project skills `py-complexity` and `py-code-health` (`.claude/skills/`, pinned in
-  `skills-lock.json`) supply refactoring patterns. Measure with `nox -s code-health`, not
-  with the tools those skills name: do not add radon, lizard, xenon or wily as dependencies,
-  and skip their `py-quality-setup` step, which changes Claude settings.
+  `skills-lock.json`) supply refactoring patterns. Measure with aihealth, not with the tools
+  those skills name: do not add radon, lizard, xenon or wily, and skip their
+  `py-quality-setup` step, which changes Claude settings.
+- Details: `docs/contributor-guide/code-health.md`.
 
 ## Conventions
 

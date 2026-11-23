@@ -17,8 +17,10 @@ uv run pre-commit install    # ruff, mypy, code health, codespell, commit-msg ch
 | `nox -s check_types` | mypy (strict settings in `mypy.ini`) |
 | `nox -s necessary_imports` | fawltydeps: undeclared or unused dependencies |
 | `nox -s dead_code` | vulture |
-| `nox -s duplicates` / `cyclic_imports` | pylint R0801 / R0401 |
-| `nox -s code-health` | Code health score 1–10 and its gate; `-- --changed` for your changes ([details](code-health.md)) |
+| `nox -s cyclic_imports` | pylint R0401 |
+| `nox -s code-health` | Code health 1–10 with aihealth; `-- delta` for your changes ([details](code-health.md)) |
+| `nox -s code-health-components` | aihealth component scores against the merge base |
+| `nox -s code-health-own` | The earlier own checker, kept as a cross-check |
 | `nox -s performance` | Cold-start budgets for `--help` and shell completion |
 | `nox -s docs` | `mkdocs build --strict` |
 | `nox -s docs_check` | `narratty check` on the pages in `CHECKED_DOCS` (`noxfile.py`): their commands run natively, in a copy of the repository, and must print what the page shows |
