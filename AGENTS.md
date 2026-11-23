@@ -35,6 +35,16 @@
   `py-quality-setup` step, which changes Claude settings.
 - Details: `docs/contributor-guide/code-health.md`.
 
+## Agent skills
+
+Project skills live in `.claude/skills/`, pinned in `skills-lock.json` (`npx skills add ... -a claude-code`).
+
+- `systematic-debugging` and `verification-before-completion` (obra/superpowers): follow them.
+  Verification here means the nox sessions above with their output, not claims. Ignore their
+  JavaScript bits: `find-polluter.sh` runs `npm test` (bisect with pytest instead, one test file at a time:
+  `.venv/bin/pytest <file>`), and the `superpowers:test-driven-development` skill
+  they mention is not installed.
+
 ## Conventions
 
 - One module per subcommand under `src/narratty/cli/commands/`. Import heavy dependencies

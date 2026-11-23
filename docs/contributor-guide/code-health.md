@@ -183,7 +183,11 @@ anthropics/knowledge-work-plugins@tech-debt. Ausgeschlossen: `*@codehealth-mcp`
 `py-code-health` (`.claude/skills/`, Commit `b083571` in `skills-lock.json`). Übernommen
 werden ihre Refactoring-Muster, gemessen wird mit aihealth. Ihre Anweisungen, radon,
 lizard, xenon und wily als Abhängigkeiten aufzunehmen und `py-quality-setup` laufen zu
-lassen, gelten hier nicht (Hinweis in AGENTS.md).
+lassen, gelten hier nicht (Hinweis in AGENTS.md). In einer zweiten Runde (21 Stichwörter,
+22 SKILL.md gelesen, u. a. TDD, Tests, Typing, Review, typer, pydantic, Go) hat der Owner
+zusätzlich `systematic-debugging` und `verification-before-completion` aus obra/superpowers
+installiert; deren npm-Teile (`find-polluter.sh`) gelten hier nicht. Abgelehnt u. a.
+trailofbits@modern-python (ersetzt mypy durch `ty` und pre-commit durch `prek`, CC-BY-SA).
 
 ### 9. Erfahrungen
 
