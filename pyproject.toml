@@ -81,6 +81,12 @@ dev = [
     "narratty[test,lint,type-check,code-quality,docs,kokoro]",
 ]
 
+[dependency-groups]
+# Code health (nox -s code-health, pre-commit). A dependency group, not an extra: it never
+# reaches the published metadata, which may not hold git URLs. Pinned to the commit behind
+# aihealth v0.4.0 so uv resolves it from the cache (uv.lock holds the same pin).
+code-health = ["aihealth @ git+https://github.com/epatel/ai-health@033d1867fe514867d944d9387ee72db0188eed47"]
+
 [tool.hatch.version]
 source = "vcs"
 

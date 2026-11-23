@@ -46,13 +46,20 @@ repos:
         language: system
         pass_filenames: false
         args: [--package, narratty]
-      # Changed files must reach 9.5 and must not get worse than in HEAD; see code-health.toml.
+      # Staged changes must not make code health worse (aihealth, profile in .aihealth.toml).
       - id: code-health
-        name: code health
-        entry: uv run --no-project --python 3.12 python -m tools.code_health --base HEAD
+        name: code health (aihealth delta)
+        entry: uv run --quiet --isolated --only-group code-health aihealth delta --staged --config .aihealth.toml
         language: system
-        types: [python]
-        require_serial: true
+        types_or: [python, go, shell]
+        pass_filenames: false
+      # aihealth suppressions are file-wide; they must say why, after " -- " (without it
+      # aihealth reads the text as part of the smell name and silently ignores the comment).
+      - id: aihealth-disable-reason
+        name: aihealth suppressions give a reason
+        language: pygrep
+        entry: 'aihealth:[ \t]*disable=(?![\w, \t]+-- .{10})'
+        types_or: [python, go, shell]
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.16.4

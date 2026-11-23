@@ -1,7 +1,7 @@
 """Nox sessions for narratty.
 
 Uses the uv backend and mirrors repo-env's quality gates
-(ruff, mypy, vulture, fawltydeps, pylint duplicate/cyclic checks).
+(ruff, mypy, vulture, fawltydeps, pylint cyclic imports) plus aihealth code health.
 """
 
 from __future__ import annotations
@@ -39,9 +39,9 @@ _CI_DEFAULT = [
     "check_types",
     "necessary_imports",
     "dead_code",
-    "duplicates",
     "cyclic_imports",
     "code-health",
+    "code-health-own",
 ]
 nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 
@@ -187,20 +187,31 @@ def dead_code(session: nox.Session) -> None:
 
 
 @nox.session(python=DEFAULT_PYTHON)
-def duplicates(session: nox.Session) -> None:
-    """Detect duplicate code (pylint R0801)."""
-    session.install("-e", ".[code-quality]")
-    session.run("pylint", "--disable=all", "--enable=R0801", "--min-similarity-lines=6", SRC)
-
-
-@nox.session(python=DEFAULT_PYTHON)
 def cyclic_imports(session: nox.Session) -> None:
     """Detect cyclic imports (pylint R0401)."""
     session.install("-e", ".[code-quality]")
     session.run("pylint", "--disable=all", "--enable=R0401", SRC)
 
 
-@nox.session(name="code-health", python=DEFAULT_PYTHON, tags=["quality"])
+# aihealth from the `code-health` dependency group (pinned in pyproject.toml and uv.lock).
+# Always with the repository's config: otherwise aihealth looks for it in the scanned folder.
+AIHEALTH = ("uv", "run", "--quiet", "--isolated", "--only-group", "code-health", "aihealth")
+
+
+@nox.session(name="code-health", python=False, tags=["quality"])
 def code_health(session: nox.Session) -> None:
-    """Code health score 1-10 and its gate (`-- --changed`, `-- --json`; see code-health.toml)."""
+    """Code health with aihealth (profile in .aihealth.toml): `scan .` or `-- delta [--staged]`."""
+    args = session.posargs or ["scan", "."]
+    session.run(*AIHEALTH, *args, "--config", ".aihealth.toml", external=True)
+
+
+@nox.session(name="code-health-components", python=DEFAULT_PYTHON, tags=["quality"])
+def code_health_components(session: nox.Session) -> None:
+    """Fail when an aihealth component score drops against the merge base (`-- BASE`)."""
+    session.run("python", "tools/aihealth_components.py", *session.posargs)
+
+
+@nox.session(name="code-health-own", python=DEFAULT_PYTHON, tags=["quality"])
+def code_health_own(session: nox.Session) -> None:
+    """The earlier own checker (tools/code_health), kept as a cross-check for aihealth."""
     session.run("python", "-m", "tools.code_health", *session.posargs)

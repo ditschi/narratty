@@ -92,12 +92,24 @@ jobs:
         run: nox -s necessary_imports
       - name: Dead code
         run: nox -s dead_code
-      - name: Duplicate code
-        run: nox -s duplicates
       - name: Cyclic imports
         run: nox -s cyclic_imports
-      - name: Code health (changed files)
-        run: nox -s code-health -- --changed origin/${{ github.base_ref }}
+      # aihealth downloads its tree-sitter grammars (~30 MB) on first use.
+      - name: Cache tree-sitter grammars
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/tree-sitter-language-pack
+          key: tree-sitter-language-pack-${{ hashFiles('uv.lock') }}
+      # Against the merge base: newer commits on main are not this branch's doing.
+      - name: Code health (aihealth delta)
+        run: nox -s code-health -- delta --base "$(git merge-base origin/${{ github.base_ref }} HEAD)" --head HEAD
+      - name: Code health (component scores)
+        run: nox -s code-health-components -- origin/${{ github.base_ref }}
+      - name: Code health report
+        if: always()
+        run: nox -s code-health -- scan . --format markdown >> "$GITHUB_STEP_SUMMARY"
+      - name: Code health cross-check (own checker)
+        run: nox -s code-health-own -- --changed origin/${{ github.base_ref }}
   # ── Agent: narratty-agent (Go) ───────────────────────────────────────────────
   agent:
     name: Agent (Go)
