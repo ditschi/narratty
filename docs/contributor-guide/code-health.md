@@ -198,8 +198,11 @@ github/awesome-copilot@refactor-method-complexity-reduce und @refactor,
 wondelai/skills@refactoring-patterns, wshobson/agents@python-design-patterns,
 addyosmani/agent-skills@code-review-and-quality, mryll/skills@low-complexity,
 anthropics/knowledge-work-plugins@tech-debt. Ausgeschlossen: `*@codehealth-mcp`
-(kostenpflichtiges Token). Empfohlen: `py-complexity` und `py-code-health`. Übernommen:
-noch keiner, die Installation wartet auf die Zustimmung des Owners.
+(kostenpflichtiges Token). Empfohlen und vom Owner projektlokal installiert: `py-complexity` und `py-code-health`
+(`.claude/skills/`, Commit `b083571` in `skills-lock.json`). Übernommen werden ihre
+Refactoring-Muster; gemessen wird weiter mit `nox -s code-health`. Ihre Anweisungen,
+radon, lizard, xenon und wily als Abhängigkeiten aufzunehmen und `py-quality-setup` laufen
+zu lassen (ändert `.claude/settings.local.json`), gelten hier nicht (Hinweis in AGENTS.md).
 
 ### 9. Erfahrungen
 

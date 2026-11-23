@@ -25,6 +25,10 @@
 - After raising scores, run `nox -s code-health -- --update-baseline` and commit the baseline.
 - Thresholds and weights are in `code-health.toml`, explained in
   `docs/contributor-guide/code-health.md`.
+- The project skills `py-complexity` and `py-code-health` (`.claude/skills/`, pinned in
+  `skills-lock.json`) supply refactoring patterns. Measure with `nox -s code-health`, not
+  with the tools those skills name: do not add radon, lizard, xenon or wily as dependencies,
+  and skip their `py-quality-setup` step, which changes Claude settings.
 
 ## Conventions
 

@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "skills": {
+    "py-code-health": {
+      "source": "l-mb/python-refactoring-skills",
+      "commit": "b08357109fe81821decc100c8ea73ea2e3add08b",
+      "sourceType": "github",
+      "skillPath": "skills/py-code-health/SKILL.md",
+      "computedHash": "8950ab1667384fe7adf625ec21d05218374e60132e1034dfb2f5d8bb8971b90f"
+    },
+    "py-complexity": {
+      "source": "l-mb/python-refactoring-skills",
+      "commit": "b08357109fe81821decc100c8ea73ea2e3add08b",
+      "sourceType": "github",
+      "skillPath": "skills/py-complexity/SKILL.md",
+      "computedHash": "e37683d8bb329a55a83ac0cd82f3d83beede7960eb25506e0fbf473d5f0162c5"
+    }
+  }
+}
