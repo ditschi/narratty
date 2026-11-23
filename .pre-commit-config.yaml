@@ -46,6 +46,13 @@ repos:
         language: system
         pass_filenames: false
         args: [--package, narratty]
+      # Changed files must reach 9.5 and must not get worse than in HEAD; see code-health.toml.
+      - id: code-health
+        name: code health
+        entry: uv run --no-project --python 3.12 python -m tools.code_health --base HEAD
+        language: system
+        types: [python]
+        require_serial: true
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.16.4

@@ -15,6 +15,17 @@
   commands of the pages in `CHECKED_DOCS` and compares their output with the page; a page
   joins the list once its commands only touch the workspace copy (mark others `no-run`).
 
+## Code health
+
+- Before every commit run `nox -s code-health -- --changed` (add `--json` to parse it). Every
+  changed file must score at least 9.5 and must not get worse; the repository score must not
+  drop below `code-health-baseline.json`. Pre-commit and CI enforce the same gate.
+- Fix smells by refactoring, keeping behaviour and tests unchanged; do not suppress them.
+  A suppression needs a reason: `# code-health: ignore[<smell>] <why>`.
+- After raising scores, run `nox -s code-health -- --update-baseline` and commit the baseline.
+- Thresholds and weights are in `code-health.toml`, explained in
+  `docs/contributor-guide/code-health.md`.
+
 ## Conventions
 
 - One module per subcommand under `src/narratty/cli/commands/`. Import heavy dependencies

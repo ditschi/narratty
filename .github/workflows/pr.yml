@@ -96,6 +96,8 @@ jobs:
         run: nox -s duplicates
       - name: Cyclic imports
         run: nox -s cyclic_imports
+      - name: Code health (changed files)
+        run: nox -s code-health -- --changed origin/${{ github.base_ref }}
   # ── Agent: narratty-agent (Go) ───────────────────────────────────────────────
   agent:
     name: Agent (Go)

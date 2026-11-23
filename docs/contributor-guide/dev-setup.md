@@ -4,7 +4,7 @@ Tooling is managed with [uv](https://docs.astral.sh/uv/) and [nox](https://nox.t
 
 ```bash
 uv sync --extra dev          # .venv with narratty and all dev tools
-uv run pre-commit install    # ruff, mypy, codespell, commit-msg check
+uv run pre-commit install    # ruff, mypy, code health, codespell, commit-msg check
 ```
 
 ## Quality gates
@@ -18,6 +18,7 @@ uv run pre-commit install    # ruff, mypy, codespell, commit-msg check
 | `nox -s necessary_imports` | fawltydeps: undeclared or unused dependencies |
 | `nox -s dead_code` | vulture |
 | `nox -s duplicates` / `cyclic_imports` | pylint R0801 / R0401 |
+| `nox -s code-health` | Code health score 1–10 and its gate; `-- --changed` for your changes ([details](code-health.md)) |
 | `nox -s performance` | Cold-start budgets for `--help` and shell completion |
 | `nox -s docs` | `mkdocs build --strict` |
 | `nox -s docs_check` | `narratty check` on the pages in `CHECKED_DOCS` (`noxfile.py`): their commands run natively, in a copy of the repository, and must print what the page shows |

@@ -41,6 +41,7 @@ _CI_DEFAULT = [
     "dead_code",
     "duplicates",
     "cyclic_imports",
+    "code-health",
 ]
 nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 
@@ -125,22 +126,23 @@ def check_types(session: nox.Session) -> None:
     """Static type checking with mypy."""
     session.install("-e", ".[type-check]")
     session.run("mypy", "--package", PACKAGE)
+    session.run("mypy", "tools")
 
 
 @nox.session(python=DEFAULT_PYTHON, tags=["quality", "lint"])
 def lint(session: nox.Session) -> None:
     """Run ruff check and ruff format --check."""
     session.install("-e", ".[lint]")
-    session.run("ruff", "check", SRC, "tests", "noxfile.py")
-    session.run("ruff", "format", "--check", SRC, "tests", "noxfile.py")
+    session.run("ruff", "check", SRC, "tests", "tools", "noxfile.py")
+    session.run("ruff", "format", "--check", SRC, "tests", "tools", "noxfile.py")
 
 
 @nox.session(python=DEFAULT_PYTHON, tags=["quality", "format"])
 def format(session: nox.Session) -> None:  # noqa: A001 - keep conventional session name
     """Auto-format with ruff (local only)."""
     session.install("-e", ".[lint]")
-    session.run("ruff", "check", "--fix", SRC, "tests", "noxfile.py")
-    session.run("ruff", "format", SRC, "tests", "noxfile.py")
+    session.run("ruff", "check", "--fix", SRC, "tests", "tools", "noxfile.py")
+    session.run("ruff", "format", SRC, "tests", "tools", "noxfile.py")
 
 
 @nox.session(python=DEFAULT_PYTHON)
@@ -196,3 +198,9 @@ def cyclic_imports(session: nox.Session) -> None:
     """Detect cyclic imports (pylint R0401)."""
     session.install("-e", ".[code-quality]")
     session.run("pylint", "--disable=all", "--enable=R0401", SRC)
+
+
+@nox.session(name="code-health", python=DEFAULT_PYTHON, tags=["quality"])
+def code_health(session: nox.Session) -> None:
+    """Code health score 1-10 and its gate (`-- --changed`, `-- --json`; see code-health.toml)."""
+    session.run("python", "-m", "tools.code_health", *session.posargs)

@@ -117,6 +117,7 @@ nav:
   - Contributor Guide:
       - Development setup: contributor-guide/dev-setup.md
       - Release process: contributor-guide/release-process.md
+      - Code health: contributor-guide/code-health.md
       - Design notes: contributor-guide/design.md
       - Dual-use study: contributor-guide/dual-use-study.md
   - Changelog: changelog.md
