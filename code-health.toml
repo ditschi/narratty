@@ -1,0 +1,132 @@
+# Code health: thresholds and weights for `nox -s code-health` (tools/code_health).
+#
+# Modelled on CodeScene's Code Health (1-10, green >= 9.0, yellow 4.0-8.9, red < 4.0),
+# computed with our own AST checks only. Every file starts at 10.0, each smell deducts
+# its weight, a smell category deducts at most `category_cap`, and a file never drops
+# below 1.0. The repository score is the mean of the file scores weighted by their code
+# lines. Documented in docs/contributor-guide/code-health.md.
+#
+# "CodeScene" marks a threshold taken from CodeScene's documented defaults, "assumption"
+# one we picked ourselves. Bump `version` whenever a threshold or weight changes, since
+# scores are only comparable within one version (and refresh the baseline).
+version = 1
+
+include = ["src", "tests", "tools", "noxfile.py"]
+exclude = ["src/narratty/_version.py"]
+# Files whose path matches one of these globs get the test smells (assertion blocks).
+test_globs = ["tests/**/*.py"]
+
+[gate]
+min_file_score = 9.5        # every changed file must reach this (or not get worse while in the baseline)
+baseline = "code-health-baseline.json"
+
+[score]
+category_cap = 3.0          # assumption: one kind of smell can cost a file at most this much
+min_score = 1.0
+
+# Each smell: `threshold` is where the smell starts, `weight` what one occurrence deducts
+# at the threshold, `step` what each unit beyond it adds, `max` caps one occurrence.
+
+[smells.complex_method]     # cyclomatic complexity per function > 9 (CodeScene)
+threshold = 10
+weight = 0.5
+step = 0.1
+max = 1.5
+
+[smells.cognitive_complexity]  # SonarSource cognitive complexity per function > 15 (assumption, Sonar default)
+threshold = 16
+weight = 0.4
+step = 0.05
+max = 1.5
+
+[smells.large_method]       # code lines per function > 70 (CodeScene)
+threshold = 71
+weight = 0.5
+step = 0.01
+max = 1.5
+
+[smells.brain_method]       # large (>= 60 lines), complex (CC >= 15) and nested (>= 3) at once (assumption)
+loc = 60
+cyclomatic = 15
+nesting = 3
+weight = 2.0
+
+[smells.many_arguments]     # >= 5 parameters, self/cls excluded (CodeScene)
+threshold = 5
+weight = 0.3
+step = 0.1
+max = 1.0
+# Assumption: parameters declaring typer CLI options are the command line, not a call
+# interface, and pytest tests and fixtures receive fixtures; neither is counted.
+declared_defaults = ["typer.Option", "typer.Argument", "*Option", "*Argument"]
+
+[smells.nested_complexity]  # if/for/while/try/match nested >= 4 deep (CodeScene)
+threshold = 4
+weight = 0.5
+step = 0.25
+max = 1.5
+
+[smells.bumpy_road]         # >= 2 separate top-level blocks nested >= 2 deep in one function (CodeScene, depth: assumption)
+threshold = 2
+depth = 2
+weight = 0.4
+step = 0.2
+max = 1.2
+
+[smells.complex_conditional]  # >= 4 and/or operators in one condition (CodeScene, as given by the owner)
+threshold = 4
+weight = 0.3
+step = 0.1
+max = 1.0
+
+[smells.duplication]        # >= 6 identical normalised lines found elsewhere (assumption, matches `nox -s duplicates`)
+threshold = 6
+weight = 0.5
+step = 0.02
+max = 1.5
+skip_tests = true           # test files are judged by duplicated assertion blocks instead
+
+[smells.large_file]         # code lines per file > 1000 (assumption)
+threshold = 1001
+weight = 1.0
+step = 0.002
+max = 3.0
+
+[smells.many_functions]     # functions and methods per file > 60 (assumption)
+threshold = 61
+weight = 1.0
+step = 0.02
+max = 2.0
+
+[smells.god_class]          # class with >= 300 code lines, >= 20 methods and summed CC >= 80 (assumption)
+loc = 300
+methods = 20
+cyclomatic = 80
+weight = 2.0
+
+[smells.low_cohesion]       # LCOM4 >= 2 for classes with >= 4 methods (assumption); __init__ and dunders ignored
+threshold = 2
+min_methods = 4
+weight = 0.5
+step = 0.25
+max = 1.5
+
+[smells.primitive_obsession]  # >= 70 % primitive parameter annotations across >= 20 parameters (assumption)
+ratio = 0.7
+min_params = 20
+weight = 0.5
+
+[smells.large_assertion_block]  # >= 6 consecutive assert statements in a test (assumption)
+threshold = 6
+weight = 0.2
+step = 0.05
+max = 0.6
+
+[smells.duplicated_assertion_block]  # the same >= 3 consecutive asserts in more than one test of a file (assumption)
+threshold = 3
+weight = 0.3
+step = 0.0
+max = 0.3
+
+[smells.unexplained_suppression]  # `# code-health: ignore[...]` without a reason is not honoured and costs this
+weight = 0.5
