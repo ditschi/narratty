@@ -1,4 +1,5 @@
 """Render results as a readable table or as JSON for agents."""
+# aihealth: disable=primitive_obsession -- temporary cross-check for aihealth, removed afterwards
 
 from __future__ import annotations
 

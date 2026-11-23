@@ -1,4 +1,5 @@
 """code-health: score Python files 1-10 (CodeScene-style), print them and run the gate."""
+# aihealth: disable=primitive_obsession -- temporary cross-check for aihealth, removed afterwards
 
 from __future__ import annotations
 

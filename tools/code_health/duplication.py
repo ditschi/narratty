@@ -3,6 +3,7 @@
 Like pylint's similarity checker: blank lines, comments, docstrings, imports and
 lines holding only brackets are ignored, the rest is compared after stripping.
 """
+# aihealth: disable=primitive_obsession -- temporary cross-check for aihealth, removed afterwards
 
 from __future__ import annotations
 

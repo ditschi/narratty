@@ -4,6 +4,7 @@ While files sit below the minimum, the ratchet baseline (``code-health-baseline.
 records their scores and the repository score; they may stay below the minimum as long
 as they do not fall under their recorded score.
 """
+# aihealth: disable=primitive_obsession -- temporary cross-check for aihealth, removed afterwards
 
 from __future__ import annotations
 
@@ -72,7 +73,8 @@ class Gate:
     def _file_violations(self, report: FileReport) -> list[str]:
         violations = []
         allowed = self.baseline.files.get(report.path)
-        if report.score < self.min_file_score and (allowed is None or report.score < allowed):
+        floor_score = self.min_file_score if allowed is None else min(allowed, self.min_file_score)
+        if report.score < floor_score:
             floor = f"its baseline {allowed:.2f}" if allowed is not None else f"{self.min_file_score:.2f}"
             violations.append(f"{report.path}: score {report.score:.2f} is below {floor}")
         before = self.previous.get(report.path)

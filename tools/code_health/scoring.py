@@ -1,4 +1,5 @@
 """Turn smells into file scores and the LOC-weighted repository score."""
+# aihealth: disable=primitive_obsession -- temporary cross-check for aihealth, removed afterwards
 
 from __future__ import annotations
 

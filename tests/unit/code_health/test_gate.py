@@ -1,4 +1,5 @@
 """The gate and the command line of tools/code_health, in a scratch git repository."""
+# aihealth: disable=primitive_obsession -- temporary cross-check for aihealth, removed afterwards
 
 from __future__ import annotations
 

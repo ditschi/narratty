@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from typing import TypeGuard
 
 from .config import Config
 from .metrics import FunctionNode, cyclomatic
@@ -30,7 +31,8 @@ def _god_class(node: ast.ClassDef, source: Source, config: Config) -> list[Smell
     end = node.end_lineno or node.lineno
     loc = sum(1 for line in range(node.lineno, end + 1) if line in source.code_lines)
     complexity = sum(cyclomatic(method) for method in methods)
-    if loc < rule["loc"] or len(methods) < rule["methods"] or complexity < rule["cyclomatic"]:
+    limits = ((loc, "loc"), (len(methods), "methods"), (complexity, "cyclomatic"))
+    if any(value < rule[key] for value, key in limits):
         return []
     message = f"god class: {loc} lines, {len(methods)} methods, cyclomatic complexity {complexity}"
     return [Smell("god_class", node.lineno, node.name, 1, message, rule.weight)]
@@ -72,14 +74,15 @@ def _touched(method: FunctionNode) -> set[str] | None:
     if not args or args[0].arg not in {"self", "cls"}:
         return None
     receiver = args[0].arg
-    names = {
-        child.attr
-        for child in ast.walk(method)
-        if isinstance(child, ast.Attribute)
-        and isinstance(child.value, ast.Name)
-        and child.value.id == receiver
-    }
+    names = {child.attr for child in ast.walk(method) if _is_member_of(child, receiver)}
     return names or None
+
+
+def _is_member_of(node: ast.AST, receiver: str) -> TypeGuard[ast.Attribute]:
+    """``receiver.something``."""
+    if not isinstance(node, ast.Attribute):
+        return False
+    return isinstance(node.value, ast.Name) and node.value.id == receiver
 
 
 def lcom4(members: dict[str, set[str]]) -> int:
