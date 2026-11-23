@@ -160,6 +160,7 @@ def necessary_imports(session: nox.Session) -> None:
         "pyproject.toml",
         "--ignore-unused",
         "piper-tts",  # run as a subprocess (`python -m piper`), never imported
+        "aihealth",  # code health CLI (dependency group), never imported
         "commitizen",
         "fawltydeps",
         "mike",
