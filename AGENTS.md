@@ -44,6 +44,11 @@ Project skills live in `.claude/skills/`, pinned in `skills-lock.json` (`npx ski
   JavaScript bits: `find-polluter.sh` runs `npm test` (bisect with pytest instead, one test file at a time:
   `.venv/bin/pytest <file>`), and the `superpowers:test-driven-development` skill
   they mention is not installed.
+- `typer` (fastapi/typer, official): use its patterns (`Annotated` declarations, no Click
+  extensions) for new and changed commands. Do not migrate untouched commands from the
+  `typer.Option(...)` default style in unrelated changes; dependencies go into
+  `pyproject.toml` and `uv sync`, not `pip install`.
+- Third-party skill files are excluded from aihealth (`.aihealth.toml`).
 
 ## Conventions
 
