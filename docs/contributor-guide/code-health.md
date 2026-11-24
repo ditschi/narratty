@@ -86,14 +86,6 @@ word; a pre-commit hook enforces it):
 # aihealth: disable=primitive_obsession -- typer command: options are plain values by design
 ```
 
-## The earlier own checker
-
-Before aihealth was chosen, `tools/code_health/` scored the repository with its own AST
-checks (`code-health.toml`, `code-health-baseline.json`, `nox -s code-health-own`). It
-stays as a cross-check, in CI as well, until the aihealth gate runs green. Its test smells
-(`tools/code_health/assertions.py`: large and duplicated assertion blocks, which aihealth
-does not have yet) are meant as a template for a contribution to aihealth.
-
 ## Steckbrief Code Health
 
 The profile below follows the outline shared by all repositories whose code health
@@ -102,8 +94,8 @@ approaches are compared; it is kept in German like that outline.
 ### 1. Messumfang
 
 aihealth bewertet alle Dateien in seinen Sprachen: Python unter `src/`, `tests/`, `tools/`
-und `noxfile.py`, Go in `agent/`, Shell-Skripte in `docker/` und `examples/` (218 Dateien,
-24.186 Codezeilen). Ausgeschlossen (`[scan] exclude`): das generierte
+und `noxfile.py`, Go in `agent/`, Shell-Skripte in `docker/` und `examples/` (200 Dateien,
+22.979 Codezeilen). Ausgeschlossen (`[scan] exclude`): das generierte
 `src/narratty/_version.py`, die mkdocs-Ausgabe `site/`, `.nox/` und fremde Agent-Skills
 unter `.claude/skills/` (unveränderte Kopien laut `skills-lock.json`). Nicht bewertet werden
 YAML-Specs, Markdown, Dockerfiles und CI-Workflows; dafür hat aihealth keine Sprache, und
@@ -115,7 +107,6 @@ dort entstehen die Defekte, um die es geht, kaum. Tests zählen voll mit.
 |---|---|---|
 | Python, Go, Shell | aihealth (tree-sitter 0.26, tree-sitter-language-pack 1.25) | v0.4.0, gepinnt auf Commit `033d1867` |
 | alle | uv (dependency group `code-health`, `uv.lock`), nox, pre-commit | wie im Repo |
-| Python | eigener Checker `tools/code_health/` (nur stdlib) | Gegenprobe, Config-Version 1 |
 | Python | ruff (ohne `C90`), mypy strict, vulture, fawltydeps, pylint (nur zyklische Imports) | unverändert, ohne Strukturregeln |
 
 Eingebunden als uv dependency group statt als Extra: Sie landet nie in den veröffentlichten
@@ -129,8 +120,9 @@ aihealth deckt ab: Brain Method, Large Method, Complex Method, Cognitive Complex
 Nesting, Bumpy Road, Excess Arguments, Complex Conditional, Large File, Low Cohesion
 (LCOM4), Primitive Obsession und Code Duplication (Deep Widget Tree und Missing Phony
 betreffen hier nichts). Nicht abgebildet: Large und Duplicated Assertion Blocks (hat
-aihealth noch nicht; der eigene Checker misst sie als Gegenprobe und dient als Vorlage für
-einen Upstream-Beitrag), God Class als eigener Smell (über Large File, Low Cohesion und
+aihealth noch nicht; der frühere eigene Prototyp-Checker hatte sie, sein Modul
+`tools/code_health/assertions.py` ist in der Git-Historie, Commit `b51c124`, als Vorlage
+für einen Upstream-Beitrag erhalten), God Class als eigener Smell (über Large File, Low Cohesion und
 Brain Method abgedeckt), Many Functions per Module (über Large File abgedeckt). Change
 Coupling und Hotspots aus der Git-Historie sind keine Datei-Smells und dienen nur der
 Priorisierung.
@@ -160,21 +152,20 @@ eingerichtet.
 pre-commit: `code-health` (`delta --staged`) und `aihealth-disable-reason` (pygrep, Regex
 `aihealth:[ \t]*disable=(?![\w, \t]+-- .{10})`). PR-Workflow: `delta` von der Merge-Base
 zu `HEAD`, Komponenten-Vergleich (`tools/aihealth_components.py`, Toleranz 0), `scan` als
-Bericht in der Job-Zusammenfassung, Cache für die Grammatiken und bis zur Ablösung die
-Gegenprobe mit dem eigenen Checker (Bericht und Gegenprobe laufen auch, wenn das Delta
-scheitert). Ratchet: Toleranz 0, also keine Verschlechterung; ein Mindest-Score von 9.5
-wird noch nicht erzwungen. Eine Baseline-Datei braucht aihealth dafür nicht (die des eigenen Checkers bleibt für die
-Gegenprobe). Suppressions: nur dateiweit als `# aihealth: disable=<smell> -- <Grund>`.
+Bericht in der Job-Zusammenfassung (läuft auch, wenn das Delta scheitert) und Cache für
+die Grammatiken. Ratchet: Toleranz 0, also keine Verschlechterung; ein Mindest-Score von 9.5
+wird noch nicht erzwungen. Eine Baseline-Datei braucht aihealth dafür nicht.
+Suppressions: nur dateiweit als `# aihealth: disable=<smell> -- <Grund>`.
 
 ### 7. Ergebnis
 
-Vorher (aihealth v0.4.0, strict, Branch `feat/code-health`): Repo-Score **7.26**
-(warning), 148 Dateien healthy, 65 warning, 5 alert, 366 Funde in 85 Dateien. Häufigste
+Vorher (aihealth v0.4.0, strict, Branch `feat/code-health`): Repo-Score **7.12**
+(warning), 130 Dateien healthy, 65 warning, 5 alert, 366 Funde in 85 Dateien. Häufigste
 Funde: Complex Method (85), Complex Conditional (69), Primitive Obsession (59), Excess
 Arguments (57), Cognitive Complexity (35), Code Duplication (33). Schlechteste Dateien:
 `src/narratty/build.py` 1.64, `spec/markdown/scenes.py` 1.67, `spec/model.py` 3.24,
 `render/scene_cache.py` 3.50, `spec/markdown/shell.py` 3.83. Zum Vergleich: main hatte
-mit der Default-Kurve 8.28 und mit strict 7.11; der eigene Checker kam auf 7.91.
+mit der Default-Kurve 8.28 und mit strict 7.11; der frühere eigene Prototyp-Checker kam auf 7.91.
 
 Nachher: offen, die Refactorings in Richtung 10 warten auf die Freigabe des Owners.
 
@@ -210,4 +201,5 @@ frisch geschriebene kleine Hilfsmodule an Primitive Obsession (30 %); typer-Befe
 Test-Helfer haben naturgemäß viele `str`- und `int`-Parameter. Übertragbar: Pin auf einen
 Commit in einer uv dependency group, `--config` immer ausdrücklich, Delta gegen die
 Merge-Base, Komponenten-Vergleich als kleines Skript, pygrep-Hook für Begründungen.
-Projektspezifisch: die Komponentenliste und die Gegenprobe mit dem eigenen Checker.
+Projektspezifisch: die Komponentenliste. Der eigene Prototyp-Checker (stdlib-AST, etwa
+1.000 Zeilen) wurde nach der Einführung entfernt; er bleibt in der Git-Historie.

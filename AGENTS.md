@@ -32,8 +32,6 @@
 - Always pass `--config .aihealth.toml` when calling aihealth directly (the nox session does).
   The profile lives only there; aihealth is pinned only in the `code-health` dependency group.
 - ruff has no structure rules (`C90`); aihealth is the one source for structure smells.
-- The earlier own checker (`tools/code_health/`, `nox -s code-health-own`) is only a
-  cross-check; do not extend it.
 - The project skills `py-complexity` and `py-code-health` (`.claude/skills/`, pinned in
   `skills-lock.json`) supply refactoring patterns. Measure with aihealth, not with the tools
   those skills name: do not add radon, lizard, xenon or wily, and skip their

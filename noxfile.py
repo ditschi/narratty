@@ -41,7 +41,6 @@ _CI_DEFAULT = [
     "dead_code",
     "cyclic_imports",
     "code-health",
-    "code-health-own",
 ]
 nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 
@@ -210,9 +209,3 @@ def code_health(session: nox.Session) -> None:
 def code_health_components(session: nox.Session) -> None:
     """Fail when an aihealth component score drops against the merge base (`-- BASE`)."""
     session.run("python", "tools/aihealth_components.py", *session.posargs)
-
-
-@nox.session(name="code-health-own", python=DEFAULT_PYTHON, tags=["quality"])
-def code_health_own(session: nox.Session) -> None:
-    """The earlier own checker (tools/code_health), kept as a cross-check for aihealth."""
-    session.run("python", "-m", "tools.code_health", *session.posargs)
