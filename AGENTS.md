@@ -25,6 +25,10 @@
 - Fix smells by refactoring, keeping behaviour and tests unchanged; do not suppress them.
   A suppression is file-wide and needs a reason after ` -- `:
   `# aihealth: disable=<smell> -- <why>`.
+- Never remove or weaken type hints to dodge Primitive Obsession or any other smell, and do
+  not add type aliases as cosmetics: the number drops, the code does not improve. Fix it
+  with a parameter object or dataclass where that makes the code better; otherwise leave
+  the finding, or suppress it with a reason.
 - Always pass `--config .aihealth.toml` when calling aihealth directly (the nox session does).
   The profile lives only there; aihealth is pinned only in the `code-health` dependency group.
 - ruff has no structure rules (`C90`); aihealth is the one source for structure smells.
