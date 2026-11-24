@@ -1762,17 +1762,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-earlier-own-checker" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The earlier own checker
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#steckbrief-code-health" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2058,17 +2047,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-earlier-own-checker" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The earlier own checker
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#steckbrief-code-health" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2214,8 +2192,9 @@
 <a href="https://codescene.io/docs/guides/technical/code-health.html">Code Health</a>: healthy ≥ 9,
 warning 4–9, alert &lt; 4. CodeScene's research ("AI-Ready Code", Tornhill 2026) found that
 AI-assisted changes to unhealthy code carry at least 60 % more defects. Our target is 10,
-no finding at all; 9.5 is only the floor on the way there. The score does not replace
-tests, coverage or review.</p>
+no finding at all, with 9.5 as the minimum to reach on the way. The gate itself enforces
+"no degradation" (see <a href="#gate">Gate</a>), not a fixed score. The score does not replace tests,
+coverage or review.</p>
 <p>The scores come from <a href="https://github.com/epatel/ai-health">aihealth</a> (MIT), the same tool
 in all of the owner's Python repositories. Its core is deterministic and needs no AI. It
 also scores the Go helper in <code>agent/</code> and the shell scripts.</p>
@@ -2225,13 +2204,13 @@ also scores the Go helper in <code>agent/</code> and the shell scripts.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>delta<span class="w"> </span>--staged<span class="w">        </span><span class="c1"># what the pre-commit hook checks</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>delta<span class="w"> </span>--format<span class="w"> </span>json<span class="w">   </span><span class="c1"># the same for agents (also: markdown)</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>scan<span class="w"> </span>.<span class="w"> </span>--report<span class="w">       </span><span class="c1"># full report in AI-HEALTH.md</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health-components<span class="w"> </span>--<span class="w"> </span>main<span class="w">       </span><span class="c1"># component scores, merge base vs working tree</span>
 </code></pre></div>
 <p><code>delta</code> names every new or worsened smell with <code>path:line</code> and a fix hint, and exits with
-1 when health got worse. The session always passes <code>--config .aihealth.toml</code>: aihealth
-otherwise looks for the file in the scanned folder and silently falls back to its
-defaults. Run aihealth directly with
-<code>uv run --isolated --only-group code-health aihealth ... --config .aihealth.toml</code>.</p>
+1 when health got worse. The session always passes <code>--config .aihealth.toml</code>: <code>aihealth
+scan &lt;folder&gt;</code> otherwise looks for the file in that folder and silently falls back to its
+defaults (<code>delta</code> would find it in the repository root). Run aihealth directly with
+<code>uv run --locked --isolated --only-group code-health aihealth ... --config .aihealth.toml</code>.
+<code>--report</code> writes <code>AI-HEALTH.md</code>, which git ignores.</p>
 <p>aihealth is pinned once, in the <code>code-health</code> dependency group of <code>pyproject.toml</code> (a git
 commit, locked in <code>uv.lock</code>), so every run comes from uv's cache. On first use it
 downloads its tree-sitter grammars (about 30 MB) to <code>~/.cache/tree-sitter-language-pack</code>.</p>
@@ -2287,13 +2266,17 @@ cyclomatic complexity above 9, functions above 70 code lines, nesting 4 deep, 2 
 <li><strong>pre-commit</strong>: <code>aihealth delta --staged</code> fails when staged changes make code health
   worse; new files may not have any smell. A second hook rejects suppressions without a
   reason.</li>
-<li><strong>Pull requests</strong>: <code>aihealth delta</code> from the merge base to <code>HEAD</code> (not <code>origin/main</code>:
-  newer commits on main are not the branch's doing), then
-  <code>tools/aihealth_components.py</code>, which fails when the score of a component
-  (<code>src/narratty</code>, <code>tests</code>, <code>agent</code>, <code>tools</code>, <code>docker</code>, <code>examples</code>) drops against the merge
-  base. <code>aihealth scan</code> writes the report into the job summary. The tree-sitter grammars are
-  cached.</li>
-<li>The delta tolerance of 0 is the ratchet: nothing may get worse, so the score only rises.</li>
+<li><strong>Pull requests</strong>: <code>aihealth delta</code> from the merge base to <code>HEAD</code>. In a pull request
+  <code>HEAD</code> is GitHub's test merge commit, and its merge base with the base branch is the base
+  tip it was built on, so the delta covers exactly the pull request's changes. Then no
+  component (<code>src/narratty</code>, <code>tests</code>, <code>agent</code>, <code>docker</code>, <code>examples</code>) may score lower than
+  at the merge base: a short shell loop in the workflow scans each component there and
+  passes its score to aihealth's own <code>scan --fail-under</code>. That loop is the only logic of our
+  own; aihealth compares files, not components. <code>aihealth scan</code> writes the report into the
+  job summary. The tree-sitter grammars are cached.</li>
+<li>The delta tolerance of 0 is the ratchet: nothing may get worse, so the score only rises.
+  No gate fails on a score below 9.5 yet; <code>scan --fail-under 9.5</code> can join once the
+  repository is there.</li>
 </ul>
 <p>Linters no longer judge structure: ruff's <code>C90</code> and pylint's duplicate check are off, so
 each smell has one source, aihealth.</p>
@@ -2307,20 +2290,15 @@ it aihealth reads the text as part of the smell name and ignores the comment wit
 word; a pre-commit hook enforces it):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># aihealth: disable=primitive_obsession -- typer command: options are plain values by design</span>
 </code></pre></div>
-<h2 id="the-earlier-own-checker">The earlier own checker<a class="headerlink" href="#the-earlier-own-checker" title="Permanent link">&para;</a></h2>
-<p>Before aihealth was chosen, <code>tools/code_health/</code> scored the repository with its own AST
-checks (<code>code-health.toml</code>, <code>code-health-baseline.json</code>, <code>nox -s code-health-own</code>). It
-stays as a cross-check, in CI as well, until the aihealth gate runs green. Its test smells
-(<code>tools/code_health/assertions.py</code>: large and duplicated assertion blocks, which aihealth
-does not have yet) are meant as a template for a contribution to aihealth.</p>
 <h2 id="steckbrief-code-health">Steckbrief Code Health<a class="headerlink" href="#steckbrief-code-health" title="Permanent link">&para;</a></h2>
 <p>The profile below follows the outline shared by all repositories whose code health
 approaches are compared; it is kept in German like that outline.</p>
 <h3 id="1-messumfang">1. Messumfang<a class="headerlink" href="#1-messumfang" title="Permanent link">&para;</a></h3>
-<p>aihealth bewertet alle Dateien in seinen Sprachen: Python unter <code>src/</code>, <code>tests/</code>, <code>tools/</code>
-und <code>noxfile.py</code>, Go in <code>agent/</code>, Shell-Skripte in <code>docker/</code> und <code>examples/</code> (218 Dateien,
-24.186 Codezeilen). Ausgeschlossen (<code>[scan] exclude</code>): das generierte
-<code>src/narratty/_version.py</code>, die mkdocs-Ausgabe <code>site/</code> und <code>.nox/</code>. Nicht bewertet werden
+<p>aihealth bewertet alle Dateien in seinen Sprachen: Python unter <code>src/</code>, <code>tests/</code>
+und <code>noxfile.py</code>, Go in <code>agent/</code>, Shell-Skripte in <code>docker/</code> und <code>examples/</code> (200 Dateien,
+22.979 Codezeilen). Ausgeschlossen (<code>[scan] exclude</code>): das generierte
+<code>src/narratty/_version.py</code>, die mkdocs-Ausgabe <code>site/</code>, <code>.nox/</code> und fremde Agent-Skills
+unter <code>.claude/skills/</code> (unveränderte Kopien laut <code>skills-lock.json</code>). Nicht bewertet werden
 YAML-Specs, Markdown, Dockerfiles und CI-Workflows; dafür hat aihealth keine Sprache, und
 dort entstehen die Defekte, um die es geht, kaum. Tests zählen voll mit.</p>
 <h3 id="2-tools-und-versionen">2. Tools und Versionen<a class="headerlink" href="#2-tools-und-versionen" title="Permanent link">&para;</a></h3>
@@ -2345,11 +2323,6 @@ dort entstehen die Defekte, um die es geht, kaum. Tests zählen voll mit.</p>
 </tr>
 <tr>
 <td>Python</td>
-<td>eigener Checker <code>tools/code_health/</code> (nur stdlib)</td>
-<td>Gegenprobe, Config-Version 1</td>
-</tr>
-<tr>
-<td>Python</td>
 <td>ruff (ohne <code>C90</code>), mypy strict, vulture, fawltydeps, pylint (nur zyklische Imports)</td>
 <td>unverändert, ohne Strukturregeln</td>
 </tr>
@@ -2364,8 +2337,9 @@ und mypy genauso starten.</p>
 Nesting, Bumpy Road, Excess Arguments, Complex Conditional, Large File, Low Cohesion
 (LCOM4), Primitive Obsession und Code Duplication (Deep Widget Tree und Missing Phony
 betreffen hier nichts). Nicht abgebildet: Large und Duplicated Assertion Blocks (hat
-aihealth noch nicht; der eigene Checker misst sie als Gegenprobe und dient als Vorlage für
-einen Upstream-Beitrag), God Class als eigener Smell (über Large File, Low Cohesion und
+aihealth noch nicht; der frühere eigene Prototyp-Checker hatte sie, sein Modul
+<code>tools/code_health/assertions.py</code> existierte zuletzt in Commit <code>d6b4a6b</code> von #70 und dient
+von dort als Vorlage für einen Upstream-Beitrag), God Class als eigener Smell (über Large File, Low Cohesion und
 Brain Method abgedeckt), Many Functions per Module (über Large File abgedeckt). Change
 Coupling und Hotspots aus der Git-Historie sind keine Datei-Smells und dienen nur der
 Priorisierung.</p>
@@ -2378,29 +2352,30 @@ aihealth: Abzüge der Smells, je Symbol gedeckelt (<code>symbol_cap</code>), üb
 (<code>decay</code>) auf 1–10 abgebildet; der Repo-Score ist der mit Codezeilen gewichtete Mittelwert.</p>
 <h3 id="5-bedienung">5. Bedienung<a class="headerlink" href="#5-bedienung" title="Permanent link">&para;</a></h3>
 <p><code>nox -s code-health</code> (Standard <code>scan .</code>) und <code>nox -s code-health -- delta [--staged |
---base REV --head REV]</code>, jeweils mit <code>--config .aihealth.toml</code>. Ausgabe als Text,
+--base REV --head REV]</code>, jeweils mit <code>--config .aihealth.toml</code> und <code>uv run --locked</code>. Ausgabe als Text,
 <code>--format markdown</code> für Agents und Berichte oder <code>--format json</code> (Dateien mit <code>findings</code>:
 <code>smell</code>, <code>line</code>, <code>symbol</code>, <code>value</code>, <code>threshold</code>, <code>hint</code>, <code>penalty</code>). Der Modus für geänderte
 Dateien ist <code>delta</code>. Laufzeit: <code>aihealth --version</code> 0,3 s aus dem Cache, <code>delta</code> über den
-Branch wenige Sekunden, <code>scan .</code> 6–15 s, der Komponenten-Vergleich etwa 10 s. aihealth
+Branch wenige Sekunden, <code>scan .</code> 6–15 s, der Komponenten-Vergleich etwa 10 s (zehn <code>scan</code>-Läufe). aihealth
 bietet zusätzlich einen MCP-Server und Claude-Code-Hooks; beides ist hier nicht
 eingerichtet.</p>
 <h3 id="6-gate">6. Gate<a class="headerlink" href="#6-gate" title="Permanent link">&para;</a></h3>
 <p>pre-commit: <code>code-health</code> (<code>delta --staged</code>) und <code>aihealth-disable-reason</code> (pygrep, Regex
 <code>aihealth:[ \t]*disable=(?![\w, \t]+-- .{10})</code>). PR-Workflow: <code>delta</code> von der Merge-Base
-zu <code>HEAD</code>, Komponenten-Vergleich (<code>tools/aihealth_components.py</code>, Toleranz 0), <code>scan</code> als
-Bericht in der Job-Zusammenfassung, Cache für die Grammatiken und bis zur Ablösung die
-Gegenprobe mit dem eigenen Checker. Ratchet: Toleranz 0, also keine Verschlechterung; eine
-Baseline-Datei braucht aihealth dafür nicht (die des eigenen Checkers bleibt für die
-Gegenprobe). Suppressions: nur dateiweit als <code># aihealth: disable=&lt;smell&gt; -- &lt;Grund&gt;</code>.</p>
+zu <code>HEAD</code>, Komponenten-Vergleich (Shell-Schleife: Score je Komponente an der Merge-Base, dann
+<code>aihealth scan &lt;Komponente&gt; --fail-under &lt;Score&gt;</code>), <code>scan</code> als
+Bericht in der Job-Zusammenfassung (läuft auch, wenn das Delta scheitert) und Cache für
+die Grammatiken. Ratchet: Toleranz 0, also keine Verschlechterung; ein Mindest-Score von 9.5
+wird noch nicht erzwungen. Eine Baseline-Datei braucht aihealth dafür nicht.
+Suppressions: nur dateiweit als <code># aihealth: disable=&lt;smell&gt; -- &lt;Grund&gt;</code>.</p>
 <h3 id="7-ergebnis">7. Ergebnis<a class="headerlink" href="#7-ergebnis" title="Permanent link">&para;</a></h3>
-<p>Vorher (aihealth v0.4.0, strict, Branch <code>feat/code-health</code>): Repo-Score <strong>7.26</strong>
-(warning), 148 Dateien healthy, 65 warning, 5 alert, 366 Funde in 85 Dateien. Häufigste
+<p>Vorher (aihealth v0.4.0, strict, Branch <code>feat/code-health</code>): Repo-Score <strong>7.12</strong>
+(warning), 130 Dateien healthy, 65 warning, 5 alert, 366 Funde in 85 Dateien. Häufigste
 Funde: Complex Method (85), Complex Conditional (69), Primitive Obsession (59), Excess
 Arguments (57), Cognitive Complexity (35), Code Duplication (33). Schlechteste Dateien:
 <code>src/narratty/build.py</code> 1.64, <code>spec/markdown/scenes.py</code> 1.67, <code>spec/model.py</code> 3.24,
 <code>render/scene_cache.py</code> 3.50, <code>spec/markdown/shell.py</code> 3.83. Zum Vergleich: main hatte
-mit der Default-Kurve 8.28 und mit strict 7.11; der eigene Checker kam auf 7.91.</p>
+mit der Default-Kurve 8.28 und mit strict 7.11; der frühere eigene Prototyp-Checker kam auf 7.91.</p>
 <p>Nachher: offen, die Refactorings in Richtung 10 warten auf die Freigabe des Owners.</p>
 <h3 id="8-skills">8. Skills<a class="headerlink" href="#8-skills" title="Permanent link">&para;</a></h3>
 <p>Geprüft (SKILL.md gelesen): l-mb/python-refactoring-skills (<code>py-refactor</code>,
@@ -2416,7 +2391,9 @@ lizard, xenon und wily als Abhängigkeiten aufzunehmen und <code>py-quality-setu
 lassen, gelten hier nicht (Hinweis in AGENTS.md). In einer zweiten Runde (21 Stichwörter,
 22 SKILL.md gelesen, u. a. TDD, Tests, Typing, Review, typer, pydantic, Go) hat der Owner
 zusätzlich <code>systematic-debugging</code> und <code>verification-before-completion</code> aus obra/superpowers
-installiert; deren npm-Teile (<code>find-polluter.sh</code>) gelten hier nicht. Abgelehnt u. a.
+installiert, danach das offizielle <code>typer</code>-Skill (fastapi/typer); deren npm-Teile
+(<code>find-polluter.sh</code>) gelten hier nicht, und typer-Befehle werden nur bei Änderungen auf
+<code>Annotated</code> umgestellt. Installiert sind damit fünf Skills, alle in <code>skills-lock.json</code>. Abgelehnt u. a.
 trailofbits@modern-python (ersetzt mypy durch <code>ty</code> und pre-commit durch <code>prek</code>, CC-BY-SA).</p>
 <h3 id="9-erfahrungen">9. Erfahrungen<a class="headerlink" href="#9-erfahrungen" title="Permanent link">&para;</a></h3>
 <p>Gut: Der eigene Prototyp zeigte früh dieselben Hotspots wie aihealth (<code>build.py</code>,
@@ -2428,8 +2405,12 @@ Suppression-Kommentar fällt nicht auf (daher der pygrep-Hook). Unter strict sch
 frisch geschriebene kleine Hilfsmodule an Primitive Obsession (30 %); typer-Befehle und
 Test-Helfer haben naturgemäß viele <code>str</code>- und <code>int</code>-Parameter. Übertragbar: Pin auf einen
 Commit in einer uv dependency group, <code>--config</code> immer ausdrücklich, Delta gegen die
-Merge-Base, Komponenten-Vergleich als kleines Skript, pygrep-Hook für Begründungen.
-Projektspezifisch: die Komponentenliste und die Gegenprobe mit dem eigenen Checker.</p>
+Merge-Base, Komponenten-Vergleich über <code>scan --fail-under</code> statt eigenem Skript,
+pygrep-Hook für Begründungen. Grundsatz: keine eigene Logik, wo aihealth es selbst kann;
+übrig ist nur die Shell-Schleife für die Komponenten. Projektspezifisch: die
+Komponentenliste. Der eigene Prototyp-Checker (stdlib-AST, etwa 1.000 Zeilen) und ein
+kurzzeitiges Python-Skript für den Komponenten-Vergleich wurden wieder entfernt; beide
+bleiben in der Git-Historie von #70.</p>
 
 
 
