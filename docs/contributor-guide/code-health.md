@@ -4,8 +4,9 @@ Code health is scored from 1 to 10 per file and for the repository, modelled on 
 [Code Health](https://codescene.io/docs/guides/technical/code-health.html): healthy ≥ 9,
 warning 4–9, alert < 4. CodeScene's research ("AI-Ready Code", Tornhill 2026) found that
 AI-assisted changes to unhealthy code carry at least 60 % more defects. Our target is 10,
-no finding at all; 9.5 is only the floor on the way there. The score does not replace
-tests, coverage or review.
+no finding at all, with 9.5 as the minimum to reach on the way. The gate itself enforces
+"no degradation" (see [Gate](#gate)), not a fixed score. The score does not replace tests,
+coverage or review.
 
 The scores come from [aihealth](https://github.com/epatel/ai-health) (MIT), the same tool
 in all of the owner's Python repositories. Its core is deterministic and needs no AI. It
@@ -23,10 +24,11 @@ nox -s code-health-components -- main       # component scores, merge base vs wo
 ```
 
 `delta` names every new or worsened smell with `path:line` and a fix hint, and exits with
-1 when health got worse. The session always passes `--config .aihealth.toml`: aihealth
-otherwise looks for the file in the scanned folder and silently falls back to its
-defaults. Run aihealth directly with
-`uv run --isolated --only-group code-health aihealth ... --config .aihealth.toml`.
+1 when health got worse. The session always passes `--config .aihealth.toml`: `aihealth
+scan <folder>` otherwise looks for the file in that folder and silently falls back to its
+defaults (`delta` would find it in the repository root). Run aihealth directly with
+`uv run --locked --isolated --only-group code-health aihealth ... --config .aihealth.toml`.
+`--report` writes `AI-HEALTH.md`, which git ignores.
 
 aihealth is pinned once, in the `code-health` dependency group of `pyproject.toml` (a git
 commit, locked in `uv.lock`), so every run comes from uv's cache. On first use it
@@ -55,13 +57,16 @@ cyclomatic complexity above 9, functions above 70 code lines, nesting 4 deep, 2 
 - **pre-commit**: `aihealth delta --staged` fails when staged changes make code health
   worse; new files may not have any smell. A second hook rejects suppressions without a
   reason.
-- **Pull requests**: `aihealth delta` from the merge base to `HEAD` (not `origin/main`:
-  newer commits on main are not the branch's doing), then
+- **Pull requests**: `aihealth delta` from the merge base to `HEAD`. In a pull request
+  `HEAD` is GitHub's test merge commit, and its merge base with the base branch is the base
+  tip it was built on, so the delta covers exactly the pull request's changes. Then
   `tools/aihealth_components.py`, which fails when the score of a component
   (`src/narratty`, `tests`, `agent`, `tools`, `docker`, `examples`) drops against the merge
   base. `aihealth scan` writes the report into the job summary. The tree-sitter grammars are
   cached.
 - The delta tolerance of 0 is the ratchet: nothing may get worse, so the score only rises.
+  No gate fails on a score below 9.5 yet; `scan --fail-under 9.5` can join once the
+  repository is there.
 
 Linters no longer judge structure: ruff's `C90` and pylint's duplicate check are off, so
 each smell has one source, aihealth.
@@ -99,7 +104,8 @@ approaches are compared; it is kept in German like that outline.
 aihealth bewertet alle Dateien in seinen Sprachen: Python unter `src/`, `tests/`, `tools/`
 und `noxfile.py`, Go in `agent/`, Shell-Skripte in `docker/` und `examples/` (218 Dateien,
 24.186 Codezeilen). Ausgeschlossen (`[scan] exclude`): das generierte
-`src/narratty/_version.py`, die mkdocs-Ausgabe `site/` und `.nox/`. Nicht bewertet werden
+`src/narratty/_version.py`, die mkdocs-Ausgabe `site/`, `.nox/` und fremde Agent-Skills
+unter `.claude/skills/` (unveränderte Kopien laut `skills-lock.json`). Nicht bewertet werden
 YAML-Specs, Markdown, Dockerfiles und CI-Workflows; dafür hat aihealth keine Sprache, und
 dort entstehen die Defekte, um die es geht, kaum. Tests zählen voll mit.
 
@@ -141,7 +147,7 @@ aihealth: Abzüge der Smells, je Symbol gedeckelt (`symbol_cap`), über eine Abk
 ### 5. Bedienung
 
 `nox -s code-health` (Standard `scan .`) und `nox -s code-health -- delta [--staged |
---base REV --head REV]`, jeweils mit `--config .aihealth.toml`. Ausgabe als Text,
+--base REV --head REV]`, jeweils mit `--config .aihealth.toml` und `uv run --locked`. Ausgabe als Text,
 `--format markdown` für Agents und Berichte oder `--format json` (Dateien mit `findings`:
 `smell`, `line`, `symbol`, `value`, `threshold`, `hint`, `penalty`). Der Modus für geänderte
 Dateien ist `delta`. Laufzeit: `aihealth --version` 0,3 s aus dem Cache, `delta` über den
@@ -155,8 +161,9 @@ pre-commit: `code-health` (`delta --staged`) und `aihealth-disable-reason` (pygr
 `aihealth:[ \t]*disable=(?![\w, \t]+-- .{10})`). PR-Workflow: `delta` von der Merge-Base
 zu `HEAD`, Komponenten-Vergleich (`tools/aihealth_components.py`, Toleranz 0), `scan` als
 Bericht in der Job-Zusammenfassung, Cache für die Grammatiken und bis zur Ablösung die
-Gegenprobe mit dem eigenen Checker. Ratchet: Toleranz 0, also keine Verschlechterung; eine
-Baseline-Datei braucht aihealth dafür nicht (die des eigenen Checkers bleibt für die
+Gegenprobe mit dem eigenen Checker (Bericht und Gegenprobe laufen auch, wenn das Delta
+scheitert). Ratchet: Toleranz 0, also keine Verschlechterung; ein Mindest-Score von 9.5
+wird noch nicht erzwungen. Eine Baseline-Datei braucht aihealth dafür nicht (die des eigenen Checkers bleibt für die
 Gegenprobe). Suppressions: nur dateiweit als `# aihealth: disable=<smell> -- <Grund>`.
 
 ### 7. Ergebnis
@@ -186,7 +193,9 @@ lizard, xenon und wily als Abhängigkeiten aufzunehmen und `py-quality-setup` la
 lassen, gelten hier nicht (Hinweis in AGENTS.md). In einer zweiten Runde (21 Stichwörter,
 22 SKILL.md gelesen, u. a. TDD, Tests, Typing, Review, typer, pydantic, Go) hat der Owner
 zusätzlich `systematic-debugging` und `verification-before-completion` aus obra/superpowers
-installiert; deren npm-Teile (`find-polluter.sh`) gelten hier nicht. Abgelehnt u. a.
+installiert, danach das offizielle `typer`-Skill (fastapi/typer); deren npm-Teile
+(`find-polluter.sh`) gelten hier nicht, und typer-Befehle werden nur bei Änderungen auf
+`Annotated` umgestellt. Installiert sind damit fünf Skills, alle in `skills-lock.json`. Abgelehnt u. a.
 trailofbits@modern-python (ersetzt mypy durch `ty` und pre-commit durch `prek`, CC-BY-SA).
 
 ### 9. Erfahrungen

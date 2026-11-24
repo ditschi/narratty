@@ -100,15 +100,18 @@ jobs:
         with:
           path: ~/.cache/tree-sitter-language-pack
           key: tree-sitter-language-pack-${{ hashFiles('uv.lock') }}
-      # Against the merge base: newer commits on main are not this branch's doing.
+          restore-keys: tree-sitter-language-pack-
+      # HEAD is the PR's test merge commit; its merge base with the base branch is the
+      # base tip it was built on, so the delta covers exactly the PR's changes.
       - name: Code health (aihealth delta)
         run: nox -s code-health -- delta --base "$(git merge-base origin/${{ github.base_ref }} HEAD)" --head HEAD
       - name: Code health (component scores)
         run: nox -s code-health-components -- origin/${{ github.base_ref }}
       - name: Code health report
-        if: always()
+        if: ${{ !cancelled() }}
         run: nox -s code-health -- scan . --format markdown >> "$GITHUB_STEP_SUMMARY"
       - name: Code health cross-check (own checker)
+        if: ${{ !cancelled() }}
         run: nox -s code-health-own -- --changed origin/${{ github.base_ref }}
   # ── Agent: narratty-agent (Go) ───────────────────────────────────────────────
   agent:

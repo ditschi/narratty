@@ -4,7 +4,7 @@
 score drops, e.g. because a large healthy file was replaced by a small unhealthy one.
 Components missing at the merge base are reported but not compared.
 
-    python tools/aihealth_components.py [BASE]     # default: origin/main
+    python tools/aihealth_components.py [BASE]     # default: origin/main, else main
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / ".aihealth.toml"
 COMPONENTS = ("src/narratty", "tests", "agent", "tools", "docker", "examples")
-AIHEALTH = ("uv", "run", "--quiet", "--isolated", "--only-group", "code-health", "aihealth")
+AIHEALTH = ("uv", "run", "--quiet", "--locked", "--isolated", "--only-group", "code-health", "aihealth")
 
 
 @dataclass(frozen=True)
@@ -60,6 +60,15 @@ def git(*args: str) -> str:
     return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
 
 
+def default_base() -> str:
+    """``origin/main`` when it exists, otherwise ``main``."""
+    try:
+        git("rev-parse", "--verify", "--quiet", "origin/main")
+    except subprocess.CalledProcessError:
+        return "main"
+    return "origin/main"
+
+
 def compare(base: str) -> list[Comparison]:
     """Scores of every component at the merge base with ``base`` and in the working tree."""
     merge_base = git("merge-base", base, "HEAD")
@@ -70,11 +79,16 @@ def compare(base: str) -> list[Comparison]:
             return [Comparison(name, score(before_tree, name), score(ROOT, name)) for name in COMPONENTS]
         finally:
             git("worktree", "remove", "--force", str(before_tree))
+            git("worktree", "prune")
 
 
 def main(argv: list[str]) -> int:
-    """Print the comparison; exit 1 when a component dropped."""
-    comparisons = compare(argv[0] if argv else "origin/main")
+    """Print the comparison; exit 1 when a component dropped, 2 when git or aihealth failed."""
+    try:
+        comparisons = compare(argv[0] if argv else default_base())
+    except subprocess.CalledProcessError as error:
+        print(f"{' '.join(error.cmd)} failed:\n{error.stderr}", file=sys.stderr)
+        return 2
     print("component      before    after")
     print("\n".join(comparison.line() for comparison in comparisons))
     return 1 if any(comparison.dropped for comparison in comparisons) else 0

@@ -1,5 +1,7 @@
 default_install_hook_types: [pre-commit, commit-msg]
 default_stages: [pre-commit, manual]
+# Third-party agent skills are kept byte-identical to skills-lock.json.
+exclude: ^\.claude/skills/
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks.git
@@ -25,6 +27,8 @@ repos:
     hooks:
       - id: codespell
         args: [--ignore-words=.codespellignore, --quiet-level=2]
+        # The German "Steckbrief" section of the code health page reads as typos.
+        exclude: ^docs/contributor-guide/code-health\.md$
 
   # Quality gates mirror the nox sessions and run in isolated uv envs, so
   # versions come from the pyproject extras rather than host tools.
@@ -46,10 +50,16 @@ repos:
         language: system
         pass_filenames: false
         args: [--package, narratty]
+      - id: mypy-tools
+        name: mypy (tools)
+        entry: uv run --isolated --extra type-check mypy tools
+        language: system
+        pass_filenames: false
+        files: ^tools/
       # Staged changes must not make code health worse (aihealth, profile in .aihealth.toml).
       - id: code-health
         name: code health (aihealth delta)
-        entry: uv run --quiet --isolated --only-group code-health aihealth delta --staged --config .aihealth.toml
+        entry: uv run --quiet --locked --isolated --only-group code-health aihealth delta --staged --config .aihealth.toml
         language: system
         types_or: [python, go, shell]
         pass_filenames: false

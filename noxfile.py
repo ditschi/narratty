@@ -196,7 +196,7 @@ def cyclic_imports(session: nox.Session) -> None:
 
 # aihealth from the `code-health` dependency group (pinned in pyproject.toml and uv.lock).
 # Always with the repository's config: otherwise aihealth looks for it in the scanned folder.
-AIHEALTH = ("uv", "run", "--quiet", "--isolated", "--only-group", "code-health", "aihealth")
+AIHEALTH = ("uv", "run", "--quiet", "--locked", "--isolated", "--only-group", "code-health", "aihealth")
 
 
 @nox.session(name="code-health", python=False, tags=["quality"])

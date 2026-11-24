@@ -19,7 +19,8 @@
 
 - Before every commit run `nox -s code-health -- delta` (aihealth; `--format json` or
   `--format markdown` to parse it) and fix what it reports. Nothing may get worse, new files
-  may have no smell; the target is 10. Pre-commit (`delta --staged`) and CI (delta from the
+  may have no smell; the target is 10 (9.5 at least; the gate enforces only "no
+  degradation"). Pre-commit (`delta --staged`) and CI (delta from the
   merge base plus component scores) enforce it.
 - Fix smells by refactoring, keeping behaviour and tests unchanged; do not suppress them.
   A suppression is file-wide and needs a reason after ` -- `:
