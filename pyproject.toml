@@ -115,7 +115,6 @@ major_version_zero = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]  # tools/ (the code-health checker) is tested but not packaged
 markers = [
     "performance: CLI cold-start latency budget checks (help and shell completion)",
     "integration: runs real TTS engines, VHS or ffmpeg; may download voices",

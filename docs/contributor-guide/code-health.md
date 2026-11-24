@@ -20,7 +20,6 @@ nox -s code-health -- delta                 # your uncommitted changes against H
 nox -s code-health -- delta --staged        # what the pre-commit hook checks
 nox -s code-health -- delta --format json   # the same for agents (also: markdown)
 nox -s code-health -- scan . --report       # full report in AI-HEALTH.md
-nox -s code-health-components -- main       # component scores, merge base vs working tree
 ```
 
 `delta` names every new or worsened smell with `path:line` and a fix hint, and exits with
@@ -59,11 +58,12 @@ cyclomatic complexity above 9, functions above 70 code lines, nesting 4 deep, 2 
   reason.
 - **Pull requests**: `aihealth delta` from the merge base to `HEAD`. In a pull request
   `HEAD` is GitHub's test merge commit, and its merge base with the base branch is the base
-  tip it was built on, so the delta covers exactly the pull request's changes. Then
-  `tools/aihealth_components.py`, which fails when the score of a component
-  (`src/narratty`, `tests`, `agent`, `tools`, `docker`, `examples`) drops against the merge
-  base. `aihealth scan` writes the report into the job summary. The tree-sitter grammars are
-  cached.
+  tip it was built on, so the delta covers exactly the pull request's changes. Then no
+  component (`src/narratty`, `tests`, `agent`, `docker`, `examples`) may score lower than
+  at the merge base: a short shell loop in the workflow scans each component there and
+  passes its score to aihealth's own `scan --fail-under`. That loop is the only logic of our
+  own; aihealth compares files, not components. `aihealth scan` writes the report into the
+  job summary. The tree-sitter grammars are cached.
 - The delta tolerance of 0 is the ratchet: nothing may get worse, so the score only rises.
   No gate fails on a score below 9.5 yet; `scan --fail-under 9.5` can join once the
   repository is there.
@@ -93,7 +93,7 @@ approaches are compared; it is kept in German like that outline.
 
 ### 1. Messumfang
 
-aihealth bewertet alle Dateien in seinen Sprachen: Python unter `src/`, `tests/`, `tools/`
+aihealth bewertet alle Dateien in seinen Sprachen: Python unter `src/`, `tests/`
 und `noxfile.py`, Go in `agent/`, Shell-Skripte in `docker/` und `examples/` (200 Dateien,
 22.979 Codezeilen). Ausgeschlossen (`[scan] exclude`): das generierte
 `src/narratty/_version.py`, die mkdocs-Ausgabe `site/`, `.nox/` und fremde Agent-Skills
@@ -121,8 +121,8 @@ Nesting, Bumpy Road, Excess Arguments, Complex Conditional, Large File, Low Cohe
 (LCOM4), Primitive Obsession und Code Duplication (Deep Widget Tree und Missing Phony
 betreffen hier nichts). Nicht abgebildet: Large und Duplicated Assertion Blocks (hat
 aihealth noch nicht; der frühere eigene Prototyp-Checker hatte sie, sein Modul
-`tools/code_health/assertions.py` ist in der Git-Historie, Commit `b51c124`, als Vorlage
-für einen Upstream-Beitrag erhalten), God Class als eigener Smell (über Large File, Low Cohesion und
+`tools/code_health/assertions.py` existierte zuletzt in Commit `d6b4a6b` von #70 und dient
+von dort als Vorlage für einen Upstream-Beitrag), God Class als eigener Smell (über Large File, Low Cohesion und
 Brain Method abgedeckt), Many Functions per Module (über Large File abgedeckt). Change
 Coupling und Hotspots aus der Git-Historie sind keine Datei-Smells und dienen nur der
 Priorisierung.
@@ -143,7 +143,7 @@ aihealth: Abzüge der Smells, je Symbol gedeckelt (`symbol_cap`), über eine Abk
 `--format markdown` für Agents und Berichte oder `--format json` (Dateien mit `findings`:
 `smell`, `line`, `symbol`, `value`, `threshold`, `hint`, `penalty`). Der Modus für geänderte
 Dateien ist `delta`. Laufzeit: `aihealth --version` 0,3 s aus dem Cache, `delta` über den
-Branch wenige Sekunden, `scan .` 6–15 s, der Komponenten-Vergleich etwa 10 s. aihealth
+Branch wenige Sekunden, `scan .` 6–15 s, der Komponenten-Vergleich etwa 10 s (zehn `scan`-Läufe). aihealth
 bietet zusätzlich einen MCP-Server und Claude-Code-Hooks; beides ist hier nicht
 eingerichtet.
 
@@ -151,7 +151,8 @@ eingerichtet.
 
 pre-commit: `code-health` (`delta --staged`) und `aihealth-disable-reason` (pygrep, Regex
 `aihealth:[ \t]*disable=(?![\w, \t]+-- .{10})`). PR-Workflow: `delta` von der Merge-Base
-zu `HEAD`, Komponenten-Vergleich (`tools/aihealth_components.py`, Toleranz 0), `scan` als
+zu `HEAD`, Komponenten-Vergleich (Shell-Schleife: Score je Komponente an der Merge-Base, dann
+`aihealth scan <Komponente> --fail-under <Score>`), `scan` als
 Bericht in der Job-Zusammenfassung (läuft auch, wenn das Delta scheitert) und Cache für
 die Grammatiken. Ratchet: Toleranz 0, also keine Verschlechterung; ein Mindest-Score von 9.5
 wird noch nicht erzwungen. Eine Baseline-Datei braucht aihealth dafür nicht.
@@ -200,6 +201,9 @@ Suppression-Kommentar fällt nicht auf (daher der pygrep-Hook). Unter strict sch
 frisch geschriebene kleine Hilfsmodule an Primitive Obsession (30 %); typer-Befehle und
 Test-Helfer haben naturgemäß viele `str`- und `int`-Parameter. Übertragbar: Pin auf einen
 Commit in einer uv dependency group, `--config` immer ausdrücklich, Delta gegen die
-Merge-Base, Komponenten-Vergleich als kleines Skript, pygrep-Hook für Begründungen.
-Projektspezifisch: die Komponentenliste. Der eigene Prototyp-Checker (stdlib-AST, etwa
-1.000 Zeilen) wurde nach der Einführung entfernt; er bleibt in der Git-Historie.
+Merge-Base, Komponenten-Vergleich über `scan --fail-under` statt eigenem Skript,
+pygrep-Hook für Begründungen. Grundsatz: keine eigene Logik, wo aihealth es selbst kann;
+übrig ist nur die Shell-Schleife für die Komponenten. Projektspezifisch: die
+Komponentenliste. Der eigene Prototyp-Checker (stdlib-AST, etwa 1.000 Zeilen) und ein
+kurzzeitiges Python-Skript für den Komponenten-Vergleich wurden wieder entfernt; beide
+bleiben in der Git-Historie von #70.

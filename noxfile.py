@@ -125,23 +125,22 @@ def check_types(session: nox.Session) -> None:
     """Static type checking with mypy."""
     session.install("-e", ".[type-check]")
     session.run("mypy", "--package", PACKAGE)
-    session.run("mypy", "tools")
 
 
 @nox.session(python=DEFAULT_PYTHON, tags=["quality", "lint"])
 def lint(session: nox.Session) -> None:
     """Run ruff check and ruff format --check."""
     session.install("-e", ".[lint]")
-    session.run("ruff", "check", SRC, "tests", "tools", "noxfile.py")
-    session.run("ruff", "format", "--check", SRC, "tests", "tools", "noxfile.py")
+    session.run("ruff", "check", SRC, "tests", "noxfile.py")
+    session.run("ruff", "format", "--check", SRC, "tests", "noxfile.py")
 
 
 @nox.session(python=DEFAULT_PYTHON, tags=["quality", "format"])
 def format(session: nox.Session) -> None:  # noqa: A001 - keep conventional session name
     """Auto-format with ruff (local only)."""
     session.install("-e", ".[lint]")
-    session.run("ruff", "check", "--fix", SRC, "tests", "tools", "noxfile.py")
-    session.run("ruff", "format", SRC, "tests", "tools", "noxfile.py")
+    session.run("ruff", "check", "--fix", SRC, "tests", "noxfile.py")
+    session.run("ruff", "format", SRC, "tests", "noxfile.py")
 
 
 @nox.session(python=DEFAULT_PYTHON)
@@ -203,9 +202,3 @@ def code_health(session: nox.Session) -> None:
     """Code health with aihealth (profile in .aihealth.toml): `scan .` or `-- delta [--staged]`."""
     args = session.posargs or ["scan", "."]
     session.run(*AIHEALTH, *args, "--config", ".aihealth.toml", external=True)
-
-
-@nox.session(name="code-health-components", python=DEFAULT_PYTHON, tags=["quality"])
-def code_health_components(session: nox.Session) -> None:
-    """Fail when an aihealth component score drops against the merge base (`-- BASE`)."""
-    session.run("python", "tools/aihealth_components.py", *session.posargs)

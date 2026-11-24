@@ -50,12 +50,6 @@ repos:
         language: system
         pass_filenames: false
         args: [--package, narratty]
-      - id: mypy-tools
-        name: mypy (tools)
-        entry: uv run --isolated --extra type-check mypy tools
-        language: system
-        pass_filenames: false
-        files: ^tools/
       # Staged changes must not make code health worse (aihealth, profile in .aihealth.toml).
       - id: code-health
         name: code health (aihealth delta)
