@@ -106,20 +106,24 @@ jobs:
       - name: Code health (aihealth delta)
         run: nox -s code-health -- delta --base "$(git merge-base origin/${{ github.base_ref }} HEAD)" --head HEAD
       # No component may score lower than at the merge base: aihealth scores each one there,
-      # and its own `scan --fail-under` judges the PR. Missing components are skipped.
+      # and its own `scan --fail-under` judges the PR (tests with their own config). Missing
+      # components are skipped.
       - name: Code health (component scores)
         run: |
           base_tree="$RUNNER_TEMP/code-health-base"
           git worktree add --detach "$base_tree" "$(git merge-base origin/${{ github.base_ref }} HEAD)"
+          aihealth() { uv run --quiet --locked --isolated --only-group code-health aihealth "$@"; }
           for component in src/narratty tests agent docker examples; do
             [ -d "$base_tree/$component" ] || continue
-            before="$(nox -s code-health -- scan "$base_tree/$component" --format json | jq -r .score)"
+            config=.aihealth.toml
+            [ "$component" = tests ] && config=tests/.aihealth.toml
+            before="$(aihealth scan "$base_tree/$component" --config "$config" --format json | jq -r .score)"
             echo "$component: at least $before"
-            nox -s code-health -- scan "$component" --fail-under "$before" > /dev/null
+            aihealth scan "$component" --config "$config" --fail-under "$before" > /dev/null
           done
       - name: Code health report
         if: ${{ !cancelled() }}
-        run: nox -s code-health -- scan . --format markdown >> "$GITHUB_STEP_SUMMARY"
+        run: nox -s code-health -- scan --format markdown >> "$GITHUB_STEP_SUMMARY"
   # ── Agent: narratty-agent (Go) ───────────────────────────────────────────────
   agent:
     name: Agent (Go)

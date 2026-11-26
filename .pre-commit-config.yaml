@@ -50,12 +50,20 @@ repos:
         language: system
         pass_filenames: false
         args: [--package, narratty]
-      # Staged changes must not make code health worse (aihealth, profile in .aihealth.toml).
+      # Staged changes must not make code health worse (aihealth, strict profile; tests have
+      # their own config without Primitive Obsession, see .aihealth.toml).
       - id: code-health
         name: code health (aihealth delta)
-        entry: uv run --quiet --locked --isolated --only-group code-health aihealth delta --staged --config .aihealth.toml
+        entry: uv run --quiet --locked --isolated --only-group code-health aihealth delta --staged . --config .aihealth.toml
         language: system
         types_or: [python, go, shell]
+        pass_filenames: false
+      - id: code-health-tests
+        name: code health of tests (aihealth delta)
+        entry: uv run --quiet --locked --isolated --only-group code-health aihealth delta --staged tests --config tests/.aihealth.toml
+        language: system
+        types_or: [python]
+        files: ^tests/
         pass_filenames: false
       # aihealth suppressions are file-wide; they must say why, after " -- " (without it
       # aihealth reads the text as part of the smell name and silently ignores the comment).

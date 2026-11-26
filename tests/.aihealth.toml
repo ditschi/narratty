@@ -1,0 +1,18 @@
+# aihealth config for test code: the "strict" profile of ../.aihealth.toml without
+# Primitive Obsession (owner decision Q18.1: off for tests, 30 % for production code).
+# KEEP IN SYNC with ../.aihealth.toml; both merge into one once aihealth supports per-path
+# overrides (epatel/ai-health#4). Used with `aihealth ... tests --config tests/.aihealth.toml`.
+
+[thresholds]
+large_file = 600              # same as ../.aihealth.toml
+
+[weights]
+primitive_obsession = 0       # the only difference: switched off for tests
+
+[score]
+decay = 8                     # same as ../.aihealth.toml
+symbol_cap = 4
+density_loc = 100000
+
+[delta]
+tolerance = 0.0               # same as ../.aihealth.toml

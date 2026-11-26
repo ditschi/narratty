@@ -192,13 +192,26 @@ def cyclic_imports(session: nox.Session) -> None:
     session.run("pylint", "--disable=all", "--enable=R0401", SRC)
 
 
-# aihealth from the `code-health` dependency group (pinned in pyproject.toml and uv.lock).
-# Always with the repository's config: otherwise aihealth looks for it in the scanned folder.
+# aihealth from the `code-health` dependency group (pinned in pyproject.toml and uv.lock),
+# once per config: production code (tests excluded there) and tests, each passed explicitly,
+# because aihealth otherwise looks for the config in the scanned folder.
 AIHEALTH = ("uv", "run", "--quiet", "--locked", "--isolated", "--only-group", "code-health", "aihealth")
+AIHEALTH_CONFIGS = ((".", ".aihealth.toml"), ("tests", "tests/.aihealth.toml"))
 
 
 @nox.session(name="code-health", python=False, tags=["quality"])
 def code_health(session: nox.Session) -> None:
-    """Code health with aihealth (profile in .aihealth.toml): `scan .` or `-- delta [--staged]`."""
-    args = session.posargs or ["scan", "."]
-    session.run(*AIHEALTH, *args, "--config", ".aihealth.toml", external=True)
+    """Code health with aihealth, per config: `scan` (default) or `-- delta [--staged]`.
+
+    Takes options but no paths (it adds `.` and `tests` itself); for one file call aihealth
+    directly. Both configs always run, so a failure in one still shows the other's findings.
+    """
+    command, *options = session.posargs or ["scan"]
+    failed = []
+    for path, config in AIHEALTH_CONFIGS:
+        try:
+            session.run(*AIHEALTH, command, *options, path, "--config", config, external=True)
+        except nox.command.CommandFailed:
+            failed.append(config)
+    if failed:
+        session.error(f"aihealth {command} failed with {', '.join(failed)}")
