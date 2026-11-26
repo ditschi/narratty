@@ -5,6 +5,7 @@ building.md and checks what the feature promises: timelapse, overlays, `diff` an
 `wait: {prompt: true}` in the plain layout, subtitle modes, `--fast`, `--draft`, a
 read-only workspace and the editor layout (when tmux and yazi are installed).
 """
+# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)
 
 from __future__ import annotations
 

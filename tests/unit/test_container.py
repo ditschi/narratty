@@ -1,4 +1,5 @@
 """Container launcher: image selection and the docker/podman command line."""
+# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)
 
 from __future__ import annotations
 

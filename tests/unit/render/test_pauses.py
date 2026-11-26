@@ -1,4 +1,5 @@
 """Fast pauses: shortening the tape, finding the pauses in the video, planning the stills."""
+# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)
 
 from __future__ import annotations
 

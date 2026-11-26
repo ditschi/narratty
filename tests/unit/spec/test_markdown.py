@@ -3,6 +3,7 @@
 Regenerate the golden files with ``NARRATTY_UPDATE_GOLDEN=1 pytest tests/unit/spec/test_markdown.py``
 and review the diff.
 """
+# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)
 
 from __future__ import annotations
 

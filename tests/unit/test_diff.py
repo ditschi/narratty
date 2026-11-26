@@ -1,4 +1,5 @@
 """The diff commands, run with a real sh and git."""
+# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)
 
 from __future__ import annotations
 

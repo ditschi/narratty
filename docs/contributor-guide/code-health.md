@@ -86,6 +86,12 @@ word; a pre-commit hook enforces it):
 # aihealth: disable=primitive_obsession -- typer command: options are plain values by design
 ```
 
+Test code is exempt from Primitive Obsession (production code keeps the 30 % threshold).
+aihealth applies one config to every path, so test files that trip it carry
+`# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)`
+instead of a second config that would duplicate the profile and split the score. A
+per-path setting is to be proposed upstream; it would replace these comments.
+
 ## Steckbrief Code Health
 
 The profile below follows the outline shared by all repositories whose code health
