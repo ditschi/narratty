@@ -1,5 +1,4 @@
 """Pronunciation lexicon: matching, layering and the container hand-over."""
-# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)
 
 from __future__ import annotations
 

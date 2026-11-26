@@ -7,7 +7,6 @@ toolkit modes, ``workspace.caches``, the sandbox network, the policy and the com
 line overrides. Natively, and through the narratty image when ``NARRATTY_IMAGE`` is
 set (the Docker workflow).
 """
-# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)
 
 from __future__ import annotations
 

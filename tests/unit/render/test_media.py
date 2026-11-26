@@ -1,5 +1,4 @@
 """VHS, ffprobe and ffmpeg invocations (with a fake runner)."""
-# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)
 
 from __future__ import annotations
 

@@ -1,8 +1,10 @@
-# aihealth (github.com/epatel/ai-health) config, profile "strict" (confirmed by the owner).
-# Target is 10 (no finding); 9.5 is only the floor on the way there. Change the profile
-# here and nowhere else; every call passes `--config .aihealth.toml` explicitly, because
-# aihealth would otherwise look for the file in the scanned folder and silently fall back
-# to its defaults. All keys: src/aihealth/config.py of the pinned release.
+# aihealth (github.com/epatel/ai-health) config for production code, profile "strict"
+# (confirmed by the owner). Target is 10 (no finding), 9.5 at least. Tests have their own
+# config, tests/.aihealth.toml: the same profile without Primitive Obsession (owner decision
+# Q18.1). KEEP BOTH FILES IN SYNC. They merge into one once aihealth supports per-path
+# overrides (epatel/ai-health#4). Every call passes `--config` explicitly, because aihealth
+# would otherwise look for the file in the scanned folder and silently fall back to its
+# defaults. All keys: src/aihealth/config.py of the pinned release.
 
 [thresholds]
 large_file = 600              # code lines (default 1000)
@@ -22,4 +24,5 @@ exclude = [
     "site/*",                    # mkdocs build output
     ".nox/*",
     ".claude/skills/*",          # third-party agent skills (skills-lock.json), not our code
+    "tests/*",                   # scored with tests/.aihealth.toml
 ]

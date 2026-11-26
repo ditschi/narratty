@@ -29,12 +29,10 @@
   not add type aliases as cosmetics: the number drops, the code does not improve. Fix it
   with a parameter object or dataclass where that makes the code better; otherwise leave
   the finding, or suppress it with a reason.
-- Primitive Obsession does not apply to test code (owner decision Q18.1). aihealth has no
-  per-path settings, so a test file that trips it gets
-  `# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)`
-  below its docstring; production code keeps the 30 % threshold.
-- Always pass `--config .aihealth.toml` when calling aihealth directly (the nox session does).
-  The profile lives only there; aihealth is pinned only in the `code-health` dependency group.
+- Always pass `--config` when calling aihealth directly (the nox session does): `.aihealth.toml`
+  for production code, `tests/.aihealth.toml` for tests (Primitive Obsession off there, owner
+  decision Q18.1). Keep the two files in sync; they merge once aihealth has per-path overrides
+  (epatel/ai-health#4). aihealth is pinned only in the `code-health` dependency group.
 - ruff has no structure rules (`C90`); aihealth is the one source for structure smells.
 - The project skills `py-complexity` and `py-code-health` (`.claude/skills/`, pinned in
   `skills-lock.json`) supply refactoring patterns. Measure with aihealth, not with the tools

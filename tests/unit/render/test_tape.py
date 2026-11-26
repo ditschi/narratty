@@ -1,5 +1,4 @@
 """Tape generation."""
-# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)
 
 from __future__ import annotations
 
