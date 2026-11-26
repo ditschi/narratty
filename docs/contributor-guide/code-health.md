@@ -90,7 +90,9 @@ Test code is exempt from Primitive Obsession (production code keeps the 30 % thr
 aihealth applies one config to every path, so test files that trip it carry
 `# aihealth: disable=primitive_obsession -- test code is exempt (owner decision Q18.1)`
 instead of a second config that would duplicate the profile and split the score. A
-per-path setting is to be proposed upstream; it would replace these comments.
+per-path setting is requested upstream in
+[epatel/ai-health#4](https://github.com/epatel/ai-health/issues/4); it would replace these
+comments.
 
 ## Steckbrief Code Health
 
