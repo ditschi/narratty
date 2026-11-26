@@ -16,6 +16,8 @@ venv/
 
 # Tooling caches
 .nox/
+AI-HEALTH.md
+ai-health.html
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/

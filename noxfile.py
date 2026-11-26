@@ -1,7 +1,7 @@
 """Nox sessions for narratty.
 
 Uses the uv backend and mirrors repo-env's quality gates
-(ruff, mypy, vulture, fawltydeps, pylint duplicate/cyclic checks).
+(ruff, mypy, vulture, fawltydeps, pylint cyclic imports) plus aihealth code health.
 """
 
 from __future__ import annotations
@@ -39,8 +39,8 @@ _CI_DEFAULT = [
     "check_types",
     "necessary_imports",
     "dead_code",
-    "duplicates",
     "cyclic_imports",
+    "code-health",
 ]
 nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 
@@ -158,6 +158,7 @@ def necessary_imports(session: nox.Session) -> None:
         "pyproject.toml",
         "--ignore-unused",
         "piper-tts",  # run as a subprocess (`python -m piper`), never imported
+        "aihealth",  # code health CLI (dependency group), never imported
         "commitizen",
         "fawltydeps",
         "mike",
@@ -185,14 +186,19 @@ def dead_code(session: nox.Session) -> None:
 
 
 @nox.session(python=DEFAULT_PYTHON)
-def duplicates(session: nox.Session) -> None:
-    """Detect duplicate code (pylint R0801)."""
-    session.install("-e", ".[code-quality]")
-    session.run("pylint", "--disable=all", "--enable=R0801", "--min-similarity-lines=6", SRC)
-
-
-@nox.session(python=DEFAULT_PYTHON)
 def cyclic_imports(session: nox.Session) -> None:
     """Detect cyclic imports (pylint R0401)."""
     session.install("-e", ".[code-quality]")
     session.run("pylint", "--disable=all", "--enable=R0401", SRC)
+
+
+# aihealth from the `code-health` dependency group (pinned in pyproject.toml and uv.lock).
+# Always with the repository's config: otherwise aihealth looks for it in the scanned folder.
+AIHEALTH = ("uv", "run", "--quiet", "--locked", "--isolated", "--only-group", "code-health", "aihealth")
+
+
+@nox.session(name="code-health", python=False, tags=["quality"])
+def code_health(session: nox.Session) -> None:
+    """Code health with aihealth (profile in .aihealth.toml): `scan .` or `-- delta [--staged]`."""
+    args = session.posargs or ["scan", "."]
+    session.run(*AIHEALTH, *args, "--config", ".aihealth.toml", external=True)

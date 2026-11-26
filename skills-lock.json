@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "skills": {
+    "py-code-health": {
+      "source": "l-mb/python-refactoring-skills",
+      "commit": "b08357109fe81821decc100c8ea73ea2e3add08b",
+      "sourceType": "github",
+      "skillPath": "skills/py-code-health/SKILL.md",
+      "computedHash": "8950ab1667384fe7adf625ec21d05218374e60132e1034dfb2f5d8bb8971b90f"
+    },
+    "py-complexity": {
+      "source": "l-mb/python-refactoring-skills",
+      "commit": "b08357109fe81821decc100c8ea73ea2e3add08b",
+      "sourceType": "github",
+      "skillPath": "skills/py-complexity/SKILL.md",
+      "computedHash": "e37683d8bb329a55a83ac0cd82f3d83beede7960eb25506e0fbf473d5f0162c5"
+    },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/systematic-debugging/SKILL.md",
+      "computedHash": "79ff0583175346e39431b0dc713b223edd1bd7a7ea2b6c8b78b2fb9a3fed6782"
+    },
+    "typer": {
+      "source": "fastapi/typer",
+      "commit": "2517edde5a1292a712e2f16e600754c52c6f00d9",
+      "sourceType": "github",
+      "skillPath": "typer/.agents/skills/typer/SKILL.md",
+      "computedHash": "7fca6ca4c608ed472c06083680e0ff8d7df454baefbac4c4e1b3f1bb7c9364c6"
+    },
+    "verification-before-completion": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/verification-before-completion/SKILL.md",
+      "computedHash": "09b0e3a4689c1c38a3b8fc6ef57a1d4165aa33c0013d546dbde9dd348941a319"
+    }
+  }
+}

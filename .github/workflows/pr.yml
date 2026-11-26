@@ -92,10 +92,34 @@ jobs:
         run: nox -s necessary_imports
       - name: Dead code
         run: nox -s dead_code
-      - name: Duplicate code
-        run: nox -s duplicates
       - name: Cyclic imports
         run: nox -s cyclic_imports
+      # aihealth downloads its tree-sitter grammars (~30 MB) on first use.
+      - name: Cache tree-sitter grammars
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/tree-sitter-language-pack
+          key: tree-sitter-language-pack-${{ hashFiles('uv.lock') }}
+          restore-keys: tree-sitter-language-pack-
+      # HEAD is the PR's test merge commit; its merge base with the base branch is the
+      # base tip it was built on, so the delta covers exactly the PR's changes.
+      - name: Code health (aihealth delta)
+        run: nox -s code-health -- delta --base "$(git merge-base origin/${{ github.base_ref }} HEAD)" --head HEAD
+      # No component may score lower than at the merge base: aihealth scores each one there,
+      # and its own `scan --fail-under` judges the PR. Missing components are skipped.
+      - name: Code health (component scores)
+        run: |
+          base_tree="$RUNNER_TEMP/code-health-base"
+          git worktree add --detach "$base_tree" "$(git merge-base origin/${{ github.base_ref }} HEAD)"
+          for component in src/narratty tests agent docker examples; do
+            [ -d "$base_tree/$component" ] || continue
+            before="$(nox -s code-health -- scan "$base_tree/$component" --format json | jq -r .score)"
+            echo "$component: at least $before"
+            nox -s code-health -- scan "$component" --fail-under "$before" > /dev/null
+          done
+      - name: Code health report
+        if: ${{ !cancelled() }}
+        run: nox -s code-health -- scan . --format markdown >> "$GITHUB_STEP_SUMMARY"
   # ── Agent: narratty-agent (Go) ───────────────────────────────────────────────
   agent:
     name: Agent (Go)

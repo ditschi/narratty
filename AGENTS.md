@@ -15,6 +15,44 @@
   commands of the pages in `CHECKED_DOCS` and compares their output with the page; a page
   joins the list once its commands only touch the workspace copy (mark others `no-run`).
 
+## Code health
+
+- Before every commit run `nox -s code-health -- delta` (aihealth; `--format json` or
+  `--format markdown` to parse it) and fix what it reports. Nothing may get worse, new files
+  may have no smell; the target is 10 (9.5 at least; the gate enforces only "no
+  degradation"). Pre-commit (`delta --staged`) and CI (delta from the
+  merge base plus component scores) enforce it.
+- Fix smells by refactoring, keeping behaviour and tests unchanged; do not suppress them.
+  A suppression is file-wide and needs a reason after ` -- `:
+  `# aihealth: disable=<smell> -- <why>`.
+- Never remove or weaken type hints to dodge Primitive Obsession or any other smell, and do
+  not add type aliases as cosmetics: the number drops, the code does not improve. Fix it
+  with a parameter object or dataclass where that makes the code better; otherwise leave
+  the finding, or suppress it with a reason.
+- Always pass `--config .aihealth.toml` when calling aihealth directly (the nox session does).
+  The profile lives only there; aihealth is pinned only in the `code-health` dependency group.
+- ruff has no structure rules (`C90`); aihealth is the one source for structure smells.
+- The project skills `py-complexity` and `py-code-health` (`.claude/skills/`, pinned in
+  `skills-lock.json`) supply refactoring patterns. Measure with aihealth, not with the tools
+  those skills name: do not add radon, lizard, xenon or wily, and skip their
+  `py-quality-setup` step, which changes Claude settings.
+- Details: `docs/contributor-guide/code-health.md`.
+
+## Agent skills
+
+Project skills live in `.claude/skills/`, pinned in `skills-lock.json` (`npx skills add ... -a claude-code`).
+
+- `systematic-debugging` and `verification-before-completion` (obra/superpowers): follow them.
+  Verification here means the nox sessions above with their output, not claims. Ignore their
+  JavaScript bits: `find-polluter.sh` runs `npm test` (bisect with pytest instead, one test file at a time:
+  `.venv/bin/pytest <file>`), and the `superpowers:test-driven-development` skill
+  they mention is not installed.
+- `typer` (fastapi/typer, official): use its patterns (`Annotated` declarations, no Click
+  extensions) for new and changed commands. Do not migrate untouched commands from the
+  `typer.Option(...)` default style in unrelated changes; dependencies go into
+  `pyproject.toml` and `uv sync`, not `pip install`.
+- Third-party skill files are excluded from aihealth (`.aihealth.toml`).
+
 ## Conventions
 
 - One module per subcommand under `src/narratty/cli/commands/`. Import heavy dependencies
