@@ -1545,6 +1545,8 @@
       
         
       
+        
+      
     
     
     
@@ -1736,6 +1738,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../code-health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code health
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../design/" class="md-nav__link">
         
   
@@ -1906,7 +1936,7 @@
 <h1 id="development-setup">Development setup<a class="headerlink" href="#development-setup" title="Permanent link">&para;</a></h1>
 <p>Tooling is managed with <a href="https://docs.astral.sh/uv/">uv</a> and <a href="https://nox.thea.codes/">nox</a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w">          </span><span class="c1"># .venv with narratty and all dev tools</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install<span class="w">    </span><span class="c1"># ruff, mypy, codespell, commit-msg check</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install<span class="w">    </span><span class="c1"># ruff, mypy, code health, codespell, commit-msg check</span>
 </code></pre></div>
 <h2 id="quality-gates">Quality gates<a class="headerlink" href="#quality-gates" title="Permanent link">&para;</a></h2>
 <table>
@@ -1942,8 +1972,12 @@
 <td>vulture</td>
 </tr>
 <tr>
-<td><code>nox -s duplicates</code> / <code>cyclic_imports</code></td>
-<td>pylint R0801 / R0401</td>
+<td><code>nox -s cyclic_imports</code></td>
+<td>pylint R0401</td>
+</tr>
+<tr>
+<td><code>nox -s code-health</code></td>
+<td>Code health 1–10 with aihealth; <code>-- delta</code> for your changes (<a href="../code-health/">details</a>)</td>
 </tr>
 <tr>
 <td><code>nox -s performance</code></td>
