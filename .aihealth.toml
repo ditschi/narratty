@@ -24,5 +24,8 @@ exclude = [
     "site/*",                    # mkdocs build output
     ".nox/*",
     ".claude/skills/*",          # third-party agent skills (skills-lock.json), not our code
-    "tests/*",                   # scored with tests/.aihealth.toml
+    # Scored with tests/.aihealth.toml. aihealth also matches excludes against every path
+    # suffix, so this leaves out any directory named `tests`; besides tests/ that is only the
+    # 5-line demo examples/editor-layout/project/tests/ (example content, not scored).
+    "tests/*",
 ]

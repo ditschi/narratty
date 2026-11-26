@@ -201,7 +201,17 @@ AIHEALTH_CONFIGS = ((".", ".aihealth.toml"), ("tests", "tests/.aihealth.toml"))
 
 @nox.session(name="code-health", python=False, tags=["quality"])
 def code_health(session: nox.Session) -> None:
-    """Code health with aihealth, per config: `scan` (default) or `-- delta [--staged]`."""
+    """Code health with aihealth, per config: `scan` (default) or `-- delta [--staged]`.
+
+    Takes options but no paths (it adds `.` and `tests` itself); for one file call aihealth
+    directly. Both configs always run, so a failure in one still shows the other's findings.
+    """
     command, *options = session.posargs or ["scan"]
+    failed = []
     for path, config in AIHEALTH_CONFIGS:
-        session.run(*AIHEALTH, command, *options, path, "--config", config, external=True)
+        try:
+            session.run(*AIHEALTH, command, *options, path, "--config", config, external=True)
+        except nox.command.CommandFailed:
+            failed.append(config)
+    if failed:
+        session.error(f"aihealth {command} failed with {', '.join(failed)}")

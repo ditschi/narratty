@@ -15,4 +15,4 @@ symbol_cap = 4
 density_loc = 100000
 
 [delta]
-tolerance = 0.0
+tolerance = 0.0               # same as ../.aihealth.toml

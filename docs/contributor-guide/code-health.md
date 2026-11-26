@@ -23,7 +23,9 @@ nox -s code-health -- delta --format json   # the same for agents (also: markdow
 
 Every command runs twice, once per config (see [Profile](#profile)): first for production
 code (`.` with `.aihealth.toml`, which leaves out `tests/`), then for the tests (`tests`
-with `tests/.aihealth.toml`). With `--format json` that prints two JSON documents.
+with `tests/.aihealth.toml`). Both always run, and the session fails if either does. With
+`--format json` that prints two JSON documents. The session adds the paths itself, so pass
+options only, no paths.
 
 `delta` names every new or worsened smell with `path:line` and a fix hint, and exits with
 1 when health got worse. The session always passes `--config`: `aihealth scan <folder>`
@@ -42,7 +44,9 @@ downloads its tree-sitter grammars (about 30 MB) to `~/.cache/tree-sitter-langua
 The profile "strict" lives in two files, which must be **kept in sync**:
 
 - [`.aihealth.toml`](https://github.com/ditschi/narratty/blob/main/.aihealth.toml) for
-  production code; it excludes `tests/`.
+  production code; it excludes `tests/`. aihealth matches excludes against every path
+  suffix, so any directory named `tests` drops out; today that is only the 5-line demo in
+  `examples/editor-layout/project/tests/`, which is scored by neither config.
 - [`tests/.aihealth.toml`](https://github.com/ditschi/narratty/blob/main/tests/.aihealth.toml)
   for the tests: the same values, plus `[weights] primitive_obsession = 0`, because test
   code is exempt from Primitive Obsession (owner decision Q18.1).
